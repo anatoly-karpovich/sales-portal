@@ -5,7 +5,7 @@ import { customSort, getTodaysDate } from "../utils/utils";
 import { IProductFilters } from "../data/types/product.type";
 
 class ProductsService {
-  async create(product: IProduct): Promise<IProduct> {
+  async create(product: Omit<IProduct, "_id" | "createdOn">): Promise<IProduct> {
     const createdProduct = await Product.create({ ...product, createdOn: getTodaysDate(true) });
     return createdProduct;
   }
@@ -61,7 +61,7 @@ class ProductsService {
     return product;
   }
 
-  async update(product: IProduct): Promise<IProduct> {
+  async update(product: Omit<IProduct, "createdOn"> & { _id: Types.ObjectId }): Promise<IProduct> {
     if (!product._id) {
       throw new Error("Id was not provided");
     }

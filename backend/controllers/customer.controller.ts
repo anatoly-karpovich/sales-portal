@@ -1,12 +1,23 @@
 import CustomerService from "../services/customer.service";
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import {
+  CustomerByIdParamsDTO,
+  CustomerCreateOrUpdateRequestDTO,
+  CustomerResponseDTO,
+  CustomersListResponseDTO,
+  GetCustomerByIdRequestDTO,
+} from "../data/types/dto/customers.dto.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class CustomerController {
-  async create(req: Request, res: Response) {
+  async create(
+    req: Request<unknown, unknown, CustomerCreateOrUpdateRequestDTO>,
+    res: Response<CustomerResponseDTO | BaseResponseDTO>
+  ) {
     try {
       const customer = await CustomerService.create(req.body);
       res.status(201).json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
@@ -15,7 +26,7 @@ class CustomerController {
     }
   }
 
-  async getAllSorted(req: Request, res: Response): Promise<Response> {
+  async getAllSorted(req: Request, res: Response<CustomersListResponseDTO | BaseResponseDTO>): Promise<Response> {
     try {
       const {
         search = "",
@@ -55,7 +66,7 @@ class CustomerController {
     }
   }
 
-  async getAll(req: Request, res: Response) {
+  async getAll(req: Request, res: Response<CustomersListResponseDTO | BaseResponseDTO>) {
     try {
       const customers = await CustomerService.getAll();
       return res.json({ Customers: customers, IsSuccess: true, ErrorMessage: null });
@@ -64,17 +75,19 @@ class CustomerController {
     }
   }
 
-  async getCustomer(req: Request, res: Response) {
+  async getCustomer(req: GetCustomerByIdRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
-      const customer = await CustomerService.getCustomer(id);
+      const customer = req.customer;
       return res.json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
-  async update(req: Request, res: Response) {
+  async update(
+    req: Request<CustomerByIdParamsDTO, unknown, CustomerCreateOrUpdateRequestDTO>,
+    res: Response<CustomerResponseDTO | BaseResponseDTO>
+  ) {
     try {
       const id = new mongoose.Types.ObjectId(req.params.id);
       const updatedCustomer = await CustomerService.update({ ...req.body, ...{ _id: id } });
@@ -84,7 +97,7 @@ class CustomerController {
     }
   }
 
-  async delete(req: Request, res: Response) {
+  async delete(req: Request<CustomerByIdParamsDTO>, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const id = new mongoose.Types.ObjectId(req.params.id);
       const customer = await CustomerService.delete(id);

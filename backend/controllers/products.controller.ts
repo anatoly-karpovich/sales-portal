@@ -2,12 +2,20 @@ import ProductsService from "../services/products.service.js";
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { IProductFilters } from "../data/types/product.type.js";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import {
+  GetProductByIdRequestDTO,
+  ProductByIdParamsDTO,
+  ProductCreateOrUpdateRequestDTO,
+  ProductResponseDTO,
+  ProductsListResponseDTO,
+} from "../data/types/dto/products.dto.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class ProductsController {
-  async create(req: Request, res: Response) {
+  async create(req: Request<unknown, unknown, ProductCreateOrUpdateRequestDTO>, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const product = await ProductsService.create(req.body);
       res.status(201).json({ Product: product, IsSuccess: true, ErrorMessage: null });
@@ -16,7 +24,7 @@ class ProductsController {
     }
   }
 
-  async getAllSorted(req: Request, res: Response): Promise<Response> {
+  async getAllSorted(req: Request, res: Response<ProductsListResponseDTO | BaseResponseDTO>): Promise<Response> {
     try {
       const {
         search = "",
@@ -31,8 +39,8 @@ class ProductsController {
       const skip = (pageNumber - 1) * limitNumber;
 
       const manufacturers = Array.isArray(req.query.manufacturer)
-        ? req.query.manufacturer
-        : req.query.manufacturer
+        ? (req.query.manufacturer as unknown[]).filter((item): item is string => typeof item === "string")
+        : typeof req.query.manufacturer === "string"
         ? [req.query.manufacturer]
         : [];
 
@@ -67,17 +75,16 @@ class ProductsController {
     }
   }
 
-  async getProduct(req: Request, res: Response) {
+  async getProduct(req: GetProductByIdRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
-      const product = await ProductsService.getProduct(id);
+      const product = req.product;
       return res.json({ Product: product, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
-  async getAll(req: Request, res: Response) {
+  async getAll(req: Request, res: Response<ProductsListResponseDTO | BaseResponseDTO>) {
     try {
       const products = await ProductsService.getAll();
       return res.json({ Products: products, IsSuccess: true, ErrorMessage: null });
@@ -86,7 +93,10 @@ class ProductsController {
     }
   }
 
-  async update(req: Request, res: Response) {
+  async update(
+    req: Request<ProductByIdParamsDTO, unknown, ProductCreateOrUpdateRequestDTO>,
+    res: Response<ProductResponseDTO | BaseResponseDTO>
+  ) {
     try {
       const id = new mongoose.Types.ObjectId(req.params.id);
       const updatedProduct = await ProductsService.update({ ...req.body, _id: id });
@@ -96,7 +106,7 @@ class ProductsController {
     }
   }
 
-  async delete(req: Request, res: Response) {
+  async delete(req: Request<ProductByIdParamsDTO>, res: Response) {
     try {
       const id = new mongoose.Types.ObjectId(req.params.id);
       const product = await ProductsService.delete(id);

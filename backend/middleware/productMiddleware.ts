@@ -1,12 +1,22 @@
 import { isValidInput } from "../utils/validations.js";
 import { MANUFACTURERS, VALIDATION_ERROR_MESSAGES } from "../data/enums.js";
 import ProductsService from "../services/products.service.js";
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import OrderService from "../services/order.service.js";
+import mongoose from "mongoose";
+import {
+  GetProductByIdRequestDTO,
+  ProductCreateOrUpdateRequestDTO,
+  ProductRequestWithEntityDTO,
+} from "../data/types/dto/products.dto.js";
 
-export async function uniqueProduct(req: Request, res: Response, next: NextFunction) {
+export async function uniqueProduct(
+  req: ProductRequestWithEntityDTO<GetProductByIdRequestDTO["params"], ProductCreateOrUpdateRequestDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
-    const id = req.body._id ?? req.params.id;
+    const id = req.params.id;
     const product = (await ProductsService.getAll()).find((c) => {
       return id ? c.name === req.body.name && c._id.toString() !== id : c.name === req.body.name;
     });
@@ -22,7 +32,11 @@ export async function uniqueProduct(req: Request, res: Response, next: NextFunct
   next();
 }
 
-export async function productValidations(req: Request, res: Response, next: NextFunction) {
+export async function productValidations(
+  req: ProductRequestWithEntityDTO<GetProductByIdRequestDTO["params"], ProductCreateOrUpdateRequestDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
     if (!isValidInput("Product Name", req.body.name) || req.body.name.trim().length !== req.body.name.length) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
@@ -37,7 +51,7 @@ export async function productValidations(req: Request, res: Response, next: Next
       req.body.notes &&
       (!isValidInput("Notes", req.body.notes) ||
         req.body.notes.trim().length !== req.body.notes.length ||
-        req.body.notes.trim().replaceAll("\r", "").replaceAll("\n", "").length > 250)
+        req.body.notes.trim().replace(/\r/g, "").replace(/\n/g, "").length > 250)
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
@@ -51,13 +65,14 @@ export async function productValidations(req: Request, res: Response, next: Next
   }
 }
 
-export async function productById(req: Request, res: Response, next: NextFunction) {
+export async function productById(req: GetProductByIdRequestDTO, res: Response, next: NextFunction) {
   try {
-    const id = req.body._id || req.params.id;
-    const product = await ProductsService.getProduct(id);
+    const id = req.params.id;
+    const product = await ProductsService.getProduct(new mongoose.Types.ObjectId(id));
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${id}' wasn't found` });
     }
+    req.product = product;
     next();
   } catch (e: any) {
     console.log(e);
@@ -65,7 +80,11 @@ export async function productById(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
+export async function deleteProduct(
+  req: ProductRequestWithEntityDTO<GetProductByIdRequestDTO["params"]>,
+  res: Response,
+  next: NextFunction
+) {
   try {
     const isAssignedToOrder = (await OrderService.getAll()).some((o) =>
       o.products.some((r) => r._id.toString() === req.params.id)

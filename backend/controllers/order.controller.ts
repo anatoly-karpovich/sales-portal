@@ -2,6 +2,7 @@ import OrderService from "../services/order.service.js";
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
+import { GetOrderByIdRequestDTO } from "../data/types/dto/orders.dto.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
@@ -59,10 +60,10 @@ class OrderController {
     }
   }
 
-  async getOrder(req: Request, res: Response) {
+  async getOrder(req: GetOrderByIdRequestDTO, res: Response) {
     try {
       const id = new mongoose.Types.ObjectId(req.params.id);
-      const order = await OrderService.getOrder(id);
+      const order = req.body.order ? req.order : await OrderService.getOrder(id);
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);

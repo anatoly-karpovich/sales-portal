@@ -6,6 +6,40 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 import { isManager, managerById } from "../middleware/usersMiddleware.js";
 
 const orderRouter = Router();
+
+orderRouter.post(
+  "/orders",
+  authmiddleware,
+  schemaMiddleware("orderCreateSchema"),
+  orderValidations,
+  OrderController.create,
+);
+
+orderRouter.get("/orders", authmiddleware, OrderController.getAll);
+
+orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder);
+
+orderRouter.put(
+  "/orders/:id",
+  authmiddleware,
+  schemaMiddleware("orderUpdateSchema"),
+  orderById,
+  orderUpdateValidations,
+  orderValidations,
+  OrderController.update,
+);
+orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.delete);
+
+orderRouter.put(
+  "/orders/:orderId/assign-manager/:managerId",
+  authmiddleware,
+  orderById,
+  managerById,
+  isManager,
+  OrderController.assignManager,
+);
+orderRouter.put("/orders/:orderId/unassign-manager", authmiddleware, orderById, OrderController.unassignManager);
+
 /**
  * @swagger
  * components:
@@ -332,14 +366,6 @@ const orderRouter = Router();
  *         description: Server error
  */
 
-orderRouter.post(
-  "/orders",
-  authmiddleware,
-  schemaMiddleware("orderCreateSchema"),
-  orderValidations,
-  OrderController.create
-);
-
 /**
  * @swagger
  * /api/orders:
@@ -397,7 +423,6 @@ orderRouter.post(
  *       500:
  *         description: Server error
  */
-orderRouter.get("/orders", authmiddleware, OrderController.getAll);
 
 /**
  * @swagger
@@ -435,7 +460,6 @@ orderRouter.get("/orders", authmiddleware, OrderController.getAll);
  *       500:
  *         description: Server error
  */
-orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder);
 
 /**
  * @swagger
@@ -484,15 +508,6 @@ orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrd
  *         description: Server error
  */
 
-orderRouter.put(
-  "/orders/:id",
-  authmiddleware,
-  schemaMiddleware("orderUpdateSchema"),
-  orderUpdateValidations,
-  orderValidations,
-  OrderController.update
-);
-
 /**
  * @swagger
  * /api/orders/{id}:
@@ -525,7 +540,6 @@ orderRouter.put(
  *       500:
  *         description: Server error
  */
-orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.delete);
 
 /**
  * @swagger
@@ -576,15 +590,6 @@ orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.del
  *         description: Server error
  */
 
-orderRouter.put(
-  "/orders/:orderId/assign-manager/:managerId",
-  authmiddleware,
-  orderById,
-  managerById,
-  isManager,
-  OrderController.assignManager
-);
-
 /**
  * @swagger
  * /api/orders/{orderId}/unassign-manager:
@@ -625,7 +630,5 @@ orderRouter.put(
  *       500:
  *         description: Server error
  */
-
-orderRouter.put("/orders/:orderId/unassign-manager", authmiddleware, orderById, OrderController.unassignManager);
 
 export default orderRouter;

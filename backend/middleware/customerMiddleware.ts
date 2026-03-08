@@ -2,11 +2,21 @@ import { isValidInput } from "../utils/validations.js";
 import { VALIDATION_ERROR_MESSAGES, COUNTRIES } from "../data/enums.js";
 import CustomerService from "../services/customer.service.js";
 import Order from "../models/order.model.js";
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
+import mongoose from "mongoose";
+import {
+  CustomerCreateOrUpdateRequestDTO,
+  CustomerRequestWithEntityDTO,
+  GetCustomerByIdRequestDTO,
+} from "../data/types/dto/customers.dto.js";
 
-export async function uniqueCustomer(req: Request, res: Response, next: NextFunction) {
+export async function uniqueCustomer(
+  req: CustomerRequestWithEntityDTO<GetCustomerByIdRequestDTO["params"], CustomerCreateOrUpdateRequestDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
-    const id = req.body._id ?? req.params.id;
+    const id = req.params.id;
     const customer = (await CustomerService.getAll()).find((c) => {
       return id ? c.email === req.body.email && c._id.toString() !== id : c.email === req.body.email;
     });
@@ -22,7 +32,11 @@ export async function uniqueCustomer(req: Request, res: Response, next: NextFunc
   next();
 }
 
-export async function customerValidations(req: Request, res: Response, next: NextFunction) {
+export async function customerValidations(
+  req: CustomerRequestWithEntityDTO<GetCustomerByIdRequestDTO["params"], CustomerCreateOrUpdateRequestDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
     if (
       !isValidInput("Name", req.body.name) ||
@@ -77,7 +91,7 @@ export async function customerValidations(req: Request, res: Response, next: Nex
       req.body.notes &&
       (!isValidInput("Notes", req.body.notes) ||
         req.body.notes.trim().length !== req.body.notes.length ||
-        req.body.notes.trim().replaceAll("\r", "").replaceAll("\n", "").length > 250)
+        req.body.notes.trim().replace(/\r/g, "").replace(/\n/g, "").length > 250)
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
@@ -89,13 +103,14 @@ export async function customerValidations(req: Request, res: Response, next: Nex
   }
 }
 
-export async function customerById(req: Request, res: Response, next: NextFunction) {
+export async function customerById(req: GetCustomerByIdRequestDTO, res: Response, next: NextFunction) {
   try {
-    const id = req.body._id || req.params.id;
-    const customer = await CustomerService.getCustomer(id);
+    const id = req.params.id;
+    const customer = await CustomerService.getCustomer(new mongoose.Types.ObjectId(id));
     if (!customer) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Customer with id '${id}' wasn't found` });
     }
+    req.customer = customer;
     next();
   } catch (e: any) {
     console.log(e);
@@ -103,7 +118,11 @@ export async function customerById(req: Request, res: Response, next: NextFuncti
   }
 }
 
-export async function deleteCustomer(req: Request, res: Response, next: NextFunction) {
+export async function deleteCustomer(
+  req: CustomerRequestWithEntityDTO<GetCustomerByIdRequestDTO["params"]>,
+  res: Response,
+  next: NextFunction
+) {
   try {
     const order = await Order.findOne({ customer: req.params.id });
     if (order) {

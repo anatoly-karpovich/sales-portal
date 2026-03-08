@@ -4,15 +4,24 @@ import ProductsService from "../services/products.service.js";
 import { Request, Response, NextFunction } from "express";
 import { ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidDate, isValidInput } from "../utils/validations.js";
-import mongoose, { Types } from "mongoose";
+import mongoose from "mongoose";
+import {
+  GetOrderByIdRequestDTO,
+  OrderCommentParamsDTO,
+  OrderDeliveryBodyDTO,
+  OrderReceiveBodyDTO,
+  OrderRequestWithEntityDTO,
+  OrderStatusBodyDTO,
+} from "../data/types/dto/orders.dto.js";
 
-export async function orderById(req: Request, res: Response, next: NextFunction) {
+export async function orderById(req: GetOrderByIdRequestDTO, res: Response, next: NextFunction) {
   try {
     const id = new mongoose.Types.ObjectId(req.params.id || req.params.orderId);
     const order = await OrderService.getOrder(id);
     if (!order) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
     }
+    req.order = order;
     next();
   } catch (e: any) {
     console.log(e);
@@ -50,7 +59,11 @@ export async function orderValidations(req: Request, res: Response, next: NextFu
   }
 }
 
-export async function orderStatus(req: Request, res: Response, next: NextFunction) {
+export async function orderStatus(
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderStatusBodyDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
     const status = req.body.status;
     if (!Object.values(ORDER_STATUSES).includes(status)) {
@@ -59,10 +72,9 @@ export async function orderStatus(req: Request, res: Response, next: NextFunctio
     if (status !== ORDER_STATUSES.IN_PROCESS && status !== ORDER_STATUSES.CANCELED && status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
-    const id = req.body._id || req.params.id;
-    const order = await OrderService.getOrder(id);
+    const order = req.order;
     if (!order) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.id}' wasn't found` });
     }
 
     if (
@@ -95,12 +107,12 @@ export async function orderStatus(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function orderUpdateValidations(req: Request, res: Response, next: NextFunction) {
+export async function orderUpdateValidations(req: GetOrderByIdRequestDTO, res: Response, next: NextFunction) {
   try {
-    const id = new mongoose.Types.ObjectId(req.params.id);
-    let order = await OrderService.getOrder(id);
+    const id = req.params.id;
+    const order = req.order;
     if (!order) return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
-    if (order.status !== "Draft") {
+    if (order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
     next();
@@ -110,12 +122,15 @@ export async function orderUpdateValidations(req: Request, res: Response, next: 
   }
 }
 
-export async function orderReceiveValidations(req: Request, res: Response, next: NextFunction) {
+export async function orderReceiveValidations(
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderReceiveBodyDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
-    const id = new mongoose.Types.ObjectId(req.params.id);
-    const order = await OrderService.getOrder(id);
+    const order = req.order;
     if (!order) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.body._id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.id}' wasn't found` });
     }
 
     if (!req.body.products.length) {
@@ -144,12 +159,15 @@ export async function orderReceiveValidations(req: Request, res: Response, next:
   }
 }
 
-export async function orderDelivery(req: Request, res: Response, next: NextFunction) {
+export async function orderDelivery(
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderDeliveryBodyDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
-    const id = new mongoose.Types.ObjectId(req.params.id);
-    const order = await OrderService.getOrder(id);
+    const order = req.order;
     if (!order) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.id}' wasn't found` });
     }
     if (order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
@@ -202,7 +220,11 @@ export async function orderCommentsCreate(req: Request, res: Response, next: Nex
   }
 }
 
-export async function orderCommentsDelete(req: Request, res: Response, next: NextFunction) {
+export async function orderCommentsDelete(
+  req: OrderRequestWithEntityDTO<OrderCommentParamsDTO>,
+  res: Response,
+  next: NextFunction
+) {
   try {
     const orderId = req.params.id;
     const commentId = req.params.commentId;
@@ -210,9 +232,7 @@ export async function orderCommentsDelete(req: Request, res: Response, next: Nex
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
-    const comment = (await OrderService.getOrder(new mongoose.Types.ObjectId(orderId))).comments.find(
-      (c) => c._id.toString() === commentId
-    );
+    const comment = req.order?.comments.find((c) => c._id.toString() === commentId);
     if (!comment) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.COMMENT_NOT_FOUND });
     }

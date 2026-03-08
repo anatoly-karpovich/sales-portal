@@ -4,7 +4,7 @@ import { Types } from "mongoose";
 import { customSort, getTodaysDate } from "../utils/utils";
 
 class CustomerService {
-  async create(customer: ICustomer): Promise<ICustomer> {
+  async create(customer: Omit<ICustomer, "_id" | "createdOn">): Promise<ICustomer> {
     const createdCustomer = await Customer.create({ ...customer, createdOn: getTodaysDate(true) });
     return createdCustomer;
   }
@@ -54,7 +54,7 @@ class CustomerService {
     return customer;
   }
 
-  async update(customer: ICustomer): Promise<ICustomer> {
+  async update(customer: Omit<ICustomer, "createdOn"> & { _id: Types.ObjectId }): Promise<ICustomer> {
     if (!customer._id) {
       throw new Error("Id was not provided");
     }
