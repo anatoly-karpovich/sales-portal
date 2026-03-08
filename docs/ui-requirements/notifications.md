@@ -1,36 +1,36 @@
-# Notification Module – UI Requirements
+# Notification Module - UI Requirements
 
-> **Purpose:** surface time-sensitive events to assigned managers, combining real-time popovers with transient toast messaging.
+> Purpose: surface time-sensitive events to assigned managers through the bell popover and toast alerts.
 
-## Popover (Header & Sidebar)
+## Popover (Header and Sidebar)
 
 | Element | Behavior |
 | --- | --- |
-| Trigger | Bell buttons (`#notification-bell`) in header and sidebar. Clicking toggles the card-style popover (`#notification-popover`). |
-| Header | Title “Notifications” + `Read All` outline button (`#mark-all-read`). Button disabled when there are zero unread records. |
-| Body | `<ul id="notification-list">` populated by `/api/notifications`. Each list item shows formatted timestamp, message (bold if unread), and “Order Details” link that routes to the order and hides the popover. |
-| Item click | Runs the “mark as read” flow (`/api/notifications/{id}/read`), refreshes the list, and updates the badge count. |
-| Dismissal | Clicking outside the popover closes it automatically. |
-| Badge | `handleNotificationBadge` counts unread items and `setNumberOfNotificationsToBadge` shows/hides the numeric bubble. |
+| Trigger | Bell buttons (`#notification-bell`) render in both header and sidebar. Clicking toggles the card-style popover (`#notification-popover`). |
+| Header | Title "Notifications" plus a `Read All` outline button (`#mark-all-read`). The button is disabled when there are no unread records. |
+| Body | `<ul id="notification-list">` populated from `/api/notifications`. Each item shows a formatted timestamp, bold text when unread, and an "Order Details" link that routes to the related order and hides the popover. |
+| Item click | Calls `/api/notifications/{id}/read`, refreshes the list, and updates the badge count. |
+| Dismissal | Clicking outside closes the popover. |
+| Badge | `handleNotificationBadge` counts unread entries and `setNumberOfNotificationsToBadge` reveals or hides the numeric bubble. |
 
 ## Toasts
 - `notification.js` injects a `.notification-wrapper` once per session.
-- Toasts auto-hide after 10 seconds; close buttons remove them immediately.
-- Styling: success uses default Bootstrap colors; errors use `bg-danger text-white`.
-- `state.notifications` tracks active toast IDs so code can remove them programmatically if needed.
+- Toasts auto-hide after 10 seconds; users can dismiss them manually via the close button.
+- Success toasts use default Bootstrap styling, errors use `bg-danger text-white`.
+- `state.notifications` tracks toast IDs so automation can remove lingering toasts when needed.
 
 ## Real-time Delivery
-- Backend `NotificationService` stores `{ userId, orderId, message, read, expiresAt }`. Records expire after 24 hours.
-- Audience rule: only the manager assigned to an order receives updates about that order. The service writes exactly one record per assigned manager and emits Socket.IO events to that manager’s room. Expanding the audience would require duplicating notifications for each stakeholder.
-- `socket.js` connects after login (`auth.token`), listens for `new_notification`, and passes the unread count to `setNumberOfNotificationsToBadge`.
-- Socket IO auth uses the same middleware as REST (`wsAuthMiddleware`) to validate JWTs.
+- Backend `NotificationService` stores `{ userId, orderId, message, read, expiresAt }` and expires records after 24 hours.
+- Audience rule: only the manager assigned to an order receives updates. The service writes one record per assigned manager and emits a Socket.IO event to that manager's room. To notify more roles, create additional records per user and emit to their rooms.
+- `socket.js` connects after login (passing `auth.token`), listens for `new_notification`, and updates the badge via `setNumberOfNotificationsToBadge`.
+- Socket.IO authentication reuses `wsAuthMiddleware` to validate JWTs just like the REST API.
 
 ## REST API
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| GET | `/api/notifications` | Returns `{ Notifications }` sorted by `createdAt` DESC. |
-| POST | `/api/notifications/{notificationId}/read` | Marks single notification as read and returns refreshed list. |
-| POST | `/api/notifications/mark-all-read` | Marks all unread notifications for the user as read. |
+| GET | `/api/notifications` | Returns `{ Notifications }` sorted descending by `createdAt`. |
+| POST | `/api/notifications/{notificationId}/read` | Marks a single notification as read and returns the refreshed list. |
+| POST | `/api/notifications/mark-all-read` | Marks every unread notification for the user as read. |
 
-Errors route through `handleApiErrors`; UI shows red toast with `response.data.ErrorMessage` on failure.
+Errors go through `handleApiErrors`; show a red toast with `response.data.ErrorMessage` when these requests fail.
