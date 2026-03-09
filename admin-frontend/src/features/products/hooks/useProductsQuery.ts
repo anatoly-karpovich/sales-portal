@@ -3,6 +3,7 @@ import {
   createProduct,
   deleteProduct,
   exportProducts,
+  getProductById,
   getProducts,
   updateProduct,
   type ProductExportPayload,
@@ -21,6 +22,14 @@ export function useProductsQuery(query: ProductsQuery) {
 export function useProductsExportMutation() {
   return useMutation({
     mutationFn: (payload: ProductExportPayload) => exportProducts(payload),
+  })
+}
+
+export function useProductQuery(productId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['products', 'details', productId],
+    queryFn: () => getProductById(productId),
+    enabled,
   })
 }
 

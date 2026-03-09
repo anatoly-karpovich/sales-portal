@@ -4,6 +4,8 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { HomePage } from '@/features/home/pages/HomePage'
 import { OrdersPage } from '@/features/orders/pages/OrdersPage'
 import { ProductsPage } from '@/features/products/pages/ProductsPage'
+import { ProductCreatePage } from '@/features/products/pages/ProductCreatePage'
+import { ProductEditPage } from '@/features/products/pages/ProductEditPage'
 import { CustomersPage } from '@/features/customers/pages/CustomersPage'
 import { ManagersPage } from '@/features/users/pages/ManagersPage'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
@@ -30,6 +32,8 @@ export function AppRouter() {
         >
           <Route path="/home" element={<HomePage />} />
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/products/add" element={<ProductCreatePage />} />
+          <Route path="/products/:productId/edit" element={<ProductEditPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/managers" element={<ManagersPage />} />

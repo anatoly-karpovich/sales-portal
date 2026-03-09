@@ -2,8 +2,9 @@ import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/mate
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useSnackbar } from 'notistack'
+import { Link, useNavigate } from 'react-router-dom'
 import { MANUFACTURERS } from '@/constants/dictionaries'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
 import { FilterDialog } from '@/components/shared/FilterDialog'
@@ -15,17 +16,15 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { formatDateTime } from '@/utils/date'
 import { downloadBlobResponse } from '@/utils/download'
 import {
-  useCreateProductMutation,
   useDeleteProductMutation,
   useProductsExportMutation,
   useProductsQuery,
-  useUpdateProductMutation,
 } from '@/features/products/hooks/useProductsQuery'
-import type { Product, ProductUpsertPayload } from '@/api/modules/products.api'
-import { ProductFormDialog } from '@/features/products/components/ProductFormDialog'
+import type { Product } from '@/api/modules/products.api'
 import { ProductDetailsDialog } from '@/features/products/components/ProductDetailsDialog'
 
 export function ProductsPage() {
+  const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
@@ -37,10 +36,9 @@ export function ProductsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
-  const [formOpen, setFormOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isTransitionPending, startTransition] = useTransition()
 
   const query = {
     search,
@@ -53,24 +51,11 @@ export function ProductsPage() {
 
   const { data, isLoading, isFetching } = useProductsQuery(query)
   const exportMutation = useProductsExportMutation()
-  const createMutation = useCreateProductMutation()
-  const updateMutation = useUpdateProductMutation()
   const deleteMutation = useDeleteProductMutation()
 
   const rows = data?.Products ?? []
   const total = data?.total ?? 0
-
-  const openCreateDialog = () => {
-    setFormMode('create')
-    setSelectedProduct(null)
-    setFormOpen(true)
-  }
-
-  const openEditDialog = (product: Product) => {
-    setFormMode('edit')
-    setSelectedProduct(product)
-    setFormOpen(true)
-  }
+  const isTableUpdating = isFetching || isTransitionPending
 
   const openDetailsDialog = (product: Product) => {
     setSelectedProduct(product)
@@ -103,7 +88,7 @@ export function ProductsPage() {
               </IconButton>
             </Tooltip>
             <Tooltip title="Edit">
-              <IconButton size="small" onClick={() => openEditDialog(row)}>
+              <IconButton size="small" onClick={() => navigate(`/products/${row._id}/edit`)}>
                 <EditOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -116,7 +101,7 @@ export function ProductsPage() {
         ),
       },
     ],
-    [],
+    [navigate],
   )
 
   const onSort = (field: string) => {
@@ -148,26 +133,11 @@ export function ProductsPage() {
     enqueueSnackbar('Export completed', { variant: 'success' })
   }
 
-  const onSubmitProduct = async (payload: ProductUpsertPayload) => {
-    if (formMode === 'create') {
-      await createMutation.mutateAsync(payload)
-      enqueueSnackbar('New product added', { variant: 'success' })
-      setFormOpen(false)
-      return
-    }
-
-    if (!selectedProduct) return
-
-    await updateMutation.mutateAsync({ productId: selectedProduct._id, payload })
-    enqueueSnackbar('Product updated', { variant: 'success' })
-    setFormOpen(false)
-  }
-
   return (
     <Stack spacing={2.5}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
         <Typography variant="h5">Products List</Typography>
-        <Button variant="contained" onClick={openCreateDialog}>
+        <Button component={Link} to="/products/add" variant="contained">
           + Add Product
         </Button>
       </Stack>
@@ -178,7 +148,7 @@ export function ProductsPage() {
             searchDraft={searchDraft}
             hasActiveSearch={Boolean(search)}
             onSearchDraftChange={setSearchDraft}
-            isSearching={isFetching}
+            isSearching={isTableUpdating}
             onSearchApply={() => {
               setSearch(searchDraft.trim())
               setSearchDraft('')
@@ -208,17 +178,19 @@ export function ProductsPage() {
               total={total}
               page={page}
               limit={limit}
-              onPageChange={(value) => setPage(value)}
+              isLoading={isTableUpdating}
+              onPageChange={(value) => {
+                startTransition(() => {
+                  setPage(value)
+                })
+              }}
               onLimitChange={(value) => {
-                setLimit(value)
-                setPage(1)
+                startTransition(() => {
+                  setLimit(value)
+                  setPage(1)
+                })
               }}
             />
-          ) : null}
-          {isFetching && !isLoading ? (
-            <Typography variant="caption" color="text.secondary">
-              Updating...
-            </Typography>
           ) : null}
         </Stack>
       </Paper>
@@ -268,21 +240,8 @@ export function ProductsPage() {
         product={selectedProduct}
         onClose={() => setDetailsOpen(false)}
         onEdit={(product) => {
-          openEditDialog(product)
+          navigate(`/products/${product._id}/edit`)
         }}
-      />
-
-      <ProductFormDialog
-        key={`${formMode}:${selectedProduct?._id ?? 'new'}:${formOpen ? 'open' : 'closed'}`}
-        open={formOpen}
-        mode={formMode}
-        product={formMode === 'edit' ? selectedProduct : null}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
-        onClose={() => {
-          if (createMutation.isPending || updateMutation.isPending) return
-          setFormOpen(false)
-        }}
-        onSubmit={onSubmitProduct}
       />
     </Stack>
   )

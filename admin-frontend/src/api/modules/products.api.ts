@@ -71,6 +71,11 @@ export async function getProducts(query: ProductsQuery) {
   return response.data
 }
 
+export async function getProductById(productId: string) {
+  const response = await apiClient.get<ProductResponse>(`/products/${productId}`)
+  return response.data.Product
+}
+
 export async function createProduct(payload: ProductUpsertPayload) {
   const response = await apiClient.post<ProductResponse>('/products', payload)
   return response.data.Product

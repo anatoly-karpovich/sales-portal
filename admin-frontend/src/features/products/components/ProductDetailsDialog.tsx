@@ -60,7 +60,7 @@ export function ProductDetailsDialog({ open, product, onClose, onEdit }: Props) 
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+      <DialogContent dividers sx={{ px: 4, py: 2.5 }}>
         <Stack spacing={0.45}>
           <DetailsRow label="Name" value={product.name} icon={<SellOutlinedIcon fontSize="small" />} />
           <DetailsRow label="Amount" value={product.amount} icon={<InventoryOutlinedIcon fontSize="small" />} />
@@ -70,7 +70,7 @@ export function ProductDetailsDialog({ open, product, onClose, onEdit }: Props) 
           <DetailsRow label="Notes" value={product.notes?.trim() ? product.notes : '-'} icon={<NotesOutlinedIcon fontSize="small" />} />
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
+      <DialogActions sx={{ px: 4, py: 2 }}>
         <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
