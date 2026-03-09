@@ -1,6 +1,7 @@
 import { isValidInput } from "../utils/validations.js";
 import { VALIDATION_ERROR_MESSAGES, COUNTRIES } from "../data/enums.js";
 import CustomerService from "../services/customer.service.js";
+import Customer from "../models/customer.model.js";
 import Order from "../models/order.model.js";
 import { Response, NextFunction } from "express";
 import { Types } from "mongoose";
@@ -18,14 +19,26 @@ export async function uniqueCustomer(
   next: NextFunction,
 ) {
   try {
-    const id = req.params.id;
-    const customer = (await CustomerService.getAll()).find((c) => {
-      return id ? c.email === req.body.email && c._id.toString() !== id : c.email === req.body.email;
-    });
-    if (customer) {
+    const normalizedEmail = req.body.email?.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return next();
+    }
+
+    req.body.email = normalizedEmail;
+
+    const escapedEmail = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const filter: { email: { $regex: RegExp }; _id?: { $ne: Types.ObjectId } } = {
+      email: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
+    };
+    if (req.params.id && Types.ObjectId.isValid(req.params.id)) {
+      filter._id = { $ne: new Types.ObjectId(req.params.id) };
+    }
+
+    const existingCustomer = await Customer.findOne(filter).select("_id").lean();
+    if (existingCustomer) {
       return res
         .status(409)
-        .json({ IsSuccess: false, ErrorMessage: `Customer with email '${req.body.email}' already exists` });
+        .json({ IsSuccess: false, ErrorMessage: `Customer with email '${normalizedEmail}' already exists` });
     }
   } catch (e: any) {
     console.log(e);
@@ -126,10 +139,10 @@ export async function deleteCustomer(
   next: NextFunction,
 ) {
   try {
-    const order = await Order.findOne({ customer: new Types.ObjectId(req.params.id) });
-    if (order) {
+    const isAssignedToOrder = await Order.exists({ customer: new Types.ObjectId(req.params.id) });
+    if (isAssignedToOrder) {
       return res
-        .status(400)
+        .status(409)
         .json({ IsSuccess: false, ErrorMessage: `Not allowed to delete customer, assigned to the order` });
     }
     next();

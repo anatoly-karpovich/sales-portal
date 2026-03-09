@@ -1,8 +1,9 @@
 import { isValidInput } from "../utils/validations.js";
 import { MANUFACTURERS, VALIDATION_ERROR_MESSAGES } from "../data/enums.js";
 import ProductsService from "../services/products.service.js";
+import Product from "../models/product.model.js";
+import Order from "../models/order.model.js";
 import { Response, NextFunction } from "express";
-import OrderService from "../services/order.service.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
@@ -15,17 +16,29 @@ import {
 export async function uniqueProduct(
   req: CreateProductRequestDTO | UpdateProductRequestDTO,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
-    const id = req.params.id;
-    const product = (await ProductsService.getAll()).find((c) => {
-      return id ? c.name === req.body.name && c._id.toString() !== id : c.name === req.body.name;
-    });
-    if (product) {
+    const normalizedName = req.body.name?.trim();
+    if (!normalizedName) {
+      return next();
+    }
+
+    req.body.name = normalizedName;
+
+    const escapedName = normalizedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const filter: { name: { $regex: RegExp }; _id?: { $ne: Types.ObjectId } } = {
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") },
+    };
+    if (req.params.id && Types.ObjectId.isValid(req.params.id)) {
+      filter._id = { $ne: new Types.ObjectId(req.params.id) };
+    }
+
+    const existingProduct = await Product.findOne(filter).select("_id").lean();
+    if (existingProduct) {
       return res
         .status(409)
-        .json({ IsSuccess: false, ErrorMessage: `Product with name '${req.body.name}' already exists` });
+        .json({ IsSuccess: false, ErrorMessage: `Product with name '${normalizedName}' already exists` });
     }
   } catch (e: any) {
     console.log(e);
@@ -37,7 +50,7 @@ export async function uniqueProduct(
 export async function productValidations(
   req: CreateProductRequestDTO | UpdateProductRequestDTO,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     if (!isValidInput("Product Name", req.body.name) || req.body.name.trim().length !== req.body.name.length) {
@@ -67,11 +80,7 @@ export async function productValidations(
   }
 }
 
-export async function productById(
-  req: GetProductByIdRequestDTO,
-  res: Response<BaseResponseDTO>,
-  next: NextFunction
-) {
+export async function productById(req: GetProductByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
     const id = req.params.id;
     const product = await ProductsService.getProduct(new Types.ObjectId(id));
@@ -86,18 +95,13 @@ export async function productById(
   }
 }
 
-export async function deleteProduct(
-  req: DeleteProductRequestDTO,
-  res: Response<BaseResponseDTO>,
-  next: NextFunction
-) {
+export async function deleteProduct(req: DeleteProductRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const isAssignedToOrder = (await OrderService.getAll()).some((o) =>
-      o.products.some((r) => r._id.toString() === req.params.id)
-    );
+    const productId = new Types.ObjectId(req.params.id);
+    const isAssignedToOrder = await Order.exists({ "products._id": productId });
     if (isAssignedToOrder) {
       return res
-        .status(400)
+        .status(409)
         .json({ IsSuccess: false, ErrorMessage: `Not allowed to delete product, assigned to the order` });
     }
     next();
@@ -106,4 +110,3 @@ export async function deleteProduct(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
 }
-
