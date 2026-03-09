@@ -268,12 +268,13 @@ class OrderService {
     return { ...orderFromDB._doc, customer };
   }
 
-  async update(orderId: Types.ObjectId, order: IOrderRequest, performerId: string): Promise<IOrder<ICustomer>> {
+  async update(
+    orderId: Types.ObjectId,
+    order: IOrderRequest,
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     const products = await productsMapping(order);
-    const orderFromDb = await Order.findById(orderId);
-    if (!orderFromDb) {
-      throw new Error("Order not found");
-    }
     const manager = await usersService.getUser(performerId);
     const customer = await CustomerService.getCustomer(order.customer);
     const customerSnapshot = this.buildCustomerSnapshot(customer);
@@ -282,12 +283,12 @@ class OrderService {
       status: ORDER_STATUSES.DRAFT,
       customer: customerSnapshot,
       products,
-      delivery: orderFromDb.delivery,
+      delivery: currentOrder.delivery,
       total_price: getTotalPrice(products),
-      history: orderFromDb.history,
-      createdOn: orderFromDb.createdOn,
-      comments: orderFromDb.comments,
-      assignedManager: orderFromDb.assignedManager,
+      history: currentOrder.history,
+      createdOn: currentOrder.createdOn,
+      comments: currentOrder.comments,
+      assignedManager: currentOrder.assignedManager,
     };
 
     const changed = { products: false, customer: false };
@@ -295,19 +296,19 @@ class OrderService {
     if (
       !_.isEqual(
         order.products,
-        orderFromDb.products.map((p) => p._id.toString()),
+        currentOrder.products.map((p) => p._id.toString()),
       )
     ) {
       changed.products = true;
       const o = _.cloneDeep(newOrder);
-      o.customer = orderFromDb.customer;
+      o.customer = this.buildCustomerSnapshot(currentOrder.customer as ICustomer);
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
     }
 
-    if (!_.isEqual(order.customer.toString(), orderFromDb.customer._id.toString())) {
+    if (!_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
       changed.customer = true;
       const o = _.cloneDeep(newOrder);
-      o.products = [...orderFromDb.products];
+      o.products = [...currentOrder.products];
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
     }
 
@@ -370,63 +371,66 @@ class OrderService {
     return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) });
   }
 
-  async assignManager(orderId: string, managerId: string, performerId: string) {
+  async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
     const manager = await usersService.getUser(managerId);
-    const order = await Order.findById(orderId);
-    if (!order) throw new Error("Order not found");
-    order.assignedManager = manager;
-
     const performer = await usersService.getUser(performerId);
-    order.history.unshift(
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
+      assignedManager: manager,
+    };
+
+    newOrder.history.unshift(
       createHistoryEntry(
-        order as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
+        newOrder as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
         ORDER_HISTORY_ACTIONS.MANAGER_ASSIGNED,
         performer,
       ),
     );
 
-    await order.save();
+    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), newOrder, { new: true });
+    if (!updatedOrder) throw new Error("Order not found");
 
     await this.notificationService.create({
-      userId: order.assignedManager._id.toString(),
-      orderId: order._id.toString(),
+      userId: updatedOrder.assignedManager._id.toString(),
+      orderId: updatedOrder._id.toString(),
       type: "assigned",
       message: NOTIFICATIONS.assigned,
     });
 
-    return this.getOrder(order._id);
+    return this.getOrder(updatedOrder._id);
   }
 
-  async unassignManager(orderId: string, performerId: string) {
-    const order = await Order.findById(orderId);
-    if (!order) throw new Error("Order not found");
-
-    const previousAssignee = order.assignedManager;
-    order.assignedManager = null;
+  async unassignManager(orderId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
+    const previousAssignee = currentOrder.assignedManager;
     const performer = await usersService.getUser(performerId);
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
+      assignedManager: null,
+    };
 
     if (previousAssignee) {
-      order.history.unshift(
+      newOrder.history.unshift(
         createHistoryEntry(
-          order as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
+          newOrder as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
           ORDER_HISTORY_ACTIONS.MANAGER_UNASSIGNED,
           performer,
         ),
       );
     }
 
-    await order.save();
+    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), newOrder, { new: true });
+    if (!updatedOrder) throw new Error("Order not found");
 
     if (previousAssignee) {
       await this.notificationService.create({
         userId: previousAssignee._id.toString(),
-        orderId: order._id.toString(),
+        orderId: updatedOrder._id.toString(),
         type: "unassigned",
         message: NOTIFICATIONS.unassigned,
       });
     }
 
-    return this.getOrder(order._id);
+    return this.getOrder(updatedOrder._id);
   }
 }
 

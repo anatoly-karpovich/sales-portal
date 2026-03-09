@@ -106,7 +106,7 @@ class ProductsController {
 
   async update(req: UpdateProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.update({ ...req.body, _id: id });
       return res.json({ Product: updatedProduct, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -116,7 +116,7 @@ class ProductsController {
 
   async delete(req: DeleteProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.productId);
       const product = await ProductsService.delete(id);
       return res.status(204).json({ Product: product, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {

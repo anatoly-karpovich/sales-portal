@@ -93,7 +93,7 @@ class CustomerController {
 
   async update(req: UpdateCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.customerId);
       const updatedCustomer = await CustomerService.update({ ...req.body, ...{ _id: id } });
       return res.json({ Customer: updatedCustomer, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -103,7 +103,7 @@ class CustomerController {
 
   async delete(req: DeleteCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.customerId);
       const customer = await CustomerService.delete(id);
       return res.status(204).json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {

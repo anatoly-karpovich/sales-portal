@@ -2,7 +2,7 @@ import { Request } from "express";
 import { IProduct } from "../product.type";
 import { BaseResponseDTO } from "./common.dto";
 
-export type ProductByIdParamsDTO = { id?: string };
+export type ProductByIdParamsDTO = { productId?: string };
 
 export type ProductCreateOrUpdateRequestDTO = Omit<IProduct, "_id" | "createdOn">;
 

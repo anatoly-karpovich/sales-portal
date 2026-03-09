@@ -7,7 +7,7 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 const orderStatusRouter = Router();
 
 orderStatusRouter.put(
-  "/orders/:id/status",
+  "/orders/:orderId/status",
   authmiddleware,
   schemaMiddleware("orderStatusSchema"),
   orderById,
@@ -17,13 +17,13 @@ orderStatusRouter.put(
 
 /**
  * @swagger
- * /api/orders/{id}/status:
+ * /api/orders/{orderId}/status:
  *   put:
  *     summary: Update order status
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -58,4 +58,5 @@ orderStatusRouter.put(
  */
 
 export default orderStatusRouter;
+
 

@@ -2,7 +2,7 @@ import { Request } from "express";
 import { ICustomer } from "../customer.type";
 import { BaseResponseDTO } from "./common.dto";
 
-export type CustomerByIdParamsDTO = { id?: string };
+export type CustomerByIdParamsDTO = { customerId?: string };
 
 export type CustomerCreateOrUpdateRequestDTO = Omit<ICustomer, "_id" | "createdOn">;
 

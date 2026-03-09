@@ -30,8 +30,8 @@ export async function uniqueCustomer(
     const filter: { email: { $regex: RegExp }; _id?: { $ne: Types.ObjectId } } = {
       email: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
     };
-    if (req.params.id && Types.ObjectId.isValid(req.params.id)) {
-      filter._id = { $ne: new Types.ObjectId(req.params.id) };
+    if (req.params.customerId && Types.ObjectId.isValid(req.params.customerId)) {
+      filter._id = { $ne: new Types.ObjectId(req.params.customerId) };
     }
 
     const existingCustomer = await Customer.findOne(filter).select("_id").lean();
@@ -120,10 +120,10 @@ export async function customerValidations(
 
 export async function customerById(req: GetCustomerByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const id = req.params.id;
-    const customer = await CustomerService.getCustomer(new Types.ObjectId(id));
+    const customerId = req.params.customerId;
+    const customer = await CustomerService.getCustomer(new Types.ObjectId(customerId));
     if (!customer) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Customer with id '${id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Customer with id '${customerId}' wasn't found` });
     }
     req.customer = customer;
     next();
@@ -139,7 +139,7 @@ export async function deleteCustomer(
   next: NextFunction,
 ) {
   try {
-    const isAssignedToOrder = await Order.exists({ "customer._id": new Types.ObjectId(req.params.id) });
+    const isAssignedToOrder = await Order.exists({ "customer._id": new Types.ObjectId(req.params.customerId) });
     if (isAssignedToOrder) {
       return res
         .status(409)

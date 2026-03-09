@@ -10,14 +10,21 @@ import { NotificationService } from "./notification.service";
 class OrderReceiveService {
   private notificationService = new NotificationService();
 
-  async receiveProducts(orderId: Types.ObjectId, products: string[], performerId: string): Promise<IOrder<ICustomer>> {
+  async receiveProducts(
+    orderId: Types.ObjectId,
+    products: string[],
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await Order.findById(orderId);
-    if (!orderFromDB) {
-      throw new Error("Order not found");
-    }
+    const orderFromDB: IOrder<ICustomer> = {
+      ...currentOrder,
+      products: currentOrder.products.map((product) => ({ ...product })),
+      history: [...currentOrder.history],
+      comments: [...currentOrder.comments],
+    };
     const previousStatus = orderFromDB.status;
     const manager = await usersService.getUser(performerId);
     for (const p of products) {

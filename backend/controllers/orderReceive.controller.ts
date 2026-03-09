@@ -10,9 +10,12 @@ class OrderReceiveController {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const orderId = new Types.ObjectId(req.params.id);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+      const orderId = new Types.ObjectId(req.params.orderId);
       const products = req.body.products;
-      const updatedOrder = await orderReceiveService.receiveProducts(orderId, products, userData.id);
+      const updatedOrder = await orderReceiveService.receiveProducts(orderId, products, userData.id, req.order);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
@@ -21,4 +24,5 @@ class OrderReceiveController {
 }
 
 export default new OrderReceiveController();
+
 

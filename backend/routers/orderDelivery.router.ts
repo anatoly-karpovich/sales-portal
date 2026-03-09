@@ -7,7 +7,7 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 const orderDeliveryRouter = Router();
 
 orderDeliveryRouter.post(
-  "/orders/:id/delivery",
+  "/orders/:orderId/delivery",
   authmiddleware,
   schemaMiddleware("orderDeliverySchema"),
   orderById,
@@ -17,13 +17,13 @@ orderDeliveryRouter.post(
 
 /**
  * @swagger
- * /api/orders/{id}/delivery:
+ * /api/orders/{orderId}/delivery:
  *   post:
  *     summary: Create or update order delivery
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -58,4 +58,5 @@ orderDeliveryRouter.post(
  */
 
 export default orderDeliveryRouter;
+
 

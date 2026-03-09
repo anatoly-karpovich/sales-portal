@@ -1,12 +1,14 @@
 import express from "express";
 import { authmiddleware } from "../middleware/authmiddleware";
 import CustomerOrdersController from "../controllers/customer.orders.controller";
+import { customerById } from "../middleware/customerMiddleware";
 
 const customerOrdersRouter = express.Router();
 
 customerOrdersRouter.get(
   "/customers/:customerId/orders",
   authmiddleware,
+  customerById,
   CustomerOrdersController.getOrdersByCustomer.bind(CustomerOrdersController),
 );
 

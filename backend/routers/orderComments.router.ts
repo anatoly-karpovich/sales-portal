@@ -7,7 +7,7 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 const orderCommentsRouter = Router();
 
 orderCommentsRouter.post(
-  "/orders/:id/comments",
+  "/orders/:orderId/comments",
   authmiddleware,
   schemaMiddleware("orderCommentsCreateSchema"),
   orderCommentsCreate,
@@ -16,7 +16,7 @@ orderCommentsRouter.post(
 );
 
 orderCommentsRouter.delete(
-  "/orders/:id/comments/:commentId",
+  "/orders/:orderId/comments/:commentId",
   authmiddleware,
   orderById,
   orderCommentsDelete,
@@ -25,13 +25,13 @@ orderCommentsRouter.delete(
 
 /**
  * @swagger
- * /api/orders/{id}/comments:
+ * /api/orders/{orderId}/comments:
  *   post:
  *     summary: Add a comment to an order
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -67,13 +67,13 @@ orderCommentsRouter.delete(
 
 /**
  * @swagger
- * /api/orders/{id}/comments/{commentId}:
+ * /api/orders/{orderId}/comments/{commentId}:
  *   delete:
  *     summary: Delete a comment from an order
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -100,4 +100,5 @@ orderCommentsRouter.delete(
  */
 
 export default orderCommentsRouter;
+
 

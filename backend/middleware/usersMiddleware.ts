@@ -6,13 +6,13 @@ import mongoose from "mongoose";
 
 export async function deleteUserMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    const id = req.params.id;
+    const id = req.params.userId;
     if (!id) {
       throw new Error("Id was not provided");
     }
 
     const performer = getUserFromRequest(req);
-    const userToDelete = await UsersService.getUser(req.params.id);
+    const userToDelete = await UsersService.getUser(req.params.userId);
     if (userToDelete && userToDelete.roles.includes(ROLES.ADMIN)) {
       return res.status(403).json({ IsSuccess: false, ErrorMessage: "Not allowed to delete admin" });
     }

@@ -10,7 +10,7 @@ const usersRouter = Router();
 
 usersRouter.get("/users", authmiddleware, UsersController.getUsers.bind(UsersController));
 usersRouter.get("/users/me", authmiddleware, UsersController.getMe.bind(UsersController));
-usersRouter.get("/users/:id", authmiddleware, UsersController.getUser.bind(UsersController));
+usersRouter.get("/users/:userId", authmiddleware, UsersController.getUser.bind(UsersController));
 
 usersRouter.post(
   "/users",
@@ -22,9 +22,9 @@ usersRouter.post(
   schemaMiddleware("userSchema"),
   UsersController.registration.bind(UsersController)
 );
-usersRouter.delete("/users/:id", authmiddleware, deleteUserMiddleware, UsersController.deleteUser.bind(UsersController));
+usersRouter.delete("/users/:userId", authmiddleware, deleteUserMiddleware, UsersController.deleteUser.bind(UsersController));
 usersRouter.patch(
-  "/users/password/:id",
+  "/users/password/:userId",
   authmiddleware,
   changePasswordMiddleware,
   UsersController.changePassword.bind(UsersController),
@@ -199,7 +199,7 @@ usersRouter.patch(
  *             schema:
  *               $ref: '#/components/schemas/UserErrorResponse'
  *
- * /api/users/{id}:
+ * /api/users/{userId}:
  *   get:
  *     summary: Get user by id with assigned orders
  *     tags: [Users]
@@ -207,7 +207,7 @@ usersRouter.patch(
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: userId
  *         required: true
  *         schema:
  *           type: string
@@ -235,7 +235,7 @@ usersRouter.patch(
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: userId
  *         required: true
  *         schema:
  *           type: string
@@ -256,7 +256,7 @@ usersRouter.patch(
  *       500:
  *         description: Server error
  *
- * /api/users/password/{id}:
+ * /api/users/password/{userId}:
  *   patch:
  *     summary: Change user password
  *     tags: [Users]
@@ -264,7 +264,7 @@ usersRouter.patch(
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: userId
  *         required: true
  *         schema:
  *           type: string

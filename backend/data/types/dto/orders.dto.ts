@@ -5,11 +5,11 @@ import { ICustomer } from "../customer.type";
 import { IDelivery } from "../delivery.type";
 import { IOrder, IOrderCustomerSnapshot } from "../order.type";
 
-export type OrderByIdParamsDTO = { id?: string; orderId?: string };
-export type OrderPathIdParamsDTO = { id?: string };
+export type OrderByIdParamsDTO = { orderId?: string };
+export type OrderPathIdParamsDTO = { orderId?: string };
 export type OrderPathOrderIdParamsDTO = { orderId?: string };
 export type OrderAssignManagerParamsDTO = { orderId?: string; managerId?: string };
-export type OrderCommentParamsDTO = { id?: string; commentId?: string };
+export type OrderCommentParamsDTO = { orderId?: string; commentId?: string };
 export type OrderSortedQueryDTO = {
   search?: string;
   status?: string | string[];
@@ -54,17 +54,35 @@ export type OrderCommentCreateRequestDTO = {
 };
 
 export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateOrUpdateRequestDTO>;
-export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderCreateOrUpdateRequestDTO>;
-export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO>;
+export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderCreateOrUpdateRequestDTO> & {
+  order?: IOrder<ICustomer>;
+};
+export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO> & {
+  order?: IOrder<ICustomer>;
+};
 export type GetOrdersSortedRequestDTO = Request<unknown, unknown, unknown, OrderSortedQueryDTO>;
 export type ExportOrdersRequestDTO = Request<unknown, unknown, OrderExportRequestBodyDTO>;
-export type AssignManagerRequestDTO = Request<OrderAssignManagerParamsDTO>;
-export type UnassignManagerRequestDTO = Request<OrderPathOrderIdParamsDTO>;
-export type UpdateOrderStatusRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderStatusRequestDTO>;
-export type UpdateOrderDeliveryRequestDTO = Request<OrderPathIdParamsDTO, unknown, IDelivery>;
-export type ReceiveOrderProductsRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderReceiveRequestDTO>;
-export type CreateOrderCommentRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderCommentCreateRequestDTO>;
-export type DeleteOrderCommentRequestDTO = Request<OrderCommentParamsDTO>;
+export type AssignManagerRequestDTO = Request<OrderAssignManagerParamsDTO> & {
+  order?: IOrder<ICustomer>;
+};
+export type UnassignManagerRequestDTO = Request<OrderPathOrderIdParamsDTO> & {
+  order?: IOrder<ICustomer>;
+};
+export type UpdateOrderStatusRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderStatusRequestDTO> & {
+  order?: IOrder<ICustomer>;
+};
+export type UpdateOrderDeliveryRequestDTO = Request<OrderPathIdParamsDTO, unknown, IDelivery> & {
+  order?: IOrder<ICustomer>;
+};
+export type ReceiveOrderProductsRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderReceiveRequestDTO> & {
+  order?: IOrder<ICustomer>;
+};
+export type CreateOrderCommentRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderCommentCreateRequestDTO> & {
+  order?: IOrder<ICustomer>;
+};
+export type DeleteOrderCommentRequestDTO = Request<OrderCommentParamsDTO> & {
+  order?: IOrder<ICustomer>;
+};
 
 export type GetOrderByIdRequestDTO = Request<OrderByIdParamsDTO, unknown, unknown> & {
   order?: IOrder<ICustomer>;

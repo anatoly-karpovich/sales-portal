@@ -99,8 +99,11 @@ class OrderController {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const orderId = new Types.ObjectId(req.params.id);
-      const updatedOrder = await OrderService.update(orderId, this.mapOrderRequestBody(req.body), userData.id);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+      const orderId = new Types.ObjectId(req.params.orderId);
+      const updatedOrder = await OrderService.update(orderId, this.mapOrderRequestBody(req.body), userData.id, req.order);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -110,7 +113,7 @@ class OrderController {
 
   async delete(req: DeleteOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>): Promise<Response> {
     try {
-      const id = new Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.orderId);
       const order = await OrderService.delete(id);
       return res.status(204).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -124,8 +127,11 @@ class OrderController {
       const token = getTokenFromRequest(req);
       const performerData = getDataDataFromToken(token);
       const { orderId, managerId } = req.params;
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${orderId}' wasn't found` });
+      }
 
-      const order = await OrderService.assignManager(orderId, managerId, performerData.id);
+      const order = await OrderService.assignManager(orderId, managerId, performerData.id, req.order);
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -138,8 +144,11 @@ class OrderController {
       const token = getTokenFromRequest(req);
       const performerData = getDataDataFromToken(token);
       const { orderId } = req.params;
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${orderId}' wasn't found` });
+      }
 
-      const order = await OrderService.unassignManager(orderId, performerData.id);
+      const order = await OrderService.unassignManager(orderId, performerData.id, req.order);
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -178,3 +187,4 @@ class OrderController {
 }
 
 export default new OrderController();
+

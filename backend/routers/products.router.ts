@@ -12,7 +12,12 @@ productsRouter.get("/products/all", authmiddleware, ProductsController.getAll.bi
 
 productsRouter.post("/products/export", authmiddleware, ProductsController.export.bind(ProductsController));
 
-productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct.bind(ProductsController));
+productsRouter.get(
+  "/products/:productId",
+  authmiddleware,
+  productById,
+  ProductsController.getProduct.bind(ProductsController),
+);
 
 productsRouter.post(
   "/products",
@@ -24,7 +29,7 @@ productsRouter.post(
 );
 
 productsRouter.put(
-  "/products/:id",
+  "/products/:productId",
   authmiddleware,
   schemaMiddleware("productSchema"),
   uniqueProduct,
@@ -34,7 +39,7 @@ productsRouter.put(
 );
 
 productsRouter.delete(
-  "/products/:id",
+  "/products/:productId",
   authmiddleware,
   productById,
   deleteProduct,
@@ -291,13 +296,13 @@ productsRouter.delete(
 
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/{productId}:
  *   get:
  *     summary: Get the product by Id
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: productId
  *         schema:
  *           type: string
  *         required: true
@@ -353,13 +358,13 @@ productsRouter.delete(
 
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/{productId}:
  *   put:
  *     summary: Update the product by Id
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: productId
  *         schema:
  *           type: string
  *         required: true
@@ -428,13 +433,13 @@ productsRouter.delete(
 
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/{productId}:
  *   delete:
  *     summary: Delete the product by Id
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: productId
  *         schema:
  *           type: string
  *         required: true
@@ -455,4 +460,6 @@ productsRouter.delete(
  */
 
 export default productsRouter;
+
+
 

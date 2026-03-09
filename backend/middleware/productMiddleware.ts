@@ -30,8 +30,8 @@ export async function uniqueProduct(
     const filter: { name: { $regex: RegExp }; _id?: { $ne: Types.ObjectId } } = {
       name: { $regex: new RegExp(`^${escapedName}$`, "i") },
     };
-    if (req.params.id && Types.ObjectId.isValid(req.params.id)) {
-      filter._id = { $ne: new Types.ObjectId(req.params.id) };
+    if (req.params.productId && Types.ObjectId.isValid(req.params.productId)) {
+      filter._id = { $ne: new Types.ObjectId(req.params.productId) };
     }
 
     const existingProduct = await Product.findOne(filter).select("_id").lean();
@@ -82,10 +82,10 @@ export async function productValidations(
 
 export async function productById(req: GetProductByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const id = req.params.id;
-    const product = await ProductsService.getProduct(new Types.ObjectId(id));
+    const productId = req.params.productId;
+    const product = await ProductsService.getProduct(new Types.ObjectId(productId));
     if (!product) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${productId}' wasn't found` });
     }
     req.product = product;
     next();
@@ -97,7 +97,7 @@ export async function productById(req: GetProductByIdRequestDTO, res: Response<B
 
 export async function deleteProduct(req: DeleteProductRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const productId = new Types.ObjectId(req.params.id);
+    const productId = new Types.ObjectId(req.params.productId);
     const isAssignedToOrder = await Order.exists({ "products._id": productId });
     if (isAssignedToOrder) {
       return res

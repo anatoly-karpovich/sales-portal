@@ -7,7 +7,7 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 const orderReceiveRouter = Router();
 
 orderReceiveRouter.post(
-  "/orders/:id/receive",
+  "/orders/:orderId/receive",
   authmiddleware,
   schemaMiddleware("orderReceiveSchema"),
   orderById,
@@ -17,13 +17,13 @@ orderReceiveRouter.post(
 
 /**
  * @swagger
- * /api/orders/{id}/receive:
+ * /api/orders/{orderId}/receive:
  *   post:
  *     summary: Mark requested products as received
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -58,4 +58,5 @@ orderReceiveRouter.post(
  */
 
 export default orderReceiveRouter;
+
 

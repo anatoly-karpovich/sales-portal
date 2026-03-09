@@ -9,7 +9,7 @@ import { NotificationService } from "./notification.service";
 class OrderCommentsService {
   private notificationService = new NotificationService();
 
-  async createComment(orderId: Types.ObjectId, commentText: string): Promise<IOrder<ICustomer>> {
+  async createComment(orderId: Types.ObjectId, commentText: string, currentOrder: IOrder<ICustomer>): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
@@ -17,13 +17,9 @@ class OrderCommentsService {
       text: commentText,
       createdOn: getTodaysDate(true),
     };
-    const orderFromDB = await Order.findById(orderId);
-    if (!orderFromDB) {
-      throw new Error("Order not found");
-    }
-    const newOrder: IOrder = {
-      ...orderFromDB._doc,
-      comments: [...orderFromDB.comments, comment],
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
+      comments: [...currentOrder.comments, comment],
     };
 
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });

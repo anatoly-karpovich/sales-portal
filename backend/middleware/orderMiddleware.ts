@@ -20,7 +20,7 @@ import {
 
 export async function orderById(req: GetOrderByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const id = new Types.ObjectId(req.params.id || req.params.orderId);
+    const id = new Types.ObjectId(req.params.orderId);
     const order = await OrderService.getOrder(id);
     if (!order) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
@@ -82,7 +82,7 @@ export async function orderStatus(
     }
     const order = req.order;
     if (!order) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
     }
 
     if (
@@ -121,7 +121,7 @@ export async function orderUpdateValidations(
   next: NextFunction,
 ) {
   try {
-    const id = req.params.id;
+    const id = req.params.orderId;
     const order = req.order;
     if (!order) return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
     if (order.status !== ORDER_STATUSES.DRAFT) {
@@ -142,7 +142,7 @@ export async function orderReceiveValidations(
   try {
     const order = req.order;
     if (!order) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
     }
 
     if (!req.body.products.length) {
@@ -179,7 +179,7 @@ export async function orderDelivery(
   try {
     const order = req.order;
     if (!order) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
     }
     if (order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
@@ -220,7 +220,7 @@ export async function orderCommentsCreate(
   next: NextFunction,
 ) {
   try {
-    if (!req.params.id) {
+    if (!req.params.orderId) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
@@ -242,7 +242,7 @@ export async function orderCommentsDelete(
   next: NextFunction,
 ) {
   try {
-    const orderId = req.params.id;
+    const orderId = req.params.orderId;
     const commentId = req.params.commentId;
     if (!orderId || !commentId) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });

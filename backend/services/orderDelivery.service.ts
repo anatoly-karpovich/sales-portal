@@ -10,25 +10,25 @@ import { NotificationService } from "./notification.service";
 class OrderDeliveryService {
   private notificationService = new NotificationService();
 
-  async updateDelivery(orderId: Types.ObjectId, delivery: IDelivery, performerId: string): Promise<IOrder<ICustomer>> {
+  async updateDelivery(
+    orderId: Types.ObjectId,
+    delivery: IDelivery,
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-
-    const orderFromDB = await Order.findById(orderId);
-    if (!orderFromDB) {
-      throw new Error("Order not found");
-    }
     const manager = await usersService.getUser(performerId);
 
-    let action = orderFromDB.delivery
+    let action = currentOrder.delivery
       ? ORDER_HISTORY_ACTIONS.DELIVERY_EDITED
       : ORDER_HISTORY_ACTIONS.DELIVERY_SCHEDULED;
-    const newOrder: IOrder = {
-      ...orderFromDB._doc,
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
       delivery: delivery,
     };
-    newOrder.history.unshift(createHistoryEntry(newOrder, action, manager));
+    newOrder.history.unshift(createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager));
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");

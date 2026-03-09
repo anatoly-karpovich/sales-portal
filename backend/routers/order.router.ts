@@ -19,10 +19,10 @@ orderRouter.get("/orders", authmiddleware, OrderController.getAll.bind(OrderCont
 
 orderRouter.post("/orders/export", authmiddleware, OrderController.export.bind(OrderController));
 
-orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder.bind(OrderController));
+orderRouter.get("/orders/:orderId", authmiddleware, orderById, OrderController.getOrder.bind(OrderController));
 
 orderRouter.put(
-  "/orders/:id",
+  "/orders/:orderId",
   authmiddleware,
   schemaMiddleware("orderUpdateSchema"),
   orderById,
@@ -30,7 +30,7 @@ orderRouter.put(
   orderValidations,
   OrderController.update.bind(OrderController),
 );
-orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.delete.bind(OrderController));
+orderRouter.delete("/orders/:orderId", authmiddleware, orderById, OrderController.delete.bind(OrderController));
 
 orderRouter.put(
   "/orders/:orderId/assign-manager/:managerId",
@@ -503,13 +503,13 @@ orderRouter.put(
 
 /**
  * @swagger
- * /api/orders/{id}:
+ * /api/orders/{orderId}:
  *   get:
  *     summary: Get order details by id (full customer)
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         schema:
  *           type: string
  *         required: true
@@ -533,13 +533,13 @@ orderRouter.put(
 
 /**
  * @swagger
- * /api/orders/{id}:
+ * /api/orders/{orderId}:
  *   put:
  *     summary: Update an order
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -573,13 +573,13 @@ orderRouter.put(
 
 /**
  * @swagger
- * /api/orders/{id}:
+ * /api/orders/{orderId}:
  *   delete:
  *     summary: Delete the order by Id
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         schema:
  *           type: string
  *         required: true
@@ -674,4 +674,5 @@ orderRouter.put(
  */
 
 export default orderRouter;
+
 

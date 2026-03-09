@@ -57,7 +57,7 @@ class UsersController {
 
   async getUser(req: Request, res: Response) {
     try {
-      const id = req.params.id;
+      const id = req.params.userId;
       if (!id) {
         throw new Error("Id was not provided");
       }
@@ -96,7 +96,7 @@ class UsersController {
 
   async deleteUser(req: Request, res: Response) {
     try {
-      const id = req.params.id;
+      const id = req.params.userId;
       if (!id) {
         throw new Error("Id was not provided");
       }
@@ -114,7 +114,7 @@ class UsersController {
 
   async changePassword(req: Request, res: Response) {
     try {
-      const userId = req.params.id;
+      const userId = req.params.userId;
       const { oldPassword, newPassword } = req.body;
 
       const updatedUser = await UsersService.updatePassword(userId, oldPassword, newPassword);

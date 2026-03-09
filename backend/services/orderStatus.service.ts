@@ -9,17 +9,18 @@ import { NotificationService } from "./notification.service";
 
 class OrderStatusService {
   private notificationService = new NotificationService();
-  async updateStatus(orderId: Types.ObjectId, status: string, performerId: string): Promise<IOrder<ICustomer>> {
+  async updateStatus(
+    orderId: Types.ObjectId,
+    status: string,
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await Order.findById(orderId);
-    if (!orderFromDB) {
-      throw new Error("Order not found");
-    }
     const manager = await usersService.getUser(performerId);
-    const newOrder: IOrder = {
-      ...orderFromDB._doc,
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
       status: status as ORDER_STATUSES,
     };
     let action: ORDER_HISTORY_ACTIONS;
@@ -30,7 +31,7 @@ class OrderStatusService {
       newOrder.delivery = null;
     }
 
-    newOrder.history.unshift(createHistoryEntry(newOrder, action, manager));
+    newOrder.history.unshift(createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager));
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");

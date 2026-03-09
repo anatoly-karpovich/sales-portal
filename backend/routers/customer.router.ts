@@ -21,10 +21,15 @@ customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll.b
 
 customerRouter.post("/customers/export", authmiddleware, CustomerController.export.bind(CustomerController));
 
-customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerController.getCustomer.bind(CustomerController));
+customerRouter.get(
+  "/customers/:customerId",
+  authmiddleware,
+  customerById,
+  CustomerController.getCustomer.bind(CustomerController),
+);
 
 customerRouter.put(
-  "/customers/:id",
+  "/customers/:customerId",
   authmiddleware,
   schemaMiddleware("customerSchema"),
   uniqueCustomer,
@@ -34,7 +39,7 @@ customerRouter.put(
 );
 
 customerRouter.delete(
-  "/customers/:id",
+  "/customers/:customerId",
   authmiddleware,
   customerById,
   deleteCustomer,
@@ -412,13 +417,13 @@ customerRouter.delete(
 
 /**
  * @swagger
- * /api/customers/{id}:
+ * /api/customers/{customerId}:
  *   get:
  *     summary: Get the customer by Id
  *     tags: [Customers]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: customerId
  *         schema:
  *           type: string
  *         required: true
@@ -436,21 +441,19 @@ customerRouter.delete(
  *         description: Unauthorized, missing or invalid token
  *       404:
  *         description: The customer was not found
- *       409:
- *         description: Conflict, unable to delete the customer
  *       500:
  *         description: Server error
  */
 
 /**
  * @swagger
- * /api/customers/{id}:
+ * /api/customers/{customerId}:
  *   put:
  *     summary: Update the customer by Id
  *     tags: [Customers]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: customerId
  *         schema:
  *           type: string
  *         required: true
@@ -484,13 +487,13 @@ customerRouter.delete(
 
 /**
  * @swagger
- * /api/customers/{id}:
+ * /api/customers/{customerId}:
  *   delete:
  *     summary: Delete the customer by Id
  *     tags: [Customers]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: customerId
  *         schema:
  *           type: string
  *         required: true
@@ -504,6 +507,8 @@ customerRouter.delete(
  *         description: Unauthorized, missing or invalid token
  *       404:
  *         description: The customer was not found
+ *       409:
+ *         description: Conflict, unable to delete the customer
  *       500:
  *         description: Server error
  */
