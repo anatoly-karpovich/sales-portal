@@ -174,16 +174,28 @@ async function submitExport(button) {
       if (response.status !== STATUS_CODES.OK) {
         throw new Error("Export request failed");
       }
-      downloadExportFile(response, exportType);
+      downloadExportFile(response, exportType, "products");
+      renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
+      return;
+    }
+
+    if (state.page === "Customers") {
+      const payload = {
+        format: exportType,
+        filters: exportAll ? null : getCustomersExportFilters(),
+        fields,
+      };
+      const response = await CustomersService.exportCustomers(payload);
+      if (response.status !== STATUS_CODES.OK) {
+        throw new Error("Export request failed");
+      }
+      downloadExportFile(response, exportType, "customers");
       renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
       return;
     }
 
     let data;
-    if (state.page === "Customers") {
-      const response = exportAll ? await CustomersService.getCustomers() : await getSortedCustomers();
-      data = response.data.Customers;
-    } else if (state.page === "Orders") {
+    if (state.page === "Orders") {
       const response = exportAll ? await OrdersService.getOrders() : await getSortedOrders();
       data = response.data.Orders;
     }
@@ -267,12 +279,28 @@ function getProductsExportFilters() {
   };
 }
 
-function downloadExportFile(response, exportType) {
+function getCustomersExportFilters() {
+  const search = state.search.customers || "";
+  const country = Object.keys(state.filtering.customers).filter((item) => state.filtering.customers[item]);
+  const { page, limit } = state.pagination.customers;
+  const { sortField, sortOrder } = state.sorting.customers;
+
+  return {
+    search,
+    country,
+    page,
+    limit,
+    sortField,
+    sortOrder,
+  };
+}
+
+function downloadExportFile(response, exportType, entityName = "export") {
   const blob = response.data;
   const disposition = response.headers?.["content-disposition"] || "";
   const filenameMatch = disposition.match(/filename="(.+?)"/i);
   const fallbackExt = exportType === "json" ? "json" : "csv";
-  const filename = filenameMatch ? filenameMatch[1] : `products-export.${fallbackExt}`;
+  const filename = filenameMatch ? filenameMatch[1] : `${entityName}-export.${fallbackExt}`;
 
   const url = window.URL.createObjectURL(blob);
   const anchor = document.createElement("a");

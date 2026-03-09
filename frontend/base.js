@@ -27,6 +27,7 @@ const ENDPOINTS = {
   ["Logout"]: `${BASE_URL}/api/logout`,
   ["Customers"]: `${BASE_URL}/api/customers`,
   ["Customers All"]: `${BASE_URL}/api/customers/all`,
+  ["Customers Export"]: `${BASE_URL}/api/customers/export`,
   ["Get Customer By Id"]: (id) => `${BASE_URL}/api/customers/${id}/`,
   ["Get Customer Orders"]: (id) => `${BASE_URL}/api/customers/${id}/orders`,
   ["Products"]: `${BASE_URL}/api/products`,

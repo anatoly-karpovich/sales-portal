@@ -8,6 +8,7 @@ import {
   CustomersResponseDTO,
   CustomersSortedResponseDTO,
   DeleteCustomerRequestDTO,
+  ExportCustomersRequestDTO,
   GetCustomerRequestWithEntityDTO,
   GetCustomersSortedRequestDTO,
   UpdateCustomerRequestDTO,
@@ -17,6 +18,20 @@ const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class CustomerController {
+  private readonly exportableFields = new Set([
+    "_id",
+    "email",
+    "name",
+    "country",
+    "city",
+    "street",
+    "house",
+    "flat",
+    "phone",
+    "createdOn",
+    "notes",
+  ]);
+
   async create(req: CreateCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const customer = await CustomerService.create(req.body);
@@ -108,6 +123,83 @@ class CustomerController {
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
+  }
+
+  async export(req: ExportCustomersRequestDTO, res: Response) {
+    try {
+      const { format, fields, filters } = req.body ?? {};
+
+      if (!format || !["csv", "json"].includes(format)) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid export format" });
+      }
+
+      if (!Array.isArray(fields) || fields.length === 0) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "Fields are required" });
+      }
+
+      const invalidField = fields.find((field) => !this.exportableFields.has(field));
+      if (invalidField) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: `Unsupported field '${invalidField}'` });
+      }
+
+      const customers = await CustomerService.getForExport({
+        country: filters?.country ?? [],
+        search: filters?.search ?? "",
+        sortField: filters?.sortField ?? "createdOn",
+        sortOrder: filters?.sortOrder ?? "desc",
+      });
+
+      const exportRows = customers.map((customer) => this.pickFields(customer, fields));
+      const timestamp = this.getTimestampForFilename();
+      const fileName = `customers-export-${timestamp}.${format}`;
+
+      if (format === "json") {
+        const jsonData = JSON.stringify(exportRows, null, 2);
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+        return res.status(200).send(jsonData);
+      }
+
+      const csvData = this.convertToCsv(exportRows, fields);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      return res.status(200).send(`\uFEFF${csvData}`);
+    } catch (e: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  private pickFields(customer: any, fields: string[]) {
+    return fields.reduce<Record<string, unknown>>((acc, field) => {
+      const value = customer[field];
+      acc[field] = value instanceof Types.ObjectId ? value.toString() : value ?? "";
+      return acc;
+    }, {});
+  }
+
+  private convertToCsv(rows: Record<string, unknown>[], fields: string[]): string {
+    const header = fields.map((field) => this.escapeCsvValue(field)).join(",");
+    const body = rows
+      .map((row) =>
+        fields
+          .map((field) => {
+            const value = row[field];
+            return this.escapeCsvValue(value === null || value === undefined ? "" : String(value));
+          })
+          .join(",")
+      )
+      .join("\n");
+
+    return `${header}\n${body}`;
+  }
+
+  private escapeCsvValue(value: string): string {
+    const escaped = value.replace(/"/g, '""');
+    return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+  }
+
+  private getTimestampForFilename(): string {
+    return new Date().toISOString().replace(/[:]/g, "-").slice(0, 19);
   }
 }
 

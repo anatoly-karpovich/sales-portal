@@ -19,6 +19,8 @@ customerRouter.get("/customers", authmiddleware, CustomerController.getAllSorted
 
 customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll);
 
+customerRouter.post("/customers/export", authmiddleware, CustomerController.export.bind(CustomerController));
+
 customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerController.getCustomer);
 
 customerRouter.put(

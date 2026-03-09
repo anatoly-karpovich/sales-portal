@@ -15,6 +15,23 @@ export type CustomersSortedQueryDTO = {
   limit?: string;
 };
 
+export type CustomerExportFormatDTO = "csv" | "json";
+
+export type CustomerExportFiltersDTO = {
+  search?: string;
+  country?: string[];
+  page?: number;
+  limit?: number;
+  sortField?: "email" | "name" | "country" | "createdOn";
+  sortOrder?: "asc" | "desc";
+} | null;
+
+export type CustomerExportRequestBodyDTO = {
+  format: CustomerExportFormatDTO;
+  filters?: CustomerExportFiltersDTO;
+  fields: Array<keyof ICustomer>;
+};
+
 export type CreateCustomerRequestDTO = Request<CustomerByIdParamsDTO, unknown, CustomerCreateOrUpdateRequestDTO>;
 
 export type UpdateCustomerRequestDTO = Request<CustomerByIdParamsDTO, unknown, CustomerCreateOrUpdateRequestDTO>;
@@ -25,6 +42,7 @@ export type GetCustomerByIdRequestDTO = Request<CustomerByIdParamsDTO, unknown, 
 };
 
 export type GetCustomersSortedRequestDTO = Request<unknown, unknown, unknown, CustomersSortedQueryDTO>;
+export type ExportCustomersRequestDTO = Request<unknown, unknown, CustomerExportRequestBodyDTO>;
 
 export type CustomerRequestWithEntityDTO<P = CustomerByIdParamsDTO, B = unknown, Q = unknown> = Request<
   P,

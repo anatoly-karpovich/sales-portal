@@ -78,4 +78,19 @@ class CustomersService {
     };
     return sendRequest(options);
   }
+
+  static async exportCustomers(payload) {
+    const options = {
+      method: "post",
+      baseURL: BASE_URL,
+      url: ENDPOINTS["Customers Export"],
+      headers: {
+        Authorization: getAuthorizationCookie(),
+        ["Content-Type"]: "application/json",
+      },
+      responseType: "blob",
+      data: payload,
+    };
+    return sendRequest(options);
+  }
 }
