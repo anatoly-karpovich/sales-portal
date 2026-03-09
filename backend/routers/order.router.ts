@@ -17,6 +17,8 @@ orderRouter.post(
 
 orderRouter.get("/orders", authmiddleware, OrderController.getAll.bind(OrderController));
 
+orderRouter.post("/orders/export", authmiddleware, OrderController.export.bind(OrderController));
+
 orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder.bind(OrderController));
 
 orderRouter.put(

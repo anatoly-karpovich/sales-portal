@@ -35,6 +35,7 @@ const ENDPOINTS = {
   ["Products Export"]: `${BASE_URL}/api/products/export`,
   ["Get Product By Id"]: (id) => `${BASE_URL}/api/products/${id}/`,
   ["Orders"]: `${BASE_URL}/api/orders`,
+  ["Orders Export"]: `${BASE_URL}/api/orders/export`,
   ["Get Order By Id"]: (id) => `${BASE_URL}/api/orders/${id}/`,
   ["Order Delivery"]: (orderId) => `${BASE_URL}/api/orders/${orderId}/delivery/`,
   ["Order Receive"]: (orderId) => `${BASE_URL}/api/orders/${orderId}/receive/`,

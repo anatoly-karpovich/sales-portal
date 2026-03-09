@@ -19,6 +19,23 @@ export type OrderSortedQueryDTO = {
   limit?: string;
 };
 
+export type OrderExportFormatDTO = "csv" | "json";
+
+export type OrderExportFiltersDTO = {
+  search?: string;
+  status?: string[];
+  page?: number;
+  limit?: number;
+  sortField?: "createdOn" | "total_price" | "status";
+  sortOrder?: "asc" | "desc";
+} | null;
+
+export type OrderExportRequestBodyDTO = {
+  format: OrderExportFormatDTO;
+  filters?: OrderExportFiltersDTO;
+  fields: Array<"status" | "total_price" | "delivery" | "customer" | "products" | "assignedManager" | "createdOn">;
+};
+
 export type OrderCreateOrUpdateRequestDTO = {
   customer: string;
   products: string[];
@@ -40,6 +57,7 @@ export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCr
 export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderCreateOrUpdateRequestDTO>;
 export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO>;
 export type GetOrdersSortedRequestDTO = Request<unknown, unknown, unknown, OrderSortedQueryDTO>;
+export type ExportOrdersRequestDTO = Request<unknown, unknown, OrderExportRequestBodyDTO>;
 export type AssignManagerRequestDTO = Request<OrderAssignManagerParamsDTO>;
 export type UnassignManagerRequestDTO = Request<OrderPathOrderIdParamsDTO>;
 export type UpdateOrderStatusRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderStatusRequestDTO>;

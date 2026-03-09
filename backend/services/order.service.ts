@@ -7,9 +7,20 @@ import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/en
 import _ from "lodash";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
+import ExportService from "./export.service";
+import { OrderExportFormatDTO } from "../data/types/dto/orders.dto";
 
 class OrderService {
   private notificationService = new NotificationService();
+  private readonly exportableFields = new Set<string>([
+    "status",
+    "total_price",
+    "delivery",
+    "customer",
+    "products",
+    "assignedManager",
+    "createdOn",
+  ]);
 
   private buildCustomerSnapshot(customer: ICustomer): IOrderCustomerSnapshot {
     return {
@@ -96,6 +107,118 @@ class OrderService {
     ]);
 
     return { orders: orders.map((order) => order._doc), total };
+  }
+
+  async exportOrders(params: {
+    format: OrderExportFormatDTO;
+    fields: string[];
+    filters?: {
+      search?: string;
+      status?: string[];
+      page?: number;
+      limit?: number;
+      sortField?: "createdOn" | "total_price" | "status";
+      sortOrder?: "asc" | "desc";
+    } | null;
+  }): Promise<{ fileName: string; contentType: string; content: string }> {
+    const { format, fields, filters } = params;
+
+    if (!["csv", "json"].includes(format)) {
+      throw new Error("EXPORT_VALIDATION:Invalid export format");
+    }
+
+    ExportService.assertSelectedFields(fields, this.exportableFields);
+
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 0;
+    const pagination =
+      typeof page === "number" && typeof limit === "number" && page > 0 && limit > 0
+        ? { skip: (page - 1) * limit, limit }
+        : { skip: 0, limit: 1000000 };
+
+    const { orders } = await this.getSorted(
+      { search: filters?.search ?? "", status: filters?.status ?? [] },
+      { sortField: filters?.sortField ?? "createdOn", sortOrder: filters?.sortOrder ?? "desc" },
+      pagination
+    );
+
+    const rows = orders.map((order) => this.flattenOrderForExport(order, fields));
+    const headers = this.getHeaders(rows);
+    const fileName = ExportService.buildFileName("orders-export", format);
+
+    if (format === "json") {
+      return {
+        fileName,
+        contentType: "application/json; charset=utf-8",
+        content: JSON.stringify(rows, null, 2),
+      };
+    }
+
+    return {
+      fileName,
+      contentType: "text/csv; charset=utf-8",
+      content: `\uFEFF${ExportService.toCsv(rows, headers)}`,
+    };
+  }
+
+  private flattenOrderForExport(order: IOrder<IOrderCustomerSnapshot>, fields: string[]): Record<string, unknown> {
+    const row: Record<string, unknown> = {};
+
+    fields.forEach((field) => {
+      if (field === "customer") {
+        row["customer._id"] = order.customer?._id?.toString?.() ?? "";
+        row["customer.email"] = order.customer?.email ?? "";
+        row["customer.name"] = order.customer?.name ?? "";
+        return;
+      }
+
+      if (field === "products") {
+        const products = Array.isArray(order.products) ? order.products : [];
+        products.forEach((product, index) => {
+          const base = `products[${index + 1}]`;
+          row[`${base}._id`] = product?._id?.toString?.() ?? "";
+          row[`${base}.name`] = product?.name ?? "";
+          row[`${base}.amount`] = product?.amount ?? "";
+          row[`${base}.price`] = product?.price ?? "";
+          row[`${base}.manufacturer`] = product?.manufacturer ?? "";
+          row[`${base}.notes`] = product?.notes ?? "";
+          row[`${base}.received`] = typeof product?.received === "boolean" ? product.received : "";
+        });
+        return;
+      }
+
+      if (field === "delivery") {
+        row["delivery.finalDate"] = order.delivery?.finalDate ?? "";
+        row["delivery.condition"] = order.delivery?.condition ?? "";
+        row["delivery.address.country"] = order.delivery?.address?.country ?? "";
+        row["delivery.address.city"] = order.delivery?.address?.city ?? "";
+        row["delivery.address.street"] = order.delivery?.address?.street ?? "";
+        row["delivery.address.house"] = order.delivery?.address?.house ?? "";
+        row["delivery.address.flat"] = order.delivery?.address?.flat ?? "";
+        return;
+      }
+
+      if (field === "assignedManager") {
+        row["assignedManager._id"] = order.assignedManager?._id?.toString?.() ?? "";
+        row["assignedManager.firstName"] = order.assignedManager?.firstName ?? "";
+        row["assignedManager.lastName"] = order.assignedManager?.lastName ?? "";
+        return;
+      }
+
+      row[field] = (order as unknown as Record<string, unknown>)[field] ?? "";
+    });
+
+    return row;
+  }
+
+  private getHeaders(rows: Record<string, unknown>[]): string[] {
+    const headers: string[] = [];
+    rows.forEach((row) => {
+      Object.keys(row).forEach((key) => {
+        if (!headers.includes(key)) headers.push(key);
+      });
+    });
+    return headers;
   }
 
   async getOrder(id: Types.ObjectId): Promise<IOrder<ICustomer>> {

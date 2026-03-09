@@ -7,6 +7,7 @@ import {
   AssignManagerRequestDTO,
   CreateOrderRequestDTO,
   DeleteOrderRequestDTO,
+  ExportOrdersRequestDTO,
   GetOrderRequestWithEntityDTO,
   GetOrdersSortedRequestDTO,
   OrderResponseDTO,
@@ -143,6 +144,35 @@ class OrderController {
     } catch (e: any) {
       console.log(e);
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async export(req: ExportOrdersRequestDTO, res: Response) {
+    try {
+      const { format, fields, filters } = req.body ?? {};
+      const exportResult = await OrderService.exportOrders({
+        format,
+        fields: (fields ?? []) as string[],
+        filters: filters
+          ? {
+              search: filters.search,
+              status: filters.status,
+              page: filters.page,
+              limit: filters.limit,
+              sortField: filters.sortField,
+              sortOrder: filters.sortOrder,
+            }
+          : null,
+      });
+
+      res.setHeader("Content-Type", exportResult.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${exportResult.fileName}"`);
+      return res.status(200).send(exportResult.content);
+    } catch (e: any) {
+      if (typeof e?.message === "string" && e.message.startsWith("EXPORT_VALIDATION:")) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: e.message.replace("EXPORT_VALIDATION:", "") });
+      }
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 }
