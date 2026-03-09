@@ -1,6 +1,6 @@
 import OrderService from "../services/order.service.js";
 import CustomerService from "../services/customer.service.js";
-import ProductsService from "../services/products.service.js";
+import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
 import { ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidDate, isValidInput } from "../utils/validations.js";
@@ -54,11 +54,17 @@ export async function orderValidations(
         .json({ IsSuccess: false, ErrorMessage: `Customer with id '${req.body.customer}' wasn't found` });
     }
 
-    for (const p of req.body.products) {
-      const product = await ProductsService.getProduct(new Types.ObjectId(p));
-      if (!product) {
-        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${p}' wasn't found` });
-      }
+    const requestedProducts = req.body.products as string[];
+    const uniqueProductIds = [...new Set(requestedProducts)];
+    const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
+    const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
+    const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
+
+    const missingProductId = uniqueProductIds.find((productId) => !existingProductIds.has(productId));
+    if (missingProductId) {
+      return res
+        .status(404)
+        .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
     }
     next();
   } catch (e: any) {
