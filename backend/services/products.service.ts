@@ -3,11 +3,15 @@ import type { IProduct } from "../data/types";
 import Product from "../models/product.model";
 import { getTodaysDate } from "../utils/utils";
 import { IProductFilters } from "../data/types/product.type";
+import { ProductExportFormatDTO } from "../data/types/dto/products.dto";
+import ExportService from "./export.service";
 
 type ProductSortField = "name" | "price" | "manufacturer" | "createdOn";
 type ProductSortOrder = "asc" | "desc";
 
 class ProductsService {
+  private readonly exportableFields = new Set<string>(["_id", "name", "amount", "price", "manufacturer", "createdOn", "notes"]);
+
   async create(product: Omit<IProduct, "_id" | "createdOn">): Promise<IProduct> {
     const createdProduct = await Product.create({ ...product, createdOn: getTodaysDate(true) });
     return createdProduct;
@@ -34,6 +38,8 @@ class ProductsService {
     filters: {
       manufacturers?: string[];
       search?: string;
+      page?: number;
+      limit?: number;
       sortField?: ProductSortField;
       sortOrder?: ProductSortOrder;
     } = {},
@@ -44,7 +50,61 @@ class ProductsService {
       sortOrder: filters.sortOrder ?? "desc",
     });
 
-    return Product.find(filter).sort(sort).collation({ locale: "en", strength: 2 }).exec();
+    const query = Product.find(filter).sort(sort).collation({ locale: "en", strength: 2 });
+
+    if (typeof filters.page === "number" && typeof filters.limit === "number" && filters.page > 0 && filters.limit > 0) {
+      const skip = (filters.page - 1) * filters.limit;
+      query.skip(skip).limit(filters.limit);
+    }
+
+    return query.exec();
+  }
+
+  async exportProducts(params: {
+    format: ProductExportFormatDTO;
+    fields: string[];
+    filters?: {
+      manufacturers?: string[];
+      search?: string;
+      page?: number;
+      limit?: number;
+      sortField?: ProductSortField;
+      sortOrder?: ProductSortOrder;
+    } | null;
+  }): Promise<{ fileName: string; contentType: string; content: string }> {
+    const { format, fields, filters } = params;
+
+    if (!["csv", "json"].includes(format)) {
+      throw new Error("EXPORT_VALIDATION:Invalid export format");
+    }
+
+    ExportService.assertSelectedFields(fields, this.exportableFields);
+
+    const products = await this.getForExport({
+      manufacturers: filters?.manufacturers ?? [],
+      search: filters?.search ?? "",
+      page: filters?.page,
+      limit: filters?.limit,
+      sortField: filters?.sortField ?? "createdOn",
+      sortOrder: filters?.sortOrder ?? "desc",
+    });
+
+    const rows = ExportService.pickFields(products as unknown as Record<string, unknown>[], fields);
+    const fileName = ExportService.buildFileName("products-export", format);
+
+    if (format === "json") {
+      return {
+        fileName,
+        contentType: "application/json; charset=utf-8",
+        content: JSON.stringify(rows, null, 2),
+      };
+    }
+
+    return {
+      fileName,
+      contentType: "text/csv; charset=utf-8",
+      content: `\uFEFF${ExportService.toCsv(rows, fields)}`,
+    };
   }
 
   private buildFilter(filters: IProductFilters): Record<string, any> {

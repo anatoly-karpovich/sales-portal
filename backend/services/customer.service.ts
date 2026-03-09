@@ -2,11 +2,27 @@ import { Types } from "mongoose";
 import type { ICustomer } from "../data/types";
 import Customer from "../models/customer.model";
 import { getTodaysDate } from "../utils/utils";
+import { CustomerExportFormatDTO } from "../data/types/dto/customers.dto";
+import ExportService from "./export.service";
 
 type CustomerSortField = "email" | "name" | "country" | "createdOn";
 type CustomerSortOrder = "asc" | "desc";
 
 class CustomerService {
+  private readonly exportableFields = new Set<string>([
+    "_id",
+    "email",
+    "name",
+    "country",
+    "city",
+    "street",
+    "house",
+    "flat",
+    "phone",
+    "createdOn",
+    "notes",
+  ]);
+
   async create(customer: Omit<ICustomer, "_id" | "createdOn">): Promise<ICustomer> {
     const createdCustomer = await Customer.create({ ...customer, createdOn: getTodaysDate(true) });
     return createdCustomer;
@@ -43,6 +59,8 @@ class CustomerService {
     filters: {
       search?: string;
       country?: string[];
+      page?: number;
+      limit?: number;
       sortField?: CustomerSortField;
       sortOrder?: CustomerSortOrder;
     } = {}
@@ -53,7 +71,61 @@ class CustomerService {
       sortOrder: filters.sortOrder ?? "desc",
     });
 
-    return Customer.find(filter).sort(sort).collation({ locale: "en", strength: 2 }).exec();
+    const query = Customer.find(filter).sort(sort).collation({ locale: "en", strength: 2 });
+
+    if (typeof filters.page === "number" && typeof filters.limit === "number" && filters.page > 0 && filters.limit > 0) {
+      const skip = (filters.page - 1) * filters.limit;
+      query.skip(skip).limit(filters.limit);
+    }
+
+    return query.exec();
+  }
+
+  async exportCustomers(params: {
+    format: CustomerExportFormatDTO;
+    fields: string[];
+    filters?: {
+      search?: string;
+      country?: string[];
+      page?: number;
+      limit?: number;
+      sortField?: CustomerSortField;
+      sortOrder?: CustomerSortOrder;
+    } | null;
+  }): Promise<{ fileName: string; contentType: string; content: string }> {
+    const { format, fields, filters } = params;
+
+    if (!["csv", "json"].includes(format)) {
+      throw new Error("EXPORT_VALIDATION:Invalid export format");
+    }
+
+    ExportService.assertSelectedFields(fields, this.exportableFields);
+
+    const customers = await this.getForExport({
+      country: filters?.country ?? [],
+      search: filters?.search ?? "",
+      page: filters?.page,
+      limit: filters?.limit,
+      sortField: filters?.sortField ?? "createdOn",
+      sortOrder: filters?.sortOrder ?? "desc",
+    });
+
+    const rows = ExportService.pickFields(customers as unknown as Record<string, unknown>[], fields);
+    const fileName = ExportService.buildFileName("customers-export", format);
+
+    if (format === "json") {
+      return {
+        fileName,
+        contentType: "application/json; charset=utf-8",
+        content: JSON.stringify(rows, null, 2),
+      };
+    }
+
+    return {
+      fileName,
+      contentType: "text/csv; charset=utf-8",
+      content: `\uFEFF${ExportService.toCsv(rows, fields)}`,
+    };
   }
 
   private buildFilter(filters: { search: string; country: string[] }): Record<string, any> {
