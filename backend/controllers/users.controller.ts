@@ -71,6 +71,29 @@ class UsersController {
     }
   }
 
+  async getMe(req: Request, res: Response) {
+    try {
+      const tokenUser = req["user"] as { id?: string } | undefined;
+      const id = tokenUser?.id;
+
+      if (!id) {
+        return res.status(401).json({ IsSuccess: false, ErrorMessage: "Not authorized" });
+      }
+
+      const user = await UsersService.getUser(id);
+      if (!user) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
+      }
+
+      return res.json({ User: user, IsSuccess: true, ErrorMessage: null });
+    } catch (e) {
+      console.log(e);
+      return res
+        .status(400)
+        .json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.GET_USERS, reason: (e as Error).message });
+    }
+  }
+
   async deleteUser(req: Request, res: Response) {
     try {
       const id = req.params.id;
