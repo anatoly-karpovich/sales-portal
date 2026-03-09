@@ -63,6 +63,7 @@ class OrderService {
     filters: { search?: string; status?: string[] },
     sortOptions: { sortField: string; sortOrder: string },
     pagination: { skip: number; limit: number },
+    projectionFields?: string[],
   ): Promise<{ orders: IOrder<IOrderCustomerSnapshot>[]; total: number }> {
     const { search = "", status = [] } = filters;
     const { skip, limit } = pagination;
@@ -101,16 +102,15 @@ class OrderService {
       sort.createdOn = sortOrder;
     }
 
-    const [orders, total] = await Promise.all([
-      Order.find(filter)
-        .select("-history -comments")
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .collation({ locale: "en", strength: 2 })
-        .exec(),
-      Order.countDocuments(filter).exec(),
-    ]);
+    const listQuery = Order.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 });
+
+    if (projectionFields && projectionFields.length > 0) {
+      listQuery.select(projectionFields.join(" "));
+    } else {
+      listQuery.select("-history -comments");
+    }
+
+    const [orders, total] = await Promise.all([listQuery.exec(), Order.countDocuments(filter).exec()]);
 
     return { orders: orders.map((order) => order._doc), total };
   }
@@ -145,7 +145,8 @@ class OrderService {
     const { orders } = await this.getSorted(
       { search: filters?.search ?? "", status: filters?.status ?? [] },
       { sortField: filters?.sortField ?? "createdOn", sortOrder: filters?.sortOrder ?? "desc" },
-      pagination
+      pagination,
+      this.buildExportProjection(fields),
     );
 
     const rows = orders.map((order) => this.flattenOrderForExport(order, fields));
@@ -225,6 +226,34 @@ class OrderService {
       });
     });
     return headers;
+  }
+
+  private buildExportProjection(fields: string[]): string[] {
+    const projection = new Set<string>();
+
+    fields.forEach((field) => {
+      switch (field) {
+        case "customer":
+          projection.add("customer");
+          break;
+        case "products":
+          projection.add("products");
+          break;
+        case "delivery":
+          projection.add("delivery");
+          break;
+        case "assignedManager":
+          projection.add("assignedManager");
+          break;
+        case "status":
+        case "total_price":
+        case "createdOn":
+          projection.add(field);
+          break;
+      }
+    });
+
+    return [...projection];
   }
 
   async getOrder(id: Types.ObjectId): Promise<IOrder<ICustomer>> {

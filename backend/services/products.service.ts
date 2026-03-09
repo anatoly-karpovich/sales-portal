@@ -43,6 +43,7 @@ class ProductsService {
       sortField?: ProductSortField;
       sortOrder?: ProductSortOrder;
     } = {},
+    fields: string[] = [],
   ): Promise<IProduct[]> {
     const filter = this.buildFilter({ manufacturers: filters.manufacturers ?? [], search: filters.search ?? "" });
     const sort = this.buildSort({
@@ -51,6 +52,9 @@ class ProductsService {
     });
 
     const query = Product.find(filter).sort(sort).collation({ locale: "en", strength: 2 });
+    if (fields.length > 0) {
+      query.select(fields.join(" "));
+    }
 
     if (typeof filters.page === "number" && typeof filters.limit === "number" && filters.page > 0 && filters.limit > 0) {
       const skip = (filters.page - 1) * filters.limit;
@@ -80,14 +84,17 @@ class ProductsService {
 
     ExportService.assertSelectedFields(fields, this.exportableFields);
 
-    const products = await this.getForExport({
-      manufacturers: filters?.manufacturers ?? [],
-      search: filters?.search ?? "",
-      page: filters?.page,
-      limit: filters?.limit,
-      sortField: filters?.sortField ?? "createdOn",
-      sortOrder: filters?.sortOrder ?? "desc",
-    });
+    const products = await this.getForExport(
+      {
+        manufacturers: filters?.manufacturers ?? [],
+        search: filters?.search ?? "",
+        page: filters?.page,
+        limit: filters?.limit,
+        sortField: filters?.sortField ?? "createdOn",
+        sortOrder: filters?.sortOrder ?? "desc",
+      },
+      fields,
+    );
 
     const rows = ExportService.pickFields(products as unknown as Record<string, unknown>[], fields);
     const fileName = ExportService.buildFileName("products-export", format);
