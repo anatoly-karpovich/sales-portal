@@ -3,21 +3,21 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
-  CustomerByIdParamsDTO,
-  CustomerCreateOrUpdateRequestDTO,
+  CreateCustomerRequestDTO,
   CustomerResponseDTO,
-  CustomersListResponseDTO,
-  GetCustomerByIdRequestDTO,
+  CustomersResponseDTO,
+  CustomersSortedResponseDTO,
+  DeleteCustomerRequestDTO,
+  GetCustomerRequestWithEntityDTO,
+  GetCustomersSortedRequestDTO,
+  UpdateCustomerRequestDTO,
 } from "../data/types/dto/customers.dto.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class CustomerController {
-  async create(
-    req: Request<unknown, unknown, CustomerCreateOrUpdateRequestDTO>,
-    res: Response<CustomerResponseDTO | BaseResponseDTO>
-  ) {
+  async create(req: CreateCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const customer = await CustomerService.create(req.body);
       res.status(201).json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
@@ -26,7 +26,10 @@ class CustomerController {
     }
   }
 
-  async getAllSorted(req: Request, res: Response<CustomersListResponseDTO | BaseResponseDTO>): Promise<Response> {
+  async getAllSorted(
+    req: GetCustomersSortedRequestDTO,
+    res: Response<CustomersSortedResponseDTO | BaseResponseDTO>
+  ): Promise<Response> {
     try {
       const {
         search = "",
@@ -35,7 +38,7 @@ class CustomerController {
         country,
         page = "1",
         limit = MIN_LIMIT,
-      } = req.query as Record<string, string | undefined>;
+      } = req.query;
 
       const countries = (Array.isArray(country) ? country : country ? [country] : []) as string[];
 
@@ -66,7 +69,7 @@ class CustomerController {
     }
   }
 
-  async getAll(req: Request, res: Response<CustomersListResponseDTO | BaseResponseDTO>) {
+  async getAll(req: Request, res: Response<CustomersResponseDTO | BaseResponseDTO>) {
     try {
       const customers = await CustomerService.getAll();
       return res.json({ Customers: customers, IsSuccess: true, ErrorMessage: null });
@@ -75,19 +78,19 @@ class CustomerController {
     }
   }
 
-  async getCustomer(req: GetCustomerByIdRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
+  async getCustomer(req: GetCustomerRequestWithEntityDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const customer = req.customer;
+      if (!customer) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: "Customer was not found" });
+      }
       return res.json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
-  async update(
-    req: Request<CustomerByIdParamsDTO, unknown, CustomerCreateOrUpdateRequestDTO>,
-    res: Response<CustomerResponseDTO | BaseResponseDTO>
-  ) {
+  async update(req: UpdateCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const id = new Types.ObjectId(req.params.id);
       const updatedCustomer = await CustomerService.update({ ...req.body, ...{ _id: id } });
@@ -97,7 +100,7 @@ class CustomerController {
     }
   }
 
-  async delete(req: Request<CustomerByIdParamsDTO>, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
+  async delete(req: DeleteCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const id = new Types.ObjectId(req.params.id);
       const customer = await CustomerService.delete(id);

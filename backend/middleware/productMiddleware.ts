@@ -4,15 +4,17 @@ import ProductsService from "../services/products.service.js";
 import { Response, NextFunction } from "express";
 import OrderService from "../services/order.service.js";
 import { Types } from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
+  CreateProductRequestDTO,
+  DeleteProductRequestDTO,
   GetProductByIdRequestDTO,
-  ProductCreateOrUpdateRequestDTO,
-  ProductRequestWithEntityDTO,
+  UpdateProductRequestDTO,
 } from "../data/types/dto/products.dto.js";
 
 export async function uniqueProduct(
-  req: ProductRequestWithEntityDTO<GetProductByIdRequestDTO["params"], ProductCreateOrUpdateRequestDTO>,
-  res: Response,
+  req: CreateProductRequestDTO | UpdateProductRequestDTO,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {
@@ -33,8 +35,8 @@ export async function uniqueProduct(
 }
 
 export async function productValidations(
-  req: ProductRequestWithEntityDTO<GetProductByIdRequestDTO["params"], ProductCreateOrUpdateRequestDTO>,
-  res: Response,
+  req: CreateProductRequestDTO | UpdateProductRequestDTO,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {
@@ -65,7 +67,11 @@ export async function productValidations(
   }
 }
 
-export async function productById(req: GetProductByIdRequestDTO, res: Response, next: NextFunction) {
+export async function productById(
+  req: GetProductByIdRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction
+) {
   try {
     const id = req.params.id;
     const product = await ProductsService.getProduct(new Types.ObjectId(id));
@@ -81,8 +87,8 @@ export async function productById(req: GetProductByIdRequestDTO, res: Response, 
 }
 
 export async function deleteProduct(
-  req: ProductRequestWithEntityDTO<GetProductByIdRequestDTO["params"]>,
-  res: Response,
+  req: DeleteProductRequestDTO,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {

@@ -2,9 +2,11 @@ import { Types } from "mongoose";
 import orderDeliveryService from "../services/orderDelivery.service.js";
 import { Request, Response } from "express";
 import { getTokenFromRequest, getDataDataFromToken } from "../utils/utils.js";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import { OrderResponseDTO, UpdateOrderDeliveryRequestDTO } from "../data/types/dto/orders.dto.js";
 
 class OrderDeliveryController {
-  async update(req: Request, res: Response) {
+  async update(req: UpdateOrderDeliveryRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);

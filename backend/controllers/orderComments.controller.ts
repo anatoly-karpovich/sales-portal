@@ -1,9 +1,15 @@
 import { Types } from "mongoose";
 import OrderCommentsService from "../services/orderComments.service";
 import { Request, Response } from "express";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import {
+  CreateOrderCommentRequestDTO,
+  DeleteOrderCommentRequestDTO,
+  OrderResponseDTO,
+} from "../data/types/dto/orders.dto.js";
 
 class OrderCommentsController {
-  async create(req: Request, res: Response) {
+  async create(req: CreateOrderCommentRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const orderId = new Types.ObjectId(req.params.id);
       const comment = req.body.comment as string;
@@ -14,7 +20,7 @@ class OrderCommentsController {
     }
   }
 
-  async delete(req: Request, res: Response) {
+  async delete(req: DeleteOrderCommentRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const orderId = new Types.ObjectId(req.params.id);
       const commentId = new Types.ObjectId(req.params.commentId);

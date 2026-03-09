@@ -2,9 +2,11 @@ import { Types } from "mongoose";
 import orderReceiveService from "../services/orderReceive.service.js";
 import { Request, Response } from "express";
 import { getTokenFromRequest, getDataDataFromToken } from "../utils/utils.js";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import { OrderResponseDTO, ReceiveOrderProductsRequestDTO } from "../data/types/dto/orders.dto.js";
 
 class OrderReceiveController {
-  async receiveProducts(req: Request, res: Response) {
+  async receiveProducts(req: ReceiveOrderProductsRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);

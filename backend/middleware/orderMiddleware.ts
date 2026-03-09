@@ -5,16 +5,20 @@ import { Request, Response, NextFunction } from "express";
 import { ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidDate, isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
+  CreateOrderCommentRequestDTO,
+  CreateOrderRequestDTO,
   GetOrderByIdRequestDTO,
   OrderCommentParamsDTO,
-  OrderDeliveryBodyDTO,
-  OrderReceiveBodyDTO,
+  OrderReceiveRequestDTO,
   OrderRequestWithEntityDTO,
-  OrderStatusBodyDTO,
+  OrderStatusRequestDTO,
+  UpdateOrderDeliveryRequestDTO,
+  UpdateOrderRequestDTO,
 } from "../data/types/dto/orders.dto.js";
 
-export async function orderById(req: GetOrderByIdRequestDTO, res: Response, next: NextFunction) {
+export async function orderById(req: GetOrderByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
     const id = new Types.ObjectId(req.params.id || req.params.orderId);
     const order = await OrderService.getOrder(id);
@@ -29,7 +33,11 @@ export async function orderById(req: GetOrderByIdRequestDTO, res: Response, next
   }
 }
 
-export async function orderValidations(req: Request, res: Response, next: NextFunction) {
+export async function orderValidations(
+  req: CreateOrderRequestDTO | UpdateOrderRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction
+) {
   if (!req.body.customer) {
     return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing customer` });
   }
@@ -39,7 +47,7 @@ export async function orderValidations(req: Request, res: Response, next: NextFu
   }
 
   try {
-    const customer = await CustomerService.getCustomer(req.body.customer);
+    const customer = await CustomerService.getCustomer(new Types.ObjectId(req.body.customer));
     if (!customer) {
       return res
         .status(404)
@@ -47,7 +55,7 @@ export async function orderValidations(req: Request, res: Response, next: NextFu
     }
 
     for (const p of req.body.products) {
-      const product = await ProductsService.getProduct(p);
+      const product = await ProductsService.getProduct(new Types.ObjectId(p));
       if (!product) {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${p}' wasn't found` });
       }
@@ -60,8 +68,8 @@ export async function orderValidations(req: Request, res: Response, next: NextFu
 }
 
 export async function orderStatus(
-  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderStatusBodyDTO>,
-  res: Response,
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderStatusRequestDTO>,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {
@@ -107,7 +115,11 @@ export async function orderStatus(
   }
 }
 
-export async function orderUpdateValidations(req: GetOrderByIdRequestDTO, res: Response, next: NextFunction) {
+export async function orderUpdateValidations(
+  req: GetOrderByIdRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction
+) {
   try {
     const id = req.params.id;
     const order = req.order;
@@ -123,8 +135,8 @@ export async function orderUpdateValidations(req: GetOrderByIdRequestDTO, res: R
 }
 
 export async function orderReceiveValidations(
-  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderReceiveBodyDTO>,
-  res: Response,
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderReceiveRequestDTO>,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {
@@ -160,8 +172,8 @@ export async function orderReceiveValidations(
 }
 
 export async function orderDelivery(
-  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderDeliveryBodyDTO>,
-  res: Response,
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], UpdateOrderDeliveryRequestDTO["body"]>,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {
@@ -202,13 +214,17 @@ export async function orderDelivery(
   next();
 }
 
-export async function orderCommentsCreate(req: Request, res: Response, next: NextFunction) {
+export async function orderCommentsCreate(
+  req: CreateOrderCommentRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction
+) {
   try {
     if (!req.params.id) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
-    const replacedText = req.body.comment.replaceAll("\r", "").replaceAll("\n", "");
+    const replacedText = req.body.comment.replace(/\r/g, "").replace(/\n/g, "");
 
     if (!req.body.comment.length || replacedText.length > 250) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
@@ -222,7 +238,7 @@ export async function orderCommentsCreate(req: Request, res: Response, next: Nex
 
 export async function orderCommentsDelete(
   req: OrderRequestWithEntityDTO<OrderCommentParamsDTO>,
-  res: Response,
+  res: Response<BaseResponseDTO>,
   next: NextFunction
 ) {
   try {

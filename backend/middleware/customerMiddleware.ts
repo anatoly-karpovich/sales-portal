@@ -4,16 +4,18 @@ import CustomerService from "../services/customer.service.js";
 import Order from "../models/order.model.js";
 import { Response, NextFunction } from "express";
 import { Types } from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
-  CustomerCreateOrUpdateRequestDTO,
-  CustomerRequestWithEntityDTO,
+  CreateCustomerRequestDTO,
+  DeleteCustomerRequestDTO,
   GetCustomerByIdRequestDTO,
+  UpdateCustomerRequestDTO,
 } from "../data/types/dto/customers.dto.js";
 
 export async function uniqueCustomer(
-  req: CustomerRequestWithEntityDTO<GetCustomerByIdRequestDTO["params"], CustomerCreateOrUpdateRequestDTO>,
-  res: Response,
-  next: NextFunction
+  req: CreateCustomerRequestDTO | UpdateCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
 ) {
   try {
     const id = req.params.id;
@@ -33,9 +35,9 @@ export async function uniqueCustomer(
 }
 
 export async function customerValidations(
-  req: CustomerRequestWithEntityDTO<GetCustomerByIdRequestDTO["params"], CustomerCreateOrUpdateRequestDTO>,
-  res: Response,
-  next: NextFunction
+  req: CreateCustomerRequestDTO | UpdateCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
 ) {
   try {
     if (
@@ -103,7 +105,7 @@ export async function customerValidations(
   }
 }
 
-export async function customerById(req: GetCustomerByIdRequestDTO, res: Response, next: NextFunction) {
+export async function customerById(req: GetCustomerByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
     const id = req.params.id;
     const customer = await CustomerService.getCustomer(new Types.ObjectId(id));
@@ -119,9 +121,9 @@ export async function customerById(req: GetCustomerByIdRequestDTO, res: Response
 }
 
 export async function deleteCustomer(
-  req: CustomerRequestWithEntityDTO<GetCustomerByIdRequestDTO["params"]>,
-  res: Response,
-  next: NextFunction
+  req: DeleteCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
 ) {
   try {
     const order = await Order.findOne({ customer: new Types.ObjectId(req.params.id) });
@@ -136,4 +138,3 @@ export async function deleteCustomer(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
 }
-
