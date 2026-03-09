@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import OrderService from "../services/order.service";
 import customerService from "../services/customer.service";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 
 class CustomerOrdersController {
   async getOrdersByCustomer(req: Request, res: Response) {
     try {
       const customerId = req.params.customerId;
-      const customer = await customerService.getCustomer(new mongoose.Types.ObjectId(customerId));
+      const customer = await customerService.getCustomer(new Types.ObjectId(customerId));
       if (!customer) {
         return res.status(404).json({
           IsSuccess: false,
@@ -35,3 +35,4 @@ class CustomerOrdersController {
 }
 
 export default new CustomerOrdersController();
+

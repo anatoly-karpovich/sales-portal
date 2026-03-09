@@ -36,7 +36,7 @@ class OrderReceiveService {
 
     orderFromDB.history.unshift({
       ..._.omit(orderFromDB, ["history", "createdOn", "_id"]),
-      customer: orderFromDB.customer._id.toString(),
+      customer: orderFromDB.customer._id,
       changedOn: getTodaysDate(true),
       action,
       performer: manager,

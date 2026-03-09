@@ -7,6 +7,7 @@ import ProductsService from "../services/products.service";
 import { Request } from "express";
 import jsonwebtoken from "jsonwebtoken";
 import { IUserWithRoles } from "../data/types/users.types";
+import { Types } from "mongoose";
 
 export const getTotalPrice = (products: IProduct[]) => {
   return products.reduce((a, b) => {
@@ -24,11 +25,13 @@ export function createHistoryEntry<T extends Omit<IHistory, "changedOn" | "actio
   action: ORDER_HISTORY_ACTIONS,
   performer: IUserWithRoles
 ): IHistory {
+  const customerId =
+    order.customer instanceof Types.ObjectId ? order.customer : new Types.ObjectId(order.customer);
   return {
     action,
     status: order.status,
     products: order.products,
-    customer: order.customer.toString(),
+    customer: customerId,
     delivery: order.delivery,
     total_price: order.total_price,
     changedOn: getTodaysDate(true),
@@ -115,3 +118,4 @@ export function getUserFromRequest(req: Request) {
   const token = getTokenFromRequest(req);
   return getDataDataFromToken(token);
 }
+

@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema<INotification>(
   {
-    userId: { type: String, required: true },
+    userId: { type: mongoose.SchemaTypes.ObjectId, ref: "User", required: true },
     type: { type: String, required: true },
-    orderId: { type: String, required: true },
+    orderId: { type: mongoose.SchemaTypes.ObjectId, ref: "Order", required: true },
     message: { type: String, required: true },
     read: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now },

@@ -4,7 +4,7 @@ import OrderService from "./order.service";
 import _ from "lodash";
 import type { IOrder, ICustomer } from "../data/types";
 import { createHistoryEntry } from "../utils/utils";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
@@ -17,9 +17,9 @@ class OrderStatusService {
     }
     const orderFromDB = await OrderService.getOrder(orderId);
     const manager = await usersService.getUser(performerId);
-    const newOrder: IOrder<string> = {
+    const newOrder: IOrder<Types.ObjectId> = {
       ...orderFromDB,
-      customer: orderFromDB.customer._id.toString(),
+      customer: orderFromDB.customer._id,
       status: status as ORDER_STATUSES,
     };
     let action: ORDER_HISTORY_ACTIONS;
@@ -46,3 +46,4 @@ class OrderStatusService {
 }
 
 export default new OrderStatusService();
+

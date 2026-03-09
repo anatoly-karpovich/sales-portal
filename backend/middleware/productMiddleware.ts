@@ -3,7 +3,7 @@ import { MANUFACTURERS, VALIDATION_ERROR_MESSAGES } from "../data/enums.js";
 import ProductsService from "../services/products.service.js";
 import { Response, NextFunction } from "express";
 import OrderService from "../services/order.service.js";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import {
   GetProductByIdRequestDTO,
   ProductCreateOrUpdateRequestDTO,
@@ -68,7 +68,7 @@ export async function productValidations(
 export async function productById(req: GetProductByIdRequestDTO, res: Response, next: NextFunction) {
   try {
     const id = req.params.id;
-    const product = await ProductsService.getProduct(new mongoose.Types.ObjectId(id));
+    const product = await ProductsService.getProduct(new Types.ObjectId(id));
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${id}' wasn't found` });
     }
@@ -100,3 +100,4 @@ export async function deleteProduct(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
 }
+

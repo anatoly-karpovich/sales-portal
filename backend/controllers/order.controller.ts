@@ -1,6 +1,6 @@
 import OrderService from "../services/order.service.js";
 import { Request, Response } from "express";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
 import { GetOrderByIdRequestDTO } from "../data/types/dto/orders.dto.js";
 
@@ -62,7 +62,7 @@ class OrderController {
 
   async getOrder(req: GetOrderByIdRequestDTO, res: Response) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.id);
       const order = req.body.order ? req.order : await OrderService.getOrder(id);
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -75,7 +75,7 @@ class OrderController {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const orderId = new mongoose.Types.ObjectId(req.params.id);
+      const orderId = new Types.ObjectId(req.params.id);
       const updatedOrder = await OrderService.update(orderId, req.body, userData.id);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -86,7 +86,7 @@ class OrderController {
 
   async delete(req: Request, res: Response): Promise<Response<any, Record<string, any>>> {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.id);
       const order = await OrderService.delete(id);
       return res.status(204).json({ Order: order, IsSuccess: false, ErrorMessage: null });
     } catch (e: any) {
@@ -125,3 +125,4 @@ class OrderController {
 }
 
 export default new OrderController();
+

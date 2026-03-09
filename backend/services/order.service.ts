@@ -1,11 +1,10 @@
 import Order from "../models/order.model";
 import CustomerService from "./customer.service";
 import { IOrder, IOrderRequest, ICustomer, IHistory } from "../data/types";
-import type { Types } from "mongoose";
+import { Types } from "mongoose";
 import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate, customSort } from "../utils/utils";
 import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, ROLES } from "../data/enums";
 import _ from "lodash";
-import mongoose from "mongoose";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
 
@@ -16,9 +15,9 @@ class OrderService {
     const products = await productsMapping(order);
     const performer = await usersService.getUser(performerdId);
     let action = ORDER_HISTORY_ACTIONS.CREATED;
-    const newOrder: IOrder<string> = {
+    const newOrder: IOrder<Types.ObjectId> = {
       status: ORDER_STATUSES.DRAFT,
-      customer: order.customer.toString(),
+      customer: order.customer,
       products,
       delivery: null,
       total_price: getTotalPrice(products),
@@ -109,9 +108,9 @@ class OrderService {
     const products = await productsMapping(order);
     const orderFromDb = await this.getOrder(orderId);
     const manager = await usersService.getUser(performerId);
-    const newOrder: IOrder<string> = {
+    const newOrder: IOrder<Types.ObjectId> = {
       status: ORDER_STATUSES.DRAFT,
-      customer: order.customer.toString(),
+      customer: order.customer,
       products,
       delivery: orderFromDb.delivery,
       total_price: getTotalPrice(products),
@@ -132,7 +131,7 @@ class OrderService {
     ) {
       changed.products = true;
       const o = _.cloneDeep(newOrder);
-      o.customer = orderFromDb.customer._id.toString();
+      o.customer = orderFromDb.customer._id;
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
     }
     if (!_.isEqual(order.customer.toString(), orderFromDb.customer._id.toString())) {
@@ -190,11 +189,11 @@ class OrderService {
       throw new Error("Manager ID was not provided");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(managerId)) {
+    if (!Types.ObjectId.isValid(managerId)) {
       throw new Error("Invalid Manager ID format");
     }
 
-    const orders = await Order.find({ "assignedManager._id": new mongoose.Types.ObjectId(managerId) });
+    const orders = await Order.find({ "assignedManager._id": new Types.ObjectId(managerId) });
 
     return orders;
   }
@@ -267,3 +266,4 @@ class OrderService {
 }
 
 export default new OrderService();
+

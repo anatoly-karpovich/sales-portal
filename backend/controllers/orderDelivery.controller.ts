@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import orderDeliveryService from "../services/orderDelivery.service.js";
 import { Request, Response } from "express";
 import { getTokenFromRequest, getDataDataFromToken } from "../utils/utils.js";
@@ -8,7 +8,7 @@ class OrderDeliveryController {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const orderId = new mongoose.Types.ObjectId(req.params.id);
+      const orderId = new Types.ObjectId(req.params.id);
       const delivery = req.body;
       const updatedOrder = await orderDeliveryService.updateDelivery(orderId, delivery, userData.id);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
@@ -19,3 +19,4 @@ class OrderDeliveryController {
 }
 
 export default new OrderDeliveryController();
+

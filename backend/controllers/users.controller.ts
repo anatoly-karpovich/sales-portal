@@ -7,7 +7,7 @@ import UsersService from "../services/users.service";
 import orderService from "../services/order.service";
 import { getUserFromRequest } from "../utils/utils";
 import Token from "../models/token.model";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 
 class UsersController {
   async registration(req: Request, res: Response) {
@@ -80,7 +80,7 @@ class UsersController {
       const performer = getUserFromRequest(req);
       const deletedUser = await UsersService.delete(id);
       if (performer.id === deletedUser._id.toString()) {
-        await Token.deleteMany({ "token._id": new mongoose.Types.ObjectId(performer.id) });
+        await Token.deleteMany({ "token._id": new Types.ObjectId(performer.id) });
       }
       res.status(204).json({ IsSuccess: true, ErrorMessage: null, User: deletedUser });
     } catch (e) {
@@ -105,3 +105,4 @@ class UsersController {
 }
 
 export default new UsersController();
+

@@ -4,7 +4,7 @@ import ProductsService from "../services/products.service.js";
 import { Request, Response, NextFunction } from "express";
 import { ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidDate, isValidInput } from "../utils/validations.js";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import {
   GetOrderByIdRequestDTO,
   OrderCommentParamsDTO,
@@ -16,7 +16,7 @@ import {
 
 export async function orderById(req: GetOrderByIdRequestDTO, res: Response, next: NextFunction) {
   try {
-    const id = new mongoose.Types.ObjectId(req.params.id || req.params.orderId);
+    const id = new Types.ObjectId(req.params.id || req.params.orderId);
     const order = await OrderService.getOrder(id);
     if (!order) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${id}' wasn't found` });
@@ -242,3 +242,4 @@ export async function orderCommentsDelete(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
 }
+

@@ -1,6 +1,6 @@
 import ProductsService from "../services/products.service.js";
 import { Request, Response } from "express";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import { IProductFilters } from "../data/types/product.type.js";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
@@ -98,7 +98,7 @@ class ProductsController {
     res: Response<ProductResponseDTO | BaseResponseDTO>
   ) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.id);
       const updatedProduct = await ProductsService.update({ ...req.body, _id: id });
       return res.json({ Product: updatedProduct, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -108,7 +108,7 @@ class ProductsController {
 
   async delete(req: Request<ProductByIdParamsDTO>, res: Response) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.id);
       const product = await ProductsService.delete(id);
       return res.status(204).json(product);
     } catch (e: any) {
@@ -118,3 +118,4 @@ class ProductsController {
 }
 
 export default new ProductsController();
+

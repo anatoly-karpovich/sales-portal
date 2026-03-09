@@ -1,6 +1,6 @@
 import CustomerService from "../services/customer.service";
 import { Request, Response } from "express";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
   CustomerByIdParamsDTO,
@@ -89,7 +89,7 @@ class CustomerController {
     res: Response<CustomerResponseDTO | BaseResponseDTO>
   ) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.id);
       const updatedCustomer = await CustomerService.update({ ...req.body, ...{ _id: id } });
       return res.json({ Customer: updatedCustomer, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -99,7 +99,7 @@ class CustomerController {
 
   async delete(req: Request<CustomerByIdParamsDTO>, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
+      const id = new Types.ObjectId(req.params.id);
       const customer = await CustomerService.delete(id);
       return res.status(204).json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
@@ -109,3 +109,4 @@ class CustomerController {
 }
 
 export default new CustomerController();
+

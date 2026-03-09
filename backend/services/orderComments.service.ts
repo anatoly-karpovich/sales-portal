@@ -4,7 +4,7 @@ import OrderService from "./order.service";
 import _ from "lodash";
 import type { IOrder, ICustomer, IComment } from "../data/types";
 import { getTodaysDate } from "../utils/utils";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { NOTIFICATIONS } from "../data/enums";
 import { NotificationService } from "./notification.service";
 
@@ -20,9 +20,9 @@ class OrderCommentsService {
       createdOn: getTodaysDate(true),
     };
     const orderFromDB = await OrderService.getOrder(orderId);
-    const newOrder: IOrder<string> = {
+    const newOrder: IOrder<Types.ObjectId> = {
       ...orderFromDB,
-      customer: orderFromDB.customer._id.toString(),
+      customer: orderFromDB.customer._id,
       comments: [...orderFromDB.comments, comment],
     };
 
@@ -57,3 +57,4 @@ class OrderCommentsService {
 }
 
 export default new OrderCommentsService();
+

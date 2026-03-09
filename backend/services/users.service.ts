@@ -5,6 +5,7 @@ import Role from "../models/role.model";
 import { ROLES } from "../data/enums";
 import bcrypt from "bcrypt";
 import _ from "lodash";
+import { Types } from "mongoose";
 
 class UsersService {
   async create(user: IUser): Promise<IUserWithRoles> {
@@ -20,11 +21,11 @@ class UsersService {
   }
 
   async delete(id: string) {
-    return await User.findByIdAndDelete(id);
+    return await User.findByIdAndDelete(new Types.ObjectId(id));
   }
 
   async getUser(id: string) {
-    const user = await User.findById(id);
+    const user = await User.findById(new Types.ObjectId(id));
     return user ? _.omit(user.toObject(), ["password"]) : null;
   }
 
@@ -46,12 +47,12 @@ class UsersService {
   }
 
   async getUserName(id: string) {
-    const manager = await User.findById(id);
+    const manager = await User.findById(new Types.ObjectId(id));
     return `${manager.firstName} ${manager.lastName}`;
   }
 
   async updatePassword(userId: string, oldPassword: string, newPassword: string) {
-    const user = await User.findById(userId);
+    const user = await User.findById(new Types.ObjectId(userId));
 
     const hashPassword = bcrypt.hashSync(newPassword, 7);
 
@@ -63,3 +64,4 @@ class UsersService {
 }
 
 export default new UsersService();
+

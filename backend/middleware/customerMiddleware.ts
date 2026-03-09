@@ -3,7 +3,7 @@ import { VALIDATION_ERROR_MESSAGES, COUNTRIES } from "../data/enums.js";
 import CustomerService from "../services/customer.service.js";
 import Order from "../models/order.model.js";
 import { Response, NextFunction } from "express";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import {
   CustomerCreateOrUpdateRequestDTO,
   CustomerRequestWithEntityDTO,
@@ -106,7 +106,7 @@ export async function customerValidations(
 export async function customerById(req: GetCustomerByIdRequestDTO, res: Response, next: NextFunction) {
   try {
     const id = req.params.id;
-    const customer = await CustomerService.getCustomer(new mongoose.Types.ObjectId(id));
+    const customer = await CustomerService.getCustomer(new Types.ObjectId(id));
     if (!customer) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Customer with id '${id}' wasn't found` });
     }
@@ -124,7 +124,7 @@ export async function deleteCustomer(
   next: NextFunction
 ) {
   try {
-    const order = await Order.findOne({ customer: req.params.id });
+    const order = await Order.findOne({ customer: new Types.ObjectId(req.params.id) });
     if (order) {
       return res
         .status(400)
@@ -136,3 +136,4 @@ export async function deleteCustomer(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
 }
+
