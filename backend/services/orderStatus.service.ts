@@ -31,6 +31,7 @@ class OrderStatusService {
       newOrder.delivery = null;
     }
 
+    // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
     newOrder.history.unshift(createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager));
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
     if (!updatedOrder) {

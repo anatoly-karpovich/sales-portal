@@ -10,31 +10,10 @@ import { NotificationService } from "./notification.service";
 class OrderReceiveService {
   private notificationService = new NotificationService();
 
-  private normalizeOrderProduct(product: any) {
-    const source = product?._doc && typeof product._doc === "object" ? product._doc : product;
-    const productId = this.extractProductId(product);
-    if (!productId) {
-      return null;
-    }
-
-    return {
-      _id: new Types.ObjectId(productId),
-      name: source?.name,
-      amount: source?.amount,
-      price: source?.price,
-      manufacturer: source?.manufacturer,
-      createdOn: source?.createdOn,
-      notes: source?.notes,
-      received: source?.received === true,
-    };
-  }
-
   private extractProductId(product: any): string | undefined {
     if (!product || typeof product !== "object") return undefined;
     if (typeof product._id === "string") return product._id;
     if (product._id?.toString) return product._id.toString();
-    if (typeof product._doc?._id === "string") return product._doc._id;
-    if (product._doc?._id?.toString) return product._doc._id.toString();
     return undefined;
   }
 
@@ -49,9 +28,7 @@ class OrderReceiveService {
     }
     const orderFromDB: IOrder<ICustomer> = {
       ...currentOrder,
-      products: currentOrder.products
-        .map((product) => this.normalizeOrderProduct(product))
-        .filter((product): product is NonNullable<ReturnType<OrderReceiveService["normalizeOrderProduct"]>> => !!product),
+      products: currentOrder.products.map((product) => ({ ...product })),
       history: [...currentOrder.history],
       comments: [...currentOrder.comments],
     };
@@ -87,6 +64,7 @@ class OrderReceiveService {
     }
 
     orderFromDB.history.unshift(
+      // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
       createHistoryEntry(orderFromDB as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
     );
     const updatedOrder = await Order.findByIdAndUpdate(orderId, orderFromDB, { new: true });

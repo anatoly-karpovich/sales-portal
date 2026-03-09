@@ -119,6 +119,7 @@ class CustomerService {
       fields,
     );
 
+    // TODO(types): make ExportService.pickFields generic and remove array cast.
     const rows = ExportService.pickFields(customers as unknown as Record<string, unknown>[], fields);
     const fileName = ExportService.buildFileName("customers-export", format);
 
@@ -174,8 +175,7 @@ class CustomerService {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const customer = await Customer.findById(id);
-    return customer;
+    return Customer.findById(id).lean().exec();
   }
 
   async update(customer: Omit<ICustomer, "createdOn"> & { _id: Types.ObjectId }): Promise<ICustomer> {

@@ -55,8 +55,9 @@ class OrderService {
   }
 
   async getAll(): Promise<IOrder<IOrderCustomerSnapshot>[]> {
-    const orders = await Order.find();
-    return orders.reverse().map((order) => order._doc);
+    const orders = await Order.find().lean().exec();
+    // TODO(types): replace cast with explicit OrderDb -> OrderListDTO mapper once DB/DTO date/id types are aligned.
+    return orders.reverse() as unknown as IOrder<IOrderCustomerSnapshot>[];
   }
 
   async getSorted(
@@ -102,7 +103,12 @@ class OrderService {
       sort.createdOn = sortOrder;
     }
 
-    const listQuery = Order.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 });
+    const listQuery = Order.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .collation({ locale: "en", strength: 2 })
+      .lean();
 
     if (projectionFields && projectionFields.length > 0) {
       listQuery.select(projectionFields.join(" "));
@@ -112,7 +118,8 @@ class OrderService {
 
     const [orders, total] = await Promise.all([listQuery.exec(), Order.countDocuments(filter).exec()]);
 
-    return { orders: orders.map((order) => order._doc), total };
+    // TODO(types): remove cast by introducing typed lean result + mapper for list payload.
+    return { orders: orders as unknown as IOrder<IOrderCustomerSnapshot>[], total };
   }
 
   async exportOrders(params: {
@@ -212,6 +219,7 @@ class OrderService {
         return;
       }
 
+      // TODO(types): avoid generic index cast by using a typed export-field map.
       row[field] = (order as unknown as Record<string, unknown>)[field] ?? "";
     });
 
@@ -260,12 +268,13 @@ class OrderService {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await Order.findById(id);
+    const orderFromDB = await Order.findById(id).lean().exec();
     if (!orderFromDB) {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
-    return { ...orderFromDB._doc, customer };
+    // TODO(types): replace cast with dedicated getOrderById response mapper (snapshot customer -> full customer).
+    return { ...orderFromDB, customer } as unknown as IOrder<ICustomer>;
   }
 
   async update(
@@ -344,19 +353,20 @@ class OrderService {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const order = await Order.findByIdAndDelete(id);
+    const order = await Order.findByIdAndDelete(id).lean().exec();
     if (!order) {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(order.customer._id);
-    return { ...order._doc, customer };
+    // TODO(types): replace cast with dedicated delete response mapper.
+    return { ...order, customer } as unknown as IOrder<ICustomer>;
   }
 
   async getOrdersByCustomer(customerId: string) {
     if (!customerId) {
       throw new Error("Customer ID was not provided");
     }
-    return Order.find({ "customer._id": new Types.ObjectId(customerId) });
+    return Order.find({ "customer._id": new Types.ObjectId(customerId) }).lean().exec();
   }
 
   async getOrdersByManager(managerId: string) {
@@ -368,7 +378,7 @@ class OrderService {
       throw new Error("Invalid Manager ID format");
     }
 
-    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) });
+    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) }).lean().exec();
   }
 
   async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
@@ -381,6 +391,7 @@ class OrderService {
 
     newOrder.history.unshift(
       createHistoryEntry(
+        // TODO(types): align createHistoryEntry input type with order aggregate shape to remove cast.
         newOrder as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
         ORDER_HISTORY_ACTIONS.MANAGER_ASSIGNED,
         performer,
@@ -411,6 +422,7 @@ class OrderService {
     if (previousAssignee) {
       newOrder.history.unshift(
         createHistoryEntry(
+          // TODO(types): align createHistoryEntry input type with order aggregate shape to remove cast.
           newOrder as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
           ORDER_HISTORY_ACTIONS.MANAGER_UNASSIGNED,
           performer,
