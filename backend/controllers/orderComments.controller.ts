@@ -27,8 +27,8 @@ class OrderCommentsController {
     try {
       const orderId = new Types.ObjectId(req.params.orderId);
       const commentId = new Types.ObjectId(req.params.commentId);
-      const updatedOrder = await OrderCommentsService.deleteComment(orderId, commentId);
-      return res.status(204).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
+      await OrderCommentsService.deleteComment(orderId, commentId);
+      return res.status(204).send();
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }

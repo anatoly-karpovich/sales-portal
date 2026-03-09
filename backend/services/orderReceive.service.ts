@@ -9,6 +9,14 @@ import { NotificationService } from "./notification.service";
 
 class OrderReceiveService {
   private notificationService = new NotificationService();
+  private extractProductId(product: any): string | undefined {
+    if (!product || typeof product !== "object") return undefined;
+    if (typeof product._id === "string") return product._id;
+    if (product._id?.toString) return product._id.toString();
+    if (typeof product._doc?._id === "string") return product._doc._id;
+    if (product._doc?._id?.toString) return product._doc._id.toString();
+    return undefined;
+  }
 
   async receiveProducts(
     orderId: Types.ObjectId,
@@ -27,12 +35,23 @@ class OrderReceiveService {
     };
     const previousStatus = orderFromDB.status;
     const manager = await usersService.getUser(performerId);
-    for (const p of products) {
-      const product = orderFromDB.products.find((el) => el._id.toString() === p.toString() && !el.received);
-      if (product) product.received = true;
+    const requestedProductIds = new Set(products.map((productId) => productId.toString()));
+    let receivedChanged = false;
+    orderFromDB.products = orderFromDB.products.map((product) => {
+      const productId = this.extractProductId(product);
+      if (productId && requestedProductIds.has(productId) && !product.received) {
+        receivedChanged = true;
+        return { ...product, received: true };
+      }
+      return product;
+    });
+
+    if (!receivedChanged) {
+      return OrderService.getOrder(orderId);
     }
+
     const numberOfReceived = orderFromDB.products.filter((el) => el.received).length;
-    let action: ORDER_HISTORY_ACTIONS;
+    let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.RECEIVED;
     if (numberOfReceived > 0 && numberOfReceived < orderFromDB.products.length) {
       orderFromDB.status = ORDER_STATUSES.PARTIALLY_RECEIVED;
       action = ORDER_HISTORY_ACTIONS.RECEIVED;
@@ -43,7 +62,7 @@ class OrderReceiveService {
     }
 
     orderFromDB.history.unshift(
-      createHistoryEntry(orderFromDB as unknown as Parameters<typeof createHistoryEntry>[0], action, manager)
+      createHistoryEntry(orderFromDB as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
     );
     const updatedOrder = await Order.findByIdAndUpdate(orderId, orderFromDB, { new: true });
     if (!updatedOrder) {

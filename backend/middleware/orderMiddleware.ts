@@ -164,7 +164,12 @@ export async function orderReceiveValidations(
     }
 
     for (const product of req.body.products) {
-      if (!order.products.find((el) => el._id.toString() === product)) {
+      if (
+        !order.products.find((el) => {
+          const id = (el as any)?._id?.toString?.() ?? (el as any)?._doc?._id?.toString?.();
+          return id === product;
+        })
+      ) {
         return res
           .status(400)
           .json({ IsSuccess: false, ErrorMessage: `Product with Id '${product}' is not requested` });

@@ -104,8 +104,8 @@ class CustomerController {
   async delete(req: DeleteCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
     try {
       const id = new Types.ObjectId(req.params.customerId);
-      const customer = await CustomerService.delete(id);
-      return res.status(204).json({ Customer: customer, IsSuccess: true, ErrorMessage: null });
+      await CustomerService.delete(id);
+      return res.status(204).send();
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }

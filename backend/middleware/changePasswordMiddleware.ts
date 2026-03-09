@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from "express";
 import { getUserFromRequest } from "../utils/utils";
-import User from "../models/user.model";
 import bcrypt from "bcrypt";
 import { ROLES } from "../data/enums";
 import userModel from "../models/user.model";
@@ -10,6 +9,9 @@ export async function changePasswordMiddleware(req: Request, res: Response, next
     const dataFromToken = getUserFromRequest(req);
     const user = await userModel.findById(req.params.userId);
     const userId = req.params.userId;
+    if (!user) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
+    }
     if (userId !== dataFromToken.id && !dataFromToken.roles.includes(ROLES.ADMIN)) {
       return res.status(403).json({ IsSuccess: false, ErrorMessage: "Not allowed to change password" });
     }

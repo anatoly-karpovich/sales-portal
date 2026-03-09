@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import UsersService from "../services/users.service.js";
 import { ROLES } from "../data/enums.js";
 import { getUserFromRequest } from "../utils/utils.js";
-import mongoose from "mongoose";
 
 export async function deleteUserMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
@@ -13,6 +12,9 @@ export async function deleteUserMiddleware(req: Request, res: Response, next: Ne
 
     const performer = getUserFromRequest(req);
     const userToDelete = await UsersService.getUser(req.params.userId);
+    if (!userToDelete) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
+    }
     if (userToDelete && userToDelete.roles.includes(ROLES.ADMIN)) {
       return res.status(403).json({ IsSuccess: false, ErrorMessage: "Not allowed to delete admin" });
     }

@@ -117,8 +117,8 @@ class ProductsController {
   async delete(req: DeleteProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const id = new Types.ObjectId(req.params.productId);
-      const product = await ProductsService.delete(id);
-      return res.status(204).json({ Product: product, IsSuccess: true, ErrorMessage: null });
+      await ProductsService.delete(id);
+      return res.status(204).send();
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }

@@ -70,7 +70,17 @@ export function createHistoryEntry(
 export async function productsMapping<T extends Pick<IOrderRequest, "products">>(order: T): Promise<IProductInOrder[]> {
   const products = await Promise.all(
     order.products.map(async (id) => {
-      return { ...(await ProductsService.getProduct(id))._doc, received: false };
+      const product = await ProductsService.getProduct(id);
+      return {
+        _id: new Types.ObjectId(product._id),
+        name: product.name,
+        amount: product.amount,
+        price: product.price,
+        manufacturer: product.manufacturer,
+        createdOn: product.createdOn,
+        notes: product.notes,
+        received: false,
+      };
     })
   );
   return products;
