@@ -1,17 +1,38 @@
 import OrderService from "../services/order.service.js";
 import { Request, Response } from "express";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import {
+  AssignManagerRequestDTO,
+  CreateOrderRequestDTO,
+  DeleteOrderRequestDTO,
+  ExportOrdersRequestDTO,
+  GetOrderRequestWithEntityDTO,
+  GetOrdersSortedRequestDTO,
+  OrderResponseDTO,
+  OrdersSortedResponseDTO,
+  UnassignManagerRequestDTO,
+  UpdateOrderRequestDTO,
+} from "../data/types/dto/orders.dto.js";
+import { IOrderRequest } from "../data/types/order.type.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class OrderController {
-  async create(req: Request, res: Response) {
+  private mapOrderRequestBody(body: CreateOrderRequestDTO["body"] | UpdateOrderRequestDTO["body"]): IOrderRequest {
+    return {
+      customer: new Types.ObjectId(body.customer),
+      products: body.products.map((id) => new Types.ObjectId(id)),
+    };
+  }
+
+  async create(req: CreateOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const order = await OrderService.create(req.body, userData.id);
+      const order = await OrderService.create(this.mapOrderRequestBody(req.body), userData.id);
       res.status(201).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -19,23 +40,25 @@ class OrderController {
     }
   }
 
-  async getAll(req: Request, res: Response): Promise<Response> {
+  async getAll(
+    req: GetOrdersSortedRequestDTO,
+    res: Response<OrdersSortedResponseDTO | BaseResponseDTO>,
+  ): Promise<Response> {
     try {
       const {
         search = "",
         sortField = "createdOn",
         sortOrder = "asc",
+        status,
         page = "1",
         limit = MIN_LIMIT,
-      } = req.query as Record<string, string | undefined>;
+      } = req.query;
 
       const pageNumber = Math.max(parseInt(page), 1);
       const limitNumber = Math.min(Math.max(+limit, MIN_LIMIT), MAX_LIMIT);
       const skip = (pageNumber - 1) * limitNumber;
 
-      const statuses = (
-        Array.isArray(req.query.status) ? req.query.status : req.query.status ? [req.query.status] : []
-      ) as string[];
+      const statuses = (Array.isArray(status) ? status : status ? [status] : []) as string[];
 
       const filters = { search, status: statuses };
       const sortOptions = { sortField, sortOrder };
@@ -59,10 +82,12 @@ class OrderController {
     }
   }
 
-  async getOrder(req: Request, res: Response) {
+  async getOrder(req: GetOrderRequestWithEntityDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
-      const order = await OrderService.getOrder(id);
+      const order = req.order;
+      if (!order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: "Order was not found" });
+      }
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -70,12 +95,15 @@ class OrderController {
     }
   }
 
-  async update(req: Request, res: Response) {
+  async update(req: UpdateOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const orderId = new mongoose.Types.ObjectId(req.params.id);
-      const updatedOrder = await OrderService.update(orderId, req.body, userData.id);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+      const orderId = new Types.ObjectId(req.params.orderId);
+      const updatedOrder = await OrderService.update(orderId, this.mapOrderRequestBody(req.body), userData.id, req.order);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -83,24 +111,27 @@ class OrderController {
     }
   }
 
-  async delete(req: Request, res: Response): Promise<Response<any, Record<string, any>>> {
+  async delete(req: DeleteOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>): Promise<Response> {
     try {
-      const id = new mongoose.Types.ObjectId(req.params.id);
-      const order = await OrderService.delete(id);
-      return res.status(204).json({ Order: order, IsSuccess: false, ErrorMessage: null });
+      const id = new Types.ObjectId(req.params.orderId);
+      await OrderService.delete(id);
+      return res.status(204).send();
     } catch (e: any) {
       console.log(e);
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
-  async assignManager(req: Request, res: Response) {
+  async assignManager(req: AssignManagerRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const performerData = getDataDataFromToken(token);
       const { orderId, managerId } = req.params;
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${orderId}' wasn't found` });
+      }
 
-      const order = await OrderService.assignManager(orderId, managerId, performerData.id);
+      const order = await OrderService.assignManager(orderId, managerId, performerData.id, req.order);
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -108,19 +139,52 @@ class OrderController {
     }
   }
 
-  async unassignManager(req: Request, res: Response) {
+  async unassignManager(req: UnassignManagerRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const performerData = getDataDataFromToken(token);
       const { orderId } = req.params;
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${orderId}' wasn't found` });
+      }
 
-      const order = await OrderService.unassignManager(orderId, performerData.id);
+      const order = await OrderService.unassignManager(orderId, performerData.id, req.order);
       res.status(200).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async export(req: ExportOrdersRequestDTO, res: Response) {
+    try {
+      const { format, fields, filters } = req.body ?? {};
+      const exportResult = await OrderService.exportOrders({
+        format,
+        fields: (fields ?? []) as string[],
+        filters: filters
+          ? {
+              search: filters.search,
+              status: filters.status,
+              page: filters.page,
+              limit: filters.limit,
+              sortField: filters.sortField,
+              sortOrder: filters.sortOrder,
+            }
+          : null,
+      });
+
+      res.setHeader("Content-Type", exportResult.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${exportResult.fileName}"`);
+      return res.status(200).send(exportResult.content);
+    } catch (e: any) {
+      if (typeof e?.message === "string" && e.message.startsWith("EXPORT_VALIDATION:")) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: e.message.replace("EXPORT_VALIDATION:", "") });
+      }
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 }
 
 export default new OrderController();
+

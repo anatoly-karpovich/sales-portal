@@ -4,6 +4,18 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const notification = Router();
 
+notification.get("/notifications", authmiddleware, NotificationController.getNotifications.bind(NotificationController));
+notification.patch(
+  "/notifications/:notificationId/read",
+  authmiddleware,
+  NotificationController.readNotification.bind(NotificationController),
+);
+notification.patch(
+  "/notifications/mark-all-read",
+  authmiddleware,
+  NotificationController.readAllNotifications.bind(NotificationController),
+);
+
 /**
  * @swagger
  * components:
@@ -68,13 +80,6 @@ const notification = Router();
  *     summary: Get all notifications for the authenticated user
  *     tags: [Notifications]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -114,13 +119,6 @@ const notification = Router();
  *           type: string
  *         required: true
  *         description: The ID of the notification to mark as read
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -154,13 +152,6 @@ const notification = Router();
  *     summary: Mark all notifications as read for the authenticated user
  *     tags: [Notifications]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -187,8 +178,5 @@ const notification = Router();
  *         description: Server error
  */
 
-notification.get("/notifications", authmiddleware, NotificationController.getNotifications);
-notification.patch("/notifications/:notificationId/read", authmiddleware, NotificationController.readNotification);
-notification.patch("/notifications/mark-all-read", authmiddleware, NotificationController.readAllNotifications);
-
 export default notification;
+

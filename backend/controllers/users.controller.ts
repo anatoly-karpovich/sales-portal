@@ -2,12 +2,10 @@ import { VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { Request, Response } from "express";
 import User from "../models/user.model";
 import { validationResult } from "express-validator";
-import _ from "lodash";
 import UsersService from "../services/users.service";
 import orderService from "../services/order.service";
-import { getUserFromRequest } from "../utils/utils";
 import Token from "../models/token.model";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 
 class UsersController {
   async registration(req: Request, res: Response) {
@@ -57,11 +55,14 @@ class UsersController {
 
   async getUser(req: Request, res: Response) {
     try {
-      const id = req.params.id;
+      const id = req.params.userId;
       if (!id) {
         throw new Error("Id was not provided");
       }
       const [user, orders] = await Promise.all([UsersService.getUser(id), orderService.getOrdersByManager(id)]);
+      if (!user) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
+      }
       res.json({ User: user, Orders: orders, IsSuccess: true, ErrorMessage: null });
     } catch (e) {
       console.log(e);
@@ -71,27 +72,50 @@ class UsersController {
     }
   }
 
+  async getMe(req: Request, res: Response) {
+    try {
+      const tokenUser = req["user"] as { id?: string } | undefined;
+      const id = tokenUser?.id;
+
+      if (!id) {
+        return res.status(401).json({ IsSuccess: false, ErrorMessage: "Not authorized" });
+      }
+
+      const user = await UsersService.getUser(id);
+      if (!user) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
+      }
+
+      return res.json({ User: user, IsSuccess: true, ErrorMessage: null });
+    } catch (e) {
+      console.log(e);
+      return res
+        .status(400)
+        .json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.GET_USERS, reason: (e as Error).message });
+    }
+  }
+
   async deleteUser(req: Request, res: Response) {
     try {
-      const id = req.params.id;
+      const id = req.params.userId;
       if (!id) {
         throw new Error("Id was not provided");
       }
-      const performer = getUserFromRequest(req);
       const deletedUser = await UsersService.delete(id);
-      if (performer.id === deletedUser._id.toString()) {
-        await Token.deleteMany({ "token._id": new mongoose.Types.ObjectId(performer.id) });
+      if (!deletedUser) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
       }
-      res.status(204).json({ IsSuccess: true, ErrorMessage: null, User: deletedUser });
+      await Token.deleteMany({ userId: new Types.ObjectId(id) });
+      return res.status(204).send();
     } catch (e) {
       console.log(e);
-      res.status(400).json({ IsSuccess: false, ErrorMessage: "Failed to delete user", reason: (e as Error).message });
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Failed to delete user", reason: (e as Error).message });
     }
   }
 
   async changePassword(req: Request, res: Response) {
     try {
-      const userId = req.params.id;
+      const userId = req.params.userId;
       const { oldPassword, newPassword } = req.body;
 
       const updatedUser = await UsersService.updatePassword(userId, oldPassword, newPassword);
@@ -105,3 +129,4 @@ class UsersController {
 }
 
 export default new UsersController();
+

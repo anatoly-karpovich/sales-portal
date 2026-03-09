@@ -1,7 +1,5 @@
 import Order from "../models/order.model";
-import CustomerService from "./customer.service";
 import OrderService from "./order.service";
-import _ from "lodash";
 import type { IOrder, ICustomer } from "../data/types";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
@@ -11,15 +9,18 @@ import { NotificationService } from "./notification.service";
 
 class OrderStatusService {
   private notificationService = new NotificationService();
-  async updateStatus(orderId: Types.ObjectId, status: string, performerId: string): Promise<IOrder<ICustomer>> {
+  async updateStatus(
+    orderId: Types.ObjectId,
+    status: string,
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await OrderService.getOrder(orderId);
     const manager = await usersService.getUser(performerId);
-    const newOrder: IOrder<string> = {
-      ...orderFromDB,
-      customer: orderFromDB.customer._id.toString(),
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
       status: status as ORDER_STATUSES,
     };
     let action: ORDER_HISTORY_ACTIONS;
@@ -30,9 +31,12 @@ class OrderStatusService {
       newOrder.delivery = null;
     }
 
-    newOrder.history.unshift(createHistoryEntry(newOrder, action, manager));
+    // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
+    newOrder.history.unshift(createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager));
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
         userId: updatedOrder.assignedManager._id.toString(),
@@ -41,8 +45,9 @@ class OrderStatusService {
         message: NOTIFICATIONS.statusChanged(updatedOrder.status),
       });
     }
-    return { ...updatedOrder._doc, customer };
+    return OrderService.getOrder(updatedOrder._id);
   }
 }
 
 export default new OrderStatusService();
+

@@ -4,6 +4,8 @@ import { authmiddleware } from "../middleware/authmiddleware";
 
 const router = express.Router();
 
+router.get("/metrics", authmiddleware, MetricsController.getMetrics.bind(MetricsController));
+
 /**
  * @swagger
  * components:
@@ -29,7 +31,7 @@ const router = express.Router();
  *             recentOrders:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/Order'
+ *                 $ref: '#/components/schemas/OrderListItem'
  *               description: Recently created orders
  *             ordersCountPerDay:
  *               type: array
@@ -104,13 +106,6 @@ const router = express.Router();
  *     summary: Get business metrics for the current year
  *     tags: [Metrics]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -126,6 +121,5 @@ const router = express.Router();
  *         description: Server error
  */
 
-router.get("/metrics", authmiddleware, MetricsController.getMetrics);
-
 export default router;
+

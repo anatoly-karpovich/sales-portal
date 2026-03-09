@@ -1,24 +1,44 @@
 import Order from "../models/order.model";
 import CustomerService from "./customer.service";
-import { IOrder, IOrderRequest, ICustomer, IHistory } from "../data/types";
-import type { Types } from "mongoose";
-import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate, customSort } from "../utils/utils";
-import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, ROLES } from "../data/enums";
+import { IOrder, IOrderRequest, ICustomer, IHistory, IOrderCustomerSnapshot } from "../data/types";
+import { Types } from "mongoose";
+import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
+import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import _ from "lodash";
-import mongoose from "mongoose";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
+import ExportService from "./export.service";
+import { OrderExportFormatDTO } from "../data/types/dto/orders.dto";
 
 class OrderService {
   private notificationService = new NotificationService();
+  private readonly exportableFields = new Set<string>([
+    "status",
+    "total_price",
+    "delivery",
+    "customer",
+    "products",
+    "assignedManager",
+    "createdOn",
+  ]);
+
+  private buildCustomerSnapshot(customer: ICustomer): IOrderCustomerSnapshot {
+    return {
+      _id: new Types.ObjectId(customer._id),
+      email: customer.email,
+      name: customer.name,
+    };
+  }
 
   async create(order: IOrderRequest, performerdId: string): Promise<IOrder<ICustomer>> {
     const products = await productsMapping(order);
     const performer = await usersService.getUser(performerdId);
-    let action = ORDER_HISTORY_ACTIONS.CREATED;
-    const newOrder: IOrder<string> = {
+    const customer = await CustomerService.getCustomer(order.customer);
+    const customerSnapshot = this.buildCustomerSnapshot(customer);
+
+    const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
-      customer: order.customer.toString(),
+      customer: customerSnapshot,
       products,
       delivery: null,
       total_price: getTotalPrice(products),
@@ -27,122 +47,284 @@ class OrderService {
       comments: [],
       assignedManager: null,
     };
-    newOrder.history.unshift(createHistoryEntry(newOrder, action, performer));
-    const createdOrder = await Order.create(newOrder);
-    const customer = await CustomerService.getCustomer(createdOrder.customer);
 
-    return { ...createdOrder._doc, customer };
+    newOrder.history.unshift(createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer));
+    const createdOrder = await Order.create(newOrder);
+
+    return this.getOrder(createdOrder._id);
   }
 
-  async getAll(): Promise<IOrder<ICustomer>[]> {
-    const ordersFromDB = await Order.find();
-    let orders = ordersFromDB.map(async (order) => {
-      return {
-        ...order._doc,
-        customer: await CustomerService.getCustomer(order.customer),
-      };
-    });
-    return (await Promise.all(orders)).reverse();
+  async getAll(): Promise<IOrder<IOrderCustomerSnapshot>[]> {
+    const orders = await Order.find().lean().exec();
+    // TODO(types): replace cast with explicit OrderDb -> OrderListDTO mapper once DB/DTO date/id types are aligned.
+    return orders.reverse() as unknown as IOrder<IOrderCustomerSnapshot>[];
   }
 
   async getSorted(
     filters: { search?: string; status?: string[] },
     sortOptions: { sortField: string; sortOrder: string },
-    pagination: { skip: number; limit: number }
-  ): Promise<{ orders: IOrder<ICustomer>[]; total: number }> {
+    pagination: { skip: number; limit: number },
+    projectionFields?: string[],
+  ): Promise<{ orders: IOrder<IOrderCustomerSnapshot>[]; total: number }> {
     const { search = "", status = [] } = filters;
     const { skip, limit } = pagination;
 
-    let ordersFromDB = await Order.find().exec();
+    const filter: Record<string, unknown> = {};
 
-    // Джойним кастомеров
-    let orders = await Promise.all(
-      ordersFromDB.map(async (order) => {
-        const customer = await CustomerService.getCustomer(order.customer);
-        return {
-          ...order._doc,
-          customer,
-        };
-      })
-    );
+    if (status.length > 0) {
+      filter.status = { $in: status };
+    }
 
-    // Фильтрация
     if (search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
       const searchNumber = parseFloat(search);
+      const searchConditions: Record<string, unknown>[] = [
+        { "customer.name": { $regex: searchRegex } },
+        { "customer.email": { $regex: searchRegex } },
+        { status: { $regex: searchRegex } },
+      ];
 
-      orders = orders.filter(
-        (order) =>
-          order._id.toString().match(searchRegex) ||
-          order.customer.name.match(searchRegex) ||
-          order.customer.email.match(searchRegex) ||
-          (!isNaN(searchNumber) && order.total_price === searchNumber) ||
-          order.status.match(searchRegex)
-      );
+      if (Types.ObjectId.isValid(search.trim())) {
+        searchConditions.push({ _id: new Types.ObjectId(search.trim()) });
+      }
+
+      if (!isNaN(searchNumber)) {
+        searchConditions.push({ total_price: searchNumber });
+      }
+
+      filter.$or = searchConditions;
     }
 
-    if (status.length > 0) {
-      orders = orders.filter((order) => status.includes(order.status));
+    const allowedSortFields = new Set(["createdOn", "total_price", "status"]);
+    const sortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
+    const sortOrder = sortOptions.sortOrder === "asc" ? 1 : -1;
+    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
+    if (sortField !== "createdOn") {
+      sort.createdOn = sortOrder;
     }
 
-    const total = orders.length;
-    const sorted = customSort(orders, sortOptions);
-    const paginated = sorted.slice(skip, skip + limit);
+    const listQuery = Order.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .collation({ locale: "en", strength: 2 })
+      .lean();
 
-    return { orders: paginated, total };
+    if (projectionFields && projectionFields.length > 0) {
+      listQuery.select(projectionFields.join(" "));
+    } else {
+      listQuery.select("-history -comments");
+    }
+
+    const [orders, total] = await Promise.all([listQuery.exec(), Order.countDocuments(filter).exec()]);
+
+    // TODO(types): remove cast by introducing typed lean result + mapper for list payload.
+    return { orders: orders as unknown as IOrder<IOrderCustomerSnapshot>[], total };
+  }
+
+  async exportOrders(params: {
+    format: OrderExportFormatDTO;
+    fields: string[];
+    filters?: {
+      search?: string;
+      status?: string[];
+      page?: number;
+      limit?: number;
+      sortField?: "createdOn" | "total_price" | "status";
+      sortOrder?: "asc" | "desc";
+    } | null;
+  }): Promise<{ fileName: string; contentType: string; content: string }> {
+    const { format, fields, filters } = params;
+
+    if (!["csv", "json"].includes(format)) {
+      throw new Error("EXPORT_VALIDATION:Invalid export format");
+    }
+
+    ExportService.assertSelectedFields(fields, this.exportableFields);
+
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 0;
+    const pagination =
+      typeof page === "number" && typeof limit === "number" && page > 0 && limit > 0
+        ? { skip: (page - 1) * limit, limit }
+        : { skip: 0, limit: 1000000 };
+
+    const { orders } = await this.getSorted(
+      { search: filters?.search ?? "", status: filters?.status ?? [] },
+      { sortField: filters?.sortField ?? "createdOn", sortOrder: filters?.sortOrder ?? "desc" },
+      pagination,
+      this.buildExportProjection(fields),
+    );
+
+    const rows = orders.map((order) => this.flattenOrderForExport(order, fields));
+    const headers = this.getHeaders(rows);
+    const fileName = ExportService.buildFileName("orders-export", format);
+
+    if (format === "json") {
+      return {
+        fileName,
+        contentType: "application/json; charset=utf-8",
+        content: JSON.stringify(rows, null, 2),
+      };
+    }
+
+    return {
+      fileName,
+      contentType: "text/csv; charset=utf-8",
+      content: `\uFEFF${ExportService.toCsv(rows, headers)}`,
+    };
+  }
+
+  private flattenOrderForExport(order: IOrder<IOrderCustomerSnapshot>, fields: string[]): Record<string, unknown> {
+    const row: Record<string, unknown> = {};
+
+    fields.forEach((field) => {
+      if (field === "customer") {
+        row["customer._id"] = order.customer?._id?.toString?.() ?? "";
+        row["customer.email"] = order.customer?.email ?? "";
+        row["customer.name"] = order.customer?.name ?? "";
+        return;
+      }
+
+      if (field === "products") {
+        const products = Array.isArray(order.products) ? order.products : [];
+        products.forEach((product, index) => {
+          const base = `products[${index + 1}]`;
+          row[`${base}._id`] = product?._id?.toString?.() ?? "";
+          row[`${base}.name`] = product?.name ?? "";
+          row[`${base}.amount`] = product?.amount ?? "";
+          row[`${base}.price`] = product?.price ?? "";
+          row[`${base}.manufacturer`] = product?.manufacturer ?? "";
+          row[`${base}.notes`] = product?.notes ?? "";
+          row[`${base}.received`] = typeof product?.received === "boolean" ? product.received : "";
+        });
+        return;
+      }
+
+      if (field === "delivery") {
+        row["delivery.finalDate"] = order.delivery?.finalDate ?? "";
+        row["delivery.condition"] = order.delivery?.condition ?? "";
+        row["delivery.address.country"] = order.delivery?.address?.country ?? "";
+        row["delivery.address.city"] = order.delivery?.address?.city ?? "";
+        row["delivery.address.street"] = order.delivery?.address?.street ?? "";
+        row["delivery.address.house"] = order.delivery?.address?.house ?? "";
+        row["delivery.address.flat"] = order.delivery?.address?.flat ?? "";
+        return;
+      }
+
+      if (field === "assignedManager") {
+        row["assignedManager._id"] = order.assignedManager?._id?.toString?.() ?? "";
+        row["assignedManager.firstName"] = order.assignedManager?.firstName ?? "";
+        row["assignedManager.lastName"] = order.assignedManager?.lastName ?? "";
+        return;
+      }
+
+      // TODO(types): avoid generic index cast by using a typed export-field map.
+      row[field] = (order as unknown as Record<string, unknown>)[field] ?? "";
+    });
+
+    return row;
+  }
+
+  private getHeaders(rows: Record<string, unknown>[]): string[] {
+    const headers: string[] = [];
+    rows.forEach((row) => {
+      Object.keys(row).forEach((key) => {
+        if (!headers.includes(key)) headers.push(key);
+      });
+    });
+    return headers;
+  }
+
+  private buildExportProjection(fields: string[]): string[] {
+    const projection = new Set<string>();
+
+    fields.forEach((field) => {
+      switch (field) {
+        case "customer":
+          projection.add("customer");
+          break;
+        case "products":
+          projection.add("products");
+          break;
+        case "delivery":
+          projection.add("delivery");
+          break;
+        case "assignedManager":
+          projection.add("assignedManager");
+          break;
+        case "status":
+        case "total_price":
+        case "createdOn":
+          projection.add(field);
+          break;
+      }
+    });
+
+    return [...projection];
   }
 
   async getOrder(id: Types.ObjectId): Promise<IOrder<ICustomer>> {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await Order.findById(id);
+    const orderFromDB = await Order.findById(id).lean().exec();
     if (!orderFromDB) {
       return undefined;
     }
-    const customer = await CustomerService.getCustomer(orderFromDB.customer);
-    const assignedManager = await usersService.getUser(orderFromDB.assignedManager as unknown as string);
-    return { ...orderFromDB._doc, customer, assignedManager };
+    const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
+    // TODO(types): replace cast with dedicated getOrderById response mapper (snapshot customer -> full customer).
+    return { ...orderFromDB, customer } as unknown as IOrder<ICustomer>;
   }
 
-  async update(orderId: Types.ObjectId, order: IOrderRequest, performerId: string): Promise<IOrder<ICustomer>> {
+  async update(
+    orderId: Types.ObjectId,
+    order: IOrderRequest,
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     const products = await productsMapping(order);
-    const orderFromDb = await this.getOrder(orderId);
     const manager = await usersService.getUser(performerId);
-    const newOrder: IOrder<string> = {
+    const customer = await CustomerService.getCustomer(order.customer);
+    const customerSnapshot = this.buildCustomerSnapshot(customer);
+
+    const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
-      customer: order.customer.toString(),
+      customer: customerSnapshot,
       products,
-      delivery: orderFromDb.delivery,
+      delivery: currentOrder.delivery,
       total_price: getTotalPrice(products),
-      history: orderFromDb.history,
-      createdOn: orderFromDb.createdOn,
-      comments: orderFromDb.comments,
-      assignedManager: orderFromDb.assignedManager,
+      history: currentOrder.history,
+      createdOn: currentOrder.createdOn,
+      comments: currentOrder.comments,
+      assignedManager: currentOrder.assignedManager,
     };
-    let changed = {
-      products: false,
-      customer: false,
-    };
+
+    const changed = { products: false, customer: false };
+
     if (
       !_.isEqual(
         order.products,
-        orderFromDb.products.map((p) => p._id.toString())
+        currentOrder.products.map((p) => p._id.toString()),
       )
     ) {
       changed.products = true;
       const o = _.cloneDeep(newOrder);
-      o.customer = orderFromDb.customer._id.toString();
+      o.customer = this.buildCustomerSnapshot(currentOrder.customer as ICustomer);
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
     }
-    if (!_.isEqual(order.customer.toString(), orderFromDb.customer._id.toString())) {
+
+    if (!_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
       changed.customer = true;
       const o = _.cloneDeep(newOrder);
-      o.products = [...orderFromDb.products];
+      o.products = [...currentOrder.products];
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
     }
+
     const updatedOrder = await Order.findByIdAndUpdate(orderId, newOrder, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
 
     if (updatedOrder.assignedManager) {
       if (changed.products) {
@@ -162,27 +344,29 @@ class OrderService {
         });
       }
     }
-    return { ...updatedOrder._doc, customer };
+
+    return this.getOrder(updatedOrder._id);
   }
 
   async delete(id: Types.ObjectId): Promise<IOrder<ICustomer>> {
+    console.log(id);
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const order = await Order.findByIdAndDelete(id);
-    const customer = await CustomerService.getCustomer(order.customer);
-    return { ...order._doc, customer };
+    const order = await Order.findByIdAndDelete(id).lean().exec();
+    if (!order) {
+      return undefined;
+    }
+    const customer = await CustomerService.getCustomer(order.customer._id);
+    // TODO(types): replace cast with dedicated delete response mapper.
+    return { ...order, customer } as unknown as IOrder<ICustomer>;
   }
 
   async getOrdersByCustomer(customerId: string) {
     if (!customerId) {
       throw new Error("Customer ID was not provided");
     }
-
-    // Assuming that the `customer` field in the order contains the customer's ID
-    const orders = await Order.find({ customer: customerId });
-
-    return orders;
+    return Order.find({ "customer._id": new Types.ObjectId(customerId) }).lean().exec();
   }
 
   async getOrdersByManager(managerId: string) {
@@ -190,79 +374,75 @@ class OrderService {
       throw new Error("Manager ID was not provided");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(managerId)) {
+    if (!Types.ObjectId.isValid(managerId)) {
       throw new Error("Invalid Manager ID format");
     }
 
-    const orders = await Order.find({ "assignedManager._id": new mongoose.Types.ObjectId(managerId) });
-
-    return orders;
+    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) }).lean().exec();
   }
 
-  // Назначить менеджера
-  async assignManager(orderId: string, managerId: string, performerId: string) {
+  async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
     const manager = await usersService.getUser(managerId);
-    const order = await Order.findById(orderId);
-    order.assignedManager = manager;
-
-    // performer — это кто выполняет действие
     const performer = await usersService.getUser(performerId);
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
+      assignedManager: manager,
+    };
 
-    // Добавить запись в history
-    order.history.unshift(
+    newOrder.history.unshift(
       createHistoryEntry(
-        order as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
+        // TODO(types): align createHistoryEntry input type with order aggregate shape to remove cast.
+        newOrder as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
         ORDER_HISTORY_ACTIONS.MANAGER_ASSIGNED,
-        performer
-      )
+        performer,
+      ),
     );
 
-    await order.save();
+    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), newOrder, { new: true });
+    if (!updatedOrder) throw new Error("Order not found");
 
     await this.notificationService.create({
-      userId: order.assignedManager._id.toString(),
-      orderId: order._id.toString(),
+      userId: updatedOrder.assignedManager._id.toString(),
+      orderId: updatedOrder._id.toString(),
       type: "assigned",
       message: NOTIFICATIONS.assigned,
     });
-    const customer = await CustomerService.getCustomer(order.customer);
 
-    return { ...order._doc, customer, assignedManager: manager };
+    return this.getOrder(updatedOrder._id);
   }
 
-  // Снять менеджера
-  async unassignManager(orderId: string, performerId: string) {
-    const order = await Order.findById(orderId);
-    if (!order) throw new Error("Order not found");
-
-    const previousAssignee = order.assignedManager;
-    order.assignedManager = null;
-
+  async unassignManager(orderId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
+    const previousAssignee = currentOrder.assignedManager;
     const performer = await usersService.getUser(performerId);
+    const newOrder: IOrder<ICustomer> = {
+      ...currentOrder,
+      assignedManager: null,
+    };
 
     if (previousAssignee) {
-      order.history.unshift(
+      newOrder.history.unshift(
         createHistoryEntry(
-          order as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
+          // TODO(types): align createHistoryEntry input type with order aggregate shape to remove cast.
+          newOrder as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
           ORDER_HISTORY_ACTIONS.MANAGER_UNASSIGNED,
-          performer
-        )
+          performer,
+        ),
       );
     }
 
-    await order.save();
+    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), newOrder, { new: true });
+    if (!updatedOrder) throw new Error("Order not found");
 
     if (previousAssignee) {
       await this.notificationService.create({
         userId: previousAssignee._id.toString(),
-        orderId: order._id.toString(),
+        orderId: updatedOrder._id.toString(),
         type: "unassigned",
         message: NOTIFICATIONS.unassigned,
       });
     }
-    const customer = await CustomerService.getCustomer(order.customer);
 
-    return { ...order._doc, customer, assignedManager: null };
+    return this.getOrder(updatedOrder._id);
   }
 }
 

@@ -158,4 +158,19 @@ class OrdersService {
       },
     });
   }
+
+  static async exportOrders(payload) {
+    const options = {
+      method: "post",
+      baseURL: BASE_URL,
+      url: ENDPOINTS["Orders Export"],
+      headers: {
+        Authorization: getAuthorizationCookie(),
+        ["Content-Type"]: "application/json",
+      },
+      responseType: "blob",
+      data: payload,
+    };
+    return sendRequest(options);
+  }
 }

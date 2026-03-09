@@ -6,6 +6,46 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const productsRouter = Router();
 
+productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted.bind(ProductsController));
+
+productsRouter.get("/products/all", authmiddleware, ProductsController.getAll.bind(ProductsController));
+
+productsRouter.post("/products/export", authmiddleware, ProductsController.export.bind(ProductsController));
+
+productsRouter.get(
+  "/products/:productId",
+  authmiddleware,
+  productById,
+  ProductsController.getProduct.bind(ProductsController),
+);
+
+productsRouter.post(
+  "/products",
+  authmiddleware,
+  schemaMiddleware("productSchema"),
+  uniqueProduct,
+  productValidations,
+  ProductsController.create.bind(ProductsController),
+);
+
+productsRouter.put(
+  "/products/:productId",
+  authmiddleware,
+  schemaMiddleware("productSchema"),
+  uniqueProduct,
+  productById,
+  productValidations,
+  ProductsController.update.bind(ProductsController),
+);
+
+productsRouter.delete(
+  "/products/:productId",
+  authmiddleware,
+  productById,
+  deleteProduct,
+  ProductsController.delete.bind(ProductsController),
+);
+
 /**
  * @swagger
  * components:
@@ -80,6 +120,100 @@ const productsRouter = Router();
  *         "price": 1
  *         "manufacturer": "Apple"
  *         "notes": "note 1"
+ *
+ *     ProductResponse:
+ *       type: object
+ *       required:
+ *         - Product
+ *         - IsSuccess
+ *         - ErrorMessage
+ *       properties:
+ *         Product:
+ *           $ref: '#/components/schemas/Product'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *
+ *     ProductsListResponse:
+ *       type: object
+ *       required:
+ *         - Products
+ *         - IsSuccess
+ *         - ErrorMessage
+ *       properties:
+ *         Products:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Product'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *
+ *     ProductsSortedResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/ProductsListResponse'
+ *         - type: object
+ *           properties:
+ *             total:
+ *               type: number
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             search:
+ *               type: string
+ *             manufacturer:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             sorting:
+ *               type: object
+ *               properties:
+ *                 sortField:
+ *                   type: string
+ *                   enum: [name, price, manufacturer, createdOn]
+ *                 sortOrder:
+ *                   type: string
+ *                   enum: [asc, desc]
+ *
+ *     ProductExportPayload:
+ *       type: object
+ *       required:
+ *         - format
+ *         - fields
+ *       properties:
+ *         format:
+ *           type: string
+ *           enum: [csv, json]
+ *         filters:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             search:
+ *               type: string
+ *             manufacturer:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             sortField:
+ *               type: string
+ *               enum: [name, price, manufacturer, createdOn]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         fields:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [_id, name, amount, price, manufacturer, createdOn, notes]
  */
 
 /**
@@ -96,13 +230,6 @@ const productsRouter = Router();
  *     summary: Get the list of products with optional filters and sorting
  *     tags: [Products]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: query
  *         name: manufacturer
  *         schema:
@@ -138,16 +265,12 @@ const productsRouter = Router();
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductsSortedResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
  *         description: Server error
  */
-
-productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted);
 
 /**
  * @swagger
@@ -156,13 +279,6 @@ productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted)
  *     summary: Get the list of all products (no pagination, filters or sorting)
  *     tags: [Products]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -171,37 +287,26 @@ productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted)
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductsListResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
  *         description: Server error
  */
 
-productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
-
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/{productId}:
  *   get:
  *     summary: Get the product by Id
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: productId
  *         schema:
  *           type: string
  *         required: true
  *         description: The product id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -210,7 +315,7 @@ productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
@@ -219,8 +324,6 @@ productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
  *         description: Server error
  */
 
-productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct);
-
 /**
  * @swagger
  * /api/products:
@@ -228,13 +331,6 @@ productsRouter.get("/products/:id", authmiddleware, productById, ProductsControl
  *     summary: Create a new product
  *     tags: [Products]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -249,7 +345,7 @@ productsRouter.get("/products/:id", authmiddleware, productById, ProductsControl
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -260,35 +356,19 @@ productsRouter.get("/products/:id", authmiddleware, productById, ProductsControl
  *         description: Server error
  */
 
-productsRouter.post(
-  "/products",
-  authmiddleware,
-  schemaMiddleware("productSchema"),
-  uniqueProduct,
-  productValidations,
-  ProductsController.create
-);
-
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/{productId}:
  *   put:
  *     summary: Update the product by Id
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: productId
  *         schema:
  *           type: string
  *         required: true
  *         description: The product id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -303,7 +383,7 @@ productsRouter.post(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -316,36 +396,54 @@ productsRouter.post(
  *         description: Server error
  */
 
-productsRouter.put(
-  "/products/:id",
-  authmiddleware,
-  schemaMiddleware("productSchema"),
-  uniqueProduct,
-  productById,
-  productValidations,
-  ProductsController.update
-);
+/**
+ * @swagger
+ * /api/products/export:
+ *   post:
+ *     summary: Export products in CSV/JSON format
+ *     tags: [Products]
+ *     parameters:
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductExportPayload'
+ *     responses:
+ *       200:
+ *         description: Export file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           application/json:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ */
 
 /**
  * @swagger
- * /api/products/{id}:
+ * /api/products/{productId}:
  *   delete:
  *     summary: Delete the product by Id
  *     tags: [Products]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: productId
  *         schema:
  *           type: string
  *         required: true
  *         description: The product id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -361,6 +459,7 @@ productsRouter.put(
  *         description: Server error
  */
 
-productsRouter.delete("/products/:id", authmiddleware, productById, deleteProduct, ProductsController.delete);
-
 export default productsRouter;
+
+
+

@@ -1,22 +1,122 @@
 import { Types } from "mongoose";
 import type { IProduct } from "../data/types";
 import Product from "../models/product.model";
-import { customSort, getTodaysDate } from "../utils/utils";
+import { getTodaysDate } from "../utils/utils";
 import { IProductFilters } from "../data/types/product.type";
+import { ProductExportFormatDTO } from "../data/types/dto/products.dto";
+import ExportService from "./export.service";
+
+type ProductSortField = "name" | "price" | "manufacturer" | "createdOn";
+type ProductSortOrder = "asc" | "desc";
 
 class ProductsService {
-  async create(product: IProduct): Promise<IProduct> {
+  private readonly exportableFields = new Set<string>(["_id", "name", "amount", "price", "manufacturer", "createdOn", "notes"]);
+
+  async create(product: Omit<IProduct, "_id" | "createdOn">): Promise<IProduct> {
     const createdProduct = await Product.create({ ...product, createdOn: getTodaysDate(true) });
     return createdProduct;
   }
 
   async getSorted(
     filters: IProductFilters,
-    sortOptions: { sortField: string; sortOrder: string },
-    pagination: { skip: number; limit: number }
+    sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder },
+    pagination: { skip: number; limit: number },
   ): Promise<{ products: IProduct[]; total: number }> {
-    const { manufacturers, search } = filters;
     const { skip, limit } = pagination;
+    const filter = this.buildFilter(filters);
+    const sort = this.buildSort(sortOptions);
+
+    const [products, total] = await Promise.all([
+      Product.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 }).exec(),
+      Product.countDocuments(filter).exec(),
+    ]);
+
+    return { products, total };
+  }
+
+  async getForExport(
+    filters: {
+      manufacturers?: string[];
+      search?: string;
+      page?: number;
+      limit?: number;
+      sortField?: ProductSortField;
+      sortOrder?: ProductSortOrder;
+    } = {},
+    fields: string[] = [],
+  ): Promise<IProduct[]> {
+    const filter = this.buildFilter({ manufacturers: filters.manufacturers ?? [], search: filters.search ?? "" });
+    const sort = this.buildSort({
+      sortField: filters.sortField ?? "createdOn",
+      sortOrder: filters.sortOrder ?? "desc",
+    });
+
+    const query = Product.find(filter).sort(sort).collation({ locale: "en", strength: 2 });
+    if (fields.length > 0) {
+      query.select(fields.join(" "));
+    }
+
+    if (typeof filters.page === "number" && typeof filters.limit === "number" && filters.page > 0 && filters.limit > 0) {
+      const skip = (filters.page - 1) * filters.limit;
+      query.skip(skip).limit(filters.limit);
+    }
+
+    return query.exec();
+  }
+
+  async exportProducts(params: {
+    format: ProductExportFormatDTO;
+    fields: string[];
+    filters?: {
+      manufacturers?: string[];
+      search?: string;
+      page?: number;
+      limit?: number;
+      sortField?: ProductSortField;
+      sortOrder?: ProductSortOrder;
+    } | null;
+  }): Promise<{ fileName: string; contentType: string; content: string }> {
+    const { format, fields, filters } = params;
+
+    if (!["csv", "json"].includes(format)) {
+      throw new Error("EXPORT_VALIDATION:Invalid export format");
+    }
+
+    ExportService.assertSelectedFields(fields, this.exportableFields);
+
+    const products = await this.getForExport(
+      {
+        manufacturers: filters?.manufacturers ?? [],
+        search: filters?.search ?? "",
+        page: filters?.page,
+        limit: filters?.limit,
+        sortField: filters?.sortField ?? "createdOn",
+        sortOrder: filters?.sortOrder ?? "desc",
+      },
+      fields,
+    );
+
+    // TODO(types): make ExportService.pickFields generic and remove array cast.
+    const rows = ExportService.pickFields(products as unknown as Record<string, unknown>[], fields);
+    const fileName = ExportService.buildFileName("products-export", format);
+
+    if (format === "json") {
+      return {
+        fileName,
+        contentType: "application/json; charset=utf-8",
+        content: JSON.stringify(rows, null, 2),
+      };
+    }
+
+    return {
+      fileName,
+      contentType: "text/csv; charset=utf-8",
+      content: `\uFEFF${ExportService.toCsv(rows, fields)}`,
+    };
+  }
+
+  private buildFilter(filters: IProductFilters): Record<string, any> {
+    const { manufacturers, search } = filters;
 
     const filter: Record<string, any> = {};
 
@@ -39,13 +139,20 @@ class ProductsService {
       }
     }
 
-    const all = await Product.find(filter).exec();
-    const total = all.length;
+    return filter;
+  }
 
-    const sorted = customSort(all, sortOptions);
-    const paginated = sorted.slice(skip, skip + limit);
+  private buildSort(sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder }): Record<string, 1 | -1> {
+    const allowedSortFields = new Set<ProductSortField>(["name", "price", "manufacturer", "createdOn"]);
+    const sortField: ProductSortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
+    const sortOrder: 1 | -1 = sortOptions.sortOrder === "asc" ? 1 : -1;
 
-    return { products: paginated, total };
+    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
+    if (sortField !== "createdOn") {
+      sort.createdOn = sortOrder;
+    }
+
+    return sort;
   }
 
   async getAll() {
@@ -57,11 +164,10 @@ class ProductsService {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const product = await Product.findById(id);
-    return product;
+    return Product.findById(id).lean().exec();
   }
 
-  async update(product: IProduct): Promise<IProduct> {
+  async update(product: Omit<IProduct, "createdOn"> & { _id: Types.ObjectId }): Promise<IProduct> {
     if (!product._id) {
       throw new Error("Id was not provided");
     }

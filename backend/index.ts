@@ -36,7 +36,7 @@ const cors_options: cors.CorsOptions = {
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   preflightContinue: false,
   optionsSuccessStatus: 200,
-  exposedHeaders: ["Authorization", "X-User-Name"],
+  exposedHeaders: ["Authorization", "X-User-Name", "Content-Disposition", "Content-Type"],
 };
 
 app.use(cors(cors_options));

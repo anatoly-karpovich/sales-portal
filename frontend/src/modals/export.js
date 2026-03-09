@@ -102,6 +102,7 @@ function createExportModal() {
   `;
   exportModalWrap.insertAdjacentHTML("afterbegin", layout);
   document.body.prepend(exportModalWrap);
+  updateExportButtonState();
 
   const exportModal = new bootstrap.Modal(exportModalWrap.querySelector(".modal"));
   exportModal.show();
@@ -134,6 +135,7 @@ function toggleSelectAllFields(checkbox) {
   const isChecked = checkbox.getAttribute("checked") === "";
   const checkboxes = [...document.querySelectorAll('[name="export-field"]')];
   checkboxes.forEach((el) => (isChecked ? el.setAttribute("checked", "") : el.removeAttribute("checked")));
+  updateExportButtonState();
 }
 
 function handleExportSelectAllFields() {
@@ -146,15 +148,16 @@ function handleExportSelectAllFields() {
 function exportCheckboxHandler(checkbox) {
   checkbox.toggleAttribute("checked");
   handleExportSelectAllFields();
+  updateExportButtonState();
+}
 
-  const checkboxes = [...document.querySelectorAll('[name="export-field"]')];
-  const isAllUnchecked = checkboxes.every((el) => el.getAttribute("checked") === null);
+function updateExportButtonState() {
   const exportButton = document.getElementById("export-button");
-  if (isAllUnchecked) {
-    exportButton.setAttribute("disabled", "");
-  } else {
-    exportButton.removeAttribute("disabled");
-  }
+  if (!exportButton) return;
+  const hasSelectedFields = [...document.querySelectorAll('[name="export-field"]')].some(
+    (el) => el.getAttribute("checked") === ""
+  );
+  exportButton.toggleAttribute("disabled", !hasSelectedFields);
 }
 
 async function submitExport(button) {
@@ -163,77 +166,140 @@ async function submitExport(button) {
     const fields = [...document.querySelectorAll('[name="export-field"]:checked')].map((el) => el.value);
     const exportAll = document.querySelector("#exportFilteringForm input:checked").value === "all";
     const exportType = document.querySelector("#exportFormatForm input:checked").value;
-    let data;
+
     if (state.page === "Products") {
-      const response = exportAll ? await ProductsService.getProducts() : await getSortedProducts();
-      data = response.data.Products;
-    } else if (state.page === "Customers") {
-      const response = exportAll ? await CustomersService.getCustomers() : await getSortedCustomers();
-      data = response.data.Customers;
-    } else if (state.page === "Orders") {
-      const response = exportAll ? await OrdersService.getOrders() : await getSortedOrders();
-      data = response.data.Orders;
+      const payload = {
+        format: exportType,
+        filters: exportAll ? null : getProductsExportFilters(),
+        fields,
+      };
+      const response = await ProductsService.exportProducts(payload);
+      if (response.status !== STATUS_CODES.OK) {
+        await renderExportError(response);
+        return;
+      }
+      downloadExportFile(response, exportType, "products");
+      renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
+      return;
     }
-    data = data.map((p) =>
-      fields.reduce((acc, field) => {
-        let obj = { ...acc };
-        if (typeof p[field] === "object") {
-          if (field === "customer") {
-            const customer = _.omit(p[field], "_id");
-            Object.keys(customer).forEach(
-              (key) =>
-                (obj[`${replaceApiToFeKeys[field] ?? _.capitalize(field)} - ${_.capitalize(replaceApiToFeKeys[key])}`] =
-                  p[field][key])
-            );
-          } else if (field === "products") {
-            p[field].forEach((el, i) => {
-              const product = _.omit(el, "_id");
-              Object.keys(product).forEach(
-                (key) => (obj[`Product ${i + 1} - ${_.capitalize(replaceApiToFeKeys[key])}`] = el[key])
-              );
-            });
-          } else if (field === "assignedManager") {
-            if (p[field]) {
-              const manager = p[field] ? _.pick(p[field], "firstName", "lastName") : { firstName: "", lastName: "" };
-              Object.keys(manager).forEach(
-                (key) =>
-                  (obj[
-                    `${replaceApiToFeKeys[field] ?? _.capitalize(field)} - ${_.capitalize(replaceApiToFeKeys[key])}`
-                  ] = p[field][key])
-              );
-            }
-          } else if (field === "delivery") {
-            if (p[field]) {
-              const d = p[field];
-              const deivery = p[field]
-                ? { finalDate: convertToDate(d.finalDate), condition: d.condition, ...d.address }
-                : {
-                    country: "",
-                    city: "",
-                    street: "",
-                    house: "",
-                    flat: "",
-                    finalDate: "",
-                    condition: "",
-                  };
-              Object.keys(deivery).forEach(
-                (key) =>
-                  (obj[
-                    `${replaceApiToFeKeys[field] ?? _.capitalize(field)} - ${_.capitalize(replaceApiToFeKeys[key])}`
-                  ] = deivery[key])
-              );
-            }
-          }
-        } else obj[replaceApiToFeKeys[field]] = p[field];
-        return obj;
-      }, {})
-    );
-    exportDataToFile(data, exportType);
-    renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
+
+    if (state.page === "Customers") {
+      const payload = {
+        format: exportType,
+        filters: exportAll ? null : getCustomersExportFilters(),
+        fields,
+      };
+      const response = await CustomersService.exportCustomers(payload);
+      if (response.status !== STATUS_CODES.OK) {
+        await renderExportError(response);
+        return;
+      }
+      downloadExportFile(response, exportType, "customers");
+      renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
+      return;
+    }
+
+    if (state.page === "Orders") {
+      const payload = {
+        format: exportType,
+        filters: exportAll ? null : getOrdersExportFilters(),
+        fields,
+      };
+      const response = await OrdersService.exportOrders(payload);
+      if (response.status !== STATUS_CODES.OK) {
+        await renderExportError(response);
+        return;
+      }
+      downloadExportFile(response, exportType, "orders");
+      renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
+      return;
+    }
   } catch (e) {
     console.error(e);
     renderNotification({ message: ERROR_MESSAGES["Failed to export"] }, true);
   } finally {
     removeExportModal();
   }
+}
+
+async function renderExportError(response) {
+  const defaultMessage = ERROR_MESSAGES["Failed to export"];
+  let message = defaultMessage;
+
+  try {
+    if (response?.data instanceof Blob) {
+      const text = await response.data.text();
+      const parsed = JSON.parse(text);
+      if (parsed?.ErrorMessage) message = parsed.ErrorMessage;
+    } else if (response?.data?.ErrorMessage) {
+      message = response.data.ErrorMessage;
+    }
+  } catch (_) {}
+
+  renderNotification({ message }, true);
+}
+
+function getProductsExportFilters() {
+  const search = state.search.products || "";
+  const manufacturer = Object.keys(state.filtering.products).filter((item) => state.filtering.products[item]);
+  const { page, limit } = state.pagination.products;
+  const { sortField, sortOrder } = state.sorting.products;
+
+  return {
+    search,
+    manufacturer,
+    page,
+    limit,
+    sortField,
+    sortOrder,
+  };
+}
+
+function getCustomersExportFilters() {
+  const search = state.search.customers || "";
+  const country = Object.keys(state.filtering.customers).filter((item) => state.filtering.customers[item]);
+  const { page, limit } = state.pagination.customers;
+  const { sortField, sortOrder } = state.sorting.customers;
+
+  return {
+    search,
+    country,
+    page,
+    limit,
+    sortField,
+    sortOrder,
+  };
+}
+
+function getOrdersExportFilters() {
+  const search = state.search.orders || "";
+  const status = Object.keys(state.filtering.orders).filter((item) => state.filtering.orders[item]);
+  const { page, limit } = state.pagination.orders;
+  const { sortField, sortOrder } = state.sorting.orders;
+
+  return {
+    search,
+    status,
+    page,
+    limit,
+    sortField,
+    sortOrder,
+  };
+}
+
+function downloadExportFile(response, exportType, entityName = "export") {
+  const blob = response.data;
+  const disposition = response.headers?.["content-disposition"] || "";
+  const filenameMatch = disposition.match(/filename="(.+?)"/i);
+  const fallbackExt = exportType === "json" ? "json" : "csv";
+  const filename = filenameMatch ? filenameMatch[1] : `${entityName}-export.${fallbackExt}`;
+
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
 }

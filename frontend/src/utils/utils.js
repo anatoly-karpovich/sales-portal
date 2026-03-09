@@ -411,6 +411,7 @@ function formRadioHandler(event, form) {
   if (target.tagName !== "INPUT" || target.type !== "radio") return;
   const inputs = [...form.querySelectorAll('input[type="radio"]')];
   inputs.forEach((input) => {
+    input.checked = input === target;
     input.removeAttribute("checked");
     if (input === target) {
       input.setAttribute("checked", "");

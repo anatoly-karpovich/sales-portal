@@ -1,10 +1,8 @@
-import _ from "lodash";
 import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
-import type { IOrder, IOrderDocument, ICustomer } from "../data/types";
+import type { IOrder, ICustomer } from "../data/types";
 import Order from "../models/order.model";
-import CustomerService from "./customer.service";
 import OrderService from "./order.service";
-import { getTodaysDate } from "../utils/utils";
+import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
@@ -12,19 +10,50 @@ import { NotificationService } from "./notification.service";
 class OrderReceiveService {
   private notificationService = new NotificationService();
 
-  async receiveProducts(orderId: Types.ObjectId, products: string[], performerId: string): Promise<IOrder<ICustomer>> {
+  private extractProductId(product: any): string | undefined {
+    if (!product || typeof product !== "object") return undefined;
+    if (typeof product._id === "string") return product._id;
+    if (product._id?.toString) return product._id.toString();
+    return undefined;
+  }
+
+  async receiveProducts(
+    orderId: Types.ObjectId,
+    products: string[],
+    performerId: string,
+    currentOrder: IOrder<ICustomer>,
+  ): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await OrderService.getOrder(orderId);
+    const orderFromDB: IOrder<ICustomer> = {
+      ...currentOrder,
+      products: currentOrder.products.map((product) => ({ ...product })),
+      history: [...currentOrder.history],
+      comments: [...currentOrder.comments],
+    };
     const previousStatus = orderFromDB.status;
     const manager = await usersService.getUser(performerId);
-    for (const p of products) {
-      const product = orderFromDB.products.find((el) => el._id.toString() === p.toString() && !el.received);
-      if (product) product.received = true;
+    const requestedProductIds = products.map((productId) => productId.toString());
+    let receivedChanged = false;
+    for (const requestedProductId of requestedProductIds) {
+      const productIndex = orderFromDB.products.findIndex((product) => {
+        const productId = this.extractProductId(product);
+        return productId === requestedProductId && !product.received;
+      });
+
+      if (productIndex !== -1) {
+        orderFromDB.products[productIndex] = { ...orderFromDB.products[productIndex], received: true };
+        receivedChanged = true;
+      }
     }
+
+    if (!receivedChanged) {
+      return OrderService.getOrder(orderId);
+    }
+
     const numberOfReceived = orderFromDB.products.filter((el) => el.received).length;
-    let action: ORDER_HISTORY_ACTIONS;
+    let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.RECEIVED;
     if (numberOfReceived > 0 && numberOfReceived < orderFromDB.products.length) {
       orderFromDB.status = ORDER_STATUSES.PARTIALLY_RECEIVED;
       action = ORDER_HISTORY_ACTIONS.RECEIVED;
@@ -34,15 +63,14 @@ class OrderReceiveService {
       action = ORDER_HISTORY_ACTIONS.RECEIVED_ALL;
     }
 
-    orderFromDB.history.unshift({
-      ..._.omit(orderFromDB, ["history", "createdOn", "_id"]),
-      customer: orderFromDB.customer._id.toString(),
-      changedOn: getTodaysDate(true),
-      action,
-      performer: manager,
-    });
+    orderFromDB.history.unshift(
+      // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
+      createHistoryEntry(orderFromDB as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
+    );
     const updatedOrder = await Order.findByIdAndUpdate(orderId, orderFromDB, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
 
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
@@ -71,7 +99,7 @@ class OrderReceiveService {
       }
     }
 
-    return { ...updatedOrder._doc, customer };
+    return OrderService.getOrder(updatedOrder._id);
   }
 }
 

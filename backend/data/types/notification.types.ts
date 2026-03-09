@@ -1,4 +1,4 @@
-import { Schema, model, Document } from "mongoose";
+import { Document, Types } from "mongoose";
 
 export type NotificationType =
   | "assigned"
@@ -15,9 +15,9 @@ export type NotificationType =
   | "assigned";
 
 export interface INotification extends Document {
-  userId: string;
+  userId: Types.ObjectId;
   type: NotificationType;
-  orderId: string;
+  orderId: Types.ObjectId;
   message: string;
   read: boolean;
   createdAt: Date;

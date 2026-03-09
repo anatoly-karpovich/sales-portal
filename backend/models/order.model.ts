@@ -4,7 +4,7 @@ import { IOrderDocument } from "../data/types";
 
 const user = new mongoose.Schema(
   {
-    _id: { type: String, required: true },
+    _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
     username: { type: String, required: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
@@ -50,7 +50,7 @@ const comment = new mongoose.Schema({
 const history = new mongoose.Schema(
   {
     status: { type: String, required: true },
-    customer: { type: String, required: true },
+    customer: { type: mongoose.SchemaTypes.ObjectId, required: true },
     products: [{ type: product, required: true }],
     total_price: { type: Number, require: true },
     delivery: { type: delivery, required: false },
@@ -62,10 +62,19 @@ const history = new mongoose.Schema(
   { _id: false, versionKey: false }
 );
 
+const customerSnapshot = new mongoose.Schema(
+  {
+    _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    email: { type: String, required: true },
+    name: { type: String, required: true },
+  },
+  { _id: false, versionKey: false }
+);
+
 const Order = new mongoose.Schema(
   {
     status: { type: String, required: true },
-    customer: { type: mongoose.SchemaTypes.ObjectId, ref: "Customer", required: true },
+    customer: { type: customerSnapshot, required: true },
     products: [{ type: product, required: true }],
     delivery: { type: delivery, required: false },
     total_price: { type: Number, require: true },
@@ -76,5 +85,8 @@ const Order = new mongoose.Schema(
   },
   { versionKey: false }
 );
+
+Order.index({ "customer._id": 1 });
+Order.index({ "customer.email": 1 });
 
 export default mongoose.model<IOrderDocument>("Order", Order);

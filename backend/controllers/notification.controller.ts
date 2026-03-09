@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import { Request, Response } from "express";
 import { NotificationService } from "../services/notification.service";
 import { getTokenFromRequest, getDataDataFromToken } from "../utils/utils";
@@ -22,7 +21,9 @@ class NotificationController {
       const notificationId = req.params.notificationId;
       const notifications = await service.markNotificationAsRead(notificationId, userId);
       return res.json({ Notifications: notifications, IsSuccess: true, ErrorMessage: null });
-    } catch (err) {}
+    } catch (err: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: err.message });
+    }
   }
 
   async readAllNotifications(req: Request, res: Response) {
@@ -31,7 +32,9 @@ class NotificationController {
       const userId = getDataDataFromToken(token).id;
       const notifications = await service.markAllNotificationsAsRead(userId);
       return res.json({ Notifications: notifications, IsSuccess: true, ErrorMessage: null });
-    } catch (err) {}
+    } catch (err: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: err.message });
+    }
   }
 }
 

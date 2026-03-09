@@ -1,14 +1,21 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import OrderService from "../services/order.service";
-import customerService from "../services/customer.service";
-import mongoose from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import { GetCustomerByIdRequestDTO } from "../data/types/dto/customers.dto.js";
+import { IOrder, IOrderCustomerSnapshot } from "../data/types/order.type.js";
+
+type CustomerOrdersResponseDTO = BaseResponseDTO & {
+  Orders: IOrder<IOrderCustomerSnapshot>[];
+};
 
 class CustomerOrdersController {
-  async getOrdersByCustomer(req: Request, res: Response) {
+  async getOrdersByCustomer(
+    req: GetCustomerByIdRequestDTO,
+    res: Response<CustomerOrdersResponseDTO | BaseResponseDTO>,
+  ) {
     try {
       const customerId = req.params.customerId;
-      const customer = await customerService.getCustomer(new mongoose.Types.ObjectId(customerId));
-      if (!customer) {
+      if (!req.customer) {
         return res.status(404).json({
           IsSuccess: false,
           ErrorMessage: `Not found customer with ID: ${customerId}`,
@@ -16,13 +23,6 @@ class CustomerOrdersController {
       }
 
       const orders = await OrderService.getOrdersByCustomer(customerId);
-
-      if (!orders) {
-        return res.status(404).json({
-          IsSuccess: false,
-          ErrorMessage: `Not found orders for customer with ID: ${customerId}`,
-        });
-      }
 
       return res.status(200).json({ Orders: orders, IsSuccess: true, ErrorMessage: null });
     } catch (error: any) {
@@ -35,3 +35,4 @@ class CustomerOrdersController {
 }
 
 export default new CustomerOrdersController();
+

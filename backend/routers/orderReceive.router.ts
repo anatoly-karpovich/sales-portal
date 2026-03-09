@@ -1,53 +1,33 @@
 import Router from "express";
 import OrderReceiveController from "../controllers/orderReceive.controller.js";
 import { authmiddleware } from "../middleware/authmiddleware.js";
-import { orderReceiveValidations } from "../middleware/orderMiddleware.js";
+import { orderById, orderReceiveValidations } from "../middleware/orderMiddleware.js";
 import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const orderReceiveRouter = Router();
 
+orderReceiveRouter.post(
+  "/orders/:orderId/receive",
+  authmiddleware,
+  schemaMiddleware("orderReceiveSchema"),
+  orderById,
+  orderReceiveValidations,
+  OrderReceiveController.receiveProducts.bind(OrderReceiveController),
+);
+
 /**
  * @swagger
- * components:
- *   schemas:
- *     OrderReceive:
- *       type: object
- *       required:
- *         - products
- *       properties:
- *         products:
- *           type: array
- *           items:
- *             type: string
- *           maxItems: 5
- *           minItems: 1
- *           description: List of product IDs being received, can contain up to 5 identical products
- *       example:
- *         products:
- *           - "6447bd766e52f1d354d2f0bf"
- *           - "6447bd766e52f1d354d2f0bf"
- *           - "6447bd766e52f1d354d2f0bf"
- *           - "6447bd766e52f1d354d2f0bf"
- *           - "6447bd766e52f1d354d2f0bf"
- *
- * /api/orders/{id}/receive:
+ * /api/orders/{orderId}/receive:
  *   post:
- *     summary: Mark products as received in an order
+ *     summary: Mark requested products as received
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the order
+ *         description: Order id
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -55,29 +35,28 @@ const orderReceiveRouter = Router();
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/OrderReceive'
+ *             $ref: '#/components/schemas/OrderReceivePayload'
  *     responses:
  *       200:
- *         description: Products in the order were successfully marked as received
+ *         description: Products marked as received
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
- *         description: Order or products not found
+ *         description: Order not found
  *       500:
  *         description: Server error
  */
-orderReceiveRouter.post(
-  "/orders/:id/receive",
-  authmiddleware,
-  schemaMiddleware("orderReceiveSchema"),
-  orderReceiveValidations,
-  OrderReceiveController.receiveProducts
-);
 
 export default orderReceiveRouter;
+
+

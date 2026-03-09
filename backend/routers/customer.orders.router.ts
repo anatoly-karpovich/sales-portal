@@ -1,8 +1,16 @@
 import express from "express";
 import { authmiddleware } from "../middleware/authmiddleware";
 import CustomerOrdersController from "../controllers/customer.orders.controller";
+import { customerById } from "../middleware/customerMiddleware";
 
 const customerOrdersRouter = express.Router();
+
+customerOrdersRouter.get(
+  "/customers/:customerId/orders",
+  authmiddleware,
+  customerById,
+  CustomerOrdersController.getOrdersByCustomer.bind(CustomerOrdersController),
+);
 
 /**
  * @swagger
@@ -11,13 +19,6 @@ const customerOrdersRouter = express.Router();
  *     summary: Get all orders associated with the specified customer
  *     tags: [Customers]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
  *         name: customerId
  *         required: true
@@ -32,9 +33,17 @@ const customerOrdersRouter = express.Router();
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Order'
+ *               type: object
+ *               properties:
+ *                 Orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/OrderListItem'
+ *                 IsSuccess:
+ *                   type: boolean
+ *                 ErrorMessage:
+ *                   type: string
+ *                   nullable: true
  *       400:
  *         description: Validation error
  *       401:
@@ -45,6 +54,5 @@ const customerOrdersRouter = express.Router();
  *         description: Server error
  */
 
-customerOrdersRouter.get("/customers/:customerId/orders", authmiddleware, CustomerOrdersController.getOrdersByCustomer);
-
 export default customerOrdersRouter;
+

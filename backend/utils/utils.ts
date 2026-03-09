@@ -1,12 +1,13 @@
 import moment from "moment";
 import { DATE_AND_TIME_FORMAT, DATE_FORMAT } from "../data/constants";
 import { ORDER_HISTORY_ACTIONS, ROLES } from "../data/enums";
-import type { ICustomer, IHistory, IOrder, IOrderRequest, IProduct } from "../data/types";
+import type { ICustomer, IHistory, IOrder, IOrderCustomerSnapshot, IOrderRequest, IProduct } from "../data/types";
 import { IProductInOrder } from "../data/types/order.type";
 import ProductsService from "../services/products.service";
 import { Request } from "express";
 import jsonwebtoken from "jsonwebtoken";
 import { IUserWithRoles } from "../data/types/users.types";
+import { Types } from "mongoose";
 
 export const getTotalPrice = (products: IProduct[]) => {
   return products.reduce((a, b) => {
@@ -19,16 +20,45 @@ export const getTodaysDate = (withTime: boolean) => {
   return withTime ? moment(Date.now()).format(DATE_AND_TIME_FORMAT) : moment(Date.now()).format(DATE_FORMAT);
 };
 
-export function createHistoryEntry<T extends Omit<IHistory, "changedOn" | "action" | "performer">>(
-  order: T,
+type HistorySource = {
+  status: string;
+  customer: Types.ObjectId | string | { _id: Types.ObjectId | string };
+  products: IHistory["products"];
+  delivery: IHistory["delivery"];
+  total_price: number;
+  assignedManager: IHistory["assignedManager"];
+};
+
+export function createHistoryEntry(
+  order: HistorySource,
   action: ORDER_HISTORY_ACTIONS,
   performer: IUserWithRoles
 ): IHistory {
+  const orderCustomer = order.customer;
+  if (orderCustomer instanceof Types.ObjectId) {
+    return {
+      action,
+      status: order.status,
+      products: order.products,
+      customer: orderCustomer,
+      delivery: order.delivery,
+      total_price: order.total_price,
+      changedOn: getTodaysDate(true),
+      performer,
+      assignedManager: order.assignedManager,
+    };
+  }
+
+  const customerValue =
+    typeof orderCustomer === "object" && orderCustomer !== null && "_id" in orderCustomer
+      ? orderCustomer._id
+      : orderCustomer;
+  const customerId = new Types.ObjectId(customerValue as Types.ObjectId | string);
   return {
     action,
     status: order.status,
     products: order.products,
-    customer: order.customer.toString(),
+    customer: customerId,
     delivery: order.delivery,
     total_price: order.total_price,
     changedOn: getTodaysDate(true),
@@ -40,7 +70,17 @@ export function createHistoryEntry<T extends Omit<IHistory, "changedOn" | "actio
 export async function productsMapping<T extends Pick<IOrderRequest, "products">>(order: T): Promise<IProductInOrder[]> {
   const products = await Promise.all(
     order.products.map(async (id) => {
-      return { ...(await ProductsService.getProduct(id))._doc, received: false };
+      const product = await ProductsService.getProduct(id);
+      return {
+        _id: new Types.ObjectId(product._id),
+        name: product.name,
+        amount: product.amount,
+        price: product.price,
+        manufacturer: product.manufacturer,
+        createdOn: product.createdOn,
+        notes: product.notes,
+        received: false,
+      };
     })
   );
   return products;
@@ -52,7 +92,7 @@ export async function productsMapping<T extends Pick<IOrderRequest, "products">>
  * @param sortOptions Sorting options.
  * @returns Sorted products.
  */
-export function customSort<T extends IProduct | ICustomer | IOrder<ICustomer>>(
+export function customSort<T extends IProduct | ICustomer | IOrder<IOrderCustomerSnapshot>>(
   entities: T[],
   sortOptions: { sortField: string; sortOrder: string }
 ): T[] {
@@ -115,3 +155,4 @@ export function getUserFromRequest(req: Request) {
   const token = getTokenFromRequest(req);
   return getDataDataFromToken(token);
 }
+

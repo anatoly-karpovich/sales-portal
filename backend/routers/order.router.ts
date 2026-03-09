@@ -6,190 +6,115 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 import { isManager, managerById } from "../middleware/usersMiddleware.js";
 
 const orderRouter = Router();
+
+orderRouter.post(
+  "/orders",
+  authmiddleware,
+  schemaMiddleware("orderCreateSchema"),
+  orderValidations,
+  OrderController.create.bind(OrderController),
+);
+
+orderRouter.get("/orders", authmiddleware, OrderController.getAll.bind(OrderController));
+
+orderRouter.post("/orders/export", authmiddleware, OrderController.export.bind(OrderController));
+
+orderRouter.get("/orders/:orderId", authmiddleware, orderById, OrderController.getOrder.bind(OrderController));
+
+orderRouter.put(
+  "/orders/:orderId",
+  authmiddleware,
+  schemaMiddleware("orderUpdateSchema"),
+  orderById,
+  orderUpdateValidations,
+  orderValidations,
+  OrderController.update.bind(OrderController),
+);
+orderRouter.delete("/orders/:orderId", authmiddleware, orderById, OrderController.delete.bind(OrderController));
+
+orderRouter.put(
+  "/orders/:orderId/assign-manager/:managerId",
+  authmiddleware,
+  orderById,
+  managerById,
+  isManager,
+  OrderController.assignManager.bind(OrderController),
+);
+orderRouter.put(
+  "/orders/:orderId/unassign-manager",
+  authmiddleware,
+  orderById,
+  OrderController.unassignManager.bind(OrderController),
+);
+
 /**
  * @swagger
+ * tags:
+ *   - name: Orders
+ *     description: Orders management service
  * components:
  *   schemas:
- *     Order:
+ *     OrderCustomerSnapshot:
  *       type: object
- *       required:
- *         - status
- *         - customer
- *         - products
- *         - total_price
- *         - createdOn
+ *       required: [_id, email, name]
  *       properties:
  *         _id:
  *           type: string
- *           description: The auto-generated id of the order
- *         status:
+ *         email:
  *           type: string
- *           enum: [Draft, In Process, Partially Received, Received, Canceled]
- *           description: The current status of the order
- *         customer:
- *           type: object
- *           properties:
- *             _id:
- *               type: string
- *             email:
- *               type: string
- *             name:
- *               type: string
- *             country:
- *               type: string
- *               enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
- *             city:
- *               type: string
- *             street:
- *               type: string
- *             house:
- *               type: number
- *             flat:
- *               type: number
- *             phone:
- *               type: string
- *             createdOn:
- *               type: string
- *               format: date-time
- *             notes:
- *               type: string
- *           description: Customer details for the order
- *         products:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/ProductInOrder'
- *           description: List of products in the order
- *         total_price:
- *           type: number
- *           description: Total price of the order
- *         createdOn:
+ *         name:
  *           type: string
- *           format: date-time
- *           description: Date the order was created
- *         delivery:
- *           $ref: '#/components/schemas/Delivery'
- *           description: Delivery details of the order
- *         comments:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/Comment'
- *           description: Comments related to the order
- *         history:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/OrderHistory'
- *           description: History of the order
- *
- *     OrderWithoutDelivery:
+ *     OrderCustomerFull:
  *       type: object
- *       required:
- *         - status
- *         - customer
- *         - products
- *         - total_price
- *         - createdOn
+ *       required: [_id, email, name, country, city, street, house, flat, phone, createdOn]
  *       properties:
  *         _id:
  *           type: string
- *           description: The auto-generated id of the order
- *         status:
+ *         email:
  *           type: string
- *           enum: [Draft, In Process, Partially Received, Received, Canceled]
- *           description: The current status of the order
- *         customer:
- *           type: object
- *           properties:
- *             _id:
- *               type: string
- *             email:
- *               type: string
- *             name:
- *               type: string
- *             country:
- *               type: string
- *               enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
- *             city:
- *               type: string
- *             street:
- *               type: string
- *             house:
- *               type: number
- *             flat:
- *               type: number
- *             phone:
- *               type: string
- *             createdOn:
- *               type: string
- *               format: date-time
- *             notes:
- *               type: string
- *         products:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/ProductInOrder'
- *         total_price:
+ *         name:
+ *           type: string
+ *         country:
+ *           type: string
+ *           enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
+ *         city:
+ *           type: string
+ *         street:
+ *           type: string
+ *         house:
  *           type: number
+ *         flat:
+ *           type: number
+ *         phone:
+ *           type: string
  *         createdOn:
  *           type: string
  *           format: date-time
- *         delivery:
- *           type: object
+ *         notes:
+ *           type: string
  *           nullable: true
- *           description: Delivery details, will be null for Draft status
- *           example: null
- *         comments:
+ *     ManagerSnapshot:
+ *       type: object
+ *       required: [_id, username, firstName, lastName, roles, createdOn]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         username:
+ *           type: string
+ *         firstName:
+ *           type: string
+ *         lastName:
+ *           type: string
+ *         roles:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/Comment'
- *         history:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/OrderHistory'
- *       example:
- *         status: "Draft"
- *         customer:
- *           _id: "66f9d2695ea81af0e61adb59"
- *           email: "Estefania_Emard@gmail.com"
- *           name: "Ira Swaniawski IV"
- *           country: "Great Britain"
- *           city: "Fort Jimmyton"
- *           street: "Howell Crest"
- *           house: 169
- *           flat: 6734
- *           phone: "+449807453699"
- *           createdOn: "2024-09-29T22:19:00.000Z"
- *           notes: "Notes here"
- *         products:
- *           - _id: "66eb4139fd0a2ec681e705aa"
- *             name: "Gloves48933"
- *             amount: 2
- *             price: 100
- *             manufacturer: "Microsoft"
- *             notes: "Test notes"
- *             received: false
- *         total_price: 300
- *         createdOn: "2024-09-30T19:42:00.000Z"
- *         delivery: null
- *         comments: []
- *         history:
- *           - status: "Draft"
- *             customer: "66f9d2695ea81af0e61adb59"
- *             products:
- *               - _id: "66eb3d8ffd0a2ec681e70581"
- *                 name: "Ball1"
- *                 amount: 22
- *                 price: 101
- *                 manufacturer: "Tesla"
- *                 notes: "Test notes"
- *                 received: false
- *             total_price: 300
- *             delivery: null
- *             changedOn: "2024-09-30T19:42:00.000Z"
- *             action: "Order created"
- *         _id: "66faff1a5ea81af0e61addfa"
- *
+ *             type: string
+ *         createdOn:
+ *           type: string
+ *           format: date-time
  *     ProductInOrder:
  *       type: object
+ *       required: [_id, name, amount, price, manufacturer, received]
  *       properties:
  *         _id:
  *           type: string
@@ -202,12 +127,29 @@ const orderRouter = Router();
  *         manufacturer:
  *           type: string
  *           enum: [Apple, Samsung, Google, Microsoft, Sony, Xiaomi, Amazon, Tesla]
+ *         notes:
+ *           type: string
+ *           nullable: true
  *         received:
  *           type: boolean
- *           description: Whether the product has been received or not
- *
+ *     DeliveryAddress:
+ *       type: object
+ *       required: [country, city, street, house, flat]
+ *       properties:
+ *         country:
+ *           type: string
+ *           enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
+ *         city:
+ *           type: string
+ *         street:
+ *           type: string
+ *         house:
+ *           type: number
+ *         flat:
+ *           type: number
  *     Delivery:
  *       type: object
+ *       required: [finalDate, condition, address]
  *       properties:
  *         finalDate:
  *           type: string
@@ -216,43 +158,25 @@ const orderRouter = Router();
  *           type: string
  *           enum: [Delivery, Pickup]
  *         address:
- *           type: object
- *           properties:
- *             country:
- *               type: string
- *               enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
- *             city:
- *               type: string
- *             street:
- *               type: string
- *             house:
- *               type: number
- *             flat:
- *               type: number
- *
- *     Comment:
+ *           $ref: '#/components/schemas/DeliveryAddress'
+ *     OrderComment:
  *       type: object
+ *       required: [text, createdOn]
  *       properties:
  *         _id:
  *           type: string
- *           description: The auto-generated ID of the comment
  *         text:
  *           type: string
- *           description: Comment text
  *         createdOn:
  *           type: string
  *           format: date-time
- *           description: Date and time the comment was created
- *       example:
- *         _id: "645189c01b1eccc04f9aba5d"
- *         text: "Great service!"
- *         createdOn: "2023-09-29T12:05:00Z"
- *
- *     OrderHistory:
+ *     OrderHistoryEntry:
  *       type: object
+ *       required: [status, customer, products, total_price, changedOn, action, performer]
  *       properties:
  *         status:
  *           type: string
+ *           enum: [Draft, In Process, Partially Received, Received, Canceled]
  *         customer:
  *           type: string
  *         products:
@@ -261,38 +185,198 @@ const orderRouter = Router();
  *             $ref: '#/components/schemas/ProductInOrder'
  *         total_price:
  *           type: number
- *         action:
- *           type: string
- *           enum: [Order created, Customer changed, Requested products changed, Order processing started, Delivery Scheduled, Delivery Edited, Received, Received All, Order canceled]
+ *         delivery:
+ *           allOf:
+ *             - $ref: '#/components/schemas/Delivery'
+ *           nullable: true
  *         changedOn:
  *           type: string
  *           format: date-time
- *
- *     CreateOrderPayload:
+ *         action:
+ *           type: string
+ *           enum:
+ *             - Order created
+ *             - Customer changed
+ *             - Requested products changed
+ *             - Order processing started
+ *             - Delivery Scheduled
+ *             - Delivery Edited
+ *             - Received
+ *             - All products received
+ *             - Order canceled
+ *             - Manager Assigned
+ *             - Manager Unassigned
+ *             - Order reopened
+ *         performer:
+ *           $ref: '#/components/schemas/ManagerSnapshot'
+ *         assignedManager:
+ *           allOf:
+ *             - $ref: '#/components/schemas/ManagerSnapshot'
+ *           nullable: true
+ *     OrderListItem:
  *       type: object
- *       required:
- *         - customer
- *         - products
+ *       required: [_id, status, customer, products, total_price, createdOn]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *         customer:
+ *           $ref: '#/components/schemas/OrderCustomerSnapshot'
+ *         products:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductInOrder'
+ *         delivery:
+ *           allOf:
+ *             - $ref: '#/components/schemas/Delivery'
+ *           nullable: true
+ *         total_price:
+ *           type: number
+ *         createdOn:
+ *           type: string
+ *           format: date-time
+ *         assignedManager:
+ *           allOf:
+ *             - $ref: '#/components/schemas/ManagerSnapshot'
+ *           nullable: true
+ *     OrderDetails:
+ *       allOf:
+ *         - $ref: '#/components/schemas/OrderListItem'
+ *         - type: object
+ *           properties:
+ *             customer:
+ *               $ref: '#/components/schemas/OrderCustomerFull'
+ *             comments:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/OrderComment'
+ *             history:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/OrderHistoryEntry'
+ *     OrdersListResponse:
+ *       type: object
+ *       required: [Orders, total, page, limit, search, status, sorting, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Orders:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/OrderListItem'
+ *         total:
+ *           type: number
+ *         page:
+ *           type: number
+ *         limit:
+ *           type: number
+ *         search:
+ *           type: string
+ *         status:
+ *           type: array
+ *           items:
+ *             type: string
+ *         sorting:
+ *           type: object
+ *           properties:
+ *             sortField:
+ *               type: string
+ *               enum: [createdOn, total_price, status]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *     OrderResponse:
+ *       type: object
+ *       required: [Order, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Order:
+ *           $ref: '#/components/schemas/OrderDetails'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *     CreateOrUpdateOrderPayload:
+ *       type: object
+ *       required: [customer, products]
  *       properties:
  *         customer:
  *           type: string
- *           description: The ID of the customer placing the order
- *           example: "64496fed9032279ec58cd8cd"
+ *           description: Customer id
  *         products:
  *           type: array
  *           items:
  *             type: string
- *           description: Array of product IDs in the order
- *           example:
- *             - "6449700d9032279ec58cd8de"
- *             - "6449700d9032279ec58cd8de"
- *             - "6449700d9032279ec58cd8de"
- *             - "6449700d9032279ec58cd8de"
- *             - "6449700d9032279ec58cd8de"
- *
- * tags:
- *   name: Orders
- *   description: Orders management service
+ *           description: Array of product ids
+ *     OrderExportPayload:
+ *       type: object
+ *       required: [format, fields]
+ *       properties:
+ *         format:
+ *           type: string
+ *           enum: [csv, json]
+ *         filters:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             search:
+ *               type: string
+ *             status:
+ *               type: array
+ *               items:
+ *                 type: string
+ *                 enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             sortField:
+ *               type: string
+ *               enum: [createdOn, total_price, status]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         fields:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [status, total_price, delivery, customer, products, assignedManager, createdOn]
+ *     OrderStatusPayload:
+ *       type: object
+ *       required: [status]
+ *       properties:
+ *         status:
+ *           type: string
+ *           enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *     OrderReceivePayload:
+ *       type: object
+ *       required: [products]
+ *       properties:
+ *         products:
+ *           type: array
+ *           minItems: 1
+ *           items:
+ *             type: string
+ *     OrderCommentPayload:
+ *       type: object
+ *       required: [comment]
+ *       properties:
+ *         comment:
+ *           type: string
+ *     ApiErrorResponse:
+ *       type: object
+ *       required: [IsSuccess, ErrorMessage]
+ *       properties:
+ *         IsSuccess:
+ *           type: boolean
+ *           example: false
+ *         ErrorMessage:
+ *           type: string
  */
 
 /**
@@ -302,13 +386,6 @@ const orderRouter = Router();
  *     summary: Create a new order
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -316,44 +393,33 @@ const orderRouter = Router();
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreateOrderPayload'
+ *             $ref: '#/components/schemas/CreateOrUpdateOrderPayload'
  *     responses:
  *       201:
  *         description: The order was successfully created
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/OrderWithoutDelivery'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
  *         description: Server error
  */
 
-orderRouter.post(
-  "/orders",
-  authmiddleware,
-  schemaMiddleware("orderCreateSchema"),
-  orderValidations,
-  OrderController.create
-);
-
 /**
  * @swagger
  * /api/orders:
  *   get:
- *     summary: Get the list of orders with optional filters and sorting
+ *     summary: Get paginated order list (customer snapshot)
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: query
  *         name: search
  *         schema:
@@ -385,49 +451,78 @@ orderRouter.post(
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: The list of orders
+ *         description: Paginated list of orders for table/list views
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrdersListResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
  *         description: Server error
  */
-orderRouter.get("/orders", authmiddleware, OrderController.getAll);
 
 /**
  * @swagger
- * /api/orders/{id}:
+ * /api/orders/export:
+ *   post:
+ *     summary: Export orders in CSV/JSON format
+ *     tags: [Orders]
+ *     parameters:
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderExportPayload'
+ *     responses:
+ *       200:
+ *         description: Export file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           application/json:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/orders/{orderId}:
  *   get:
- *     summary: Get the order by Id
+ *     summary: Get order details by id (full customer)
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         schema:
  *           type: string
  *         required: true
  *         description: The order id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: The order by Id
+ *         description: Detailed order object
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
@@ -435,24 +530,16 @@ orderRouter.get("/orders", authmiddleware, OrderController.getAll);
  *       500:
  *         description: Server error
  */
-orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder);
 
 /**
  * @swagger
- * /api/orders/{id}:
+ * /api/orders/{orderId}:
  *   put:
  *     summary: Update an order
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -464,14 +551,14 @@ orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrd
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreateOrderPayload'
+ *             $ref: '#/components/schemas/CreateOrUpdateOrderPayload'
  *     responses:
  *       200:
  *         description: The order was successfully updated
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -484,35 +571,19 @@ orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrd
  *         description: Server error
  */
 
-orderRouter.put(
-  "/orders/:id",
-  authmiddleware,
-  schemaMiddleware("orderUpdateSchema"),
-  orderUpdateValidations,
-  orderValidations,
-  OrderController.update
-);
-
 /**
  * @swagger
- * /api/orders/{id}:
+ * /api/orders/{orderId}:
  *   delete:
  *     summary: Delete the order by Id
  *     tags: [Orders]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: orderId
  *         schema:
  *           type: string
  *         required: true
  *         description: The order id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -525,7 +596,6 @@ orderRouter.put(
  *       500:
  *         description: Server error
  */
-orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.delete);
 
 /**
  * @swagger
@@ -546,13 +616,6 @@ orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.del
  *         schema:
  *           type: string
  *         description: The ID of the manager to assign
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -561,7 +624,7 @@ orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.del
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Invalid input or manager cannot be assigned
  *       401:
@@ -576,15 +639,6 @@ orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.del
  *         description: Server error
  */
 
-orderRouter.put(
-  "/orders/:orderId/assign-manager/:managerId",
-  authmiddleware,
-  orderById,
-  managerById,
-  isManager,
-  OrderController.assignManager
-);
-
 /**
  * @swagger
  * /api/orders/{orderId}/unassign-manager:
@@ -598,13 +652,6 @@ orderRouter.put(
  *         schema:
  *           type: string
  *         description: The ID of the order
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -613,7 +660,7 @@ orderRouter.put(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Invalid input or manager cannot be unassigned
  *       401:
@@ -626,6 +673,6 @@ orderRouter.put(
  *         description: Server error
  */
 
-orderRouter.put("/orders/:orderId/unassign-manager", authmiddleware, orderById, OrderController.unassignManager);
-
 export default orderRouter;
+
+

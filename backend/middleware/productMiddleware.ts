@@ -1,19 +1,44 @@
 import { isValidInput } from "../utils/validations.js";
 import { MANUFACTURERS, VALIDATION_ERROR_MESSAGES } from "../data/enums.js";
 import ProductsService from "../services/products.service.js";
-import { Request, Response, NextFunction } from "express";
-import OrderService from "../services/order.service.js";
+import Product from "../models/product.model.js";
+import Order from "../models/order.model.js";
+import { Response, NextFunction } from "express";
+import { Types } from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import {
+  CreateProductRequestDTO,
+  DeleteProductRequestDTO,
+  GetProductByIdRequestDTO,
+  UpdateProductRequestDTO,
+} from "../data/types/dto/products.dto.js";
 
-export async function uniqueProduct(req: Request, res: Response, next: NextFunction) {
+export async function uniqueProduct(
+  req: CreateProductRequestDTO | UpdateProductRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
   try {
-    const id = req.body._id ?? req.params.id;
-    const product = (await ProductsService.getAll()).find((c) => {
-      return id ? c.name === req.body.name && c._id.toString() !== id : c.name === req.body.name;
-    });
-    if (product) {
+    const normalizedName = req.body.name?.trim();
+    if (!normalizedName) {
+      return next();
+    }
+
+    req.body.name = normalizedName;
+
+    const escapedName = normalizedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const filter: { name: { $regex: RegExp }; _id?: { $ne: Types.ObjectId } } = {
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") },
+    };
+    if (req.params.productId && Types.ObjectId.isValid(req.params.productId)) {
+      filter._id = { $ne: new Types.ObjectId(req.params.productId) };
+    }
+
+    const existingProduct = await Product.findOne(filter).select("_id").lean();
+    if (existingProduct) {
       return res
         .status(409)
-        .json({ IsSuccess: false, ErrorMessage: `Product with name '${req.body.name}' already exists` });
+        .json({ IsSuccess: false, ErrorMessage: `Product with name '${normalizedName}' already exists` });
     }
   } catch (e: any) {
     console.log(e);
@@ -22,7 +47,11 @@ export async function uniqueProduct(req: Request, res: Response, next: NextFunct
   next();
 }
 
-export async function productValidations(req: Request, res: Response, next: NextFunction) {
+export async function productValidations(
+  req: CreateProductRequestDTO | UpdateProductRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
   try {
     if (!isValidInput("Product Name", req.body.name) || req.body.name.trim().length !== req.body.name.length) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
@@ -37,7 +66,7 @@ export async function productValidations(req: Request, res: Response, next: Next
       req.body.notes &&
       (!isValidInput("Notes", req.body.notes) ||
         req.body.notes.trim().length !== req.body.notes.length ||
-        req.body.notes.trim().replaceAll("\r", "").replaceAll("\n", "").length > 250)
+        req.body.notes.trim().replace(/\r/g, "").replace(/\n/g, "").length > 250)
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
@@ -51,13 +80,14 @@ export async function productValidations(req: Request, res: Response, next: Next
   }
 }
 
-export async function productById(req: Request, res: Response, next: NextFunction) {
+export async function productById(req: GetProductByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const id = req.body._id || req.params.id;
-    const product = await ProductsService.getProduct(id);
+    const productId = req.params.productId;
+    const product = await ProductsService.getProduct(new Types.ObjectId(productId));
     if (!product) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${productId}' wasn't found` });
     }
+    req.product = product;
     next();
   } catch (e: any) {
     console.log(e);
@@ -65,14 +95,13 @@ export async function productById(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
+export async function deleteProduct(req: DeleteProductRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const isAssignedToOrder = (await OrderService.getAll()).some((o) =>
-      o.products.some((r) => r._id.toString() === req.params.id)
-    );
+    const productId = new Types.ObjectId(req.params.productId);
+    const isAssignedToOrder = await Order.exists({ "products._id": productId });
     if (isAssignedToOrder) {
       return res
-        .status(400)
+        .status(409)
         .json({ IsSuccess: false, ErrorMessage: `Not allowed to delete product, assigned to the order` });
     }
     next();

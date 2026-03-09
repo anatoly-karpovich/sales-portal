@@ -6,22 +6,32 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const orderCommentsRouter = Router();
 
+orderCommentsRouter.post(
+  "/orders/:orderId/comments",
+  authmiddleware,
+  schemaMiddleware("orderCommentsCreateSchema"),
+  orderCommentsCreate,
+  orderById,
+  OrderCommentsController.create.bind(OrderCommentsController),
+);
+
+orderCommentsRouter.delete(
+  "/orders/:orderId/comments/:commentId",
+  authmiddleware,
+  orderById,
+  orderCommentsDelete,
+  OrderCommentsController.delete.bind(OrderCommentsController),
+);
+
 /**
  * @swagger
- * /api/orders/{id}/comments:
+ * /api/orders/{orderId}/comments:
  *   post:
  *     summary: Add a comment to an order
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -33,24 +43,20 @@ const orderCommentsRouter = Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               comment:
- *                 type: string
- *                 description: Comment text
- *             required:
- *               - comment
- *           example:
- *             comment: "Great service!"
+ *             $ref: '#/components/schemas/OrderCommentPayload'
  *     responses:
  *       200:
  *         description: Comment successfully added to the order
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
@@ -59,31 +65,15 @@ const orderCommentsRouter = Router();
  *         description: Server error
  */
 
-orderCommentsRouter.post(
-  "/orders/:id/comments",
-  authmiddleware,
-  schemaMiddleware("orderCommentsCreateSchema"),
-  orderCommentsCreate,
-  orderById,
-  OrderCommentsController.create
-);
-
 /**
  * @swagger
- * /api/orders/{id}/comments/{commentId}:
+ * /api/orders/{orderId}/comments/{commentId}:
  *   delete:
  *     summary: Delete a comment from an order
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
- *         name: id
+ *         name: orderId
  *         required: true
  *         schema:
  *           type: string
@@ -109,12 +99,6 @@ orderCommentsRouter.post(
  *         description: Server error
  */
 
-orderCommentsRouter.delete(
-  "/orders/:id/comments/:commentId",
-  authmiddleware,
-  orderById,
-  orderCommentsDelete,
-  OrderCommentsController.delete
-);
-
 export default orderCommentsRouter;
+
+

@@ -1,19 +1,44 @@
 import { isValidInput } from "../utils/validations.js";
 import { VALIDATION_ERROR_MESSAGES, COUNTRIES } from "../data/enums.js";
 import CustomerService from "../services/customer.service.js";
+import Customer from "../models/customer.model.js";
 import Order from "../models/order.model.js";
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
+import { Types } from "mongoose";
+import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
+import {
+  CreateCustomerRequestDTO,
+  DeleteCustomerRequestDTO,
+  GetCustomerByIdRequestDTO,
+  UpdateCustomerRequestDTO,
+} from "../data/types/dto/customers.dto.js";
 
-export async function uniqueCustomer(req: Request, res: Response, next: NextFunction) {
+export async function uniqueCustomer(
+  req: CreateCustomerRequestDTO | UpdateCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
   try {
-    const id = req.body._id ?? req.params.id;
-    const customer = (await CustomerService.getAll()).find((c) => {
-      return id ? c.email === req.body.email && c._id.toString() !== id : c.email === req.body.email;
-    });
-    if (customer) {
+    const normalizedEmail = req.body.email?.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return next();
+    }
+
+    req.body.email = normalizedEmail;
+
+    const escapedEmail = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const filter: { email: { $regex: RegExp }; _id?: { $ne: Types.ObjectId } } = {
+      email: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
+    };
+    if (req.params.customerId && Types.ObjectId.isValid(req.params.customerId)) {
+      filter._id = { $ne: new Types.ObjectId(req.params.customerId) };
+    }
+
+    const existingCustomer = await Customer.findOne(filter).select("_id").lean();
+    if (existingCustomer) {
       return res
         .status(409)
-        .json({ IsSuccess: false, ErrorMessage: `Customer with email '${req.body.email}' already exists` });
+        .json({ IsSuccess: false, ErrorMessage: `Customer with email '${normalizedEmail}' already exists` });
     }
   } catch (e: any) {
     console.log(e);
@@ -22,7 +47,11 @@ export async function uniqueCustomer(req: Request, res: Response, next: NextFunc
   next();
 }
 
-export async function customerValidations(req: Request, res: Response, next: NextFunction) {
+export async function customerValidations(
+  req: CreateCustomerRequestDTO | UpdateCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
   try {
     if (
       !isValidInput("Name", req.body.name) ||
@@ -77,7 +106,7 @@ export async function customerValidations(req: Request, res: Response, next: Nex
       req.body.notes &&
       (!isValidInput("Notes", req.body.notes) ||
         req.body.notes.trim().length !== req.body.notes.length ||
-        req.body.notes.trim().replaceAll("\r", "").replaceAll("\n", "").length > 250)
+        req.body.notes.trim().replace(/\r/g, "").replace(/\n/g, "").length > 250)
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
@@ -89,13 +118,14 @@ export async function customerValidations(req: Request, res: Response, next: Nex
   }
 }
 
-export async function customerById(req: Request, res: Response, next: NextFunction) {
+export async function customerById(req: GetCustomerByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const id = req.body._id || req.params.id;
-    const customer = await CustomerService.getCustomer(id);
+    const customerId = req.params.customerId;
+    const customer = await CustomerService.getCustomer(new Types.ObjectId(customerId));
     if (!customer) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Customer with id '${id}' wasn't found` });
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Customer with id '${customerId}' wasn't found` });
     }
+    req.customer = customer;
     next();
   } catch (e: any) {
     console.log(e);
@@ -103,12 +133,16 @@ export async function customerById(req: Request, res: Response, next: NextFuncti
   }
 }
 
-export async function deleteCustomer(req: Request, res: Response, next: NextFunction) {
+export async function deleteCustomer(
+  req: DeleteCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
   try {
-    const order = await Order.findOne({ customer: req.params.id });
-    if (order) {
+    const isAssignedToOrder = await Order.exists({ "customer._id": new Types.ObjectId(req.params.customerId) });
+    if (isAssignedToOrder) {
       return res
-        .status(400)
+        .status(409)
         .json({ IsSuccess: false, ErrorMessage: `Not allowed to delete customer, assigned to the order` });
     }
     next();
