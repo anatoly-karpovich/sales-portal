@@ -6,6 +6,23 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const orderCommentsRouter = Router();
 
+orderCommentsRouter.post(
+  "/orders/:id/comments",
+  authmiddleware,
+  schemaMiddleware("orderCommentsCreateSchema"),
+  orderCommentsCreate,
+  orderById,
+  OrderCommentsController.create,
+);
+
+orderCommentsRouter.delete(
+  "/orders/:id/comments/:commentId",
+  authmiddleware,
+  orderById,
+  orderCommentsDelete,
+  OrderCommentsController.delete,
+);
+
 /**
  * @swagger
  * /api/orders/{id}/comments:
@@ -59,15 +76,6 @@ const orderCommentsRouter = Router();
  *         description: Server error
  */
 
-orderCommentsRouter.post(
-  "/orders/:id/comments",
-  authmiddleware,
-  schemaMiddleware("orderCommentsCreateSchema"),
-  orderCommentsCreate,
-  orderById,
-  OrderCommentsController.create
-);
-
 /**
  * @swagger
  * /api/orders/{id}/comments/{commentId}:
@@ -108,13 +116,5 @@ orderCommentsRouter.post(
  *       500:
  *         description: Server error
  */
-
-orderCommentsRouter.delete(
-  "/orders/:id/comments/:commentId",
-  authmiddleware,
-  orderById,
-  orderCommentsDelete,
-  OrderCommentsController.delete
-);
 
 export default orderCommentsRouter;

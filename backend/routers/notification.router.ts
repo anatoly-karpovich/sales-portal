@@ -4,6 +4,10 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const notification = Router();
 
+notification.get("/notifications", authmiddleware, NotificationController.getNotifications);
+notification.patch("/notifications/:notificationId/read", authmiddleware, NotificationController.readNotification);
+notification.patch("/notifications/mark-all-read", authmiddleware, NotificationController.readAllNotifications);
+
 /**
  * @swagger
  * components:
@@ -186,9 +190,5 @@ const notification = Router();
  *       500:
  *         description: Server error
  */
-
-notification.get("/notifications", authmiddleware, NotificationController.getNotifications);
-notification.patch("/notifications/:notificationId/read", authmiddleware, NotificationController.readNotification);
-notification.patch("/notifications/mark-all-read", authmiddleware, NotificationController.readAllNotifications);
 
 export default notification;

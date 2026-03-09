@@ -6,6 +6,15 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const orderStatusRouter = Router();
 
+orderStatusRouter.put(
+  "/orders/:id/status",
+  authmiddleware,
+  schemaMiddleware("orderStatusSchema"),
+  orderById,
+  orderStatus,
+  OrderStatusController.update,
+);
+
 /**
  * @swagger
  * components:
@@ -73,13 +82,5 @@ const orderStatusRouter = Router();
  *       500:
  *         description: Server error
  */
-orderStatusRouter.put(
-  "/orders/:id/status",
-  authmiddleware,
-  schemaMiddleware("orderStatusSchema"),
-  orderById,
-  orderStatus,
-  OrderStatusController.update
-);
 
 export default orderStatusRouter;

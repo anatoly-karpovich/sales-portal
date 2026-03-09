@@ -4,6 +4,8 @@ import CustomerOrdersController from "../controllers/customer.orders.controller"
 
 const customerOrdersRouter = express.Router();
 
+customerOrdersRouter.get("/customers/:customerId/orders", authmiddleware, CustomerOrdersController.getOrdersByCustomer);
+
 /**
  * @swagger
  * /api/customers/{customerId}/orders:
@@ -44,7 +46,5 @@ const customerOrdersRouter = express.Router();
  *       500:
  *         description: Server error
  */
-
-customerOrdersRouter.get("/customers/:customerId/orders", authmiddleware, CustomerOrdersController.getOrdersByCustomer);
 
 export default customerOrdersRouter;

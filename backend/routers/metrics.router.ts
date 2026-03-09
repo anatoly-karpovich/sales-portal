@@ -4,6 +4,8 @@ import { authmiddleware } from "../middleware/authmiddleware";
 
 const router = express.Router();
 
+router.get("/metrics", authmiddleware, MetricsController.getMetrics);
+
 /**
  * @swagger
  * components:
@@ -125,7 +127,5 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-
-router.get("/metrics", authmiddleware, MetricsController.getMetrics);
 
 export default router;

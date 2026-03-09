@@ -6,6 +6,33 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const customerRouter = Router();
 
+customerRouter.post(
+  "/customers",
+  authmiddleware,
+  schemaMiddleware("customerSchema"),
+  uniqueCustomer,
+  customerValidations,
+  CustomerController.create,
+);
+
+customerRouter.get("/customers", authmiddleware, CustomerController.getAllSorted);
+
+customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll);
+
+customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerController.getCustomer);
+
+customerRouter.put(
+  "/customers/:id",
+  authmiddleware,
+  schemaMiddleware("customerSchema"),
+  uniqueCustomer,
+  customerById,
+  customerValidations,
+  CustomerController.update,
+);
+
+customerRouter.delete("/customers/:id", authmiddleware, customerById, deleteCustomer, CustomerController.delete);
+
 /**
  * @swagger
  * components:
@@ -189,14 +216,6 @@ const customerRouter = Router();
  *       500:
  *         description: Server error
  */
-customerRouter.post(
-  "/customers",
-  authmiddleware,
-  schemaMiddleware("customerSchema"),
-  uniqueCustomer,
-  customerValidations,
-  CustomerController.create
-);
 
 /**
  * @swagger
@@ -255,7 +274,6 @@ customerRouter.post(
  *       500:
  *         description: Server error
  */
-customerRouter.get("/customers", authmiddleware, CustomerController.getAllSorted);
 
 /**
  * @swagger
@@ -288,7 +306,6 @@ customerRouter.get("/customers", authmiddleware, CustomerController.getAllSorted
  *         description: Server error
  */
 
-customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll);
 /**
  * @swagger
  * /api/customers/{id}:
@@ -325,7 +342,6 @@ customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll);
  *       500:
  *         description: Server error
  */
-customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerController.getCustomer);
 
 /**
  * @swagger
@@ -373,15 +389,6 @@ customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerContr
  *       500:
  *         description: Server error
  */
-customerRouter.put(
-  "/customers/:id",
-  authmiddleware,
-  schemaMiddleware("customerSchema"),
-  uniqueCustomer,
-  customerById,
-  customerValidations,
-  CustomerController.update
-);
 
 /**
  * @swagger
@@ -415,6 +422,5 @@ customerRouter.put(
  *       500:
  *         description: Server error
  */
-customerRouter.delete("/customers/:id", authmiddleware, customerById, deleteCustomer, CustomerController.delete);
 
 export default customerRouter;

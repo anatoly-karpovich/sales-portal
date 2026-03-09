@@ -6,6 +6,33 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const productsRouter = Router();
 
+productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted);
+
+productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
+
+productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct);
+
+productsRouter.post(
+  "/products",
+  authmiddleware,
+  schemaMiddleware("productSchema"),
+  uniqueProduct,
+  productValidations,
+  ProductsController.create,
+);
+
+productsRouter.put(
+  "/products/:id",
+  authmiddleware,
+  schemaMiddleware("productSchema"),
+  uniqueProduct,
+  productById,
+  productValidations,
+  ProductsController.update,
+);
+
+productsRouter.delete("/products/:id", authmiddleware, productById, deleteProduct, ProductsController.delete);
+
 /**
  * @swagger
  * components:
@@ -147,8 +174,6 @@ const productsRouter = Router();
  *         description: Server error
  */
 
-productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted);
-
 /**
  * @swagger
  * /api/products/all:
@@ -179,8 +204,6 @@ productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted)
  *       500:
  *         description: Server error
  */
-
-productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
 
 /**
  * @swagger
@@ -218,8 +241,6 @@ productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
  *       500:
  *         description: Server error
  */
-
-productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct);
 
 /**
  * @swagger
@@ -259,15 +280,6 @@ productsRouter.get("/products/:id", authmiddleware, productById, ProductsControl
  *       500:
  *         description: Server error
  */
-
-productsRouter.post(
-  "/products",
-  authmiddleware,
-  schemaMiddleware("productSchema"),
-  uniqueProduct,
-  productValidations,
-  ProductsController.create
-);
 
 /**
  * @swagger
@@ -316,16 +328,6 @@ productsRouter.post(
  *         description: Server error
  */
 
-productsRouter.put(
-  "/products/:id",
-  authmiddleware,
-  schemaMiddleware("productSchema"),
-  uniqueProduct,
-  productById,
-  productValidations,
-  ProductsController.update
-);
-
 /**
  * @swagger
  * /api/products/{id}:
@@ -360,7 +362,5 @@ productsRouter.put(
  *       500:
  *         description: Server error
  */
-
-productsRouter.delete("/products/:id", authmiddleware, productById, deleteProduct, ProductsController.delete);
 
 export default productsRouter;

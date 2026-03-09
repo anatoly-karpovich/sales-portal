@@ -6,6 +6,15 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const orderDeliveryRouter = Router();
 
+orderDeliveryRouter.post(
+  "/orders/:id/delivery",
+  authmiddleware,
+  schemaMiddleware("orderDeliverySchema"),
+  orderById,
+  orderDelivery,
+  OrderDeliveryController.update,
+);
+
 /**
  * @swagger
  * components:
@@ -103,13 +112,5 @@ const orderDeliveryRouter = Router();
  *       500:
  *         description: Server error
  */
-orderDeliveryRouter.post(
-  "/orders/:id/delivery",
-  authmiddleware,
-  schemaMiddleware("orderDeliverySchema"),
-  orderById,
-  orderDelivery,
-  OrderDeliveryController.update
-);
 
 export default orderDeliveryRouter;

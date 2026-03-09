@@ -4,6 +4,12 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 // import { roleMiddleware } from "../middleware/rolemiddleware.js";
 
 const authRouter = Router();
+
+authRouter.post("/login", AuthController.login);
+authRouter.post("/logout", authmiddleware, AuthController.logout);
+// authRouter.get('/users', authmiddleware, AuthController.getUsers) FOR CHECHING AUTHORIZATION
+// authRouter.get('/users', roleMiddleware(ROLES.ADMIN), AuthController.getUsers)
+
 /**
  * @swagger
  * components:
@@ -116,10 +122,5 @@ const authRouter = Router();
  *                   type: string
  *                   description: Error message in case of failure
  */
-
-authRouter.post("/login", AuthController.login);
-authRouter.post("/logout", authmiddleware, AuthController.logout);
-// authRouter.get('/users', authmiddleware, AuthController.getUsers) FOR CHECHING AUTHORIZATION
-// authRouter.get('/users', roleMiddleware(ROLES.ADMIN), AuthController.getUsers)
 
 export default authRouter;
