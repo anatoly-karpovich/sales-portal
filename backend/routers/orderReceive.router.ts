@@ -12,7 +12,7 @@ orderReceiveRouter.post(
   schemaMiddleware("orderReceiveSchema"),
   orderById,
   orderReceiveValidations,
-  OrderReceiveController.receiveProducts,
+  OrderReceiveController.receiveProducts.bind(OrderReceiveController),
 );
 
 /**

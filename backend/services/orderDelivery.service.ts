@@ -1,10 +1,8 @@
 import Order from "../models/order.model";
-import CustomerService from "./customer.service";
-import _ from "lodash";
 import type { IOrder, ICustomer, IDelivery } from "../data/types";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS } from "../data/enums";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
@@ -17,20 +15,24 @@ class OrderDeliveryService {
       throw new Error("Id was not provided");
     }
 
-    const orderFromDB = await OrderService.getOrder(orderId);
+    const orderFromDB = await Order.findById(orderId);
+    if (!orderFromDB) {
+      throw new Error("Order not found");
+    }
     const manager = await usersService.getUser(performerId);
 
     let action = orderFromDB.delivery
       ? ORDER_HISTORY_ACTIONS.DELIVERY_EDITED
       : ORDER_HISTORY_ACTIONS.DELIVERY_SCHEDULED;
-    const newOrder: IOrder<Types.ObjectId> = {
-      ...orderFromDB,
-      customer: orderFromDB.customer._id,
+    const newOrder: IOrder = {
+      ...orderFromDB._doc,
       delivery: delivery,
     };
     newOrder.history.unshift(createHistoryEntry(newOrder, action, manager));
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
         userId: updatedOrder.assignedManager._id.toString(),
@@ -39,7 +41,7 @@ class OrderDeliveryService {
         message: NOTIFICATIONS.deliveryUpdated,
       });
     }
-    return { ...updatedOrder._doc, customer };
+    return OrderService.getOrder(updatedOrder._id);
   }
 }
 

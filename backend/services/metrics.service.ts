@@ -34,7 +34,7 @@ class MetricsService {
     // Топ 5 клиентов по стоимости их ордеров
     const topCustomers = await Order.aggregate([
       { $match: { createdOn: { $gte: new Date(`${currentYear}-01-01`), $lte: new Date(`${currentYear}-12-31`) } } },
-      { $group: { _id: "$customer", totalSpent: { $sum: "$total_price" }, ordersCount: { $sum: 1 } } },
+      { $group: { _id: "$customer._id", totalSpent: { $sum: "$total_price" }, ordersCount: { $sum: 1 } } },
       { $sort: { totalSpent: -1 } },
       { $limit: 3 },
       {
@@ -64,7 +64,7 @@ class MetricsService {
       totalCanceledOrders,
       recentOrders: await Promise.all(
         recentOrders.map(async (o) => {
-          const customer = await customerService.getCustomer(o.customer);
+          const customer = await customerService.getCustomer(o.customer._id);
           return { ...o._doc, ...{ customer: customer } };
         })
       ),

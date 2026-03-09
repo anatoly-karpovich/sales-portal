@@ -12,7 +12,7 @@ orderDeliveryRouter.post(
   schemaMiddleware("orderDeliverySchema"),
   orderById,
   orderDelivery,
-  OrderDeliveryController.update,
+  OrderDeliveryController.update.bind(OrderDeliveryController),
 );
 
 /**

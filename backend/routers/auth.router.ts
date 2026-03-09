@@ -5,8 +5,8 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const authRouter = Router();
 
-authRouter.post("/login", AuthController.login);
-authRouter.post("/logout", authmiddleware, AuthController.logout);
+authRouter.post("/login", AuthController.login.bind(AuthController));
+authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthController));
 // authRouter.get('/users', authmiddleware, AuthController.getUsers) FOR CHECHING AUTHORIZATION
 // authRouter.get('/users', roleMiddleware(ROLES.ADMIN), AuthController.getUsers)
 

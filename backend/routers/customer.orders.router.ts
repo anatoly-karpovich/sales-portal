@@ -4,7 +4,11 @@ import CustomerOrdersController from "../controllers/customer.orders.controller"
 
 const customerOrdersRouter = express.Router();
 
-customerOrdersRouter.get("/customers/:customerId/orders", authmiddleware, CustomerOrdersController.getOrdersByCustomer);
+customerOrdersRouter.get(
+  "/customers/:customerId/orders",
+  authmiddleware,
+  CustomerOrdersController.getOrdersByCustomer.bind(CustomerOrdersController),
+);
 
 /**
  * @swagger

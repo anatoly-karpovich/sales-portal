@@ -8,8 +8,8 @@ import { changePasswordMiddleware } from "../middleware/changePasswordMiddleware
 
 const usersRouter = Router();
 
-usersRouter.get("/users", authmiddleware, UsersController.getUsers);
-usersRouter.get("/users/:id", authmiddleware, UsersController.getUser);
+usersRouter.get("/users", authmiddleware, UsersController.getUsers.bind(UsersController));
+usersRouter.get("/users/:id", authmiddleware, UsersController.getUser.bind(UsersController));
 
 usersRouter.post(
   "/users",
@@ -19,9 +19,14 @@ usersRouter.post(
     check("password", `Password can't be less then 8 characters`).isLength({ min: 8 }),
   ],
   schemaMiddleware("userSchema"),
-  UsersController.registration
+  UsersController.registration.bind(UsersController)
 );
-usersRouter.delete("/users/:id", authmiddleware, deleteUserMiddleware, UsersController.deleteUser);
-usersRouter.patch("/users/password/:id", authmiddleware, changePasswordMiddleware, UsersController.changePassword);
+usersRouter.delete("/users/:id", authmiddleware, deleteUserMiddleware, UsersController.deleteUser.bind(UsersController));
+usersRouter.patch(
+  "/users/password/:id",
+  authmiddleware,
+  changePasswordMiddleware,
+  UsersController.changePassword.bind(UsersController),
+);
 
 export default usersRouter;

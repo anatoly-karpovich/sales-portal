@@ -12,16 +12,16 @@ customerRouter.post(
   schemaMiddleware("customerSchema"),
   uniqueCustomer,
   customerValidations,
-  CustomerController.create,
+  CustomerController.create.bind(CustomerController),
 );
 
-customerRouter.get("/customers", authmiddleware, CustomerController.getAllSorted);
+customerRouter.get("/customers", authmiddleware, CustomerController.getAllSorted.bind(CustomerController));
 
-customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll);
+customerRouter.get("/customers/all", authmiddleware, CustomerController.getAll.bind(CustomerController));
 
 customerRouter.post("/customers/export", authmiddleware, CustomerController.export.bind(CustomerController));
 
-customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerController.getCustomer);
+customerRouter.get("/customers/:id", authmiddleware, customerById, CustomerController.getCustomer.bind(CustomerController));
 
 customerRouter.put(
   "/customers/:id",
@@ -30,10 +30,16 @@ customerRouter.put(
   uniqueCustomer,
   customerById,
   customerValidations,
-  CustomerController.update,
+  CustomerController.update.bind(CustomerController),
 );
 
-customerRouter.delete("/customers/:id", authmiddleware, customerById, deleteCustomer, CustomerController.delete);
+customerRouter.delete(
+  "/customers/:id",
+  authmiddleware,
+  customerById,
+  deleteCustomer,
+  CustomerController.delete.bind(CustomerController),
+);
 
 /**
  * @swagger

@@ -3,7 +3,7 @@ import { ORDER_STATUSES } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
 import { ICustomer } from "../customer.type";
 import { IDelivery } from "../delivery.type";
-import { IOrder } from "../order.type";
+import { IOrder, IOrderCustomerSnapshot } from "../order.type";
 
 export type OrderByIdParamsDTO = { id?: string; orderId?: string };
 export type OrderPathIdParamsDTO = { id?: string };
@@ -74,7 +74,7 @@ export type OrdersResponseDTO = BaseResponseDTO & {
 };
 
 export type OrdersSortedResponseDTO = BaseResponseDTO & {
-  Orders: IOrder<ICustomer>[];
+  Orders: IOrder<IOrderCustomerSnapshot>[];
   total: number;
   page: number;
   limit: number;

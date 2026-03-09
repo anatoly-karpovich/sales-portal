@@ -1,10 +1,8 @@
 import Order from "../models/order.model";
-import CustomerService from "./customer.service";
 import OrderService from "./order.service";
-import _ from "lodash";
 import type { IOrder, ICustomer, IComment } from "../data/types";
 import { getTodaysDate } from "../utils/utils";
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import { NOTIFICATIONS } from "../data/enums";
 import { NotificationService } from "./notification.service";
 
@@ -19,15 +17,19 @@ class OrderCommentsService {
       text: commentText,
       createdOn: getTodaysDate(true),
     };
-    const orderFromDB = await OrderService.getOrder(orderId);
-    const newOrder: IOrder<Types.ObjectId> = {
-      ...orderFromDB,
-      customer: orderFromDB.customer._id,
+    const orderFromDB = await Order.findById(orderId);
+    if (!orderFromDB) {
+      throw new Error("Order not found");
+    }
+    const newOrder: IOrder = {
+      ...orderFromDB._doc,
       comments: [...orderFromDB.comments, comment],
     };
 
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
 
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
@@ -37,13 +39,12 @@ class OrderCommentsService {
         message: NOTIFICATIONS.commentAdded,
       });
     }
-    return { ...updatedOrder._doc, customer };
+    return OrderService.getOrder(updatedOrder._id);
   }
 
   async deleteComment(orderId: Types.ObjectId, commentId: Types.ObjectId) {
     await Order.updateOne({ _id: orderId }, { $pull: { comments: { _id: commentId } } });
     const updatedOrder = await OrderService.getOrder(orderId);
-    const customer = await CustomerService.getCustomer(updatedOrder.customer._id);
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
         userId: updatedOrder.assignedManager._id.toString(),
@@ -52,7 +53,7 @@ class OrderCommentsService {
         message: NOTIFICATIONS.commentDeleted,
       });
     }
-    return { ...updatedOrder, customer };
+    return updatedOrder;
   }
 }
 

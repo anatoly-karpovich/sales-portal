@@ -1,9 +1,9 @@
 import Order from "../models/order.model";
 import CustomerService from "./customer.service";
-import { IOrder, IOrderRequest, ICustomer, IHistory } from "../data/types";
+import { IOrder, IOrderRequest, ICustomer, IHistory, IOrderCustomerSnapshot } from "../data/types";
 import { Types } from "mongoose";
-import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate, customSort } from "../utils/utils";
-import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, ROLES } from "../data/enums";
+import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
+import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import _ from "lodash";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
@@ -11,13 +11,23 @@ import { NotificationService } from "./notification.service";
 class OrderService {
   private notificationService = new NotificationService();
 
+  private buildCustomerSnapshot(customer: ICustomer): IOrderCustomerSnapshot {
+    return {
+      _id: new Types.ObjectId(customer._id),
+      email: customer.email,
+      name: customer.name,
+    };
+  }
+
   async create(order: IOrderRequest, performerdId: string): Promise<IOrder<ICustomer>> {
     const products = await productsMapping(order);
     const performer = await usersService.getUser(performerdId);
-    let action = ORDER_HISTORY_ACTIONS.CREATED;
-    const newOrder: IOrder<Types.ObjectId> = {
+    const customer = await CustomerService.getCustomer(order.customer);
+    const customerSnapshot = this.buildCustomerSnapshot(customer);
+
+    const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
-      customer: order.customer,
+      customer: customerSnapshot,
       products,
       delivery: null,
       total_price: getTotalPrice(products),
@@ -26,69 +36,66 @@ class OrderService {
       comments: [],
       assignedManager: null,
     };
-    newOrder.history.unshift(createHistoryEntry(newOrder, action, performer));
-    const createdOrder = await Order.create(newOrder);
-    const customer = await CustomerService.getCustomer(createdOrder.customer);
 
-    return { ...createdOrder._doc, customer };
+    newOrder.history.unshift(createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer));
+    const createdOrder = await Order.create(newOrder);
+
+    return this.getOrder(createdOrder._id);
   }
 
-  async getAll(): Promise<IOrder<ICustomer>[]> {
-    const ordersFromDB = await Order.find();
-    let orders = ordersFromDB.map(async (order) => {
-      return {
-        ...order._doc,
-        customer: await CustomerService.getCustomer(order.customer),
-      };
-    });
-    return (await Promise.all(orders)).reverse();
+  async getAll(): Promise<IOrder<IOrderCustomerSnapshot>[]> {
+    const orders = await Order.find();
+    return orders.reverse().map((order) => order._doc);
   }
 
   async getSorted(
     filters: { search?: string; status?: string[] },
     sortOptions: { sortField: string; sortOrder: string },
-    pagination: { skip: number; limit: number }
-  ): Promise<{ orders: IOrder<ICustomer>[]; total: number }> {
+    pagination: { skip: number; limit: number },
+  ): Promise<{ orders: IOrder<IOrderCustomerSnapshot>[]; total: number }> {
     const { search = "", status = [] } = filters;
     const { skip, limit } = pagination;
 
-    let ordersFromDB = await Order.find().exec();
+    const filter: Record<string, unknown> = {};
 
-    // Джойним кастомеров
-    let orders = await Promise.all(
-      ordersFromDB.map(async (order) => {
-        const customer = await CustomerService.getCustomer(order.customer);
-        return {
-          ...order._doc,
-          customer,
-        };
-      })
-    );
+    if (status.length > 0) {
+      filter.status = { $in: status };
+    }
 
-    // Фильтрация
     if (search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
       const searchNumber = parseFloat(search);
+      const searchConditions: Record<string, unknown>[] = [
+        { "customer.name": { $regex: searchRegex } },
+        { "customer.email": { $regex: searchRegex } },
+        { status: { $regex: searchRegex } },
+      ];
 
-      orders = orders.filter(
-        (order) =>
-          order._id.toString().match(searchRegex) ||
-          order.customer.name.match(searchRegex) ||
-          order.customer.email.match(searchRegex) ||
-          (!isNaN(searchNumber) && order.total_price === searchNumber) ||
-          order.status.match(searchRegex)
-      );
+      if (Types.ObjectId.isValid(search.trim())) {
+        searchConditions.push({ _id: new Types.ObjectId(search.trim()) });
+      }
+
+      if (!isNaN(searchNumber)) {
+        searchConditions.push({ total_price: searchNumber });
+      }
+
+      filter.$or = searchConditions;
     }
 
-    if (status.length > 0) {
-      orders = orders.filter((order) => status.includes(order.status));
+    const allowedSortFields = new Set(["createdOn", "total_price", "status"]);
+    const sortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
+    const sortOrder = sortOptions.sortOrder === "asc" ? 1 : -1;
+    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
+    if (sortField !== "createdOn") {
+      sort.createdOn = sortOrder;
     }
 
-    const total = orders.length;
-    const sorted = customSort(orders, sortOptions);
-    const paginated = sorted.slice(skip, skip + limit);
+    const [orders, total] = await Promise.all([
+      Order.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 }).exec(),
+      Order.countDocuments(filter).exec(),
+    ]);
 
-    return { orders: paginated, total };
+    return { orders: orders.map((order) => order._doc), total };
   }
 
   async getOrder(id: Types.ObjectId): Promise<IOrder<ICustomer>> {
@@ -99,18 +106,23 @@ class OrderService {
     if (!orderFromDB) {
       return undefined;
     }
-    const customer = await CustomerService.getCustomer(orderFromDB.customer);
-    const assignedManager = await usersService.getUser(orderFromDB.assignedManager as unknown as string);
-    return { ...orderFromDB._doc, customer, assignedManager };
+    const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
+    return { ...orderFromDB._doc, customer };
   }
 
   async update(orderId: Types.ObjectId, order: IOrderRequest, performerId: string): Promise<IOrder<ICustomer>> {
     const products = await productsMapping(order);
-    const orderFromDb = await this.getOrder(orderId);
+    const orderFromDb = await Order.findById(orderId);
+    if (!orderFromDb) {
+      throw new Error("Order not found");
+    }
     const manager = await usersService.getUser(performerId);
-    const newOrder: IOrder<Types.ObjectId> = {
+    const customer = await CustomerService.getCustomer(order.customer);
+    const customerSnapshot = this.buildCustomerSnapshot(customer);
+
+    const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
-      customer: order.customer,
+      customer: customerSnapshot,
       products,
       delivery: orderFromDb.delivery,
       total_price: getTotalPrice(products),
@@ -119,29 +131,32 @@ class OrderService {
       comments: orderFromDb.comments,
       assignedManager: orderFromDb.assignedManager,
     };
-    let changed = {
-      products: false,
-      customer: false,
-    };
+
+    const changed = { products: false, customer: false };
+
     if (
       !_.isEqual(
         order.products,
-        orderFromDb.products.map((p) => p._id.toString())
+        orderFromDb.products.map((p) => p._id.toString()),
       )
     ) {
       changed.products = true;
       const o = _.cloneDeep(newOrder);
-      o.customer = orderFromDb.customer._id;
+      o.customer = orderFromDb.customer;
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
     }
+
     if (!_.isEqual(order.customer.toString(), orderFromDb.customer._id.toString())) {
       changed.customer = true;
       const o = _.cloneDeep(newOrder);
       o.products = [...orderFromDb.products];
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
     }
+
     const updatedOrder = await Order.findByIdAndUpdate(orderId, newOrder, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
 
     if (updatedOrder.assignedManager) {
       if (changed.products) {
@@ -161,15 +176,20 @@ class OrderService {
         });
       }
     }
-    return { ...updatedOrder._doc, customer };
+
+    return this.getOrder(updatedOrder._id);
   }
 
   async delete(id: Types.ObjectId): Promise<IOrder<ICustomer>> {
+    console.log(id);
     if (!id) {
       throw new Error("Id was not provided");
     }
     const order = await Order.findByIdAndDelete(id);
-    const customer = await CustomerService.getCustomer(order.customer);
+    if (!order) {
+      return undefined;
+    }
+    const customer = await CustomerService.getCustomer(order.customer._id);
     return { ...order._doc, customer };
   }
 
@@ -177,11 +197,7 @@ class OrderService {
     if (!customerId) {
       throw new Error("Customer ID was not provided");
     }
-
-    // Assuming that the `customer` field in the order contains the customer's ID
-    const orders = await Order.find({ customer: customerId });
-
-    return orders;
+    return Order.find({ "customer._id": new Types.ObjectId(customerId) });
   }
 
   async getOrdersByManager(managerId: string) {
@@ -193,27 +209,22 @@ class OrderService {
       throw new Error("Invalid Manager ID format");
     }
 
-    const orders = await Order.find({ "assignedManager._id": new Types.ObjectId(managerId) });
-
-    return orders;
+    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) });
   }
 
-  // Назначить менеджера
   async assignManager(orderId: string, managerId: string, performerId: string) {
     const manager = await usersService.getUser(managerId);
     const order = await Order.findById(orderId);
+    if (!order) throw new Error("Order not found");
     order.assignedManager = manager;
 
-    // performer — это кто выполняет действие
     const performer = await usersService.getUser(performerId);
-
-    // Добавить запись в history
     order.history.unshift(
       createHistoryEntry(
         order as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
         ORDER_HISTORY_ACTIONS.MANAGER_ASSIGNED,
-        performer
-      )
+        performer,
+      ),
     );
 
     await order.save();
@@ -224,19 +235,16 @@ class OrderService {
       type: "assigned",
       message: NOTIFICATIONS.assigned,
     });
-    const customer = await CustomerService.getCustomer(order.customer);
 
-    return { ...order._doc, customer, assignedManager: manager };
+    return this.getOrder(order._id);
   }
 
-  // Снять менеджера
   async unassignManager(orderId: string, performerId: string) {
     const order = await Order.findById(orderId);
     if (!order) throw new Error("Order not found");
 
     const previousAssignee = order.assignedManager;
     order.assignedManager = null;
-
     const performer = await usersService.getUser(performerId);
 
     if (previousAssignee) {
@@ -244,8 +252,8 @@ class OrderService {
         createHistoryEntry(
           order as unknown as Omit<IHistory, "changedOn" | "action" | "performer">,
           ORDER_HISTORY_ACTIONS.MANAGER_UNASSIGNED,
-          performer
-        )
+          performer,
+        ),
       );
     }
 
@@ -259,11 +267,9 @@ class OrderService {
         message: NOTIFICATIONS.unassigned,
       });
     }
-    const customer = await CustomerService.getCustomer(order.customer);
 
-    return { ...order._doc, customer, assignedManager: null };
+    return this.getOrder(order._id);
   }
 }
 
 export default new OrderService();
-

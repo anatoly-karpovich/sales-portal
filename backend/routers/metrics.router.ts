@@ -4,7 +4,7 @@ import { authmiddleware } from "../middleware/authmiddleware";
 
 const router = express.Router();
 
-router.get("/metrics", authmiddleware, MetricsController.getMetrics);
+router.get("/metrics", authmiddleware, MetricsController.getMetrics.bind(MetricsController));
 
 /**
  * @swagger

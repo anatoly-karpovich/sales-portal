@@ -4,9 +4,17 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const notification = Router();
 
-notification.get("/notifications", authmiddleware, NotificationController.getNotifications);
-notification.patch("/notifications/:notificationId/read", authmiddleware, NotificationController.readNotification);
-notification.patch("/notifications/mark-all-read", authmiddleware, NotificationController.readAllNotifications);
+notification.get("/notifications", authmiddleware, NotificationController.getNotifications.bind(NotificationController));
+notification.patch(
+  "/notifications/:notificationId/read",
+  authmiddleware,
+  NotificationController.readNotification.bind(NotificationController),
+);
+notification.patch(
+  "/notifications/mark-all-read",
+  authmiddleware,
+  NotificationController.readAllNotifications.bind(NotificationController),
+);
 
 /**
  * @swagger

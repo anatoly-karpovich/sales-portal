@@ -6,13 +6,13 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const productsRouter = Router();
 
-productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted);
+productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted.bind(ProductsController));
 
-productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
+productsRouter.get("/products/all", authmiddleware, ProductsController.getAll.bind(ProductsController));
 
 productsRouter.post("/products/export", authmiddleware, ProductsController.export.bind(ProductsController));
 
-productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct);
+productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct.bind(ProductsController));
 
 productsRouter.post(
   "/products",
@@ -20,7 +20,7 @@ productsRouter.post(
   schemaMiddleware("productSchema"),
   uniqueProduct,
   productValidations,
-  ProductsController.create,
+  ProductsController.create.bind(ProductsController),
 );
 
 productsRouter.put(
@@ -30,10 +30,16 @@ productsRouter.put(
   uniqueProduct,
   productById,
   productValidations,
-  ProductsController.update,
+  ProductsController.update.bind(ProductsController),
 );
 
-productsRouter.delete("/products/:id", authmiddleware, productById, deleteProduct, ProductsController.delete);
+productsRouter.delete(
+  "/products/:id",
+  authmiddleware,
+  productById,
+  deleteProduct,
+  ProductsController.delete.bind(ProductsController),
+);
 
 /**
  * @swagger

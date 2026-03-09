@@ -41,7 +41,7 @@ class OrderController {
 
   async getAll(
     req: GetOrdersSortedRequestDTO,
-    res: Response<OrdersSortedResponseDTO | BaseResponseDTO>
+    res: Response<OrdersSortedResponseDTO | BaseResponseDTO>,
   ): Promise<Response> {
     try {
       const {
@@ -148,4 +148,3 @@ class OrderController {
 }
 
 export default new OrderController();
-

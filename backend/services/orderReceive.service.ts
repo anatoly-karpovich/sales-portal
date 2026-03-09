@@ -1,10 +1,8 @@
-import _ from "lodash";
 import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
-import type { IOrder, IOrderDocument, ICustomer } from "../data/types";
+import type { IOrder, ICustomer } from "../data/types";
 import Order from "../models/order.model";
-import CustomerService from "./customer.service";
 import OrderService from "./order.service";
-import { getTodaysDate } from "../utils/utils";
+import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
@@ -16,7 +14,10 @@ class OrderReceiveService {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB = await OrderService.getOrder(orderId);
+    const orderFromDB = await Order.findById(orderId);
+    if (!orderFromDB) {
+      throw new Error("Order not found");
+    }
     const previousStatus = orderFromDB.status;
     const manager = await usersService.getUser(performerId);
     for (const p of products) {
@@ -34,15 +35,13 @@ class OrderReceiveService {
       action = ORDER_HISTORY_ACTIONS.RECEIVED_ALL;
     }
 
-    orderFromDB.history.unshift({
-      ..._.omit(orderFromDB, ["history", "createdOn", "_id"]),
-      customer: orderFromDB.customer._id,
-      changedOn: getTodaysDate(true),
-      action,
-      performer: manager,
-    });
+    orderFromDB.history.unshift(
+      createHistoryEntry(orderFromDB as unknown as Parameters<typeof createHistoryEntry>[0], action, manager)
+    );
     const updatedOrder = await Order.findByIdAndUpdate(orderId, orderFromDB, { new: true });
-    const customer = await CustomerService.getCustomer(updatedOrder.customer);
+    if (!updatedOrder) {
+      throw new Error("Order not found");
+    }
 
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
@@ -71,7 +70,7 @@ class OrderReceiveService {
       }
     }
 
-    return { ...updatedOrder._doc, customer };
+    return OrderService.getOrder(updatedOrder._id);
   }
 }
 

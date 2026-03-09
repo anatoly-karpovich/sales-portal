@@ -36,7 +36,7 @@ export async function orderById(req: GetOrderByIdRequestDTO, res: Response<BaseR
 export async function orderValidations(
   req: CreateOrderRequestDTO | UpdateOrderRequestDTO,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   if (!req.body.customer) {
     return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing customer` });
@@ -70,7 +70,7 @@ export async function orderValidations(
 export async function orderStatus(
   req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderStatusRequestDTO>,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const status = req.body.status;
@@ -118,7 +118,7 @@ export async function orderStatus(
 export async function orderUpdateValidations(
   req: GetOrderByIdRequestDTO,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const id = req.params.id;
@@ -137,7 +137,7 @@ export async function orderUpdateValidations(
 export async function orderReceiveValidations(
   req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderReceiveRequestDTO>,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const order = req.order;
@@ -174,7 +174,7 @@ export async function orderReceiveValidations(
 export async function orderDelivery(
   req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], UpdateOrderDeliveryRequestDTO["body"]>,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const order = req.order;
@@ -217,7 +217,7 @@ export async function orderDelivery(
 export async function orderCommentsCreate(
   req: CreateOrderCommentRequestDTO,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     if (!req.params.id) {
@@ -239,7 +239,7 @@ export async function orderCommentsCreate(
 export async function orderCommentsDelete(
   req: OrderRequestWithEntityDTO<OrderCommentParamsDTO>,
   res: Response<BaseResponseDTO>,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const orderId = req.params.id;
@@ -258,4 +258,3 @@ export async function orderCommentsDelete(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
 }
-

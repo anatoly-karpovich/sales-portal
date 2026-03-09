@@ -4,14 +4,16 @@ import { Types } from "mongoose";
 import type { ICustomer, IProduct, IDelivery, DocumentResult, IComment } from ".";
 import { IUserWithRoles } from "./users.types";
 
-export interface IOrder<CustomerType> {
+export type IOrderCustomerSnapshot = {
+  _id: Types.ObjectId;
+  email: string;
+  name: string;
+};
+
+export interface IOrder<CustomerType = IOrderCustomerSnapshot> {
   readonly _id?: Types.ObjectId;
   status: ORDER_STATUSES;
-  customer: CustomerType extends ICustomer
-    ? ICustomer
-    : CustomerType extends Types.ObjectId
-    ? Types.ObjectId
-    : never;
+  customer: CustomerType;
   products: IProductInOrder[];
   delivery: IDelivery | null;
   total_price: number;
@@ -31,7 +33,7 @@ export interface IOrderRequest {
 }
 
 export interface IOrderDocument
-  extends IOrder<Types.ObjectId>,
+  extends IOrder<IOrderCustomerSnapshot>,
     Document,
     DocumentResult<IOrderDocument> {
   readonly _id: Types.ObjectId;

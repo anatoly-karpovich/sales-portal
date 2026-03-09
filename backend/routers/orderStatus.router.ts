@@ -12,7 +12,7 @@ orderStatusRouter.put(
   schemaMiddleware("orderStatusSchema"),
   orderById,
   orderStatus,
-  OrderStatusController.update,
+  OrderStatusController.update.bind(OrderStatusController),
 );
 
 /**

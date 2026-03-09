@@ -139,7 +139,7 @@ export async function deleteCustomer(
   next: NextFunction,
 ) {
   try {
-    const isAssignedToOrder = await Order.exists({ customer: new Types.ObjectId(req.params.id) });
+    const isAssignedToOrder = await Order.exists({ "customer._id": new Types.ObjectId(req.params.id) });
     if (isAssignedToOrder) {
       return res
         .status(409)

@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import type { ICustomer } from "../data/types";
 import Customer from "../models/customer.model";
+import Order from "../models/order.model";
 import { getTodaysDate } from "../utils/utils";
 import { CustomerExportFormatDTO } from "../data/types/dto/customers.dto";
 import ExportService from "./export.service";
@@ -174,6 +175,17 @@ class CustomerService {
       throw new Error("Id was not provided");
     }
     const updatedCustomer = await Customer.findByIdAndUpdate(customer._id, customer, { new: true });
+    if (updatedCustomer) {
+      await Order.updateMany(
+        { "customer._id": updatedCustomer._id },
+        {
+          $set: {
+            "customer.email": updatedCustomer.email,
+            "customer.name": updatedCustomer.name,
+          },
+        },
+      );
+    }
     return updatedCustomer;
   }
 

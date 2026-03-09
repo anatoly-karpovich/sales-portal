@@ -12,12 +12,12 @@ orderRouter.post(
   authmiddleware,
   schemaMiddleware("orderCreateSchema"),
   orderValidations,
-  OrderController.create,
+  OrderController.create.bind(OrderController),
 );
 
-orderRouter.get("/orders", authmiddleware, OrderController.getAll);
+orderRouter.get("/orders", authmiddleware, OrderController.getAll.bind(OrderController));
 
-orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder);
+orderRouter.get("/orders/:id", authmiddleware, orderById, OrderController.getOrder.bind(OrderController));
 
 orderRouter.put(
   "/orders/:id",
@@ -26,9 +26,9 @@ orderRouter.put(
   orderById,
   orderUpdateValidations,
   orderValidations,
-  OrderController.update,
+  OrderController.update.bind(OrderController),
 );
-orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.delete);
+orderRouter.delete("/orders/:id", authmiddleware, orderById, OrderController.delete.bind(OrderController));
 
 orderRouter.put(
   "/orders/:orderId/assign-manager/:managerId",
@@ -36,9 +36,14 @@ orderRouter.put(
   orderById,
   managerById,
   isManager,
-  OrderController.assignManager,
+  OrderController.assignManager.bind(OrderController),
 );
-orderRouter.put("/orders/:orderId/unassign-manager", authmiddleware, orderById, OrderController.unassignManager);
+orderRouter.put(
+  "/orders/:orderId/unassign-manager",
+  authmiddleware,
+  orderById,
+  OrderController.unassignManager.bind(OrderController),
+);
 
 /**
  * @swagger

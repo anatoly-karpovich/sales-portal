@@ -1,7 +1,7 @@
 import moment from "moment";
 import { DATE_AND_TIME_FORMAT, DATE_FORMAT } from "../data/constants";
 import { ORDER_HISTORY_ACTIONS, ROLES } from "../data/enums";
-import type { ICustomer, IHistory, IOrder, IOrderRequest, IProduct } from "../data/types";
+import type { ICustomer, IHistory, IOrder, IOrderCustomerSnapshot, IOrderRequest, IProduct } from "../data/types";
 import { IProductInOrder } from "../data/types/order.type";
 import ProductsService from "../services/products.service";
 import { Request } from "express";
@@ -20,13 +20,40 @@ export const getTodaysDate = (withTime: boolean) => {
   return withTime ? moment(Date.now()).format(DATE_AND_TIME_FORMAT) : moment(Date.now()).format(DATE_FORMAT);
 };
 
-export function createHistoryEntry<T extends Omit<IHistory, "changedOn" | "action" | "performer">>(
-  order: T,
+type HistorySource = {
+  status: string;
+  customer: Types.ObjectId | string | { _id: Types.ObjectId | string };
+  products: IHistory["products"];
+  delivery: IHistory["delivery"];
+  total_price: number;
+  assignedManager: IHistory["assignedManager"];
+};
+
+export function createHistoryEntry(
+  order: HistorySource,
   action: ORDER_HISTORY_ACTIONS,
   performer: IUserWithRoles
 ): IHistory {
-  const customerId =
-    order.customer instanceof Types.ObjectId ? order.customer : new Types.ObjectId(order.customer);
+  const orderCustomer = order.customer;
+  if (orderCustomer instanceof Types.ObjectId) {
+    return {
+      action,
+      status: order.status,
+      products: order.products,
+      customer: orderCustomer,
+      delivery: order.delivery,
+      total_price: order.total_price,
+      changedOn: getTodaysDate(true),
+      performer,
+      assignedManager: order.assignedManager,
+    };
+  }
+
+  const customerValue =
+    typeof orderCustomer === "object" && orderCustomer !== null && "_id" in orderCustomer
+      ? orderCustomer._id
+      : orderCustomer;
+  const customerId = new Types.ObjectId(customerValue as Types.ObjectId | string);
   return {
     action,
     status: order.status,
@@ -55,7 +82,7 @@ export async function productsMapping<T extends Pick<IOrderRequest, "products">>
  * @param sortOptions Sorting options.
  * @returns Sorted products.
  */
-export function customSort<T extends IProduct | ICustomer | IOrder<ICustomer>>(
+export function customSort<T extends IProduct | ICustomer | IOrder<IOrderCustomerSnapshot>>(
   entities: T[],
   sortOptions: { sortField: string; sortOrder: string }
 ): T[] {

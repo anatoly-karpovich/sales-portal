@@ -12,7 +12,7 @@ orderCommentsRouter.post(
   schemaMiddleware("orderCommentsCreateSchema"),
   orderCommentsCreate,
   orderById,
-  OrderCommentsController.create,
+  OrderCommentsController.create.bind(OrderCommentsController),
 );
 
 orderCommentsRouter.delete(
@@ -20,7 +20,7 @@ orderCommentsRouter.delete(
   authmiddleware,
   orderById,
   orderCommentsDelete,
-  OrderCommentsController.delete,
+  OrderCommentsController.delete.bind(OrderCommentsController),
 );
 
 /**
