@@ -102,7 +102,13 @@ class OrderService {
     }
 
     const [orders, total] = await Promise.all([
-      Order.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 }).exec(),
+      Order.find(filter)
+        .select("-history -comments")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .collation({ locale: "en", strength: 2 })
+        .exec(),
       Order.countDocuments(filter).exec(),
     ]);
 
