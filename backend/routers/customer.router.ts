@@ -177,6 +177,92 @@ customerRouter.delete(
  *         "flat": 45
  *         "phone": "+155512345678"
  *         "notes": "Frequent customer"
+ *
+ *     CustomerResponse:
+ *       type: object
+ *       properties:
+ *         Customer:
+ *           $ref: '#/components/schemas/Customer'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *
+ *     CustomersListResponse:
+ *       type: object
+ *       properties:
+ *         Customers:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Customer'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *
+ *     CustomersSortedResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/CustomersListResponse'
+ *         - type: object
+ *           properties:
+ *             total:
+ *               type: number
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             search:
+ *               type: string
+ *             country:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             sorting:
+ *               type: object
+ *               properties:
+ *                 sortField:
+ *                   type: string
+ *                   enum: [email, name, country, createdOn]
+ *                 sortOrder:
+ *                   type: string
+ *                   enum: [asc, desc]
+ *
+ *     CustomerExportPayload:
+ *       type: object
+ *       required:
+ *         - format
+ *         - fields
+ *       properties:
+ *         format:
+ *           type: string
+ *           enum: [csv, json]
+ *         filters:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             search:
+ *               type: string
+ *             country:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             sortField:
+ *               type: string
+ *               enum: [email, name, country, createdOn]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         fields:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [_id, email, name, country, city, street, house, flat, phone, createdOn, notes]
  */
 
 /**
@@ -193,13 +279,6 @@ customerRouter.delete(
  *     summary: Create a new customer
  *     tags: [Customers]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -214,7 +293,7 @@ customerRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Customer'
+ *               $ref: '#/components/schemas/CustomerResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -232,13 +311,6 @@ customerRouter.delete(
  *     summary: Get the list of customers with optional filters and sorting
  *     tags: [Customers]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: query
  *         name: search
  *         schema:
@@ -274,9 +346,7 @@ customerRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Customer'
+ *               $ref: '#/components/schemas/CustomersSortedResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
@@ -290,13 +360,6 @@ customerRouter.delete(
  *     summary: Get the list of all customers (no pagination, filters or sorting)
  *     tags: [Customers]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -305,9 +368,42 @@ customerRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Customer'
+ *               $ref: '#/components/schemas/CustomersListResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/customers/export:
+ *   post:
+ *     summary: Export customers in CSV/JSON format
+ *     tags: [Customers]
+ *     parameters:
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CustomerExportPayload'
+ *     responses:
+ *       200:
+ *         description: Export file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           application/json:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Validation error
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
@@ -327,13 +423,6 @@ customerRouter.delete(
  *           type: string
  *         required: true
  *         description: The customer id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -342,11 +431,13 @@ customerRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Customer'
+ *               $ref: '#/components/schemas/CustomerResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
  *         description: The customer was not found
+ *       409:
+ *         description: Conflict, unable to delete the customer
  *       500:
  *         description: Server error
  */
@@ -364,13 +455,6 @@ customerRouter.delete(
  *           type: string
  *         required: true
  *         description: The customer id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -385,7 +469,7 @@ customerRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Customer'
+ *               $ref: '#/components/schemas/CustomerResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -411,13 +495,6 @@ customerRouter.delete(
  *           type: string
  *         required: true
  *         description: The customer id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -432,3 +509,4 @@ customerRouter.delete(
  */
 
 export default customerRouter;
+

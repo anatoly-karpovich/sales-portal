@@ -17,13 +17,6 @@ customerOrdersRouter.get(
  *     summary: Get all orders associated with the specified customer
  *     tags: [Customers]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
  *         name: customerId
  *         required: true
@@ -38,9 +31,17 @@ customerOrdersRouter.get(
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Order'
+ *               type: object
+ *               properties:
+ *                 Orders:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/OrderListItem'
+ *                 IsSuccess:
+ *                   type: boolean
+ *                 ErrorMessage:
+ *                   type: string
+ *                   nullable: true
  *       400:
  *         description: Validation error
  *       401:
@@ -52,3 +53,4 @@ customerOrdersRouter.get(
  */
 
 export default customerOrdersRouter;
+

@@ -31,7 +31,7 @@ router.get("/metrics", authmiddleware, MetricsController.getMetrics.bind(Metrics
  *             recentOrders:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/Order'
+ *                 $ref: '#/components/schemas/OrderListItem'
  *               description: Recently created orders
  *             ordersCountPerDay:
  *               type: array
@@ -106,13 +106,6 @@ router.get("/metrics", authmiddleware, MetricsController.getMetrics.bind(Metrics
  *     summary: Get business metrics for the current year
  *     tags: [Metrics]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -129,3 +122,4 @@ router.get("/metrics", authmiddleware, MetricsController.getMetrics.bind(Metrics
  */
 
 export default router;
+

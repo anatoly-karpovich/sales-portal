@@ -17,38 +17,17 @@ orderStatusRouter.put(
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     OrderStatusUpdate:
- *       type: object
- *       required:
- *         - status
- *       properties:
- *         status:
- *           type: string
- *           enum: [Draft, In Process, Partially Received, Received, Canceled]
- *           description: The new status of the order
- *       example:
- *         status: "In Process"
- *
  * /api/orders/{id}/status:
  *   put:
- *     summary: Update the status of an order
+ *     summary: Update order status
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the order
+ *         description: Order id
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -56,31 +35,27 @@ orderStatusRouter.put(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [Draft, In Process, Partially Received, Received, Canceled]
- *                 description: The new status of the order
- *             required:
- *               - status
- *           example:
- *             status: "In Process"
+ *             $ref: '#/components/schemas/OrderStatusPayload'
  *     responses:
  *       200:
- *         description: The order status was successfully updated
+ *         description: Status updated
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
- *         description: The order was not found
+ *         description: Order not found
  *       500:
  *         description: Server error
  */
 
 export default orderStatusRouter;
+

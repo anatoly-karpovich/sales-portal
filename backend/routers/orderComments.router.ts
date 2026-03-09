@@ -30,13 +30,6 @@ orderCommentsRouter.delete(
  *     summary: Add a comment to an order
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
  *         name: id
  *         required: true
@@ -50,24 +43,20 @@ orderCommentsRouter.delete(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               comment:
- *                 type: string
- *                 description: Comment text
- *             required:
- *               - comment
- *           example:
- *             comment: "Great service!"
+ *             $ref: '#/components/schemas/OrderCommentPayload'
  *     responses:
  *       200:
  *         description: Comment successfully added to the order
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Order'
+ *               $ref: '#/components/schemas/OrderResponse'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
@@ -83,13 +72,6 @@ orderCommentsRouter.delete(
  *     summary: Delete a comment from an order
  *     tags: [Orders]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: path
  *         name: id
  *         required: true
@@ -118,3 +100,4 @@ orderCommentsRouter.delete(
  */
 
 export default orderCommentsRouter;
+

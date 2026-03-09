@@ -80,13 +80,6 @@ notification.patch(
  *     summary: Get all notifications for the authenticated user
  *     tags: [Notifications]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -126,13 +119,6 @@ notification.patch(
  *           type: string
  *         required: true
  *         description: The ID of the notification to mark as read
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -166,13 +152,6 @@ notification.patch(
  *     summary: Mark all notifications as read for the authenticated user
  *     tags: [Notifications]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -200,3 +179,4 @@ notification.patch(
  */
 
 export default notification;
+

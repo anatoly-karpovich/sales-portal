@@ -115,6 +115,100 @@ productsRouter.delete(
  *         "price": 1
  *         "manufacturer": "Apple"
  *         "notes": "note 1"
+ *
+ *     ProductResponse:
+ *       type: object
+ *       required:
+ *         - Product
+ *         - IsSuccess
+ *         - ErrorMessage
+ *       properties:
+ *         Product:
+ *           $ref: '#/components/schemas/Product'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *
+ *     ProductsListResponse:
+ *       type: object
+ *       required:
+ *         - Products
+ *         - IsSuccess
+ *         - ErrorMessage
+ *       properties:
+ *         Products:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Product'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *
+ *     ProductsSortedResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/ProductsListResponse'
+ *         - type: object
+ *           properties:
+ *             total:
+ *               type: number
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             search:
+ *               type: string
+ *             manufacturer:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             sorting:
+ *               type: object
+ *               properties:
+ *                 sortField:
+ *                   type: string
+ *                   enum: [name, price, manufacturer, createdOn]
+ *                 sortOrder:
+ *                   type: string
+ *                   enum: [asc, desc]
+ *
+ *     ProductExportPayload:
+ *       type: object
+ *       required:
+ *         - format
+ *         - fields
+ *       properties:
+ *         format:
+ *           type: string
+ *           enum: [csv, json]
+ *         filters:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             search:
+ *               type: string
+ *             manufacturer:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             page:
+ *               type: number
+ *             limit:
+ *               type: number
+ *             sortField:
+ *               type: string
+ *               enum: [name, price, manufacturer, createdOn]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         fields:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [_id, name, amount, price, manufacturer, createdOn, notes]
  */
 
 /**
@@ -131,13 +225,6 @@ productsRouter.delete(
  *     summary: Get the list of products with optional filters and sorting
  *     tags: [Products]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *       - in: query
  *         name: manufacturer
  *         schema:
@@ -173,9 +260,7 @@ productsRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductsSortedResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
@@ -189,13 +274,6 @@ productsRouter.delete(
  *     summary: Get the list of all products (no pagination, filters or sorting)
  *     tags: [Products]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -204,9 +282,7 @@ productsRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductsListResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
@@ -226,13 +302,6 @@ productsRouter.delete(
  *           type: string
  *         required: true
  *         description: The product id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -241,7 +310,7 @@ productsRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
@@ -257,13 +326,6 @@ productsRouter.delete(
  *     summary: Create a new product
  *     tags: [Products]
  *     parameters:
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -278,7 +340,7 @@ productsRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -302,13 +364,6 @@ productsRouter.delete(
  *           type: string
  *         required: true
  *         description: The product id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -323,7 +378,7 @@ productsRouter.delete(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Product'
+ *               $ref: '#/components/schemas/ProductResponse'
  *       400:
  *         description: Validation error
  *       401:
@@ -332,6 +387,41 @@ productsRouter.delete(
  *         description: The product was not found
  *       409:
  *         description: Conflict, unable to update the product
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/products/export:
+ *   post:
+ *     summary: Export products in CSV/JSON format
+ *     tags: [Products]
+ *     parameters:
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductExportPayload'
+ *     responses:
+ *       200:
+ *         description: Export file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           application/json:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
  *       500:
  *         description: Server error
  */
@@ -349,13 +439,6 @@ productsRouter.delete(
  *           type: string
  *         required: true
  *         description: The product id
- *       - in: header
- *         name: Authorization
- *         required: true
- *         schema:
- *           type: string
- *           example: Bearer <JWT token>
- *         description: Bearer token for authentication
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -372,3 +455,4 @@ productsRouter.delete(
  */
 
 export default productsRouter;
+
