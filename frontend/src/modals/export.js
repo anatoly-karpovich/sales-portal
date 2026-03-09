@@ -163,11 +163,24 @@ async function submitExport(button) {
     const fields = [...document.querySelectorAll('[name="export-field"]:checked')].map((el) => el.value);
     const exportAll = document.querySelector("#exportFilteringForm input:checked").value === "all";
     const exportType = document.querySelector("#exportFormatForm input:checked").value;
-    let data;
+
     if (state.page === "Products") {
-      const response = exportAll ? await ProductsService.getProducts() : await getSortedProducts();
-      data = response.data.Products;
-    } else if (state.page === "Customers") {
+      const payload = {
+        format: exportType,
+        filters: exportAll ? null : getProductsExportFilters(),
+        fields,
+      };
+      const response = await ProductsService.exportProducts(payload);
+      if (response.status !== STATUS_CODES.OK) {
+        throw new Error("Export request failed");
+      }
+      downloadExportFile(response, exportType);
+      renderNotification({ message: SUCCESS_MESSAGES["Exported"] });
+      return;
+    }
+
+    let data;
+    if (state.page === "Customers") {
       const response = exportAll ? await CustomersService.getCustomers() : await getSortedCustomers();
       data = response.data.Customers;
     } else if (state.page === "Orders") {
@@ -236,4 +249,37 @@ async function submitExport(button) {
   } finally {
     removeExportModal();
   }
+}
+
+function getProductsExportFilters() {
+  const search = state.search.products || "";
+  const manufacturer = Object.keys(state.filtering.products).filter((item) => state.filtering.products[item]);
+  const { page, limit } = state.pagination.products;
+  const { sortField, sortOrder } = state.sorting.products;
+
+  return {
+    search,
+    manufacturer,
+    page,
+    limit,
+    sortField,
+    sortOrder,
+  };
+}
+
+function downloadExportFile(response, exportType) {
+  const blob = response.data;
+  const disposition = response.headers?.["content-disposition"] || "";
+  const filenameMatch = disposition.match(/filename="(.+?)"/i);
+  const fallbackExt = exportType === "json" ? "json" : "csv";
+  const filename = filenameMatch ? filenameMatch[1] : `products-export.${fallbackExt}`;
+
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
 }

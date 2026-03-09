@@ -10,6 +10,8 @@ productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted)
 
 productsRouter.get("/products/all", authmiddleware, ProductsController.getAll);
 
+productsRouter.post("/products/export", authmiddleware, ProductsController.export.bind(ProductsController));
+
 productsRouter.get("/products/:id", authmiddleware, productById, ProductsController.getProduct);
 
 productsRouter.post(

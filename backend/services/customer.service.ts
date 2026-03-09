@@ -1,7 +1,7 @@
-import Customer from "../models/customer.model";
-import type { ICustomer } from "../data/types";
 import { Types } from "mongoose";
-import { customSort, getTodaysDate } from "../utils/utils";
+import type { ICustomer } from "../data/types";
+import Customer from "../models/customer.model";
+import { getTodaysDate } from "../utils/utils";
 
 class CustomerService {
   async create(customer: Omit<ICustomer, "_id" | "createdOn">): Promise<ICustomer> {
@@ -28,8 +28,8 @@ class CustomerService {
       filter.country = { $in: country };
     }
 
-    const searchRegex = new RegExp(search, "i");
     if (search && search.trim() !== "") {
+      const searchRegex = new RegExp(search, "i");
       filter.$or = [
         { email: { $regex: searchRegex } },
         { name: { $regex: searchRegex } },
@@ -37,13 +37,26 @@ class CustomerService {
       ];
     }
 
-    const all = await Customer.find(filter).exec(); // без сортировки и лимита
-    const total = all.length;
+    const allowedSortFields = new Set(["email", "name", "country", "createdOn"]);
+    const sortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
+    const sortOrder = sortOptions.sortOrder === "asc" ? 1 : -1;
 
-    const sorted = customSort(all, sortOptions);
-    const paginated = sorted.slice(skip, skip + limit);
+    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
+    if (sortField !== "createdOn") {
+      sort.createdOn = sortOrder;
+    }
 
-    return { customers: paginated, total };
+    const [customers, total] = await Promise.all([
+      Customer.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .collation({ locale: "en", strength: 2 })
+        .exec(),
+      Customer.countDocuments(filter).exec(),
+    ]);
+
+    return { customers, total };
   }
 
   async getCustomer(id: Types.ObjectId): Promise<ICustomer> {

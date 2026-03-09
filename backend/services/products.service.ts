@@ -1,8 +1,11 @@
 import { Types } from "mongoose";
 import type { IProduct } from "../data/types";
 import Product from "../models/product.model";
-import { customSort, getTodaysDate } from "../utils/utils";
+import { getTodaysDate } from "../utils/utils";
 import { IProductFilters } from "../data/types/product.type";
+
+type ProductSortField = "name" | "price" | "manufacturer" | "createdOn";
+type ProductSortOrder = "asc" | "desc";
 
 class ProductsService {
   async create(product: Omit<IProduct, "_id" | "createdOn">): Promise<IProduct> {
@@ -12,11 +15,40 @@ class ProductsService {
 
   async getSorted(
     filters: IProductFilters,
-    sortOptions: { sortField: string; sortOrder: string },
-    pagination: { skip: number; limit: number }
+    sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder },
+    pagination: { skip: number; limit: number },
   ): Promise<{ products: IProduct[]; total: number }> {
-    const { manufacturers, search } = filters;
     const { skip, limit } = pagination;
+    const filter = this.buildFilter(filters);
+    const sort = this.buildSort(sortOptions);
+
+    const [products, total] = await Promise.all([
+      Product.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 }).exec(),
+      Product.countDocuments(filter).exec(),
+    ]);
+
+    return { products, total };
+  }
+
+  async getForExport(
+    filters: {
+      manufacturers?: string[];
+      search?: string;
+      sortField?: ProductSortField;
+      sortOrder?: ProductSortOrder;
+    } = {},
+  ): Promise<IProduct[]> {
+    const filter = this.buildFilter({ manufacturers: filters.manufacturers ?? [], search: filters.search ?? "" });
+    const sort = this.buildSort({
+      sortField: filters.sortField ?? "createdOn",
+      sortOrder: filters.sortOrder ?? "desc",
+    });
+
+    return Product.find(filter).sort(sort).collation({ locale: "en", strength: 2 }).exec();
+  }
+
+  private buildFilter(filters: IProductFilters): Record<string, any> {
+    const { manufacturers, search } = filters;
 
     const filter: Record<string, any> = {};
 
@@ -39,13 +71,20 @@ class ProductsService {
       }
     }
 
-    const all = await Product.find(filter).exec();
-    const total = all.length;
+    return filter;
+  }
 
-    const sorted = customSort(all, sortOptions);
-    const paginated = sorted.slice(skip, skip + limit);
+  private buildSort(sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder }): Record<string, 1 | -1> {
+    const allowedSortFields = new Set<ProductSortField>(["name", "price", "manufacturer", "createdOn"]);
+    const sortField: ProductSortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
+    const sortOrder: 1 | -1 = sortOptions.sortOrder === "asc" ? 1 : -1;
 
-    return { products: paginated, total };
+    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
+    if (sortField !== "createdOn") {
+      sort.createdOn = sortOrder;
+    }
+
+    return sort;
   }
 
   async getAll() {

@@ -15,10 +15,28 @@ export type ProductsSortedQueryDTO = {
   limit?: string;
 };
 
+export type ProductExportFormatDTO = "csv" | "json";
+
+export type ProductExportFiltersDTO = {
+  search?: string;
+  manufacturer?: string[];
+  page?: number;
+  limit?: number;
+  sortField?: "name" | "price" | "manufacturer" | "createdOn";
+  sortOrder?: "asc" | "desc";
+} | null;
+
+export type ProductExportRequestBodyDTO = {
+  format: ProductExportFormatDTO;
+  filters?: ProductExportFiltersDTO;
+  fields: Array<keyof IProduct>;
+};
+
 export type CreateProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrUpdateRequestDTO>;
 export type UpdateProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrUpdateRequestDTO>;
 export type DeleteProductRequestDTO = Request<ProductByIdParamsDTO>;
 export type GetProductsSortedRequestDTO = Request<unknown, unknown, unknown, ProductsSortedQueryDTO>;
+export type ExportProductsRequestDTO = Request<unknown, unknown, ProductExportRequestBodyDTO>;
 
 export type GetProductByIdRequestDTO = Request<ProductByIdParamsDTO, unknown, unknown> & {
   product?: IProduct;
