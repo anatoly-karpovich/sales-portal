@@ -10,6 +10,14 @@ export type Product = {
   notes?: string
 }
 
+export type ProductUpsertPayload = {
+  name: string
+  amount: number
+  price: number
+  manufacturer: string
+  notes?: string
+}
+
 export type ProductsListResponse = {
   Products: Product[]
   total: number
@@ -21,6 +29,12 @@ export type ProductsListResponse = {
     sortField: 'name' | 'price' | 'manufacturer' | 'createdOn'
     sortOrder: 'asc' | 'desc'
   }
+  IsSuccess: boolean
+  ErrorMessage: string | null
+}
+
+type ProductResponse = {
+  Product: Product
   IsSuccess: boolean
   ErrorMessage: string | null
 }
@@ -55,6 +69,20 @@ export async function getProducts(query: ProductsQuery) {
     },
   })
   return response.data
+}
+
+export async function createProduct(payload: ProductUpsertPayload) {
+  const response = await apiClient.post<ProductResponse>('/products', payload)
+  return response.data.Product
+}
+
+export async function updateProduct(productId: string, payload: ProductUpsertPayload) {
+  const response = await apiClient.put<ProductResponse>(`/products/${productId}`, payload)
+  return response.data.Product
+}
+
+export async function deleteProduct(productId: string) {
+  await apiClient.delete(`/products/${productId}`)
 }
 
 export async function exportProducts(payload: ProductExportPayload) {

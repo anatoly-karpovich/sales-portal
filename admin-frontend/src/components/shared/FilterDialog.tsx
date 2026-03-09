@@ -1,4 +1,6 @@
-import { Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Stack } from '@mui/material'
+import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Stack, Typography } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import { useState } from 'react'
 
 type Props = {
@@ -27,9 +29,27 @@ export function FilterDialog({ open, title, values, selected, onClose, onApply }
         onEnter: () => setDraft(selected),
       }}
     >
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent dividers>
-        <Stack>
+      <DialogTitle sx={{ pr: 6 }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <FilterAltOutlinedIcon color="action" fontSize="small" />
+          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+            {title}
+          </Typography>
+        </Stack>
+        <IconButton aria-label="close" onClick={onClose} sx={{ position: 'absolute', right: 16, top: 12 }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers sx={{ px: 3, py: 2, display: 'grid', placeItems: 'center' }}>
+        <Stack
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            columnGap: 2,
+            width: '100%',
+            maxWidth: 320,
+          }}
+        >
           {values.map((value) => (
             <FormControlLabel
               key={value}
@@ -39,12 +59,12 @@ export function FilterDialog({ open, title, values, selected, onClose, onApply }
           ))}
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setDraft([])}>Clear</Button>
-        <Button onClick={onClose}>Cancel</Button>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Box sx={{ flexGrow: 1 }} />
         <Button variant="contained" onClick={() => onApply(draft)}>
           Apply
         </Button>
+        <Button onClick={() => setDraft([])}>Clear Filters</Button>
       </DialogActions>
     </Dialog>
   )

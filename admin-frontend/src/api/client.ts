@@ -11,6 +11,33 @@ export const apiClient = axios.create({
   },
 })
 
+async function extractApiErrorMessage(error: unknown) {
+  const responseData = (error as { response?: { data?: unknown } })?.response?.data
+
+  if (responseData instanceof Blob) {
+    try {
+      const text = await responseData.text()
+      const parsed = JSON.parse(text) as { ErrorMessage?: string }
+      if (parsed?.ErrorMessage) {
+        return parsed.ErrorMessage
+      }
+      return text || 'Request failed'
+    } catch {
+      return 'Request failed'
+    }
+  }
+
+  if (responseData && typeof responseData === 'object') {
+    const message = (responseData as { ErrorMessage?: unknown }).ErrorMessage
+    if (typeof message === 'string' && message.trim().length > 0) {
+      return message
+    }
+  }
+
+  const fallbackMessage = (error as { message?: unknown })?.message
+  return typeof fallbackMessage === 'string' && fallbackMessage.trim().length > 0 ? fallbackMessage : 'Request failed'
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = window.localStorage.getItem(TOKEN_STORAGE_KEY)
   if (token) {
@@ -21,9 +48,9 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error?.response?.status
-    const message = error?.response?.data?.ErrorMessage ?? error?.message ?? 'Request failed'
+    const message = await extractApiErrorMessage(error)
     const skipErrorToast = Boolean(error?.config?.skipErrorToast)
 
     if (status === 401) {

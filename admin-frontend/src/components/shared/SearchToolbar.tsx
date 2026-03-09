@@ -5,6 +5,7 @@ import DownloadIcon from '@mui/icons-material/Download'
 
 type Props = {
   searchDraft: string
+  hasActiveSearch?: boolean
   onSearchDraftChange: (value: string) => void
   onSearchApply: () => void
   onOpenFilters: () => void
@@ -12,9 +13,19 @@ type Props = {
   isSearching?: boolean
 }
 
-export function SearchToolbar({ searchDraft, onSearchDraftChange, onSearchApply, onOpenFilters, onOpenExport, isSearching = false }: Props) {
+export function SearchToolbar({
+  searchDraft,
+  hasActiveSearch = false,
+  onSearchDraftChange,
+  onSearchApply,
+  onOpenFilters,
+  onOpenExport,
+  isSearching = false,
+}: Props) {
+  const canApplySearch = Boolean(searchDraft.trim()) || hasActiveSearch
+
   return (
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }} sx={{ pr: { md: 1.5 } }}>
       <TextField
         size="small"
         placeholder="Type a value..."
@@ -25,7 +36,7 @@ export function SearchToolbar({ searchDraft, onSearchDraftChange, onSearchApply,
       <Button
         variant="contained"
         startIcon={isSearching ? <CircularProgress size={14} color="inherit" /> : <SearchIcon />}
-        disabled={!searchDraft.trim() || isSearching}
+        disabled={!canApplySearch || isSearching}
         onClick={onSearchApply}
       >
         Search

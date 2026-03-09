@@ -13,7 +13,13 @@ export function PaginationControls({ total, page, limit, onPageChange, onLimitCh
   const pageCount = Math.max(Math.ceil(total / limit), 1)
 
   return (
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', md: 'center' }} justifyContent="space-between">
+    <Stack
+      direction={{ xs: 'column', md: 'row' }}
+      spacing={1.5}
+      alignItems={{ xs: 'flex-start', md: 'center' }}
+      justifyContent="space-between"
+      sx={{ px: { xs: 0, md: 1.5 }, pt: 0.5 }}
+    >
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="body2">Items on page:</Typography>
         <FormControl size="small">
