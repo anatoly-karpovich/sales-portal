@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Button, IconButton, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
 import ChecklistOutlinedIcon from '@mui/icons-material/ChecklistOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
@@ -7,6 +7,7 @@ import AttachMoneyOutlinedIcon from '@mui/icons-material/AttachMoneyOutlined'
 import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import { Link } from 'react-router-dom'
 import numeral from 'numeral'
 import {
@@ -18,13 +19,13 @@ import {
   LineElement,
   LinearScale,
   PointElement,
-  Tooltip,
+  Tooltip as ChartTooltip,
 } from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
 import { useMetricsQuery } from '@/features/home/hooks/useMetricsQuery'
 import { formatDateTime } from '@/utils/date'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ChartTooltip, Legend, Filler)
 
 function HomePageSkeleton() {
   return (
@@ -377,7 +378,11 @@ export function HomePage() {
                   <TableCell>{formatCompactCurrency(order.total_price)}</TableCell>
                   <TableCell>{formatDateTime(order.createdOn)}</TableCell>
                   <TableCell>
-                    <Link to="/orders">Open</Link>
+                    <Tooltip title="Details">
+                      <IconButton component={Link} to="/orders" size="small">
+                        <VisibilityOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -396,6 +401,7 @@ export function HomePage() {
                 <TableCell>Email</TableCell>
                 <TableCell>Total Spent</TableCell>
                 <TableCell>Orders</TableCell>
+                <TableCell>Details</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -405,6 +411,13 @@ export function HomePage() {
                   <TableCell>{customer.customerEmail}</TableCell>
                   <TableCell>{formatCompactCurrency(customer.totalSpent)}</TableCell>
                   <TableCell>{customer.ordersCount}</TableCell>
+                  <TableCell>
+                    <Tooltip title="Details">
+                      <IconButton component={Link} to="/customers" size="small">
+                        <VisibilityOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
