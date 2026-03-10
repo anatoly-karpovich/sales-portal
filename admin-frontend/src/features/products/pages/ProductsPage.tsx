@@ -136,7 +136,9 @@ export function ProductsPage() {
   return (
     <Stack spacing={2.5}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
-        <Typography variant="h5">Products List</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          Products List
+        </Typography>
         <Button component={Link} to="/products/add" variant="contained">
           + Add Product
         </Button>
