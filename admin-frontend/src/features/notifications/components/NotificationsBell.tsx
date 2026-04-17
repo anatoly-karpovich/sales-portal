@@ -14,8 +14,8 @@ export function NotificationsBell() {
 
   return (
     <>
-      <IconButton color="inherit" onClick={(event) => setAnchorEl(event.currentTarget)}>
-        <Badge color="error" badgeContent={unreadCount} invisible={!unreadCount}>
+      <IconButton color="inherit" onClick={(event) => setAnchorEl(event.currentTarget)} data-testid="notifications-bell-button">
+        <Badge color="error" badgeContent={unreadCount} invisible={!unreadCount} data-testid="notifications-bell-badge">
           <NotificationsNoneIcon />
         </Badge>
       </IconButton>
@@ -27,10 +27,11 @@ export function NotificationsBell() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{ paper: { sx: { width: 340 } } }}
+        data-testid="notifications-menu"
       >
-        <Box sx={{ px: 1.5, pt: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ px: 1.5, pt: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }} data-testid="notifications-menu-header">
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-            <Typography fontWeight={700}>Notifications</Typography>
+            <Typography fontWeight={700} data-testid="notifications-menu-title">Notifications</Typography>
             <Button
               size="small"
               onClick={() => {
@@ -44,6 +45,7 @@ export function NotificationsBell() {
                 })()
               }}
               disabled={!unreadCount || isMarkingAll}
+              data-testid="notifications-mark-all-button"
             >
               {isMarkingAll ? <CircularProgress size={14} color="inherit" /> : 'Read All'}
             </Button>
@@ -51,16 +53,16 @@ export function NotificationsBell() {
         </Box>
 
         {isLoading ? (
-          <Box sx={{ py: 3, display: 'grid', placeItems: 'center' }}>
+          <Box sx={{ py: 3, display: 'grid', placeItems: 'center' }} data-testid="notifications-loading">
             <CircularProgress size={22} />
           </Box>
         ) : notifications.length === 0 ? (
-          <Typography sx={{ p: 2 }} color="text.secondary">
+          <Typography sx={{ p: 2 }} color="text.secondary" data-testid="notifications-empty-state">
             No notifications
           </Typography>
         ) : (
-          <List sx={{ p: 0, maxHeight: 380, overflowY: 'auto' }}>
-            {notifications.map((notification) => (
+          <List sx={{ p: 0, maxHeight: 380, overflowY: 'auto' }} data-testid="notifications-list">
+            {notifications.map((notification, index) => (
               <ListItemButton
                 key={notification._id}
                 onClick={async () => {
@@ -69,14 +71,17 @@ export function NotificationsBell() {
                   }
                 }}
                 sx={{ alignItems: 'flex-start', borderBottom: 1, borderColor: 'divider' }}
+                data-testid={`notifications-item-${index}`}
               >
                 <ListItemText
                   primary={
                     <Stack spacing={0.5}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" data-testid={`notifications-item-${index}-created-at`}>
                         {formatDateTime(notification.createdAt)}
                       </Typography>
-                      <Typography fontWeight={notification.read ? 400 : 700}>{notification.message}</Typography>
+                      <Typography fontWeight={notification.read ? 400 : 700} data-testid={`notifications-item-${index}-message`}>
+                        {notification.message}
+                      </Typography>
                       <Button
                         size="small"
                         sx={{ alignSelf: 'flex-start', p: 0, minWidth: 'auto', textTransform: 'none' }}
@@ -85,6 +90,7 @@ export function NotificationsBell() {
                           setAnchorEl(null)
                           navigate('/orders')
                         }}
+                        data-testid={`notifications-item-${index}-order-details-button`}
                       >
                         Order Details
                       </Button>

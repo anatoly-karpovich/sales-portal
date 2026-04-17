@@ -1,7 +1,10 @@
 import { Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel } from '@mui/material'
+import { sharedUiText } from '@/components/shared/shared.ui-text'
+
+export type DataTableColumnKey<Row> = Extract<keyof Row, string> | (string & {})
 
 export type DataTableColumn<Row> = {
-  key: keyof Row | string
+  key: DataTableColumnKey<Row>
   label: string
   sortable?: boolean
   width?: number | string
@@ -30,17 +33,17 @@ export function DataTable<Row>({
   onSort,
   isLoading = false,
   loadingRowCount = 8,
-  emptyText = 'No records created yet',
+  emptyText = sharedUiText.table.empty,
 }: Props<Row>) {
-  const isActionsColumn = (column: DataTableColumn<Row>) => String(column.key) === 'actions'
-  const resolveBodyAlign = (column: DataTableColumn<Row>) => column.align ?? (isActionsColumn(column) ? 'right' : 'left')
-  const resolveHeadAlign = (column: DataTableColumn<Row>) => (isActionsColumn(column) ? 'center' : (column.align ?? 'left'))
-  const resolveWidth = (column: DataTableColumn<Row>) => column.width ?? (isActionsColumn(column) ? 150 : undefined)
+  const resolveBodyAlign = (column: DataTableColumn<Row>) => column.align ?? 'left'
+  const resolveHeadAlign = (column: DataTableColumn<Row>) => column.align ?? 'left'
+  const resolveWidth = (column: DataTableColumn<Row>) => column.width
+  const toColumnTestId = (key: string) => key.toLowerCase().replace(/\s+/g, '-')
 
   const getCellSx = (column: DataTableColumn<Row>, forHead = false) => ({
     width: resolveWidth(column),
     minWidth: column.minWidth,
-    ...(isActionsColumn(column)
+    ...(column.stickyRight
       ? {
           pr: 3,
           position: { xs: 'static', md: 'sticky' },
@@ -53,20 +56,21 @@ export function DataTable<Row>({
   })
 
   return (
-    <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-      <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 980 }}>
+    <TableContainer component={Paper} sx={{ overflowX: 'auto' }} data-testid="data-table-container">
+      <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 980 }} data-testid="data-table">
         <colgroup>
           {columns.map((column) => (
             <col key={String(column.key)} style={{ width: resolveWidth(column), minWidth: column.minWidth }} />
           ))}
         </colgroup>
-        <TableHead>
-          <TableRow>
+        <TableHead data-testid="data-table-head">
+          <TableRow data-testid="data-table-head-row">
             {columns.map((column) => (
               <TableCell
                 key={String(column.key)}
                 align={resolveHeadAlign(column)}
                 sx={{ ...getCellSx(column, true), fontWeight: 700 }}
+                data-testid={`data-table-header-${toColumnTestId(String(column.key))}`}
               >
                 {column.sortable ? (
                   <TableSortLabel
@@ -74,6 +78,7 @@ export function DataTable<Row>({
                     direction={sortField === column.key ? sortOrder : 'asc'}
                     onClick={() => onSort(String(column.key))}
                     sx={{ fontWeight: 700 }}
+                    data-testid={`data-table-sort-${toColumnTestId(String(column.key))}`}
                   >
                     {column.label}
                   </TableSortLabel>
@@ -84,26 +89,36 @@ export function DataTable<Row>({
             ))}
           </TableRow>
         </TableHead>
-        <TableBody>
+        <TableBody data-testid="data-table-body">
           {isLoading ? (
             Array.from({ length: loadingRowCount }).map((_, rowIndex) => (
-              <TableRow key={`skeleton-${rowIndex}`}>
+              <TableRow key={`skeleton-${rowIndex}`} data-testid={`data-table-loading-row-${rowIndex}`}>
                 {columns.map((column) => (
-                  <TableCell key={`${String(column.key)}-${rowIndex}`} align={resolveBodyAlign(column)} sx={getCellSx(column)}>
-                    <Skeleton variant="text" width={isActionsColumn(column) ? 96 : '80%'} height={22} />
+                  <TableCell
+                    key={`${String(column.key)}-${rowIndex}`}
+                    align={resolveBodyAlign(column)}
+                    sx={getCellSx(column)}
+                    data-testid={`data-table-loading-cell-${toColumnTestId(String(column.key))}`}
+                  >
+                    <Skeleton variant="text" width="80%" height={22} />
                   </TableCell>
                 ))}
               </TableRow>
             ))
           ) : rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={columns.length}>{emptyText}</TableCell>
+            <TableRow data-testid="data-table-empty-row">
+              <TableCell colSpan={columns.length} data-testid="data-table-empty-text">{emptyText}</TableCell>
             </TableRow>
           ) : (
             rows.map((row, index) => (
-              <TableRow key={index}>
+              <TableRow key={index} data-testid={`data-table-row-${index}`}>
                 {columns.map((column) => (
-                  <TableCell key={String(column.key)} align={resolveBodyAlign(column)} sx={getCellSx(column)}>
+                  <TableCell
+                    key={String(column.key)}
+                    align={resolveBodyAlign(column)}
+                    sx={getCellSx(column)}
+                    data-testid={`data-table-cell-${index}-${toColumnTestId(String(column.key))}`}
+                  >
                     {column.render(row)}
                   </TableCell>
                 ))}

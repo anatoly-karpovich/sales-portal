@@ -9,14 +9,18 @@ type Props = {
   children: React.ReactNode
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
     },
-  },
-})
+  })
+}
+
+const queryClient = createQueryClient()
 
 export function AppProviders({ children }: Props) {
   return (

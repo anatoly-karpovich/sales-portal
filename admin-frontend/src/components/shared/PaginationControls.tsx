@@ -20,20 +20,21 @@ export function PaginationControls({ total, page, limit, isLoading = false, onPa
       alignItems={{ xs: 'flex-start', md: 'center' }}
       justifyContent="space-between"
       sx={{ px: { xs: 0, md: 1.5 }, pt: 0.5 }}
+      data-testid="pagination-controls"
     >
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="body2">Items on page:</Typography>
-        <FormControl size="small">
-          <Select value={limit} onChange={(event) => onLimitChange(Number(event.target.value))} disabled={isLoading}>
+      <Stack direction="row" spacing={1} alignItems="center" data-testid="pagination-controls-limit-section">
+        <Typography variant="body2" data-testid="pagination-controls-limit-label">Items on page:</Typography>
+        <FormControl size="small" data-testid="pagination-controls-limit-control">
+          <Select value={limit} onChange={(event) => onLimitChange(Number(event.target.value))} disabled={isLoading} data-testid="pagination-controls-limit-select">
             {PAGE_LIMIT_OPTIONS.map((value) => (
-              <MenuItem key={value} value={value}>
+              <MenuItem key={value} value={value} data-testid={`pagination-controls-limit-option-${value}`}>
                 {value}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
         {isLoading ? (
-          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ pl: 0.5 }}>
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ pl: 0.5 }} data-testid="pagination-controls-loading-state">
             <CircularProgress size={14} />
             <Typography variant="caption" color="text.secondary">
               Updating...
@@ -49,6 +50,7 @@ export function PaginationControls({ total, page, limit, isLoading = false, onPa
         shape="rounded"
         color="primary"
         disabled={isLoading}
+        data-testid="pagination-controls-page-selector"
       />
     </Stack>
   )

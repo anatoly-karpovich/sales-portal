@@ -4,6 +4,7 @@ import axios from 'axios'
 import { useAuth } from '@/features/auth/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
+import { authUiText } from '@/features/auth/auth.ui-text'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -25,8 +26,8 @@ export function LoginPage() {
       navigate('/home', { replace: true })
     } catch (error: unknown) {
       const message = axios.isAxiosError(error)
-        ? (error.response?.data as { ErrorMessage?: string } | undefined)?.ErrorMessage ?? 'Login failed'
-        : 'Login failed'
+        ? (error.response?.data as { ErrorMessage?: string } | undefined)?.ErrorMessage ?? authUiText.login.failed
+        : authUiText.login.failed
       enqueueSnackbar(message, { variant: 'error' })
     } finally {
       setIsSubmitting(false)
@@ -34,13 +35,21 @@ export function LoginPage() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
-      <Paper sx={{ width: '100%', maxWidth: 420, p: 3 }}>
-        <Stack spacing={2}>
-          <Typography variant="h5">Sign in</Typography>
-          <TextField label="Email" type="email" fullWidth value={username} onChange={(event) => setUsername(event.target.value)} />
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }} data-testid="login-page">
+      <Paper sx={{ width: '100%', maxWidth: 420, p: 3 }} data-testid="login-page-card">
+        <Stack spacing={2} data-testid="login-page-form">
+          <Typography variant="h5" data-testid="login-page-title">{authUiText.login.title}</Typography>
           <TextField
-            label="Password"
+            label={authUiText.login.emailLabel}
+            type="email"
+            fullWidth
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            data-testid="login-page-email-input"
+            inputProps={{ 'data-testid': 'login-page-email-input-field' }}
+          />
+          <TextField
+            label={authUiText.login.passwordLabel}
             type="password"
             fullWidth
             value={password}
@@ -51,10 +60,12 @@ export function LoginPage() {
                 void onSubmit()
               }
             }}
+            data-testid="login-page-password-input"
+            inputProps={{ 'data-testid': 'login-page-password-input-field' }}
           />
-          <Alert severity="info">Iteration 1 auth is active. Enter valid backend credentials.</Alert>
-          <Button variant="contained" onClick={() => void onSubmit()} disabled={!canSubmit}>
-            {isSubmitting ? <CircularProgress size={18} color="inherit" /> : 'Login'}
+          <Alert severity="info" data-testid="login-page-hint-alert">{authUiText.login.hint}</Alert>
+          <Button variant="contained" onClick={() => void onSubmit()} disabled={!canSubmit} data-testid="login-page-submit-button">
+            {isSubmitting ? <CircularProgress size={18} color="inherit" /> : authUiText.login.submitLabel}
           </Button>
         </Stack>
       </Paper>

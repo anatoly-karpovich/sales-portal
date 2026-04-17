@@ -8,14 +8,7 @@ import { useState } from 'react'
 import { useThemeMode } from '@/theme/theme-mode-context'
 import { useAuth } from '@/features/auth/useAuth'
 import { NotificationsBell } from '@/features/notifications/components/NotificationsBell'
-
-const menuItems = [
-  { to: '/home', label: 'Home' },
-  { to: '/orders', label: 'Orders' },
-  { to: '/products', label: 'Products' },
-  { to: '/customers', label: 'Customers' },
-  { to: '/managers', label: 'Managers' },
-]
+import { navigationItems } from '@/app/config/navigation'
 
 export function AppShell() {
   const location = useLocation()
@@ -25,6 +18,7 @@ export function AppShell() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [mobileAnchor, setMobileAnchor] = useState<HTMLElement | null>(null)
   const mobileMenuOpen = Boolean(mobileAnchor)
+  const toNavTestId = (path: string) => path.replace(/\//g, '-').replace(/^-+/, '') || 'home'
 
   const handleLogout = () => {
     void (async () => {
@@ -39,22 +33,27 @@ export function AppShell() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh' }}>
+    <Box sx={{ minHeight: '100vh' }} data-testid="app-shell">
       <CssBaseline />
-      <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar>
-          <IconButton color="inherit" sx={{ display: { xs: 'inline-flex', md: 'none' }, mr: 1 }} onClick={(event) => setMobileAnchor(event.currentTarget)}>
+      <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }} data-testid="app-shell-top-bar">
+        <Toolbar data-testid="app-shell-toolbar">
+          <IconButton
+            color="inherit"
+            sx={{ display: { xs: 'inline-flex', md: 'none' }, mr: 1 }}
+            onClick={(event) => setMobileAnchor(event.currentTarget)}
+            data-testid="app-shell-mobile-menu-button"
+          >
             <MenuIcon />
           </IconButton>
 
-          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mr: { xs: 1, md: 3 } }}>
-            <Typography component={Link} to="/home" variant="h6" sx={{ textDecoration: 'none', color: 'text.primary' }}>
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mr: { xs: 1, md: 3 } }} data-testid="app-shell-brand">
+            <Typography component={Link} to="/home" variant="h6" sx={{ textDecoration: 'none', color: 'text.primary' }} data-testid="app-shell-home-link">
               Sales Portal
             </Typography>
           </Stack>
 
-          <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1, minWidth: 0, pr: 1, display: { xs: 'none', md: 'flex' } }}>
-            {menuItems.map((item) => {
+          <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1, minWidth: 0, pr: 1, display: { xs: 'none', md: 'flex' } }} data-testid="app-shell-navigation">
+            {navigationItems.map((item) => {
               const selected = location.pathname.startsWith(item.to)
               return (
                 <Button
@@ -69,6 +68,7 @@ export function AppShell() {
                     fontSize: selected ? '1rem' : '0.95rem',
                     fontWeight: selected ? 700 : 500,
                   }}
+                  data-testid={`app-shell-nav-${toNavTestId(item.to)}-link`}
                 >
                   {item.label}
                 </Button>
@@ -76,15 +76,21 @@ export function AppShell() {
             })}
           </Stack>
 
-          <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, md: 1.25 }}>
+          <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, md: 1.25 }} data-testid="app-shell-actions">
             <NotificationsBell />
-            <IconButton color="inherit" onClick={toggleMode}>
+            <IconButton color="inherit" onClick={toggleMode} data-testid="app-shell-theme-toggle-button">
               {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
-            <Typography sx={{ px: 0.5, display: { xs: 'none', sm: 'block' } }} variant="body2">
+            <Typography sx={{ px: 0.5, display: { xs: 'none', sm: 'block' } }} variant="body2" data-testid="app-shell-user-name">
               {user?.firstName ?? 'User'}
             </Typography>
-            <IconButton color="inherit" disabled={isLoggingOut} onClick={handleLogout} sx={{ display: { xs: 'none', md: 'inline-flex' } }}>
+            <IconButton
+              color="inherit"
+              disabled={isLoggingOut}
+              onClick={handleLogout}
+              sx={{ display: { xs: 'none', md: 'inline-flex' } }}
+              data-testid="app-shell-logout-button"
+            >
               {isLoggingOut ? <CircularProgress size={18} color="inherit" /> : <MeetingRoomOutlinedIcon />}
             </IconButton>
           </Stack>
@@ -97,8 +103,9 @@ export function AppShell() {
         onClose={() => setMobileAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        data-testid="app-shell-mobile-menu"
       >
-        {menuItems.map((item) => {
+        {navigationItems.map((item) => {
           const selected = location.pathname.startsWith(item.to)
           return (
             <MenuItem
@@ -108,6 +115,7 @@ export function AppShell() {
                 setMobileAnchor(null)
                 navigate(item.to)
               }}
+              data-testid={`app-shell-mobile-nav-${toNavTestId(item.to)}-link`}
             >
               {item.label}
             </MenuItem>
@@ -119,12 +127,13 @@ export function AppShell() {
             setMobileAnchor(null)
             handleLogout()
           }}
+          data-testid="app-shell-mobile-logout-button"
         >
           {isLoggingOut ? <CircularProgress size={16} /> : 'Logout'}
         </MenuItem>
       </Menu>
 
-      <Box component="main" sx={{ p: { xs: 2, md: 3 } }}>
+      <Box component="main" sx={{ p: { xs: 2, md: 3 } }} data-testid="app-shell-main">
         <Outlet />
       </Box>
     </Box>

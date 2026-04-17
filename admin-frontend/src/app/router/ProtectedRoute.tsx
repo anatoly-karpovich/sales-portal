@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
-import { TOKEN_STORAGE_KEY } from '@/api/client'
+import { AuthRouteFallback } from '@/app/router/AuthRouteFallback'
 
 type Props = {
   children: React.ReactNode
@@ -8,10 +8,9 @@ type Props = {
 
 export function ProtectedRoute({ children }: Props) {
   const { state } = useAuth()
-  const hasToken = Boolean(window.localStorage.getItem(TOKEN_STORAGE_KEY))
 
   if (state === 'initializing') {
-    return hasToken ? children : <Navigate to="/login" replace />
+    return <AuthRouteFallback />
   }
 
   if (state === 'unauthenticated') {

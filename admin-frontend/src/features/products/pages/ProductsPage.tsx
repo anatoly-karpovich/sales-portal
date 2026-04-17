@@ -1,248 +1,115 @@
-import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
-import { useMemo, useState, useTransition } from 'react'
-import { useSnackbar } from 'notistack'
-import { Link, useNavigate } from 'react-router-dom'
-import { MANUFACTURERS } from '@/constants/dictionaries'
+import { Button, Paper, Stack, Typography } from '@mui/material'
+import { Link } from 'react-router-dom'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
 import { FilterDialog } from '@/components/shared/FilterDialog'
 import { FilterChips } from '@/components/shared/FilterChips'
-import { DataTable, type DataTableColumn } from '@/components/shared/DataTable'
+import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { formatDateTime } from '@/utils/date'
-import { downloadBlobResponse } from '@/utils/download'
 import {
-  useDeleteProductMutation,
-  useProductsExportMutation,
-  useProductsQuery,
-} from '@/features/products/hooks/useProductsQuery'
-import type { Product } from '@/api/modules/products.api'
+  getProductsTableColumns,
+  PRODUCTS_EXPORT_AVAILABLE_FIELDS,
+  PRODUCTS_EXPORT_DEFAULT_FIELDS,
+} from '@/features/products/config/productsTableColumns'
+import { useProductsPageState } from '@/features/products/hooks/useProductsPageState'
 import { ProductDetailsDialog } from '@/features/products/components/ProductDetailsDialog'
+import { getDeleteProductMessage, productsUiText } from '@/features/products/products.ui-text'
 
 export function ProductsPage() {
-  const navigate = useNavigate()
-  const { enqueueSnackbar } = useSnackbar()
-  const [search, setSearch] = useState('')
-  const [searchDraft, setSearchDraft] = useState('')
-  const [manufacturer, setManufacturer] = useState<string[]>([])
-  const [sortField, setSortField] = useState<'name' | 'price' | 'manufacturer' | 'createdOn'>('createdOn')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(10)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [isTransitionPending, startTransition] = useTransition()
+  const state = useProductsPageState()
 
-  const query = {
-    search,
-    manufacturer,
-    sortField,
-    sortOrder,
-    page,
-    limit,
-  } as const
-
-  const { data, isLoading, isFetching } = useProductsQuery(query)
-  const exportMutation = useProductsExportMutation()
-  const deleteMutation = useDeleteProductMutation()
-
-  const rows = data?.Products ?? []
-  const total = data?.total ?? 0
-  const isTableUpdating = isFetching || isTransitionPending
-
-  const openDetailsDialog = (product: Product) => {
-    setSelectedProduct(product)
-    setDetailsOpen(true)
-  }
-
-  const openDeleteDialog = (product: Product) => {
-    setSelectedProduct(product)
-    setDeleteDialogOpen(true)
-  }
-
-  const columns = useMemo<DataTableColumn<Product>[]>(
-    () => [
-      { key: 'name', label: 'Name', sortable: true, width: '32%', minWidth: 260, render: (row) => row.name },
-      { key: 'price', label: 'Price', sortable: true, width: 140, minWidth: 120, render: (row) => `$${row.price}` },
-      { key: 'manufacturer', label: 'Manufacturer', sortable: true, width: '22%', minWidth: 180, render: (row) => row.manufacturer },
-      { key: 'createdOn', label: 'Created On', sortable: true, width: '28%', minWidth: 220, render: (row) => formatDateTime(row.createdOn) },
-      {
-        key: 'actions',
-        label: 'Actions',
-        width: 150,
-        minWidth: 140,
-        align: 'right',
-        stickyRight: true,
-        render: (row) => (
-          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-            <Tooltip title="Details">
-              <IconButton size="small" onClick={() => openDetailsDialog(row)}>
-                <VisibilityOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton size="small" onClick={() => navigate(`/products/${row._id}/edit`)}>
-                <EditOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" color="error" onClick={() => openDeleteDialog(row)}>
-                <DeleteOutlineOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        ),
-      },
-    ],
-    [navigate],
-  )
-
-  const onSort = (field: string) => {
-    if (!['name', 'price', 'manufacturer', 'createdOn'].includes(field)) return
-    setPage(1)
-    setSortField(field as 'name' | 'price' | 'manufacturer' | 'createdOn')
-    setSortOrder((currentOrder) => (field === sortField ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'))
-  }
-
-  const onExportSubmit = async (payload: { format: 'csv' | 'json'; exportFrom: 'all' | 'filtered'; fields: string[] }) => {
-    const filters =
-      payload.exportFrom === 'all'
-        ? null
-        : {
-            search,
-            manufacturer,
-            page,
-            limit,
-            sortField,
-            sortOrder,
-          }
-
-    const response = await exportMutation.mutateAsync({
-      format: payload.format,
-      fields: payload.fields,
-      filters,
-    })
-    downloadBlobResponse(response, `products-export.${payload.format}`)
-    enqueueSnackbar('Export completed', { variant: 'success' })
-  }
+  const columns = getProductsTableColumns({
+    onView: state.openDetailsDialog,
+    onEdit: (product) => state.goToProductEdit(product._id),
+    onDelete: state.openDeleteDialog,
+  })
 
   return (
-    <Stack spacing={2.5}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          Products List
+    <Stack spacing={2.5} data-testid="products-list-page">
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} data-testid="products-list-page-header">
+        <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="products-list-page-title">
+          {productsUiText.listPage.title}
         </Typography>
-        <Button component={Link} to="/products/add" variant="contained">
-          + Add Product
+        <Button component={Link} to="/products/add" variant="contained" data-testid="products-list-add-button">
+          {productsUiText.listPage.addButton}
         </Button>
       </Stack>
 
-      <Paper sx={{ p: 2 }}>
-        <Stack spacing={2}>
+      <Paper sx={{ p: 2 }} data-testid="products-list-page-content">
+        <Stack spacing={2} data-testid="products-list-page-controls">
           <SearchToolbar
-            searchDraft={searchDraft}
-            hasActiveSearch={Boolean(search)}
-            onSearchDraftChange={setSearchDraft}
-            isSearching={isTableUpdating}
-            onSearchApply={() => {
-              setSearch(searchDraft.trim())
-              setSearchDraft('')
-              setPage(1)
-            }}
-            onOpenFilters={() => setFiltersOpen(true)}
-            onOpenExport={() => setExportOpen(true)}
+            searchDraft={state.searchDraft}
+            hasActiveSearch={Boolean(state.search)}
+            onSearchDraftChange={state.setSearchDraft}
+            isSearching={state.isTableUpdating}
+            onSearchApply={state.onSearchApply}
+            onOpenFilters={() => state.setFiltersOpen(true)}
+            onOpenExport={() => state.setExportOpen(true)}
           />
 
           <FilterChips
-            search={search}
-            filters={manufacturer}
-            onRemoveSearch={() => {
-              setSearch('')
-              setSearchDraft('')
-              setPage(1)
-            }}
-            onRemoveFilter={(value) => {
-              setManufacturer((current) => current.filter((item) => item !== value))
-              setPage(1)
-            }}
+            search={state.search}
+            filters={state.manufacturer}
+            onRemoveSearch={state.onRemoveSearch}
+            onRemoveFilter={state.onRemoveManufacturerFilter}
           />
 
-          <DataTable rows={rows} columns={columns} sortField={sortField} sortOrder={sortOrder} onSort={onSort} isLoading={isLoading} />
-          {!isLoading ? (
+          <DataTable
+            rows={state.rows}
+            columns={columns}
+            sortField={state.sortField}
+            sortOrder={state.sortOrder}
+            onSort={state.onSort}
+            isLoading={state.isLoading}
+          />
+          {!state.isLoading ? (
             <PaginationControls
-              total={total}
-              page={page}
-              limit={limit}
-              isLoading={isTableUpdating}
-              onPageChange={(value) => {
-                startTransition(() => {
-                  setPage(value)
-                })
-              }}
-              onLimitChange={(value) => {
-                startTransition(() => {
-                  setLimit(value)
-                  setPage(1)
-                })
-              }}
+              total={state.total}
+              page={state.page}
+              limit={state.limit}
+              isLoading={state.isTableUpdating}
+              onPageChange={state.onPageChange}
+              onLimitChange={state.onLimitChange}
             />
           ) : null}
         </Stack>
       </Paper>
 
       <FilterDialog
-        open={filtersOpen}
-        title="Filters"
-        values={[...MANUFACTURERS]}
-        selected={manufacturer}
-        onClose={() => setFiltersOpen(false)}
-        onApply={(values) => {
-          setManufacturer(values)
-          setPage(1)
-          setFiltersOpen(false)
-        }}
+        open={state.filtersOpen}
+        title={productsUiText.listPage.filtersTitle}
+        values={state.manufacturerOptions}
+        selected={state.manufacturer}
+        onClose={() => state.setFiltersOpen(false)}
+        onApply={state.applyManufacturerFilters}
       />
 
       <ExportDialog
-        open={exportOpen}
-        availableFields={['name', 'amount', 'price', 'manufacturer', 'createdOn', 'notes']}
-        defaultFields={['name', 'price', 'manufacturer', 'createdOn']}
-        onClose={() => setExportOpen(false)}
-        onSubmit={onExportSubmit}
+        open={state.exportOpen}
+        availableFields={PRODUCTS_EXPORT_AVAILABLE_FIELDS}
+        defaultFields={PRODUCTS_EXPORT_DEFAULT_FIELDS}
+        onClose={() => state.setExportOpen(false)}
+        onSubmit={state.onExportSubmit}
       />
 
       <ConfirmDialog
-        open={deleteDialogOpen}
-        title="Delete Product"
-        message={`Are you sure you want to delete "${selectedProduct?.name ?? 'this product'}"?`}
-        confirmLabel="Yes, Delete"
-        cancelLabel="Cancel"
-        isSubmitting={deleteMutation.isPending}
-        onCancel={() => {
-          if (deleteMutation.isPending) return
-          setDeleteDialogOpen(false)
-        }}
-        onConfirm={async () => {
-          if (!selectedProduct) return
-          await deleteMutation.mutateAsync(selectedProduct._id)
-          enqueueSnackbar('Product deleted', { variant: 'success' })
-          setDeleteDialogOpen(false)
-        }}
+        open={state.deleteDialogOpen}
+        title={productsUiText.dialogs.deleteTitle}
+        message={getDeleteProductMessage(state.selectedProduct?.name)}
+        confirmLabel={productsUiText.dialogs.deleteConfirm}
+        cancelLabel={productsUiText.dialogs.cancel}
+        isSubmitting={state.isDeletePending}
+        onCancel={state.closeDeleteDialog}
+        onConfirm={state.onConfirmDelete}
       />
 
       <ProductDetailsDialog
-        open={detailsOpen}
-        product={selectedProduct}
-        onClose={() => setDetailsOpen(false)}
+        open={state.detailsOpen}
+        product={state.selectedProduct}
+        onClose={state.closeDetailsDialog}
         onEdit={(product) => {
-          navigate(`/products/${product._id}/edit`)
+          state.goToProductEdit(product._id)
         }}
       />
     </Stack>

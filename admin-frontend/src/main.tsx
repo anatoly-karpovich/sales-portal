@@ -1,9 +1,4 @@
 import { createRoot } from 'react-dom/client'
-import { AppProviders } from '@/app/providers/AppProviders'
-import { AppRouter } from '@/app/router/AppRouter'
+import { App } from '@/app/App'
 
-createRoot(document.getElementById('root')!).render(
-  <AppProviders>
-    <AppRouter />
-  </AppProviders>,
-)
+createRoot(document.getElementById('root')!).render(<App />)

@@ -10,10 +10,11 @@ import {
   type ProductUpsertPayload,
   type ProductsQuery,
 } from '@/api/modules/products.api'
+import { productsQueryKeys } from '@/features/products/hooks/productsQueryKeys'
 
 export function useProductsQuery(query: ProductsQuery) {
   return useQuery({
-    queryKey: ['products', query],
+    queryKey: productsQueryKeys.list(query),
     queryFn: () => getProducts(query),
     placeholderData: (previousData) => previousData,
   })
@@ -27,7 +28,7 @@ export function useProductsExportMutation() {
 
 export function useProductQuery(productId: string, enabled = true) {
   return useQuery({
-    queryKey: ['products', 'details', productId],
+    queryKey: productsQueryKeys.detail(productId),
     queryFn: () => getProductById(productId),
     enabled,
   })
@@ -38,7 +39,7 @@ export function useCreateProductMutation() {
   return useMutation({
     mutationFn: (payload: ProductUpsertPayload) => createProduct(payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['products'] })
+      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.all })
     },
   })
 }
@@ -48,7 +49,7 @@ export function useUpdateProductMutation() {
   return useMutation({
     mutationFn: ({ productId, payload }: { productId: string; payload: ProductUpsertPayload }) => updateProduct(productId, payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['products'] })
+      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.all })
     },
   })
 }
@@ -58,7 +59,7 @@ export function useDeleteProductMutation() {
   return useMutation({
     mutationFn: (productId: string) => deleteProduct(productId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['products'] })
+      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.all })
     },
   })
 }

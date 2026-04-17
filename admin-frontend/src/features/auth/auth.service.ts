@@ -61,6 +61,23 @@ export function clearSessionStorage() {
   window.localStorage.removeItem(USER_STORAGE_KEY)
 }
 
+export function hasStoredToken() {
+  return Boolean(window.localStorage.getItem(TOKEN_STORAGE_KEY))
+}
+
+export async function bootstrapAuthUser() {
+  if (!hasStoredToken()) {
+    return null
+  }
+
+  try {
+    return await meRequest()
+  } catch {
+    clearSessionStorage()
+    return null
+  }
+}
+
 export function readStoredUser() {
   const raw = window.localStorage.getItem(USER_STORAGE_KEY)
   if (!raw) return null

@@ -24,11 +24,11 @@ export function ConfirmDialog({
   onConfirm,
 }: Props) {
   return (
-    <Dialog open={open} onClose={isSubmitting ? undefined : onCancel} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ pr: 6 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+    <Dialog open={open} onClose={isSubmitting ? undefined : onCancel} fullWidth maxWidth="xs" data-testid="confirm-dialog">
+      <DialogTitle sx={{ pr: 6 }} data-testid="confirm-dialog-title-section">
+        <Stack direction="row" alignItems="center" spacing={1} data-testid="confirm-dialog-title-row">
           <DeleteOutlineOutlinedIcon color="action" fontSize="small" />
-          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }} data-testid="confirm-dialog-title-text">
             {title}
           </Typography>
         </Stack>
@@ -37,19 +37,20 @@ export function ConfirmDialog({
           onClick={onCancel}
           disabled={isSubmitting}
           sx={{ position: 'absolute', right: 16, top: 12 }}
+          data-testid="confirm-dialog-close-button"
         >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
-        <Typography>{message}</Typography>
+      <DialogContent dividers sx={{ px: 3, py: 2.5 }} data-testid="confirm-dialog-content">
+        <Typography data-testid="confirm-dialog-message">{message}</Typography>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
+      <DialogActions sx={{ px: 3, py: 2 }} data-testid="confirm-dialog-actions">
         <Box sx={{ flexGrow: 1 }} />
-        <Button color="error" variant="contained" onClick={() => void onConfirm()} disabled={isSubmitting}>
+        <Button color="error" variant="contained" onClick={() => void onConfirm()} disabled={isSubmitting} data-testid="confirm-dialog-confirm-button">
           {isSubmitting ? <CircularProgress size={18} color="inherit" /> : confirmLabel}
         </Button>
-        <Button onClick={onCancel} disabled={isSubmitting}>
+        <Button onClick={onCancel} disabled={isSubmitting} data-testid="confirm-dialog-cancel-button">
           {cancelLabel}
         </Button>
       </DialogActions>
