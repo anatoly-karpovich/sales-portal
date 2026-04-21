@@ -252,7 +252,21 @@ export function EditOrderProductsDialog({
         data-testid="order-details-products-edit-dialog"
       >
       <DialogTitle sx={{ pr: 6 }} data-testid="order-details-products-edit-dialog-title">
-        {ordersUiText.dialogs.details.editProductsTitle}
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
+          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+            {ordersUiText.dialogs.details.editProductsTitle}
+          </Typography>
+          {saveDisabledReason ? (
+            <Typography
+              variant="body2"
+              color="warning.main"
+              sx={{ textAlign: 'right', maxWidth: 320, mr: 4.5 }}
+              data-testid="order-details-products-edit-save-disabled-reason"
+            >
+              {saveDisabledReason}
+            </Typography>
+          ) : null}
+        </Stack>
         <IconButton
           aria-label="close"
           onClick={requestClose}
@@ -459,37 +473,26 @@ export function EditOrderProductsDialog({
           </Typography>
         </Stack>
 
-        <Stack spacing={0.5} alignItems="flex-end">
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              onClick={() => void onSave(currentProductIds)}
-              disabled={isSaveDisabled}
-              data-testid="order-details-products-edit-save-button"
-            >
-              {isSubmitting ? (
-                <CircularProgress size={18} color="inherit" />
-              ) : (
-                ordersUiText.dialogs.details.editProductsSave
-              )}
-            </Button>
-            <Button
-              onClick={requestClose}
-              disabled={isSubmitting}
-              data-testid="order-details-products-edit-cancel-button"
-            >
-              {ordersUiText.dialogs.cancel}
-            </Button>
-          </Stack>
-          {saveDisabledReason ? (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              data-testid="order-details-products-edit-save-disabled-reason"
-            >
-              {saveDisabledReason}
-            </Typography>
-          ) : null}
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            onClick={() => void onSave(currentProductIds)}
+            disabled={isSaveDisabled}
+            data-testid="order-details-products-edit-save-button"
+          >
+            {isSubmitting ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              ordersUiText.dialogs.details.editProductsSave
+            )}
+          </Button>
+          <Button
+            onClick={requestClose}
+            disabled={isSubmitting}
+            data-testid="order-details-products-edit-cancel-button"
+          >
+            {ordersUiText.dialogs.cancel}
+          </Button>
         </Stack>
       </DialogActions>
       </Dialog>
