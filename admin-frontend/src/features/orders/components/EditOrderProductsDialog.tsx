@@ -33,6 +33,7 @@ import {
 } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatPrice } from '@/utils/number'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 type ProductRow = {
   id: number
@@ -97,6 +98,7 @@ export function EditOrderProductsDialog({
   const [editingRowId, setEditingRowId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
   const [knownProductsById, setKnownProductsById] = useState<Map<string, ProductSummary>>(
     () => new Map(initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)])),
   )
@@ -145,6 +147,17 @@ export function EditOrderProductsDialog({
     hasEmptyRows ||
     hasUnavailableRows ||
     !hasChanges
+  const saveDisabledReason = isSubmitting
+    ? null
+    : isAvailabilityLoading
+      ? ordersUiText.dialogs.details.editProductsDisabledReasonCheckingAvailability
+      : hasUnavailableRows
+        ? ordersUiText.dialogs.details.editProductsDisabledReasonUnavailable
+        : hasEmptyRows
+          ? ordersUiText.dialogs.details.editProductsDisabledReasonEmptyRows
+          : !hasChanges
+            ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
+            : null
 
   const totalPrice = useMemo(() => {
     return rows.reduce((sum, row) => {
@@ -216,19 +229,33 @@ export function EditOrderProductsDialog({
   const isInitialLoading = optionsQuery.isLoading && options.length === 0
   const isUpdating = optionsQuery.isFetching && options.length > 0
 
+  const requestClose = () => {
+    if (hasChanges && !isSubmitting) {
+      setIsDiscardConfirmOpen(true)
+      return
+    }
+    onClose()
+  }
+
+  const handleDiscardConfirm = () => {
+    setIsDiscardConfirmOpen(false)
+    onClose()
+  }
+
   return (
-    <Dialog
-      open={open}
-      onClose={isSubmitting ? undefined : onClose}
-      fullWidth
-      maxWidth="sm"
-      data-testid="order-details-products-edit-dialog"
-    >
+    <>
+      <Dialog
+        open={open}
+        onClose={isSubmitting ? undefined : requestClose}
+        fullWidth
+        maxWidth="sm"
+        data-testid="order-details-products-edit-dialog"
+      >
       <DialogTitle sx={{ pr: 6 }} data-testid="order-details-products-edit-dialog-title">
         {ordersUiText.dialogs.details.editProductsTitle}
         <IconButton
           aria-label="close"
-          onClick={onClose}
+          onClick={requestClose}
           disabled={isSubmitting}
           sx={{ position: 'absolute', right: 16, top: 12 }}
           data-testid="order-details-products-edit-dialog-close-button"
@@ -432,26 +459,51 @@ export function EditOrderProductsDialog({
           </Typography>
         </Stack>
 
-        <Button
-          variant="contained"
-          onClick={() => void onSave(currentProductIds)}
-          disabled={isSaveDisabled}
-          data-testid="order-details-products-edit-save-button"
-        >
-          {isSubmitting ? (
-            <CircularProgress size={18} color="inherit" />
-          ) : (
-            ordersUiText.dialogs.details.editProductsSave
-          )}
-        </Button>
-        <Button
-          onClick={onClose}
-          disabled={isSubmitting}
-          data-testid="order-details-products-edit-cancel-button"
-        >
-          {ordersUiText.dialogs.cancel}
-        </Button>
+        <Stack spacing={0.5} alignItems="flex-end">
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              onClick={() => void onSave(currentProductIds)}
+              disabled={isSaveDisabled}
+              data-testid="order-details-products-edit-save-button"
+            >
+              {isSubmitting ? (
+                <CircularProgress size={18} color="inherit" />
+              ) : (
+                ordersUiText.dialogs.details.editProductsSave
+              )}
+            </Button>
+            <Button
+              onClick={requestClose}
+              disabled={isSubmitting}
+              data-testid="order-details-products-edit-cancel-button"
+            >
+              {ordersUiText.dialogs.cancel}
+            </Button>
+          </Stack>
+          {saveDisabledReason ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              data-testid="order-details-products-edit-save-disabled-reason"
+            >
+              {saveDisabledReason}
+            </Typography>
+          ) : null}
+        </Stack>
       </DialogActions>
-    </Dialog>
+      </Dialog>
+
+      <ConfirmDialog
+        open={isDiscardConfirmOpen}
+        title={ordersUiText.dialogs.details.editProductsDiscardTitle}
+        message={ordersUiText.dialogs.details.editProductsDiscardMessage}
+        confirmLabel={ordersUiText.dialogs.details.editProductsDiscardConfirm}
+        confirmColor="warning"
+        cancelLabel={ordersUiText.dialogs.details.editProductsDiscardCancel}
+        onCancel={() => setIsDiscardConfirmOpen(false)}
+        onConfirm={handleDiscardConfirm}
+      />
+    </>
   )
 }
