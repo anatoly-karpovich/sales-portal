@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client'
+import type { ApiRequestConfig } from '@/api/types'
 
 export type OrderStatus = 'Draft' | 'In Process' | 'Partially Received' | 'Received' | 'Canceled'
 
@@ -31,14 +32,60 @@ export type OrderAssignedManager = {
   roles?: string[]
 }
 
+export type OrderProduct = {
+  _id: string
+  name: string
+  amount: number
+  price: number
+  manufacturer: string
+  notes?: string
+  received: boolean
+}
+
 export type OrderListItem = {
   _id: string
   status: OrderStatus
   customer: OrderCustomerSnapshot
+  products: OrderProduct[]
   delivery: OrderDelivery | null
   total_price: number
   createdOn: string
   assignedManager: OrderAssignedManager | null
+}
+
+export type OrderCustomerDetails = OrderCustomerSnapshot & {
+  country: string
+  city: string
+  street: string
+  house: number
+  flat: number
+  phone: string
+  createdOn: string
+  notes?: string
+}
+
+export type OrderComment = {
+  _id?: string
+  text: string
+  createdOn: string
+  createdBy?: string | { firstName?: string; lastName?: string; username?: string }
+}
+
+export type OrderHistoryEntry = {
+  action?: string
+  status?: string
+  changedOn?: string
+  performer?: {
+    firstName?: string
+    lastName?: string
+    username?: string
+  }
+}
+
+export type OrderDetails = Omit<OrderListItem, 'customer'> & {
+  customer: OrderCustomerDetails
+  comments: OrderComment[]
+  history: OrderHistoryEntry[]
 }
 
 export type OrdersListResponse = {
@@ -56,8 +103,8 @@ export type OrdersListResponse = {
   ErrorMessage: string | null
 }
 
-type OrderResponse = {
-  Order: OrderListItem
+type OrderResponse<TOrder = OrderListItem> = {
+  Order: TOrder
   IsSuccess: boolean
   ErrorMessage: string | null
 }
@@ -89,6 +136,8 @@ export type CreateOrderPayload = {
   products: string[]
 }
 
+export type UpdateOrderPayload = CreateOrderPayload
+
 export type OrderStatusUpdatePayload = {
   orderId: string
   status: OrderStatus
@@ -104,12 +153,23 @@ export async function getOrders(query: OrdersQuery) {
 }
 
 export async function createOrder(payload: CreateOrderPayload) {
-  const response = await apiClient.post<OrderResponse>('/orders', payload)
+  const response = await apiClient.post<OrderResponse<OrderDetails>>('/orders', payload)
+  return response.data.Order
+}
+
+export async function updateOrder(orderId: string, payload: UpdateOrderPayload, requestConfig?: ApiRequestConfig) {
+  const response = await apiClient.put<OrderResponse<OrderDetails>>(`/orders/${orderId}`, payload, requestConfig)
   return response.data.Order
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
-  const response = await apiClient.put<OrderResponse>(`/orders/${orderId}/status`, { status })
+  const response = await apiClient.put<OrderResponse<OrderDetails>>(`/orders/${orderId}/status`, { status })
+  return response.data.Order
+}
+
+export async function getOrderById(orderId: string) {
+  const requestConfig: ApiRequestConfig = { skipErrorToast: true }
+  const response = await apiClient.get<OrderResponse<OrderDetails>>(`/orders/${orderId}`, requestConfig)
   return response.data.Order
 }
 

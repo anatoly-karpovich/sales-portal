@@ -263,7 +263,11 @@ Do not change these keys without explicit migration requirements.
 - Put domain text in `<feature>.ui-text.ts` for that feature.
 - Keep generic shared text near shared components (example: `components/shared/shared.ui-text.ts`).
 
-## 11) Pre-handoff checklist
+## 11) Number and money formatting
+- Display monetary values with thousands separators in UI.
+- Prefer a shared formatter/helper (for example locale-based `toLocaleString`) instead of ad-hoc string concatenation in components.
+
+## 12) Pre-handoff checklist
 - Ensure code is in correct layer (`api`, `features`, `components/shared`, `app`).
 - Ensure `data-testid` coverage for interactive and validation-critical elements.
 - Ensure existing IDs are not broken.
@@ -273,7 +277,7 @@ Do not change these keys without explicit migration requirements.
 - For larger changes also run:
   - `npm run build`
 
-## 12) Definition of done for agent tasks
+## 13) Definition of done for agent tasks
 Task is done when:
 - architecture and patterns are respected;
 - business flow and UI behavior are consistent with current modules;

@@ -7,6 +7,7 @@ type Props = {
   title: string
   message: string
   confirmLabel?: string
+  confirmColor?: 'error' | 'primary' | 'success' | 'warning' | 'info'
   cancelLabel?: string
   isSubmitting?: boolean
   onCancel: () => void
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Confirm',
+  confirmColor = 'error',
   cancelLabel = 'Cancel',
   isSubmitting = false,
   onCancel,
@@ -47,7 +49,7 @@ export function ConfirmDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }} data-testid="confirm-dialog-actions">
         <Box sx={{ flexGrow: 1 }} />
-        <Button color="error" variant="contained" onClick={() => void onConfirm()} disabled={isSubmitting} data-testid="confirm-dialog-confirm-button">
+        <Button color={confirmColor} variant="contained" onClick={() => void onConfirm()} disabled={isSubmitting} data-testid="confirm-dialog-confirm-button">
           {isSubmitting ? <CircularProgress size={18} color="inherit" /> : confirmLabel}
         </Button>
         <Button onClick={onCancel} disabled={isSubmitting} data-testid="confirm-dialog-cancel-button">

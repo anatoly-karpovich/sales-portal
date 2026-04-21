@@ -2,13 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createOrder,
   exportOrders,
+  getOrderById,
   getOrders,
+  updateOrder,
   updateOrderStatus,
+  type UpdateOrderPayload,
   type CreateOrderPayload,
   type OrderStatusUpdatePayload,
   type OrdersExportPayload,
   type OrdersQuery,
 } from '@/api/modules/orders.api'
+import type { ApiRequestConfig } from '@/api/types'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 
 export function useOrdersQuery(query: OrdersQuery) {
@@ -22,6 +26,14 @@ export function useOrdersQuery(query: OrdersQuery) {
 export function useOrdersExportMutation() {
   return useMutation({
     mutationFn: (payload: OrdersExportPayload) => exportOrders(payload),
+  })
+}
+
+export function useOrderDetailsQuery(orderId: string, enabled = true) {
+  return useQuery({
+    queryKey: ordersQueryKeys.detail(orderId),
+    queryFn: () => getOrderById(orderId),
+    enabled,
   })
 }
 
@@ -39,8 +51,27 @@ export function useOrderStatusMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ orderId, status }: OrderStatusUpdatePayload) => updateOrderStatus(orderId, status),
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
+    },
+  })
+}
+
+export function useUpdateOrderMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      payload,
+      requestConfig,
+    }: {
+      orderId: string
+      payload: UpdateOrderPayload
+      requestConfig?: ApiRequestConfig
+    }) => updateOrder(orderId, payload, requestConfig),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
     },
   })
 }
