@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import {
   Box,
   Button,
@@ -8,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  LinearProgress,
   List,
   ListItemButton,
   ListItemText,
@@ -26,7 +26,8 @@ type Props = {
   currentCustomerId: string
   search: string
   selectedCustomerId: string
-  isLoading: boolean
+  isInitialLoading: boolean
+  isUpdating: boolean
   isSubmitting: boolean
   onSearchChange: (value: string) => void
   onSelectCustomer: (customerId: string) => void
@@ -40,35 +41,16 @@ export function EditOrderCustomerDialog({
   currentCustomerId,
   search,
   selectedCustomerId,
-  isLoading,
+  isInitialLoading,
+  isUpdating,
   isSubmitting,
   onSearchChange,
   onSelectCustomer,
   onClose,
   onSave,
 }: Props) {
-  const sortedCustomers = useMemo(() => {
-    return [...customers].sort((a, b) => {
-      const byName = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-      if (byName !== 0) return byName
-      return a.email.localeCompare(b.email, undefined, { sensitivity: 'base' })
-    })
-  }, [customers])
-
-  const normalizedSearch = search.trim().toLowerCase()
-  const filteredCustomers = useMemo(() => {
-    if (!normalizedSearch) {
-      return sortedCustomers
-    }
-
-    return sortedCustomers.filter((customer) => {
-      const searchText = `${customer.name} ${customer.email}`.toLowerCase()
-      return searchText.includes(normalizedSearch)
-    })
-  }, [normalizedSearch, sortedCustomers])
-
   const isSaveDisabled =
-    isLoading ||
+    isInitialLoading ||
     isSubmitting ||
     !selectedCustomerId ||
     selectedCustomerId === currentCustomerId
@@ -101,17 +83,24 @@ export function EditOrderCustomerDialog({
             placeholder={ordersUiText.dialogs.details.editCustomerSearchPlaceholder}
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            disabled={isLoading || isSubmitting}
+            disabled={isInitialLoading || isSubmitting}
             data-testid="order-details-customer-edit-search-input"
             inputProps={{ 'data-testid': 'order-details-customer-edit-search-input-field' }}
           />
 
           <Paper
             variant="outlined"
-            sx={{ maxHeight: 320, overflowY: 'auto' }}
+            sx={{ maxHeight: 320, overflowY: 'auto', position: 'relative' }}
             data-testid="order-details-customer-edit-list"
           >
-            {isLoading ? (
+            {isUpdating && customers.length > 0 ? (
+              <LinearProgress
+                sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
+                data-testid="order-details-customer-edit-list-updating"
+              />
+            ) : null}
+
+            {isInitialLoading ? (
               <Stack
                 direction="row"
                 spacing={1}
@@ -125,18 +114,18 @@ export function EditOrderCustomerDialog({
                   {ordersUiText.dialogs.details.editCustomerLoading}
                 </Typography>
               </Stack>
-            ) : filteredCustomers.length === 0 ? (
+            ) : customers.length === 0 ? (
               <Typography sx={{ py: 3, px: 2 }} color="text.secondary" data-testid="order-details-customer-edit-list-empty">
                 {ordersUiText.dialogs.details.editCustomerNoResults}
               </Typography>
             ) : (
               <List disablePadding>
-                {filteredCustomers.map((customer, index) => (
+                {customers.map((customer, index) => (
                   <ListItemButton
                     key={customer._id}
                     selected={selectedCustomerId === customer._id}
                     onClick={() => onSelectCustomer(customer._id)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isInitialLoading}
                     data-testid={`order-details-customer-edit-item-${index}`}
                   >
                     <ListItemText

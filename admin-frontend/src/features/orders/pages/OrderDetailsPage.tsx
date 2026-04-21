@@ -26,7 +26,7 @@ import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { OrderAssignedManager, OrderComment, OrderStatus } from '@/api/modules/orders.api'
-import { getAllCustomers, type Customer } from '@/api/modules/customers.api'
+import type { Customer } from '@/api/modules/customers.api'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
 import { readStoredUser } from '@/features/auth/auth.service'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -34,6 +34,7 @@ import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import {
+  useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
   useOrderStatusMutation,
   useUpdateOrderMutation,
@@ -127,13 +128,16 @@ export function OrderDetailsPage() {
   const [isDetailsReloading, setIsDetailsReloading] = useState(false)
   const [isNotFoundRedirectScheduled, setIsNotFoundRedirectScheduled] = useState(false)
   const [isCustomerEditDialogOpen, setIsCustomerEditDialogOpen] = useState(false)
-  const [isCustomerEditLoading, setIsCustomerEditLoading] = useState(false)
   const [customerEditSearch, setCustomerEditSearch] = useState('')
+  const [debouncedCustomerEditSearch, setDebouncedCustomerEditSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
-  const [availableCustomers, setAvailableCustomers] = useState<Customer[]>([])
 
   const shouldLoadOrder = Boolean(orderId)
   const orderDetailsQuery = useOrderDetailsQuery(orderId ?? '', shouldLoadOrder)
+  const customerOptionsQuery = useOrderCustomerOptionsQuery(
+    debouncedCustomerEditSearch,
+    isCustomerEditDialogOpen,
+  )
   const statusMutation = useOrderStatusMutation()
   const updateOrderMutation = useUpdateOrderMutation()
   const order = orderDetailsQuery.data
@@ -178,6 +182,46 @@ export function OrderDetailsPage() {
     }
   }, [enqueueSnackbar, isNotFoundError, isNotFoundRedirectScheduled, navigate])
 
+  useEffect(() => {
+    if (!isCustomerEditDialogOpen) {
+      setDebouncedCustomerEditSearch('')
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedCustomerEditSearch(customerEditSearch.trim())
+    }, 300)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [customerEditSearch, isCustomerEditDialogOpen])
+
+  const availableCustomers = useMemo(() => {
+    const customers = customerOptionsQuery.data?.Customers ?? []
+    if (!order) return customers
+
+    if (customers.some((customer) => customer._id === order.customer._id)) {
+      return customers
+    }
+
+    const fallbackCurrentCustomer: Customer = {
+      _id: order.customer._id,
+      email: order.customer.email,
+      name: order.customer.name,
+      country: order.customer.country,
+      city: order.customer.city,
+      street: order.customer.street,
+      house: order.customer.house,
+      flat: order.customer.flat,
+      phone: order.customer.phone,
+      notes: order.customer.notes,
+      createdOn: order.customer.createdOn,
+    }
+
+    return [fallbackCurrentCustomer, ...customers]
+  }, [customerOptionsQuery.data?.Customers, order])
+
   const commentWithoutLineBreaks = commentDraft.replace(/[\r\n]/g, '').trim()
   const isCommentValid =
     commentWithoutLineBreaks.length > 0 &&
@@ -206,23 +250,12 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleOpenCustomerEditDialog = async () => {
+  const handleOpenCustomerEditDialog = () => {
     if (!order || order.status !== 'Draft') return
 
     setCustomerEditSearch('')
     setSelectedCustomerId(order.customer._id)
     setIsCustomerEditDialogOpen(true)
-    setIsCustomerEditLoading(true)
-    try {
-      const customers = await getAllCustomers()
-      setAvailableCustomers(customers)
-    } catch (error) {
-      setIsCustomerEditDialogOpen(false)
-      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.customersLoadFailed)
-      enqueueSnackbar(errorMessage, { variant: 'error' })
-    } finally {
-      setIsCustomerEditLoading(false)
-    }
   }
 
   const handleCloseCustomerEditDialog = () => {
@@ -592,7 +625,15 @@ export function OrderDetailsPage() {
               <Typography>{formatDateTime(order.customer.createdOn)}</Typography>
 
               <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.notes}</Typography>
-              <Typography data-testid="order-details-customer-notes-value">
+              <Typography
+                data-testid="order-details-customer-notes-value"
+                sx={{
+                  maxWidth: '100%',
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {normalizeValue(order.customer.notes)}
               </Typography>
             </Box>
@@ -793,7 +834,8 @@ export function OrderDetailsPage() {
         currentCustomerId={order.customer._id}
         search={customerEditSearch}
         selectedCustomerId={selectedCustomerId}
-        isLoading={isCustomerEditLoading}
+        isInitialLoading={customerOptionsQuery.isLoading && availableCustomers.length === 0}
+        isUpdating={customerOptionsQuery.isFetching && availableCustomers.length > 0}
         isSubmitting={updateOrderMutation.isPending}
         onSearchChange={setCustomerEditSearch}
         onSelectCustomer={setSelectedCustomerId}

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getCustomers } from '@/api/modules/customers.api'
 import {
   createOrder,
   exportOrders,
@@ -34,6 +35,23 @@ export function useOrderDetailsQuery(orderId: string, enabled = true) {
     queryKey: ordersQueryKeys.detail(orderId),
     queryFn: () => getOrderById(orderId),
     enabled,
+  })
+}
+
+export function useOrderCustomerOptionsQuery(search: string, enabled = true) {
+  return useQuery({
+    queryKey: ordersQueryKeys.customerOptions(search),
+    queryFn: () =>
+      getCustomers({
+        search,
+        country: [],
+        sortField: 'name',
+        sortOrder: 'asc',
+        page: 1,
+        limit: 10,
+      }),
+    enabled,
+    placeholderData: (previousData) => previousData,
   })
 }
 
