@@ -7,14 +7,33 @@ import { formatDateTime } from '@/utils/date'
 
 export function NotificationsBell() {
   const navigate = useNavigate()
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications()
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    markAsRead,
+    markAllAsRead,
+    refetchNotifications,
+    setNotificationsMenuOpen,
+  } = useNotifications()
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const [isMarkingAll, setIsMarkingAll] = useState(false)
   const open = Boolean(anchorEl)
 
+  const handleOpenMenu = (target: HTMLElement) => {
+    setAnchorEl(target)
+    setNotificationsMenuOpen(true)
+    void refetchNotifications()
+  }
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null)
+    setNotificationsMenuOpen(false)
+  }
+
   return (
     <>
-      <IconButton color="inherit" onClick={(event) => setAnchorEl(event.currentTarget)} data-testid="notifications-bell-button">
+      <IconButton color="inherit" onClick={(event) => handleOpenMenu(event.currentTarget)} data-testid="notifications-bell-button">
         <Badge color="error" badgeContent={unreadCount} invisible={!unreadCount} data-testid="notifications-bell-badge">
           <NotificationsNoneIcon />
         </Badge>
@@ -23,7 +42,7 @@ export function NotificationsBell() {
       <Menu
         open={open}
         anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
+        onClose={handleCloseMenu}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{ paper: { sx: { width: 340 } } }}
@@ -87,7 +106,7 @@ export function NotificationsBell() {
                         sx={{ alignSelf: 'flex-start', p: 0, minWidth: 'auto', textTransform: 'none' }}
                         onClick={(event) => {
                           event.stopPropagation()
-                          setAnchorEl(null)
+                          handleCloseMenu()
                           navigate('/orders')
                         }}
                         data-testid={`notifications-item-${index}-order-details-button`}

@@ -8,6 +8,7 @@ export type NotificationsContextValue = {
   markAsRead: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   refetchNotifications: () => Promise<void>
+  setNotificationsMenuOpen: (open: boolean) => void
 }
 
 export const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined)

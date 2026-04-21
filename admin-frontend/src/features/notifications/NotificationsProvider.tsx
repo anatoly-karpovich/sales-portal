@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
@@ -21,6 +21,8 @@ export function NotificationsProvider({ children }: Props) {
   const { enqueueSnackbar } = useSnackbar()
   const { state } = useAuth()
   const [realtimeUnread, setRealtimeUnread] = useState<number | null>(null)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const enabled = state === 'authenticated'
 
@@ -69,13 +71,27 @@ export function NotificationsProvider({ children }: Props) {
       if (typeof payload.unreadAmount === 'number') {
         setRealtimeUnread(payload.unreadAmount)
       }
-      void refetch()
+
+      if (isMenuOpen) {
+        if (refetchTimerRef.current) {
+          window.clearTimeout(refetchTimerRef.current)
+        }
+
+        refetchTimerRef.current = window.setTimeout(() => {
+          void refetch()
+          refetchTimerRef.current = null
+        }, 250)
+      }
     })
 
     return () => {
+      if (refetchTimerRef.current) {
+        window.clearTimeout(refetchTimerRef.current)
+        refetchTimerRef.current = null
+      }
       socket.disconnect()
     }
-  }, [enabled, enqueueSnackbar, refetch])
+  }, [enabled, enqueueSnackbar, isMenuOpen, refetch])
 
   const unreadCountFromApi = notifications.filter((item) => !item.read).length
   const unreadCount = realtimeUnread ?? unreadCountFromApi
@@ -94,6 +110,7 @@ export function NotificationsProvider({ children }: Props) {
       refetchNotifications: async () => {
         await refetch()
       },
+      setNotificationsMenuOpen: setIsMenuOpen,
     }),
     [notifications, unreadCount, isLoading, markAsReadMutation, markAllAsReadMutation, refetch],
   )
