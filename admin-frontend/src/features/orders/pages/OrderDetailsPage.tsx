@@ -21,19 +21,22 @@ import {
   Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { OrderAssignedManager, OrderComment, OrderStatus } from '@/api/modules/orders.api'
+import type { OrderAssignedManager, OrderStatus } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
-import { readStoredUser } from '@/features/auth/auth.service'
+import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import {
+  useCreateOrderCommentMutation,
+  useDeleteOrderCommentMutation,
   useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
   useOrderStatusMutation,
@@ -43,13 +46,6 @@ import { ordersUiText } from '@/features/orders/orders.ui-text'
 
 type DetailsTab = 'delivery' | 'history' | 'comments'
 type PendingStatusAction = 'cancel' | 'process' | 'reopen' | null
-
-type LocalComment = {
-  id: string
-  text: string
-  createdOn: string
-  createdBy: string
-}
 
 function resolveApiErrorMessage(error: unknown, fallback: string) {
   if (isAxiosError(error)) {
@@ -98,19 +94,6 @@ function resolveAssignedManagerName(assignedManager: OrderAssignedManager | null
   return fullName || assignedManager.username || '-'
 }
 
-function resolveCommentAuthor(comment: OrderComment, fallbackAuthor: string) {
-  if (typeof comment.createdBy === 'string' && comment.createdBy.trim()) {
-    return comment.createdBy
-  }
-
-  if (comment.createdBy && typeof comment.createdBy === 'object') {
-    const fullName = `${comment.createdBy.firstName ?? ''} ${comment.createdBy.lastName ?? ''}`.trim()
-    return fullName || comment.createdBy.username || fallbackAuthor
-  }
-
-  return fallbackAuthor
-}
-
 function canCancelOrder(status: OrderStatus) {
   return status === 'Draft' || status === 'In Process'
 }
@@ -123,11 +106,12 @@ export function OrderDetailsPage() {
   const [activeTab, setActiveTab] = useState<DetailsTab>('delivery')
   const [pendingStatusAction, setPendingStatusAction] = useState<PendingStatusAction>(null)
   const [commentDraft, setCommentDraft] = useState('')
-  const [localComments, setLocalComments] = useState<LocalComment[]>([])
+  const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null)
   const [isRefreshPending, setIsRefreshPending] = useState(false)
   const [isDetailsReloading, setIsDetailsReloading] = useState(false)
   const [isNotFoundRedirectScheduled, setIsNotFoundRedirectScheduled] = useState(false)
   const [isCustomerEditDialogOpen, setIsCustomerEditDialogOpen] = useState(false)
+  const [isProductsEditDialogOpen, setIsProductsEditDialogOpen] = useState(false)
   const [customerEditSearch, setCustomerEditSearch] = useState('')
   const [debouncedCustomerEditSearch, setDebouncedCustomerEditSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
@@ -140,31 +124,15 @@ export function OrderDetailsPage() {
   )
   const statusMutation = useOrderStatusMutation()
   const updateOrderMutation = useUpdateOrderMutation()
+  const createOrderCommentMutation = useCreateOrderCommentMutation()
+  const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
   const isNotFoundError = isAxiosError(orderDetailsQuery.error) && orderDetailsQuery.error.response?.status === 404
-
-  const storedUser = useMemo(() => readStoredUser(), [])
-  const defaultCommentAuthor = useMemo(() => {
-    const fullName = `${storedUser?.firstName ?? ''} ${storedUser?.lastName ?? ''}`.trim()
-    return fullName || storedUser?.username || 'AQA User'
-  }, [storedUser])
+  const orderedComments = useMemo(() => [...(order?.comments ?? [])].reverse(), [order?.comments])
 
   useEffect(() => {
     setIsNotFoundRedirectScheduled(false)
   }, [orderId])
-
-  useEffect(() => {
-    if (!order) return
-    const mapped = [...(order.comments ?? [])]
-      .reverse()
-      .map((comment, index) => ({
-        id: comment._id ?? `${order._id}-comment-${index}`,
-        text: comment.text,
-        createdOn: comment.createdOn,
-        createdBy: resolveCommentAuthor(comment, defaultCommentAuthor),
-      }))
-    setLocalComments(mapped)
-  }, [defaultCommentAuthor, order])
 
   useEffect(() => {
     if (!isNotFoundError || isNotFoundRedirectScheduled) {
@@ -227,6 +195,8 @@ export function OrderDetailsPage() {
     commentWithoutLineBreaks.length > 0 &&
     commentWithoutLineBreaks.length <= 250 &&
     !/[<>]/.test(commentWithoutLineBreaks)
+  const isCommentCreatePending = createOrderCommentMutation.isPending
+  const isCommentDeletePending = deleteOrderCommentMutation.isPending
 
   const reloadOrderDetailsWithSkeleton = async () => {
     setIsDetailsReloading(true)
@@ -263,6 +233,16 @@ export function OrderDetailsPage() {
     setIsCustomerEditDialogOpen(false)
   }
 
+  const handleOpenProductsEditDialog = () => {
+    if (!order || order.status !== 'Draft') return
+    setIsProductsEditDialogOpen(true)
+  }
+
+  const handleCloseProductsEditDialog = () => {
+    if (updateOrderMutation.isPending) return
+    setIsProductsEditDialogOpen(false)
+  }
+
   const handleSaveEditedCustomer = async (nextCustomerId: string) => {
     if (!order || !orderId) return
 
@@ -282,6 +262,34 @@ export function OrderDetailsPage() {
     } finally {
       setIsCustomerEditDialogOpen(false)
       await reloadOrderDetailsWithSkeleton()
+    }
+  }
+
+  const handleSaveEditedProducts = async (nextProducts: string[]) => {
+    if (!order || !orderId) return
+
+    try {
+      await updateOrderMutation.mutateAsync({
+        orderId,
+        payload: {
+          customer: order.customer._id,
+          products: nextProducts,
+        },
+        requestConfig: { skipErrorToast: true },
+      })
+      enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
+      setIsProductsEditDialogOpen(false)
+      await reloadOrderDetailsWithSkeleton()
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateProductsFailed)
+      if (errorMessage === 'Invalid order status') {
+        enqueueSnackbar(ordersUiText.errors.orderNoLongerDraft, { variant: 'warning' })
+        setIsProductsEditDialogOpen(false)
+        await reloadOrderDetailsWithSkeleton()
+        return
+      }
+
+      enqueueSnackbar(errorMessage, { variant: 'error' })
     }
   }
 
@@ -306,21 +314,40 @@ export function OrderDetailsPage() {
     setPendingStatusAction(null)
   }
 
-  const handleCreateLocalComment = () => {
-    if (!isCommentValid) return
+  const handleCreateComment = async () => {
+    if (!orderId || !isCommentValid || isCommentCreatePending) return
 
-    const nextComment: LocalComment = {
-      id:
-        typeof window.crypto?.randomUUID === 'function'
-          ? window.crypto.randomUUID()
-          : `local-comment-${Date.now()}`,
-      text: commentDraft.trim(),
-      createdOn: new Date().toISOString(),
-      createdBy: defaultCommentAuthor,
+    try {
+      await createOrderCommentMutation.mutateAsync({
+        orderId,
+        comment: commentWithoutLineBreaks,
+        requestConfig: { skipErrorToast: true },
+      })
+      enqueueSnackbar(ordersUiText.toasts.commentCreated, { variant: 'success' })
+      setCommentDraft('')
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.commentCreateFailed)
+      enqueueSnackbar(errorMessage, { variant: 'error' })
     }
+  }
 
-    setLocalComments((current) => [nextComment, ...current])
-    setCommentDraft('')
+  const handleDeleteComment = async (commentId: string | undefined) => {
+    if (!orderId || !commentId || isCommentDeletePending) return
+
+    setPendingDeleteCommentId(commentId)
+    try {
+      await deleteOrderCommentMutation.mutateAsync({
+        orderId,
+        commentId,
+        requestConfig: { skipErrorToast: true },
+      })
+      enqueueSnackbar(ordersUiText.toasts.commentDeleted, { variant: 'success' })
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.commentDeleteFailed)
+      enqueueSnackbar(errorMessage, { variant: 'error' })
+    } finally {
+      setPendingDeleteCommentId(null)
+    }
   }
 
   if (!orderId) {
@@ -367,6 +394,7 @@ export function OrderDetailsPage() {
 
   const assignedManagerValue = resolveAssignedManagerName(order.assignedManager)
   const isCustomerEditable = order.status === 'Draft'
+  const isProductsEditable = order.status === 'Draft'
   const isCancelVisible = canCancelOrder(order.status)
   const isProcessVisible = order.status === 'Draft'
   const isProcessDisabled = isProcessVisible && !order.delivery
@@ -642,9 +670,20 @@ export function OrderDetailsPage() {
 
         <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-products-section">
           <Stack spacing={2}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {ordersUiText.detailsPage.labels.requestedProducts}
-            </Typography>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                {ordersUiText.detailsPage.labels.requestedProducts}
+              </Typography>
+              {isProductsEditable ? (
+                <IconButton
+                  size="small"
+                  onClick={() => void handleOpenProductsEditDialog()}
+                  data-testid="order-details-products-edit-trigger"
+                >
+                  <EditOutlinedIcon fontSize="small" />
+                </IconButton>
+              ) : null}
+            </Stack>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
             <Stack spacing={1} data-testid="order-details-products-table">
               {order.products.length ? (
@@ -795,25 +834,52 @@ export function OrderDetailsPage() {
                 inputProps={{ 'data-testid': 'order-details-comments-input-field' }}
                 error={commentDraft.length > 0 && !isCommentValid}
                 helperText={commentDraft.length > 0 && !isCommentValid ? ordersUiText.validation.commentsInvalid : ' '}
+                disabled={isCommentCreatePending}
               />
               <Button
                 variant="contained"
-                onClick={handleCreateLocalComment}
-                disabled={!isCommentValid}
+                onClick={() => void handleCreateComment()}
+                disabled={!isCommentValid || isCommentCreatePending}
                 sx={{ alignSelf: 'flex-start' }}
                 data-testid="order-details-comments-create-button"
               >
-                {ordersUiText.detailsPage.actions.createComment}
+                {isCommentCreatePending ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  ordersUiText.detailsPage.actions.createComment
+                )}
               </Button>
 
               <Stack spacing={1.25}>
-                {localComments.map((comment) => (
-                  <Paper key={comment.id} variant="outlined" sx={{ p: 1.5 }}>
+                {orderedComments.map((comment, index) => (
+                  <Paper
+                    key={comment._id ?? `${comment.createdOn}-${index}`}
+                    variant="outlined"
+                    sx={{ p: 1.5 }}
+                    data-testid={`order-details-comments-item-${index}`}
+                  >
                     <Stack spacing={1}>
-                      <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{comment.text}</Typography>
+                      <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+                        <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}>
+                          {comment.text}
+                        </Typography>
+                        <IconButton
+                          color="error"
+                          size="small"
+                          onClick={() => void handleDeleteComment(comment._id)}
+                          disabled={!comment._id || isCommentDeletePending}
+                          data-testid={`order-details-comments-item-${index}-delete-button`}
+                        >
+                          {isCommentDeletePending && pendingDeleteCommentId === comment._id ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </Stack>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography variant="body2" color="primary.main">
-                          {comment.createdBy}
+                          {ordersUiText.detailsPage.placeholders.commentAuthorFallback}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {formatDateTime(comment.createdOn)}
@@ -842,6 +908,16 @@ export function OrderDetailsPage() {
         onClose={handleCloseCustomerEditDialog}
         onSave={handleSaveEditedCustomer}
       />
+
+      {isProductsEditDialogOpen ? (
+        <EditOrderProductsDialog
+          open={isProductsEditDialogOpen}
+          initialProducts={order.products}
+          isSubmitting={updateOrderMutation.isPending}
+          onClose={handleCloseProductsEditDialog}
+          onSave={handleSaveEditedProducts}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(pendingStatusAction) && Boolean(detailsDialogCopy)}

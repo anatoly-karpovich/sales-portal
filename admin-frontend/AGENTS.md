@@ -87,7 +87,10 @@ Top-level source layout:
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
   - create order (`POST /orders`);
+  - update order customer/products (`PUT /orders/:orderId`);
+  - order details (`GET /orders/:orderId`);
   - status update/reopen (`PUT /orders/:orderId/status`);
+  - comments create/delete (`POST /orders/:orderId/comments`, `DELETE /orders/:orderId/comments/:commentId`);
   - export (`POST /orders/export` with blob response).
 - `api/modules/products.api.ts`
   - includes `getAllProducts()` (`GET /products/all`) used by Orders create modal preload.
@@ -125,15 +128,23 @@ Top-level source layout:
   - `components/CustomerForm.tsx`, `CustomersTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `customers.ui-text.ts` - labels, validation text, toast text
-- `features/orders` (iteration 6 list scope implemented)
+- `features/orders` (iteration 6 in active implementation)
   - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows
-  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/customer/product options/comments
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields
+  - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit)
   - `components/CreateOrderDialog.tsx` - create modal (customer/products preload, total price, row add/remove)
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
+  - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
+  - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard
   - `orders.ui-text.ts` - labels, dialog text, toasts, errors
-  - `pages/OrderDetailsPage.tsx` still placeholder (next target)
+  - `pages/OrderDetailsPage.tsx` - implemented details page:
+    - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`);
+    - read-only customer/products blocks;
+    - draft-only customer/products edit flows;
+    - comments tab integrated with API create/delete;
+    - known limitation: comment author uses fallback label (`AQA User`) until backend exposes stable `createdBy`.
 - `features/users`
   - `pages/ManagersPage.tsx` currently placeholder using `PagePlaceholder`.
 

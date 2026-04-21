@@ -37,6 +37,7 @@ export const ordersUiText = {
       noDeliveryScheduled: 'Delivery is not scheduled yet',
       historyPlaceholder: 'Order history will be implemented in a separate iteration.',
       commentInput: 'Enter a comment',
+      commentAuthorFallback: 'AQA User',
     },
     fields: {
       customer: {
@@ -89,6 +90,17 @@ export const ordersUiText = {
       editCustomerLoading: 'Loading customers...',
       editCustomerNoResults: 'No matching customers found.',
       editCustomerSave: 'Save',
+      editProductsTitle: 'Edit Products',
+      editProductsLabel: 'Products*',
+      editProductsSearchLabel: 'Product*',
+      editProductsSearchPlaceholder: 'Search by name or manufacturer',
+      editProductsLoading: 'Loading products...',
+      editProductsNoResults: 'No matching products found.',
+      editProductsAdd: 'Add Product',
+      editProductsSave: 'Save',
+      editProductsSelectProduct: 'Select product',
+      editProductsSelectRowHint: 'Select a product row to edit.',
+      editProductsUnavailable: 'Unavailable product',
     },
   },
   toasts: {
@@ -98,6 +110,8 @@ export const ordersUiText = {
     reopened: 'Order was successfully reopened',
     canceled: 'Order was successfully canceled',
     processed: 'Order processing was successfully started',
+    commentCreated: 'Comment was successfully posted',
+    commentDeleted: 'Comment was successfully deleted',
     notFoundRedirect: 'Order was not found. Redirecting to orders list.',
   },
   errors: {
@@ -109,6 +123,10 @@ export const ordersUiText = {
     orderNotFound: 'Order was not found.',
     detailsUnavailable: 'Unable to load order details. Please refresh the page.',
     updateCustomerFailed: 'Failed to update customer. Please try again later.',
+    updateProductsFailed: 'Failed to update products. Please try again later.',
+    orderNoLongerDraft: 'Order is no longer in Draft status. Page data was refreshed.',
+    commentCreateFailed: 'Failed to post comment. Please try again later.',
+    commentDeleteFailed: 'Failed to delete comment. Please try again later.',
   },
   validation: {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',

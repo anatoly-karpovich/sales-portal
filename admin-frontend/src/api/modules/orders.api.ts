@@ -143,6 +143,16 @@ export type OrderStatusUpdatePayload = {
   status: OrderStatus
 }
 
+export type OrderCommentCreatePayload = {
+  orderId: string
+  comment: string
+}
+
+export type OrderCommentDeletePayload = {
+  orderId: string
+  commentId: string
+}
+
 export type OrderQuery = OrdersQuery
 
 export async function getOrders(query: OrdersQuery) {
@@ -171,6 +181,19 @@ export async function getOrderById(orderId: string) {
   const requestConfig: ApiRequestConfig = { skipErrorToast: true }
   const response = await apiClient.get<OrderResponse<OrderDetails>>(`/orders/${orderId}`, requestConfig)
   return response.data.Order
+}
+
+export async function createOrderComment(orderId: string, comment: string, requestConfig?: ApiRequestConfig) {
+  const response = await apiClient.post<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/comments`,
+    { comment },
+    requestConfig,
+  )
+  return response.data.Order
+}
+
+export async function deleteOrderComment(orderId: string, commentId: string, requestConfig?: ApiRequestConfig) {
+  await apiClient.delete(`/orders/${orderId}/comments/${commentId}`, requestConfig)
 }
 
 export async function exportOrders(payload: OrdersExportPayload) {
