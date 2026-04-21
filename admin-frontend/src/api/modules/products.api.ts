@@ -39,6 +39,12 @@ type ProductResponse = {
   ErrorMessage: string | null
 }
 
+type ProductsAllResponse = {
+  Products: Product[]
+  IsSuccess: boolean
+  ErrorMessage: string | null
+}
+
 export type ProductExportPayload = {
   format: 'csv' | 'json'
   filters: {
@@ -74,6 +80,11 @@ export async function getProducts(query: ProductsQuery) {
 export async function getProductById(productId: string) {
   const response = await apiClient.get<ProductResponse>(`/products/${productId}`)
   return response.data.Product
+}
+
+export async function getAllProducts() {
+  const response = await apiClient.get<ProductsAllResponse>('/products/all')
+  return response.data.Products
 }
 
 export async function createProduct(payload: ProductUpsertPayload) {

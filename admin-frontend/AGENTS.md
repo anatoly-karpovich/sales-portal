@@ -84,6 +84,13 @@ Top-level source layout:
 - `api/events.ts` - internal event bus for `error` and `unauthorized`.
 - `api/types.ts` - `ApiRequestConfig` extension with `skipErrorToast`.
 - `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`).
+- `api/modules/orders.api.ts`
+  - typed orders list contract (`GET /orders`);
+  - create order (`POST /orders`);
+  - status update/reopen (`PUT /orders/:orderId/status`);
+  - export (`POST /orders/export` with blob response).
+- `api/modules/products.api.ts`
+  - includes `getAllProducts()` (`GET /products/all`) used by Orders create modal preload.
 
 ### 4.3 `features` layer
 - `features/auth`
@@ -118,9 +125,17 @@ Top-level source layout:
   - `components/CustomerForm.tsx`, `CustomersTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `customers.ui-text.ts` - labels, validation text, toast text
-- `features/orders`, `features/users`
-  - list pages are placeholders using `PagePlaceholder`;
-  - `orders/:orderId` currently points to `OrderDetailsPage` placeholder (iteration 6 target).
+- `features/orders` (iteration 6 list scope implemented)
+  - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export
+  - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer
+  - `config/ordersTableColumns.ts` - columns, sort fields, export fields
+  - `components/CreateOrderDialog.tsx` - create modal (customer/products preload, total price, row add/remove)
+  - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
+  - `orders.ui-text.ts` - labels, dialog text, toasts, errors
+  - `pages/OrderDetailsPage.tsx` still placeholder (next target)
+- `features/users`
+  - `pages/ManagersPage.tsx` currently placeholder using `PagePlaceholder`.
 
 ### 4.4 Shared UI layer
 - `components/shared`
@@ -209,6 +224,10 @@ Preferred shape:
 Existing scope prefixes to follow:
 - `app-shell-*`
 - `login-page-*`
+- `orders-list-*`
+- `orders-table-*`
+- `orders-create-*`
+- `order-details-*`
 - `products-list-*`
 - `products-upsert-*`
 - `product-details-dialog-*`
