@@ -60,7 +60,7 @@ export function useCreateOrderMutation() {
   return useMutation({
     mutationFn: (payload: CreateOrderPayload) => createOrder(payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })
 }
@@ -70,14 +70,13 @@ export function useOrderStatusMutation() {
   return useMutation({
     mutationFn: ({ orderId, status }: OrderStatusUpdatePayload) => updateOrderStatus(orderId, status),
     onSuccess: async (_, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
     },
   })
 }
 
 export function useUpdateOrderMutation() {
-  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       orderId,
@@ -88,8 +87,5 @@ export function useUpdateOrderMutation() {
       payload: UpdateOrderPayload
       requestConfig?: ApiRequestConfig
     }) => updateOrder(orderId, payload, requestConfig),
-    onSuccess: async (_, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
-    },
   })
 }

@@ -243,7 +243,7 @@ export function OrderDetailsPage() {
     try {
       await Promise.all([
         orderDetailsQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() }),
       ])
     } finally {
       setIsRefreshPending(false)
