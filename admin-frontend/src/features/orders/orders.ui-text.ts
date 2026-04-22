@@ -29,6 +29,9 @@ export const ordersUiText = {
       cancel: 'Cancel Order',
       process: 'Process Order',
       reopen: 'Reopen Order',
+      receive: 'Receive',
+      save: 'Save',
+      cancelReceive: 'Cancel',
       refresh: 'Refresh Order',
       createComment: 'Create',
     },
@@ -38,6 +41,7 @@ export const ordersUiText = {
       historyPlaceholder: 'Order history will be implemented in a separate iteration.',
       commentInput: 'Enter a comment',
       commentAuthorFallback: 'AQA User',
+      selectAll: 'Select All',
     },
     fields: {
       customer: {
@@ -118,6 +122,7 @@ export const ordersUiText = {
     reopened: 'Order was successfully reopened',
     canceled: 'Order was successfully canceled',
     processed: 'Order processing was successfully started',
+    productsReceived: 'Products were successfully received',
     commentCreated: 'Comment was successfully posted',
     commentDeleted: 'Comment was successfully deleted',
     notFoundRedirect: 'Order was not found. Redirecting to orders list.',
@@ -133,6 +138,7 @@ export const ordersUiText = {
     updateCustomerFailed: 'Failed to update customer. Please try again later.',
     updateProductsFailed: 'Failed to update products. Please try again later.',
     orderNoLongerDraft: 'Order is no longer in Draft status. Page data was refreshed.',
+    receiveProductsFailed: 'Failed to receive products. Please try again later.',
     commentCreateFailed: 'Failed to post comment. Please try again later.',
     commentDeleteFailed: 'Failed to delete comment. Please try again later.',
   },

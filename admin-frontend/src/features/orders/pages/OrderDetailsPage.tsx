@@ -9,6 +9,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   IconButton,
   Paper,
@@ -39,6 +40,7 @@ import {
   useDeleteOrderCommentMutation,
   useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
+  useReceiveOrderProductsMutation,
   useOrderStatusMutation,
   useUpdateOrderMutation,
 } from '@/features/orders/hooks/useOrdersQuery'
@@ -98,6 +100,10 @@ function canCancelOrder(status: OrderStatus) {
   return status === 'Draft' || status === 'In Process'
 }
 
+function canReceiveOrderProducts(status: OrderStatus) {
+  return status === 'In Process' || status === 'Partially Received'
+}
+
 export function OrderDetailsPage() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -112,6 +118,8 @@ export function OrderDetailsPage() {
   const [isNotFoundRedirectScheduled, setIsNotFoundRedirectScheduled] = useState(false)
   const [isCustomerEditDialogOpen, setIsCustomerEditDialogOpen] = useState(false)
   const [isProductsEditDialogOpen, setIsProductsEditDialogOpen] = useState(false)
+  const [isReceiveMode, setIsReceiveMode] = useState(false)
+  const [selectedReceiveRowIndices, setSelectedReceiveRowIndices] = useState<number[]>([])
   const [customerEditSearch, setCustomerEditSearch] = useState('')
   const [debouncedCustomerEditSearch, setDebouncedCustomerEditSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
@@ -124,15 +132,62 @@ export function OrderDetailsPage() {
   )
   const statusMutation = useOrderStatusMutation()
   const updateOrderMutation = useUpdateOrderMutation()
+  const receiveOrderProductsMutation = useReceiveOrderProductsMutation()
   const createOrderCommentMutation = useCreateOrderCommentMutation()
   const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
   const isNotFoundError = isAxiosError(orderDetailsQuery.error) && orderDetailsQuery.error.response?.status === 404
   const orderedComments = useMemo(() => [...(order?.comments ?? [])].reverse(), [order?.comments])
+  const pendingReceiveRowIndices = useMemo(() => {
+    if (!order) return []
+    return order.products.reduce<number[]>((acc, product, index) => {
+      if (!product.received) {
+        acc.push(index)
+      }
+      return acc
+    }, [])
+  }, [order])
+  const pendingReceiveRowIndexSet = useMemo(
+    () => new Set(pendingReceiveRowIndices),
+    [pendingReceiveRowIndices],
+  )
+  const selectedReceivePendingRowIndices = useMemo(
+    () => selectedReceiveRowIndices.filter((index) => pendingReceiveRowIndexSet.has(index)),
+    [pendingReceiveRowIndexSet, selectedReceiveRowIndices],
+  )
+  const hasPendingProductsToReceive = pendingReceiveRowIndices.length > 0
+  const canStartReceive =
+    Boolean(order) && canReceiveOrderProducts(order.status) && hasPendingProductsToReceive
+  const isSelectAllChecked =
+    hasPendingProductsToReceive &&
+    selectedReceivePendingRowIndices.length === pendingReceiveRowIndices.length
+  const isSelectAllIndeterminate =
+    selectedReceivePendingRowIndices.length > 0 &&
+    selectedReceivePendingRowIndices.length < pendingReceiveRowIndices.length
+  const isReceiveSavePending = receiveOrderProductsMutation.isPending
+  const isReceiveSaveEnabled = selectedReceivePendingRowIndices.length > 0 && !isReceiveSavePending
 
   useEffect(() => {
     setIsNotFoundRedirectScheduled(false)
   }, [orderId])
+
+  useEffect(() => {
+    if (!order) {
+      setIsReceiveMode(false)
+      setSelectedReceiveRowIndices([])
+      return
+    }
+
+    if (!canReceiveOrderProducts(order.status) || !order.products.some((product) => !product.received)) {
+      setIsReceiveMode(false)
+      setSelectedReceiveRowIndices([])
+      return
+    }
+
+    setSelectedReceiveRowIndices((previous) =>
+      previous.filter((index) => Boolean(order.products[index]) && !order.products[index].received),
+    )
+  }, [order])
 
   useEffect(() => {
     if (!isNotFoundError || isNotFoundRedirectScheduled) {
@@ -293,6 +348,60 @@ export function OrderDetailsPage() {
     }
   }
 
+  const handleStartReceiveMode = () => {
+    if (!canStartReceive || isReceiveSavePending) return
+    setSelectedReceiveRowIndices([])
+    setIsReceiveMode(true)
+  }
+
+  const handleCancelReceiveMode = () => {
+    if (isReceiveSavePending) return
+    setSelectedReceiveRowIndices([])
+    setIsReceiveMode(false)
+  }
+
+  const handleToggleReceiveProduct = (index: number) => {
+    if (!order || isReceiveSavePending) return
+    const product = order.products[index]
+    if (!product || product.received) return
+
+    setSelectedReceiveRowIndices((previous) =>
+      previous.includes(index) ? previous.filter((rowIndex) => rowIndex !== index) : [...previous, index],
+    )
+  }
+
+  const handleToggleSelectAllReceive = () => {
+    if (isReceiveSavePending || !pendingReceiveRowIndices.length) return
+
+    if (isSelectAllChecked) {
+      setSelectedReceiveRowIndices([])
+      return
+    }
+
+    setSelectedReceiveRowIndices([...pendingReceiveRowIndices])
+  }
+
+  const handleSaveReceivedProducts = async () => {
+    if (!order || !orderId || !isReceiveSaveEnabled) return
+
+    const products = selectedReceivePendingRowIndices
+      .map((index) => order.products[index]?._id)
+      .filter((productId): productId is string => Boolean(productId))
+
+    if (!products.length) return
+
+    try {
+      await receiveOrderProductsMutation.mutateAsync({ orderId, products })
+      enqueueSnackbar(ordersUiText.toasts.productsReceived, { variant: 'success' })
+      setSelectedReceiveRowIndices([])
+      setIsReceiveMode(false)
+      await reloadOrderDetailsWithSkeleton()
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.receiveProductsFailed)
+      enqueueSnackbar(errorMessage, { variant: 'error' })
+    }
+  }
+
   const handleConfirmStatusAction = async () => {
     if (!pendingStatusAction || !orderId || !order) return
 
@@ -395,6 +504,8 @@ export function OrderDetailsPage() {
   const assignedManagerValue = resolveAssignedManagerName(order.assignedManager)
   const isCustomerEditable = order.status === 'Draft'
   const isProductsEditable = order.status === 'Draft'
+  const isReceiveStartVisible = canStartReceive && !isReceiveMode
+  const isReceiveModeVisible = isReceiveMode && canStartReceive
   const isCancelVisible = canCancelOrder(order.status)
   const isProcessVisible = order.status === 'Draft'
   const isProcessDisabled = isProcessVisible && !order.delivery
@@ -670,41 +781,136 @@ export function OrderDetailsPage() {
 
         <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-products-section">
           <Stack spacing={2}>
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {ordersUiText.detailsPage.labels.requestedProducts}
-              </Typography>
-              {isProductsEditable ? (
-                <IconButton
-                  size="small"
-                  onClick={() => void handleOpenProductsEditDialog()}
-                  data-testid="order-details-products-edit-trigger"
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" flexWrap="wrap">
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  {ordersUiText.detailsPage.labels.requestedProducts}
+                </Typography>
+                {isProductsEditable ? (
+                  <IconButton
+                    size="small"
+                    onClick={() => void handleOpenProductsEditDialog()}
+                    data-testid="order-details-products-edit-trigger"
+                  >
+                    <EditOutlinedIcon fontSize="small" />
+                  </IconButton>
+                ) : null}
+              </Stack>
+
+              {isReceiveStartVisible ? (
+                <Button
+                  variant="contained"
+                  onClick={handleStartReceiveMode}
+                  disabled={isReceiveSavePending}
+                  data-testid="order-details-products-receive-start-button"
                 >
-                  <EditOutlinedIcon fontSize="small" />
-                </IconButton>
+                  {ordersUiText.detailsPage.actions.receive}
+                </Button>
+              ) : null}
+
+              {isReceiveModeVisible ? (
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleCancelReceiveMode}
+                    disabled={isReceiveSavePending}
+                    data-testid="order-details-products-receive-cancel-button"
+                  >
+                    {ordersUiText.detailsPage.actions.cancelReceive}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => void handleSaveReceivedProducts()}
+                    disabled={!isReceiveSaveEnabled}
+                    data-testid="order-details-products-receive-save-button"
+                  >
+                    {isReceiveSavePending ? (
+                      <CircularProgress size={18} color="inherit" />
+                    ) : (
+                      ordersUiText.detailsPage.actions.save
+                    )}
+                  </Button>
+                </Stack>
               ) : null}
             </Stack>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
+
+            {isReceiveModeVisible ? (
+              <Stack direction="row" justifyContent="flex-end">
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Box
+                    sx={{ display: 'inline-flex', alignItems: 'center' }}
+                    data-testid="order-details-products-receive-select-all-checkbox-field"
+                  >
+                    <Checkbox
+                      size="small"
+                      checked={isSelectAllChecked}
+                      indeterminate={isSelectAllIndeterminate}
+                      disabled={!hasPendingProductsToReceive || isReceiveSavePending}
+                      onChange={handleToggleSelectAllReceive}
+                      data-testid="order-details-products-receive-select-all-checkbox"
+                    />
+                  </Box>
+                  <Typography>{ordersUiText.detailsPage.placeholders.selectAll}</Typography>
+                </Stack>
+              </Stack>
+            ) : null}
+
             <Stack spacing={1} data-testid="order-details-products-table">
               {order.products.length ? (
                 order.products.map((product, index) => (
-                  <Accordion key={`${product._id}-${index}`} disableGutters elevation={0} data-testid={`order-details-products-row-${index}`}>
+                  <Accordion
+                    key={`${product._id}-${index}`}
+                    disableGutters
+                    elevation={0}
+                    data-testid={`order-details-products-row-${index}`}
+                  >
                     <AccordionSummary expandIcon={<ExpandMoreRoundedIcon fontSize="small" />}>
                       <Box
                         sx={{
                           width: '100%',
-                          display: 'grid',
+                          display: 'flex',
                           gap: 1,
-                          gridTemplateColumns: { xs: '1fr', sm: '1fr auto' },
+                          justifyContent: 'space-between',
                           alignItems: 'center',
+                          flexWrap: 'wrap',
                         }}
                       >
                         <Typography data-testid={`order-details-products-row-${index}-name`}>
                           {normalizeValue(product.name)}
                         </Typography>
-                        <Typography color={product.received ? 'success.main' : 'text.secondary'} data-testid={`order-details-products-row-${index}-received`}>
-                          {product.received ? 'Received' : 'Not Received'}
-                        </Typography>
+
+                        {isReceiveModeVisible ? (
+                          <Stack direction="row" spacing={0.5} alignItems="center">
+                            <Box
+                              sx={{ display: 'inline-flex', alignItems: 'center' }}
+                              data-testid={`order-details-products-row-${index}-receive-checkbox-field`}
+                            >
+                              <Checkbox
+                                size="small"
+                                checked={
+                                  product.received || selectedReceivePendingRowIndices.includes(index)
+                                }
+                                disabled={product.received || isReceiveSavePending}
+                                onChange={() => handleToggleReceiveProduct(index)}
+                                data-testid={`order-details-products-row-${index}-receive-checkbox`}
+                              />
+                            </Box>
+                            <Typography
+                              color={product.received ? 'success.main' : 'text.secondary'}
+                              data-testid={`order-details-products-row-${index}-receive-state`}
+                            >
+                              {product.received ? 'Received' : 'Not Received'}
+                            </Typography>
+                          </Stack>
+                        ) : (
+                          <Typography
+                            color={product.received ? 'success.main' : 'text.secondary'}
+                            data-testid={`order-details-products-row-${index}-received`}
+                          >
+                            {product.received ? 'Received' : 'Not Received'}
+                          </Typography>
+                        )}
                       </Box>
                     </AccordionSummary>
                     <AccordionDetails>

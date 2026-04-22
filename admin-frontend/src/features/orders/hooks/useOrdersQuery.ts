@@ -9,11 +9,13 @@ import {
   exportOrders,
   getOrderById,
   getOrders,
+  receiveOrderProducts,
   updateOrder,
   updateOrderStatus,
   type OrderDetails,
   type OrderCommentCreatePayload,
   type OrderCommentDeletePayload,
+  type OrderReceivePayload,
   type UpdateOrderPayload,
   type CreateOrderPayload,
   type OrderStatusUpdatePayload,
@@ -161,6 +163,17 @@ export function useDeleteOrderCommentMutation() {
     mutationFn: ({ orderId, commentId, requestConfig }: OrderCommentDeletePayload & { requestConfig?: ApiRequestConfig }) =>
       deleteOrderComment(orderId, commentId, requestConfig),
     onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
+    },
+  })
+}
+
+export function useReceiveOrderProductsMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderId, products }: OrderReceivePayload) => receiveOrderProducts(orderId, products),
+    onSuccess: async (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
     },
   })

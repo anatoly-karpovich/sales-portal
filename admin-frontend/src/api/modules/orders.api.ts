@@ -153,6 +153,11 @@ export type OrderCommentDeletePayload = {
   commentId: string
 }
 
+export type OrderReceivePayload = {
+  orderId: string
+  products: string[]
+}
+
 export type OrderQuery = OrdersQuery
 
 export async function getOrders(query: OrdersQuery) {
@@ -194,6 +199,11 @@ export async function createOrderComment(orderId: string, comment: string, reque
 
 export async function deleteOrderComment(orderId: string, commentId: string, requestConfig?: ApiRequestConfig) {
   await apiClient.delete(`/orders/${orderId}/comments/${commentId}`, requestConfig)
+}
+
+export async function receiveOrderProducts(orderId: string, products: string[]) {
+  const response = await apiClient.post<OrderResponse<OrderDetails>>(`/orders/${orderId}/receive`, { products })
+  return response.data.Order
 }
 
 export async function exportOrders(payload: OrdersExportPayload) {
