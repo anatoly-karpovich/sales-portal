@@ -10,7 +10,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   CircularProgress,
   IconButton,
   Paper,
@@ -512,17 +511,6 @@ export function OrderDetailsPage() {
   const isProcessDisabled = isProcessVisible && !order.delivery
   const isReopenVisible = order.status === 'Canceled'
 
-  const statusChipColor =
-    order.status === 'Canceled'
-      ? 'error'
-      : order.status === 'Received'
-        ? 'success'
-        : order.status === 'Partially Received'
-          ? 'primary'
-          : order.status === 'In Process'
-            ? 'info'
-            : 'default'
-
   const detailsDialogCopy =
     pendingStatusAction === 'cancel'
       ? {
@@ -546,8 +534,7 @@ export function OrderDetailsPage() {
               confirmColor: 'primary' as const,
             }
           : null
-  const assignedManagerChipLabel = order.assignedManager ? assignedManagerValue : 'Not Assigned'
-  const managerChipColor = order.assignedManager ? 'primary' : 'default'
+  const assignedManagerDisplayValue = order.assignedManager ? assignedManagerValue : 'Not Assigned'
   const summaryMetricCardSx = {
     width: { xs: '100%', sm: 'clamp(210px, 22vw, 250px)' },
     flex: '0 0 auto',
@@ -682,13 +669,9 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.orderStatus}
               </Typography>
-              <Chip
-                label={order.status}
-                color={statusChipColor}
-                size="small"
-                sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
-                data-testid="order-details-summary-status-value"
-              />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-status-value">
+                {order.status}
+              </Typography>
             </Stack>
 
             <Stack
@@ -699,25 +682,9 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.delivery}
               </Typography>
-              {order.delivery?.finalDate ? (
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-delivery-date-value">
-                  {formatDateTime(order.delivery.finalDate)}
-                </Typography>
-              ) : (
-                <Chip
-                  label="Not Scheduled"
-                  color="default"
-                  size="small"
-                  variant="filled"
-                  sx={{
-                    alignSelf: 'flex-start',
-                    fontWeight: 700,
-                    border: 1,
-                    borderColor: 'divider',
-                  }}
-                  data-testid="order-details-summary-delivery-date-value"
-                />
-              )}
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-delivery-date-value">
+                {order.delivery?.finalDate ? formatDateTime(order.delivery.finalDate) : 'Not Scheduled'}
+              </Typography>
             </Stack>
 
             <Stack
@@ -741,14 +708,9 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.assignedManager}
               </Typography>
-              <Chip
-                label={assignedManagerChipLabel}
-                color={managerChipColor}
-                size="small"
-                variant="filled"
-                sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
-                data-testid="order-details-summary-assigned-manager-value"
-              />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-assigned-manager-value">
+                {assignedManagerDisplayValue}
+              </Typography>
             </Stack>
 
             <Stack
