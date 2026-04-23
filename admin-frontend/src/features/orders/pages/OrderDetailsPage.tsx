@@ -10,6 +10,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   IconButton,
   Paper,
@@ -511,16 +512,16 @@ export function OrderDetailsPage() {
   const isProcessDisabled = isProcessVisible && !order.delivery
   const isReopenVisible = order.status === 'Canceled'
 
-  const statusColor =
+  const statusChipColor =
     order.status === 'Canceled'
-      ? 'error.main'
+      ? 'error'
       : order.status === 'Received'
-        ? 'success.main'
+        ? 'success'
         : order.status === 'Partially Received'
-          ? 'primary.main'
+          ? 'primary'
           : order.status === 'In Process'
-            ? 'info.main'
-            : 'text.primary'
+            ? 'info'
+            : 'default'
 
   const detailsDialogCopy =
     pendingStatusAction === 'cancel'
@@ -545,6 +546,18 @@ export function OrderDetailsPage() {
               confirmColor: 'primary' as const,
             }
           : null
+  const assignedManagerChipLabel = order.assignedManager ? assignedManagerValue : 'Not Assigned'
+  const managerChipColor = order.assignedManager ? 'primary' : 'default'
+  const summaryMetricCardSx = {
+    width: { xs: '100%', sm: 'clamp(210px, 22vw, 250px)' },
+    flex: '0 0 auto',
+    p: { xs: 1.25, md: 1.5 },
+    border: 1,
+    borderColor: 'divider',
+    borderRadius: 2,
+    backgroundColor: (theme: { palette: { mode: 'light' | 'dark' } }) =>
+      theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(25, 118, 210, 0.03)',
+  }
 
   return (
     <Stack spacing={2.5} data-testid="order-details-page">
@@ -569,11 +582,11 @@ export function OrderDetailsPage() {
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={1.5}
-              alignItems={{ xs: 'flex-start', md: 'center' }}
+              alignItems={{ xs: 'flex-start', md: 'flex-start' }}
               justifyContent="space-between"
             >
-              <Stack spacing={1}>
-                <Typography color="text.secondary">
+              <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+                <Typography color="text.secondary" sx={{ lineHeight: 1.4 }}>
                   <Typography component="span" variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700 }}>
                     {ordersUiText.detailsPage.labels.orderNumber}:
                   </Typography>{' '}
@@ -583,14 +596,6 @@ export function OrderDetailsPage() {
                     data-testid="order-details-order-id-value"
                   >
                     {order._id}
-                  </Typography>
-                </Typography>
-                <Typography color="text.secondary">
-                  <Typography component="span" variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                    {ordersUiText.detailsPage.labels.assignedManager}:
-                  </Typography>{' '}
-                  <Typography component="span" data-testid="order-details-summary-assigned-manager-value">
-                    {assignedManagerValue}
                   </Typography>
                 </Typography>
               </Stack>
@@ -658,36 +663,103 @@ export function OrderDetailsPage() {
             </Stack>
           </Stack>
 
-          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' } }}>
-            <Stack spacing={0.25}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'stretch',
+              justifyContent: { xs: 'flex-start', sm: 'space-between' },
+              rowGap: 1.25,
+              columnGap: { xs: 1.5, sm: 0 },
+            }}
+            data-testid="order-details-summary-metrics-grid"
+          >
+            <Stack
+              spacing={0.75}
+              sx={summaryMetricCardSx}
+              data-testid="order-details-summary-metric-status-card"
+            >
+              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.orderStatus}
               </Typography>
-              <Typography sx={{ color: statusColor, fontWeight: 700 }} data-testid="order-details-summary-status-value">
-                {order.status}
-              </Typography>
+              <Chip
+                label={order.status}
+                color={statusChipColor}
+                size="small"
+                sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
+                data-testid="order-details-summary-status-value"
+              />
             </Stack>
-            <Stack spacing={0.25}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+
+            <Stack
+              spacing={0.75}
+              sx={summaryMetricCardSx}
+              data-testid="order-details-summary-metric-delivery-card"
+            >
+              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
+                {ordersUiText.detailsPage.labels.delivery}
+              </Typography>
+              {order.delivery?.finalDate ? (
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-delivery-date-value">
+                  {formatDateTime(order.delivery.finalDate)}
+                </Typography>
+              ) : (
+                <Chip
+                  label="Not Scheduled"
+                  color="default"
+                  size="small"
+                  variant="filled"
+                  sx={{
+                    alignSelf: 'flex-start',
+                    fontWeight: 700,
+                    border: 1,
+                    borderColor: 'divider',
+                  }}
+                  data-testid="order-details-summary-delivery-date-value"
+                />
+              )}
+            </Stack>
+
+            <Stack
+              spacing={0.75}
+              sx={summaryMetricCardSx}
+              data-testid="order-details-summary-metric-total-price-card"
+            >
+              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.totalPrice}
               </Typography>
-              <Typography sx={{ fontWeight: 700 }} data-testid="order-details-summary-total-price-value">
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-total-price-value">
                 {formatPrice(order.total_price)}
               </Typography>
             </Stack>
-            <Stack spacing={0.25}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {ordersUiText.detailsPage.labels.delivery}
+
+            <Stack
+              spacing={0.75}
+              sx={summaryMetricCardSx}
+              data-testid="order-details-summary-metric-assigned-manager-card"
+            >
+              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
+                {ordersUiText.detailsPage.labels.assignedManager}
               </Typography>
-              <Typography sx={{ fontWeight: 700 }} data-testid="order-details-summary-delivery-date-value">
-                {order.delivery?.finalDate ? formatDateTime(order.delivery.finalDate) : '-'}
-              </Typography>
+              <Chip
+                label={assignedManagerChipLabel}
+                color={managerChipColor}
+                size="small"
+                variant="filled"
+                sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
+                data-testid="order-details-summary-assigned-manager-value"
+              />
             </Stack>
-            <Stack spacing={0.25}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+
+            <Stack
+              spacing={0.75}
+              sx={summaryMetricCardSx}
+              data-testid="order-details-summary-metric-created-on-card"
+            >
+              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.createdOn}
               </Typography>
-              <Typography sx={{ fontWeight: 700 }} data-testid="order-details-summary-created-on-value">
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-created-on-value">
                 {formatDateTime(order.createdOn)}
               </Typography>
             </Stack>
