@@ -3,38 +3,29 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
-  Checkbox,
   CircularProgress,
-  IconButton,
   Paper,
   Skeleton,
   Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Tooltip,
   Typography,
 } from '@mui/material'
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
-import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import type { OrderAssignedManager, OrderStatus } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
-import { OrderHistoryTimeline } from '@/features/orders/components/OrderHistoryTimeline'
 import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
+import { OrderDetailsCustomerSection } from '@/features/orders/components/OrderDetailsCustomerSection'
+import { OrderDetailsProductsSection } from '@/features/orders/components/OrderDetailsProductsSection'
+import { OrderDetailsSummarySection } from '@/features/orders/components/OrderDetailsSummarySection'
+import {
+  OrderDetailsTabsSection,
+  type OrderDetailsTab,
+} from '@/features/orders/components/OrderDetailsTabsSection'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { formatDate, formatDateTime } from '@/utils/date'
-import { formatPrice } from '@/utils/number'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import {
   useCreateOrderCommentMutation,
@@ -47,7 +38,6 @@ import {
 } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 
-type DetailsTab = 'delivery' | 'history' | 'comments'
 type PendingStatusAction = 'cancel' | 'process' | 'reopen' | null
 
 function resolveApiErrorMessage(error: unknown, fallback: string) {
@@ -82,12 +72,6 @@ function OrderDetailsSkeleton() {
   )
 }
 
-function normalizeValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined) return '-'
-  if (typeof value === 'string' && value.trim().length === 0) return '-'
-  return String(value)
-}
-
 function resolveAssignedManagerName(assignedManager: OrderAssignedManager | null) {
   if (!assignedManager) {
     return '-'
@@ -110,7 +94,7 @@ export function OrderDetailsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { enqueueSnackbar } = useSnackbar()
-  const [activeTab, setActiveTab] = useState<DetailsTab>('delivery')
+  const [activeTab, setActiveTab] = useState<OrderDetailsTab>('delivery')
   const [pendingStatusAction, setPendingStatusAction] = useState<PendingStatusAction>(null)
   const [commentDraft, setCommentDraft] = useState('')
   const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null)
@@ -542,695 +526,64 @@ export function OrderDetailsPage() {
             }
           : null
   const assignedManagerDisplayValue = order.assignedManager ? assignedManagerValue : 'Not Assigned'
-  const summaryMetricCardSx = {
-    width: { xs: '100%', sm: 'clamp(210px, 22vw, 250px)' },
-    flex: '0 0 auto',
-    p: { xs: 1.25, md: 1.5 },
-    border: 1,
-    borderColor: 'divider',
-    borderRadius: 2,
-    backgroundColor: (theme: { palette: { mode: 'light' | 'dark' } }) =>
-      theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(25, 118, 210, 0.03)',
-  }
-
   return (
     <Stack spacing={2.5} data-testid="order-details-page">
-      <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-summary-section">
-        <Stack spacing={2.5}>
-          <Button
-            component={Link}
-            to="/orders"
-            variant="text"
-            startIcon={<ArrowBackRoundedIcon fontSize="small" />}
-            sx={{ alignSelf: 'flex-start', px: 0, textTransform: 'none' }}
-            data-testid="order-details-back-to-list-link"
-          >
-            {ordersUiText.detailsPage.backToOrders}
-          </Button>
-
-          <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="order-details-page-title">
-            {ordersUiText.detailsPage.title}
-          </Typography>
-
-          <Stack spacing={1.5}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={1.5}
-              alignItems={{ xs: 'flex-start', md: 'flex-start' }}
-              justifyContent="space-between"
-            >
-              <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
-                <Typography color="text.secondary" sx={{ lineHeight: 1.4 }}>
-                  <Typography
-                    component="span"
-                    variant="subtitle2"
-                    sx={{ color: 'text.primary', fontWeight: 700 }}
-                  >
-                    {ordersUiText.detailsPage.labels.orderNumber}:
-                  </Typography>{' '}
-                  <Typography
-                    component="span"
-                    sx={{ fontStyle: 'italic' }}
-                    data-testid="order-details-order-id-value"
-                  >
-                    {order._id}
-                  </Typography>
-                </Typography>
-              </Stack>
-
-              <Stack
-                direction="row"
-                spacing={1}
-                flexWrap="wrap"
-                justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
-              >
-                {isCancelVisible ? (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={() => setPendingStatusAction('cancel')}
-                    data-testid="order-details-action-cancel-button"
-                  >
-                    {ordersUiText.detailsPage.actions.cancel}
-                  </Button>
-                ) : null}
-
-                {isReopenVisible ? (
-                  <Button
-                    variant="outlined"
-                    color="success"
-                    onClick={() => setPendingStatusAction('reopen')}
-                    data-testid="order-details-action-reopen-button"
-                  >
-                    {ordersUiText.detailsPage.actions.reopen}
-                  </Button>
-                ) : null}
-              </Stack>
-            </Stack>
-
-            <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="flex-start">
-              {isProcessVisible ? (
-                <Tooltip
-                  title={ordersUiText.detailsPage.placeholders.processNeedsDelivery}
-                  disableHoverListener={!isProcessDisabled}
-                >
-                  <span>
-                    <Button
-                      variant="contained"
-                      onClick={() => setPendingStatusAction('process')}
-                      disabled={isProcessDisabled}
-                      data-testid="order-details-action-process-button"
-                    >
-                      {ordersUiText.detailsPage.actions.process}
-                    </Button>
-                  </span>
-                </Tooltip>
-              ) : null}
-
-              <Button
-                variant="text"
-                startIcon={
-                  isRefreshPending || orderDetailsQuery.isFetching ? (
-                    <CircularProgress size={14} color="inherit" />
-                  ) : (
-                    <RefreshRoundedIcon fontSize="small" />
-                  )
-                }
-                onClick={() => void handleRefresh()}
-                disabled={isRefreshPending}
-                sx={{ px: 0.5 }}
-                data-testid="order-details-action-refresh-button"
-              >
-                {ordersUiText.detailsPage.actions.refresh}
-              </Button>
-            </Stack>
-          </Stack>
-
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'stretch',
-              justifyContent: { xs: 'flex-start', sm: 'space-between' },
-              rowGap: 1.25,
-              columnGap: { xs: 1.5, sm: 0 },
-            }}
-            data-testid="order-details-summary-metrics-grid"
-          >
-            <Stack
-              spacing={0.75}
-              sx={summaryMetricCardSx}
-              data-testid="order-details-summary-metric-status-card"
-            >
-              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
-                {ordersUiText.detailsPage.labels.orderStatus}
-              </Typography>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700 }}
-                data-testid="order-details-summary-status-value"
-              >
-                {order.status}
-              </Typography>
-            </Stack>
-
-            <Stack
-              spacing={0.75}
-              sx={summaryMetricCardSx}
-              data-testid="order-details-summary-metric-delivery-card"
-            >
-              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
-                {ordersUiText.detailsPage.labels.delivery}
-              </Typography>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700 }}
-                data-testid="order-details-summary-delivery-date-value"
-              >
-                {order.delivery?.finalDate
-                  ? formatDate(order.delivery.finalDate)
-                  : ordersUiText.detailsPage.placeholders.noDelivery}
-              </Typography>
-            </Stack>
-
-            <Stack
-              spacing={0.75}
-              sx={summaryMetricCardSx}
-              data-testid="order-details-summary-metric-total-price-card"
-            >
-              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
-                {ordersUiText.detailsPage.labels.totalPrice}
-              </Typography>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700 }}
-                data-testid="order-details-summary-total-price-value"
-              >
-                {formatPrice(order.total_price)}
-              </Typography>
-            </Stack>
-
-            <Stack
-              spacing={0.75}
-              sx={summaryMetricCardSx}
-              data-testid="order-details-summary-metric-assigned-manager-card"
-            >
-              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
-                {ordersUiText.detailsPage.labels.assignedManager}
-              </Typography>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700 }}
-                data-testid="order-details-summary-assigned-manager-value"
-              >
-                {assignedManagerDisplayValue}
-              </Typography>
-            </Stack>
-
-            <Stack
-              spacing={0.75}
-              sx={summaryMetricCardSx}
-              data-testid="order-details-summary-metric-created-on-card"
-            >
-              <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
-                {ordersUiText.detailsPage.labels.createdOn}
-              </Typography>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700 }}
-                data-testid="order-details-summary-created-on-value"
-              >
-                {formatDateTime(order.createdOn)}
-              </Typography>
-            </Stack>
-          </Box>
-        </Stack>
-      </Paper>
+      <OrderDetailsSummarySection
+        order={order}
+        assignedManagerDisplayValue={assignedManagerDisplayValue}
+        isCancelVisible={isCancelVisible}
+        isReopenVisible={isReopenVisible}
+        isProcessVisible={isProcessVisible}
+        isProcessDisabled={isProcessDisabled}
+        isRefreshPending={isRefreshPending}
+        isOrderFetching={orderDetailsQuery.isFetching}
+        onCancel={() => setPendingStatusAction('cancel')}
+        onReopen={() => setPendingStatusAction('reopen')}
+        onProcess={() => setPendingStatusAction('process')}
+        onRefresh={() => void handleRefresh()}
+      />
 
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' } }}>
-        <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-customer-section">
-          <Stack spacing={2}>
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {ordersUiText.detailsPage.labels.customerDetails}
-              </Typography>
-              {isCustomerEditable ? (
-                <IconButton
-                  size="small"
-                  onClick={() => void handleOpenCustomerEditDialog()}
-                  data-testid="order-details-customer-edit-trigger"
-                >
-                  <EditOutlinedIcon fontSize="small" />
-                </IconButton>
-              ) : null}
-            </Stack>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
-            <Box
-              sx={{
-                display: 'grid',
-                gap: 1.25,
-                gridTemplateColumns: { xs: '1fr', sm: '170px 1fr' },
-              }}
-            >
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.email}
-              </Typography>
-              <Typography data-testid="order-details-customer-email-value">
-                {normalizeValue(order.customer.email)}
-              </Typography>
+        <OrderDetailsCustomerSection
+          order={order}
+          isCustomerEditable={isCustomerEditable}
+          onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
+        />
 
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.name}
-              </Typography>
-              <Typography data-testid="order-details-customer-name-value">
-                {normalizeValue(order.customer.name)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.country}
-              </Typography>
-              <Typography data-testid="order-details-customer-country-value">
-                {normalizeValue(order.customer.country)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.city}
-              </Typography>
-              <Typography data-testid="order-details-customer-city-value">
-                {normalizeValue(order.customer.city)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.street}
-              </Typography>
-              <Typography data-testid="order-details-customer-street-value">
-                {normalizeValue(order.customer.street)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.house}
-              </Typography>
-              <Typography data-testid="order-details-customer-house-value">
-                {normalizeValue(order.customer.house)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.flat}
-              </Typography>
-              <Typography data-testid="order-details-customer-flat-value">
-                {normalizeValue(order.customer.flat)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.phone}
-              </Typography>
-              <Typography data-testid="order-details-customer-phone-value">
-                {normalizeValue(order.customer.phone)}
-              </Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.createdOn}
-              </Typography>
-              <Typography>{formatDateTime(order.customer.createdOn)}</Typography>
-
-              <Typography fontWeight={700}>
-                {ordersUiText.detailsPage.fields.customer.notes}
-              </Typography>
-              <Typography
-                data-testid="order-details-customer-notes-value"
-                sx={{
-                  maxWidth: '100%',
-                  whiteSpace: 'pre-wrap',
-                  overflowWrap: 'anywhere',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {normalizeValue(order.customer.notes)}
-              </Typography>
-            </Box>
-          </Stack>
-        </Paper>
-
-        <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-products-section">
-          <Stack spacing={2}>
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              justifyContent="space-between"
-              flexWrap="wrap"
-            >
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {ordersUiText.detailsPage.labels.requestedProducts}
-                </Typography>
-                {isProductsEditable ? (
-                  <IconButton
-                    size="small"
-                    onClick={() => void handleOpenProductsEditDialog()}
-                    data-testid="order-details-products-edit-trigger"
-                  >
-                    <EditOutlinedIcon fontSize="small" />
-                  </IconButton>
-                ) : null}
-              </Stack>
-
-              {isReceiveStartVisible ? (
-                <Button
-                  variant="contained"
-                  onClick={handleStartReceiveMode}
-                  disabled={isReceiveSavePending}
-                  data-testid="order-details-products-receive-start-button"
-                >
-                  {ordersUiText.detailsPage.actions.receive}
-                </Button>
-              ) : null}
-
-              {isReceiveModeVisible ? (
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleCancelReceiveMode}
-                    disabled={isReceiveSavePending}
-                    data-testid="order-details-products-receive-cancel-button"
-                  >
-                    {ordersUiText.detailsPage.actions.cancelReceive}
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={() => void handleSaveReceivedProducts()}
-                    disabled={!isReceiveSaveEnabled}
-                    data-testid="order-details-products-receive-save-button"
-                  >
-                    {isReceiveSavePending ? (
-                      <CircularProgress size={18} color="inherit" />
-                    ) : (
-                      ordersUiText.detailsPage.actions.save
-                    )}
-                  </Button>
-                </Stack>
-              ) : null}
-            </Stack>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
-
-            {isReceiveModeVisible ? (
-              <Stack direction="row" justifyContent="flex-end">
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Box
-                    sx={{ display: 'inline-flex', alignItems: 'center' }}
-                    data-testid="order-details-products-receive-select-all-checkbox-field"
-                  >
-                    <Checkbox
-                      size="small"
-                      checked={isSelectAllChecked}
-                      indeterminate={isSelectAllIndeterminate}
-                      disabled={!hasPendingProductsToReceive || isReceiveSavePending}
-                      onChange={handleToggleSelectAllReceive}
-                      data-testid="order-details-products-receive-select-all-checkbox"
-                    />
-                  </Box>
-                  <Typography>{ordersUiText.detailsPage.placeholders.selectAll}</Typography>
-                </Stack>
-              </Stack>
-            ) : null}
-
-            <Stack spacing={1} data-testid="order-details-products-table">
-              {order.products.length ? (
-                order.products.map((product, index) => (
-                  <Accordion
-                    key={`${product._id}-${index}`}
-                    disableGutters
-                    elevation={0}
-                    data-testid={`order-details-products-row-${index}`}
-                  >
-                    <AccordionSummary expandIcon={<ExpandMoreRoundedIcon fontSize="small" />}>
-                      <Box
-                        sx={{
-                          width: '100%',
-                          display: 'flex',
-                          gap: 1,
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <Typography data-testid={`order-details-products-row-${index}-name`}>
-                          {normalizeValue(product.name)}
-                        </Typography>
-
-                        {isReceiveModeVisible ? (
-                          <Stack direction="row" spacing={0.5} alignItems="center">
-                            <Box
-                              sx={{ display: 'inline-flex', alignItems: 'center' }}
-                              data-testid={`order-details-products-row-${index}-receive-checkbox-field`}
-                            >
-                              <Checkbox
-                                size="small"
-                                checked={
-                                  product.received ||
-                                  selectedReceivePendingRowIndices.includes(index)
-                                }
-                                disabled={product.received || isReceiveSavePending}
-                                onChange={() => handleToggleReceiveProduct(index)}
-                                data-testid={`order-details-products-row-${index}-receive-checkbox`}
-                              />
-                            </Box>
-                            <Typography
-                              color={product.received ? 'success.main' : 'text.secondary'}
-                              data-testid={`order-details-products-row-${index}-receive-state`}
-                            >
-                              {product.received ? 'Received' : 'Not Received'}
-                            </Typography>
-                          </Stack>
-                        ) : (
-                          <Typography
-                            color={product.received ? 'success.main' : 'text.secondary'}
-                            data-testid={`order-details-products-row-${index}-received`}
-                          >
-                            {product.received ? 'Received' : 'Not Received'}
-                          </Typography>
-                        )}
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Stack spacing={0.8}>
-                        <Typography
-                          data-testid={`order-details-products-row-${index}-manufacturer`}
-                        >
-                          <Typography
-                            component="span"
-                            variant="subtitle2"
-                            sx={{ color: 'text.primary', fontWeight: 700 }}
-                          >
-                            Manufacturer:
-                          </Typography>{' '}
-                          {normalizeValue(product.manufacturer)}
-                        </Typography>
-                        <Typography data-testid={`order-details-products-row-${index}-amount`}>
-                          <Typography
-                            component="span"
-                            variant="subtitle2"
-                            sx={{ color: 'text.primary', fontWeight: 700 }}
-                          >
-                            Amount:
-                          </Typography>{' '}
-                          {normalizeValue(product.amount)}
-                        </Typography>
-                        <Typography data-testid={`order-details-products-row-${index}-price`}>
-                          <Typography
-                            component="span"
-                            variant="subtitle2"
-                            sx={{ color: 'text.primary', fontWeight: 700 }}
-                          >
-                            Price:
-                          </Typography>{' '}
-                          {formatPrice(product.price)}
-                        </Typography>
-                      </Stack>
-                    </AccordionDetails>
-                  </Accordion>
-                ))
-              ) : (
-                <Typography color="text.secondary">-</Typography>
-              )}
-            </Stack>
-          </Stack>
-        </Paper>
+        <OrderDetailsProductsSection
+          order={order}
+          isProductsEditable={isProductsEditable}
+          isReceiveStartVisible={isReceiveStartVisible}
+          isReceiveModeVisible={isReceiveModeVisible}
+          isReceiveSavePending={isReceiveSavePending}
+          isReceiveSaveEnabled={isReceiveSaveEnabled}
+          hasPendingProductsToReceive={hasPendingProductsToReceive}
+          isSelectAllChecked={isSelectAllChecked}
+          isSelectAllIndeterminate={isSelectAllIndeterminate}
+          selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
+          onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
+          onStartReceiveMode={handleStartReceiveMode}
+          onCancelReceiveMode={handleCancelReceiveMode}
+          onSaveReceivedProducts={() => void handleSaveReceivedProducts()}
+          onToggleSelectAllReceive={handleToggleSelectAllReceive}
+          onToggleReceiveProduct={handleToggleReceiveProduct}
+        />
       </Box>
 
-      <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-placeholder-section">
-        <Tabs
-          value={activeTab}
-          onChange={(_, value: DetailsTab) => setActiveTab(value)}
-          sx={{ mb: 2 }}
-        >
-          <Tab
-            label={ordersUiText.detailsPage.tabs.delivery}
-            value="delivery"
-            data-testid="order-details-tabs-placeholder-delivery-tab"
-          />
-          <Tab
-            label={ordersUiText.detailsPage.tabs.history}
-            value="history"
-            data-testid="order-details-tabs-placeholder-history-tab"
-          />
-          <Tab
-            label={ordersUiText.detailsPage.tabs.comments}
-            value="comments"
-            data-testid="order-details-tabs-placeholder-comments-tab"
-          />
-        </Tabs>
-        <Box data-testid="order-details-tabs-placeholder-content">
-          {activeTab === 'delivery' ? (
-            <Stack spacing={2}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {ordersUiText.detailsPage.labels.deliveryInformation}
-              </Typography>
-              {order.delivery ? (
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gap: 1.25,
-                    gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' },
-                  }}
-                >
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.condition}
-                  </Typography>
-                  <Typography>{normalizeValue(order.delivery.condition)}</Typography>
-
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.finalDate}
-                  </Typography>
-                  <Typography>{formatDate(order.delivery.finalDate)}</Typography>
-
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.country}
-                  </Typography>
-                  <Typography>{normalizeValue(order.delivery.address.country)}</Typography>
-
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.city}
-                  </Typography>
-                  <Typography>{normalizeValue(order.delivery.address.city)}</Typography>
-
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.street}
-                  </Typography>
-                  <Typography>{normalizeValue(order.delivery.address.street)}</Typography>
-
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.house}
-                  </Typography>
-                  <Typography>{normalizeValue(order.delivery.address.house)}</Typography>
-
-                  <Typography fontWeight={700}>
-                    {ordersUiText.detailsPage.fields.delivery.flat}
-                  </Typography>
-                  <Typography>{normalizeValue(order.delivery.address.flat)}</Typography>
-                </Box>
-              ) : (
-                <Typography color="text.secondary">
-                  {ordersUiText.detailsPage.placeholders.noDeliveryScheduled}
-                </Typography>
-              )}
-            </Stack>
-          ) : null}
-
-          {activeTab === 'history' ? (
-            <Stack spacing={2}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {ordersUiText.detailsPage.labels.orderHistory}
-              </Typography>
-              <OrderHistoryTimeline history={order.history} />
-            </Stack>
-          ) : null}
-
-          {activeTab === 'comments' ? (
-            <Stack spacing={2}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {ordersUiText.detailsPage.labels.comments}
-              </Typography>
-              <TextField
-                multiline
-                rows={3}
-                value={commentDraft}
-                onChange={(event) => setCommentDraft(event.target.value)}
-                placeholder={ordersUiText.detailsPage.placeholders.commentInput}
-                data-testid="order-details-comments-input"
-                inputProps={{ 'data-testid': 'order-details-comments-input-field' }}
-                error={commentDraft.length > 0 && !isCommentValid}
-                helperText={
-                  commentDraft.length > 0 && !isCommentValid
-                    ? ordersUiText.validation.commentsInvalid
-                    : ' '
-                }
-                disabled={isCommentCreatePending}
-              />
-              <Button
-                variant="contained"
-                onClick={() => void handleCreateComment()}
-                disabled={!isCommentValid || isCommentCreatePending}
-                sx={{ alignSelf: 'flex-start' }}
-                data-testid="order-details-comments-create-button"
-              >
-                {isCommentCreatePending ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  ordersUiText.detailsPage.actions.createComment
-                )}
-              </Button>
-
-              <Stack spacing={1.25}>
-                {orderedComments.map((comment, index) => (
-                  <Paper
-                    key={comment._id ?? `${comment.createdOn}-${index}`}
-                    variant="outlined"
-                    sx={{ p: 1.5 }}
-                    data-testid={`order-details-comments-item-${index}`}
-                  >
-                    <Stack spacing={1}>
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        justifyContent="space-between"
-                        alignItems="flex-start"
-                      >
-                        <Typography
-                          sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}
-                        >
-                          {comment.text}
-                        </Typography>
-                        <IconButton
-                          color="error"
-                          size="small"
-                          onClick={() => void handleDeleteComment(comment._id)}
-                          disabled={!comment._id || isCommentDeletePending}
-                          data-testid={`order-details-comments-item-${index}-delete-button`}
-                        >
-                          {isCommentDeletePending && pendingDeleteCommentId === comment._id ? (
-                            <CircularProgress size={16} color="inherit" />
-                          ) : (
-                            <DeleteOutlineRoundedIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="body2" color="primary.main">
-                          {ordersUiText.detailsPage.placeholders.commentAuthorFallback}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {formatDateTime(comment.createdOn)}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
-            </Stack>
-          ) : null}
-        </Box>
-      </Paper>
+      <OrderDetailsTabsSection
+        order={order}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        commentDraft={commentDraft}
+        onCommentDraftChange={setCommentDraft}
+        isCommentValid={isCommentValid}
+        isCommentCreatePending={isCommentCreatePending}
+        isCommentDeletePending={isCommentDeletePending}
+        pendingDeleteCommentId={pendingDeleteCommentId}
+        orderedComments={orderedComments}
+        onCreateComment={() => void handleCreateComment()}
+        onDeleteComment={(commentId) => void handleDeleteComment(commentId)}
+      />
 
       <EditOrderCustomerDialog
         open={isCustomerEditDialogOpen}
