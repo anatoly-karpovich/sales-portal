@@ -327,7 +327,8 @@ function HistoryProducts({ products, index }: { products: OrderProduct[]; index:
               : (theme) =>
                   theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'grey.100',
             color: product.received ? 'success.light' : 'text.primary',
-            typography: 'caption',
+            fontSize: '0.8125rem',
+            lineHeight: 1.35,
             fontWeight: 600,
           }}
           data-testid={`order-details-history-item-${index}-products-item-${productIndex}`}
@@ -429,7 +430,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                 width: 12,
                 height: 12,
                 borderRadius: '50%',
-                left: { xs: -22, md: -26 },
+                left: { xs: -18, md: -22 },
                 top: 21,
                 border: 2,
                 borderColor: 'background.paper',
@@ -453,7 +454,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                 <Stack spacing={0.5}>
                   <Typography
                     variant="h6"
-                    sx={{ fontWeight: 700 }}
+                    sx={{ fontWeight: 700, fontSize: '1.3125rem', lineHeight: 1.25 }}
                     data-testid={`order-details-history-item-${index}-action`}
                   >
                     {resolveActionLabel(entry.action)}
@@ -462,16 +463,22 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                     <Typography
                       variant="body2"
                       color="text.secondary"
+                      sx={{ fontSize: '0.8125rem', lineHeight: 1.35 }}
                       data-testid={`order-details-history-item-${index}-performer`}
                     >
                       By {resolvePersonName(entry.performer)}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontSize: '0.8125rem', lineHeight: 1.35 }}
+                    >
                       •
                     </Typography>
                     <Typography
                       variant="body2"
                       color="text.secondary"
+                      sx={{ fontSize: '0.8125rem', lineHeight: 1.35 }}
                       data-testid={`order-details-history-item-${index}-changed-on`}
                     >
                       {formatDateTime(entry.changedOn)}
@@ -501,7 +508,12 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                       <Typography
                         variant="overline"
                         color="text.secondary"
-                        sx={{ fontWeight: 700 }}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.8125rem',
+                          lineHeight: 1.35,
+                          letterSpacing: 0.4,
+                        }}
                       >
                         {ordersUiText.detailsPage.history.whatChanged}
                       </Typography>
@@ -516,7 +528,11 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                           }}
                           data-testid={`order-details-history-item-${index}-change-${changeIndex}`}
                         >
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mb: 0.75, fontSize: '0.875rem', lineHeight: 1.4, fontWeight: 500 }}
+                          >
                             {change.label}
                           </Typography>
                           <Box
@@ -537,13 +553,20 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                                 backgroundColor: 'rgba(229, 57, 53, 0.12)',
                                 color: 'error.light',
                                 overflowWrap: 'anywhere',
+                                fontSize: '0.875rem',
+                                lineHeight: 1.4,
                               }}
                             >
                               {change.previous}
                             </Box>
                             <Typography
                               color="text.secondary"
-                              sx={{ textAlign: 'center', display: { xs: 'none', sm: 'block' } }}
+                              sx={{
+                                textAlign: 'center',
+                                display: { xs: 'none', sm: 'block' },
+                                fontSize: '0.875rem',
+                                lineHeight: 1.4,
+                              }}
                             >
                               →
                             </Typography>
@@ -554,6 +577,8 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                                 backgroundColor: 'rgba(46, 125, 50, 0.2)',
                                 color: 'success.light',
                                 overflowWrap: 'anywhere',
+                                fontSize: '0.875rem',
+                                lineHeight: 1.4,
                               }}
                             >
                               {change.updated}
@@ -570,7 +595,12 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                         <Typography
                           variant="overline"
                           color="text.secondary"
-                          sx={{ fontWeight: 700 }}
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: '0.8125rem',
+                            lineHeight: 1.35,
+                            letterSpacing: 0.4,
+                          }}
                         >
                           {ordersUiText.detailsPage.history.stateAfterEvent}
                         </Typography>
@@ -588,12 +618,21 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                             }}
                             data-testid={`order-details-history-item-${index}-state-row-${rowIndex}`}
                           >
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ fontSize: '0.875rem', lineHeight: 1.4, fontWeight: 500 }}
+                            >
                               {row.label}
                             </Typography>
                             <Typography
                               variant="body2"
-                              sx={{ fontWeight: 600, textAlign: 'right' }}
+                              sx={{
+                                fontWeight: 600,
+                                textAlign: 'right',
+                                fontSize: '0.875rem',
+                                lineHeight: 1.4,
+                              }}
                             >
                               {row.value}
                             </Typography>
@@ -607,7 +646,12 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                         <Typography
                           variant="overline"
                           color="text.secondary"
-                          sx={{ fontWeight: 700 }}
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: '0.8125rem',
+                            lineHeight: 1.35,
+                            letterSpacing: 0.4,
+                          }}
                         >
                           {ordersUiText.detailsPage.history.productsAfterEvent}
                         </Typography>
