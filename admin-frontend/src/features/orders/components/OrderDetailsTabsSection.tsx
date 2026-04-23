@@ -11,10 +11,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { OrderComment, OrderDetails } from '@/api/modules/orders.api'
+import type { OrderComment, OrderDelivery, OrderDetails } from '@/api/modules/orders.api'
+import { OrderDetailsDeliveryTab } from '@/features/orders/components/OrderDetailsDeliveryTab'
 import { OrderHistoryTimeline } from '@/features/orders/components/OrderHistoryTimeline'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
-import { formatDate, formatDateTime } from '@/utils/date'
+import { formatDateTime } from '@/utils/date'
 
 export type OrderDetailsTab = 'delivery' | 'history' | 'comments'
 
@@ -22,6 +23,9 @@ type OrderDetailsTabsSectionProps = {
   order: OrderDetails
   activeTab: OrderDetailsTab
   onTabChange: (tab: OrderDetailsTab) => void
+  isDeliveryEditable: boolean
+  isDeliverySubmitting: boolean
+  onSaveDelivery: (delivery: OrderDelivery) => Promise<boolean>
   commentDraft: string
   onCommentDraftChange: (value: string) => void
   isCommentValid: boolean
@@ -33,16 +37,13 @@ type OrderDetailsTabsSectionProps = {
   onDeleteComment: (commentId: string | undefined) => void
 }
 
-function normalizeValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined) return '-'
-  if (typeof value === 'string' && value.trim().length === 0) return '-'
-  return String(value)
-}
-
 export function OrderDetailsTabsSection({
   order,
   activeTab,
   onTabChange,
+  isDeliveryEditable,
+  isDeliverySubmitting,
+  onSaveDelivery,
   commentDraft,
   onCommentDraftChange,
   isCommentValid,
@@ -78,43 +79,28 @@ export function OrderDetailsTabsSection({
       </Tabs>
       <Box data-testid="order-details-tabs-placeholder-content">
         {activeTab === 'delivery' ? (
-          <Stack spacing={2}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {ordersUiText.detailsPage.labels.deliveryInformation}
-            </Typography>
-            {order.delivery ? (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 1.25,
-                  gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' },
-                }}
-              >
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.condition}</Typography>
-                <Typography>{normalizeValue(order.delivery.condition)}</Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.finalDate}</Typography>
-                <Typography>{formatDate(order.delivery.finalDate)}</Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.country}</Typography>
-                <Typography>{normalizeValue(order.delivery.address.country)}</Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.city}</Typography>
-                <Typography>{normalizeValue(order.delivery.address.city)}</Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.street}</Typography>
-                <Typography>{normalizeValue(order.delivery.address.street)}</Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.house}</Typography>
-                <Typography>{normalizeValue(order.delivery.address.house)}</Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.flat}</Typography>
-                <Typography>{normalizeValue(order.delivery.address.flat)}</Typography>
-              </Box>
-            ) : (
-              <Typography color="text.secondary">{ordersUiText.detailsPage.placeholders.noDeliveryScheduled}</Typography>
-            )}
-          </Stack>
+          <OrderDetailsDeliveryTab
+            key={[
+              order.status,
+              order.customer._id,
+              order.customer.country,
+              order.customer.city,
+              order.customer.street,
+              order.customer.house,
+              order.customer.flat,
+              order.delivery?.condition ?? 'none',
+              order.delivery?.finalDate ?? 'none',
+              order.delivery?.address.country ?? 'none',
+              order.delivery?.address.city ?? 'none',
+              order.delivery?.address.street ?? 'none',
+              order.delivery?.address.house ?? 'none',
+              order.delivery?.address.flat ?? 'none',
+            ].join('|')}
+            order={order}
+            isDeliveryEditable={isDeliveryEditable}
+            isDeliverySubmitting={isDeliverySubmitting}
+            onSaveDelivery={onSaveDelivery}
+          />
         ) : null}
 
         {activeTab === 'history' ? (

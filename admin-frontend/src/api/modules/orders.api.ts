@@ -19,7 +19,7 @@ export type OrderDeliveryAddress = {
 
 export type OrderDelivery = {
   finalDate: string
-  condition: string
+  condition: 'Delivery' | 'Pickup'
   address: OrderDeliveryAddress
 }
 
@@ -161,6 +161,11 @@ export type OrderReceivePayload = {
   products: string[]
 }
 
+export type OrderDeliveryUpdatePayload = {
+  orderId: string
+  delivery: OrderDelivery
+}
+
 export type OrderQuery = OrdersQuery
 
 export async function getOrders(query: OrdersQuery) {
@@ -206,6 +211,19 @@ export async function deleteOrderComment(orderId: string, commentId: string, req
 
 export async function receiveOrderProducts(orderId: string, products: string[]) {
   const response = await apiClient.post<OrderResponse<OrderDetails>>(`/orders/${orderId}/receive`, { products })
+  return response.data.Order
+}
+
+export async function updateOrderDelivery(
+  orderId: string,
+  delivery: OrderDelivery,
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.post<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/delivery`,
+    delivery,
+    requestConfig,
+  )
   return response.data.Order
 }
 

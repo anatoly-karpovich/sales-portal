@@ -14,7 +14,7 @@ import {
 } from '@mui/material'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { OrderAssignedManager, OrderStatus } from '@/api/modules/orders.api'
+import type { OrderAssignedManager, OrderDelivery, OrderStatus } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
 import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
@@ -33,6 +33,7 @@ import {
   useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
   useReceiveOrderProductsMutation,
+  useUpdateOrderDeliveryMutation,
   useOrderStatusMutation,
   useUpdateOrderMutation,
 } from '@/features/orders/hooks/useOrdersQuery'
@@ -118,6 +119,7 @@ export function OrderDetailsPage() {
   const statusMutation = useOrderStatusMutation()
   const updateOrderMutation = useUpdateOrderMutation()
   const receiveOrderProductsMutation = useReceiveOrderProductsMutation()
+  const updateOrderDeliveryMutation = useUpdateOrderDeliveryMutation()
   const createOrderCommentMutation = useCreateOrderCommentMutation()
   const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
@@ -393,6 +395,25 @@ export function OrderDetailsPage() {
     }
   }
 
+  const handleSaveDelivery = async (delivery: OrderDelivery) => {
+    if (!orderId) return false
+
+    try {
+      await updateOrderDeliveryMutation.mutateAsync({
+        orderId,
+        delivery,
+        requestConfig: { skipErrorToast: true },
+      })
+      enqueueSnackbar(ordersUiText.toasts.deliverySaved, { variant: 'success' })
+      await reloadOrderDetailsWithSkeleton()
+      return true
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.deliverySaveFailed)
+      enqueueSnackbar(errorMessage, { variant: 'error' })
+      return false
+    }
+  }
+
   const handleConfirmStatusAction = async () => {
     if (!pendingStatusAction || !orderId || !order) return
 
@@ -574,6 +595,9 @@ export function OrderDetailsPage() {
         order={order}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        isDeliveryEditable={order.status === 'Draft'}
+        isDeliverySubmitting={updateOrderDeliveryMutation.isPending}
+        onSaveDelivery={handleSaveDelivery}
         commentDraft={commentDraft}
         onCommentDraftChange={setCommentDraft}
         isCommentValid={isCommentValid}

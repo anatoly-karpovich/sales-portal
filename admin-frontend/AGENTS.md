@@ -90,6 +90,7 @@ Top-level source layout:
   - update order customer/products (`PUT /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
   - status update/reopen (`PUT /orders/:orderId/status`);
+  - schedule/edit delivery (`POST /orders/:orderId/delivery`);
   - receive requested products (`POST /orders/:orderId/receive`);
   - comments create/delete (`POST /orders/:orderId/comments`, `DELETE /orders/:orderId/comments/:commentId`);
   - export (`POST /orders/export` with blob response).
@@ -132,15 +133,33 @@ Top-level source layout:
 - `features/orders` (iteration 6 in active implementation)
   - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows
-  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/customer/product options/comments
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields
-  - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit)
+  - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit, delivery date offsets)
   - `components/CreateOrderDialog.tsx` - create modal (customer/products preload, total price, row add/remove)
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
   - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
   - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard
+  - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order meta, status actions, metrics cards)
+  - `components/OrderDetailsCustomerSection.tsx` - customer read-only block + draft-only edit trigger
+  - `components/OrderDetailsProductsSection.tsx` - products block + draft edit + receive-mode controls
+  - `components/OrderDetailsTabsSection.tsx` - tabs switcher and tab-level composition (`Delivery`, `Order History`, `Comments`)
+  - `components/OrderDetailsDeliveryTab.tsx` - delivery tab content:
+    - view mode with delivery summary and source chip;
+    - draft-only actions: `Schedule` button (no delivery yet) or edit pencil (delivery exists);
+    - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules;
+    - pickup address autofill by country;
+    - date picker-only input with allowed range from config (`+3`..`+10` days);
+    - save/cancel controls and delivery payload normalization.
+  - `components/OrderHistoryTimeline.tsx` - order history tab timeline:
+    - timeline + accordion cards grouped by history events;
+    - per-action diff blocks (status, delivery fields, customer, requested products, receive, manager assignment);
+    - fallback diff mode for unknown actions;
+    - state snapshot and product chips per event;
+    - lazy customer name resolution for historical customer ids.
   - `orders.ui-text.ts` - labels, dialog text, toasts, errors
   - `pages/OrderDetailsPage.tsx` - implemented details page:
+    - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`);
     - read-only customer/products blocks;
     - receive mode for products in `In Process`/`Partially Received`:
@@ -151,6 +170,8 @@ Top-level source layout:
       - `Save` posts selected IDs to `/orders/:orderId/receive`, then refreshes details and exits receive mode;
       - `Cancel` exits receive mode without API call;
     - draft-only customer/products edit flows;
+    - delivery tab integrated with create/edit flow (`POST /orders/:orderId/delivery`) and success/error toasts;
+    - order history tab integrated with timeline renderer and history diff visualization;
     - comments tab integrated with API create/delete;
     - known limitation: comment author uses fallback label (`AQA User`) until backend exposes stable `createdBy`.
 - `features/users`
