@@ -90,6 +90,7 @@ Top-level source layout:
   - update order customer/products (`PUT /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
   - status update/reopen (`PUT /orders/:orderId/status`);
+  - receive requested products (`POST /orders/:orderId/receive`);
   - comments create/delete (`POST /orders/:orderId/comments`, `DELETE /orders/:orderId/comments/:commentId`);
   - export (`POST /orders/export` with blob response).
 - `api/modules/products.api.ts`
@@ -142,6 +143,13 @@ Top-level source layout:
   - `pages/OrderDetailsPage.tsx` - implemented details page:
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`);
     - read-only customer/products blocks;
+    - receive mode for products in `In Process`/`Partially Received`:
+      - `Receive` CTA only when there are pending (not received) products;
+      - per-product checkboxes in receive mode with `Select All`;
+      - already received rows are prechecked and disabled;
+      - `Select All` uses tri-state behavior (`checked`, `indeterminate`, `unchecked`) for partial selection;
+      - `Save` posts selected IDs to `/orders/:orderId/receive`, then refreshes details and exits receive mode;
+      - `Cancel` exits receive mode without API call;
     - draft-only customer/products edit flows;
     - comments tab integrated with API create/delete;
     - known limitation: comment author uses fallback label (`AQA User`) until backend exposes stable `createdBy`.
@@ -210,6 +218,10 @@ Avoid:
 - API error toasts: centralized via `ApiEventsProvider` and API event bus.
 - Success toasts: emitted in feature/page logic on successful domain actions.
 - Unauthorized flow: handled in axios interceptor + `AuthProvider` subscriber.
+- For multi-select UX with `Select All`, always model tri-state behavior:
+  - `checked` when all selectable rows are selected;
+  - `indeterminate` when only a subset is selected;
+  - `unchecked` when nothing is selected.
 
 ## 8) `data-testid` standard (required)
 ### 8.1 Core rules

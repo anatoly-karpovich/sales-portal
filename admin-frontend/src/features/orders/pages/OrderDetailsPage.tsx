@@ -30,9 +30,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { OrderAssignedManager, OrderStatus } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
+import { OrderHistoryTimeline } from '@/features/orders/components/OrderHistoryTimeline'
 import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { formatDateTime } from '@/utils/date'
+import { formatDate, formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import {
@@ -136,7 +137,8 @@ export function OrderDetailsPage() {
   const createOrderCommentMutation = useCreateOrderCommentMutation()
   const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
-  const isNotFoundError = isAxiosError(orderDetailsQuery.error) && orderDetailsQuery.error.response?.status === 404
+  const isNotFoundError =
+    isAxiosError(orderDetailsQuery.error) && orderDetailsQuery.error.response?.status === 404
   const orderedComments = useMemo(() => [...(order?.comments ?? [])].reverse(), [order?.comments])
   const pendingReceiveRowIndices = useMemo(() => {
     if (!order) return []
@@ -178,7 +180,10 @@ export function OrderDetailsPage() {
       return
     }
 
-    if (!canReceiveOrderProducts(order.status) || !order.products.some((product) => !product.received)) {
+    if (
+      !canReceiveOrderProducts(order.status) ||
+      !order.products.some((product) => !product.received)
+    ) {
       setIsReceiveMode(false)
       setSelectedReceiveRowIndices([])
       return
@@ -366,7 +371,9 @@ export function OrderDetailsPage() {
     if (!product || product.received) return
 
     setSelectedReceiveRowIndices((previous) =>
-      previous.includes(index) ? previous.filter((rowIndex) => rowIndex !== index) : [...previous, index],
+      previous.includes(index)
+        ? previous.filter((rowIndex) => rowIndex !== index)
+        : [...previous, index],
     )
   }
 
@@ -574,7 +581,11 @@ export function OrderDetailsPage() {
             >
               <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
                 <Typography color="text.secondary" sx={{ lineHeight: 1.4 }}>
-                  <Typography component="span" variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                  <Typography
+                    component="span"
+                    variant="subtitle2"
+                    sx={{ color: 'text.primary', fontWeight: 700 }}
+                  >
                     {ordersUiText.detailsPage.labels.orderNumber}:
                   </Typography>{' '}
                   <Typography
@@ -587,7 +598,12 @@ export function OrderDetailsPage() {
                 </Typography>
               </Stack>
 
-              <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                flexWrap="wrap"
+                justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
+              >
                 {isCancelVisible ? (
                   <Button
                     variant="outlined"
@@ -669,7 +685,11 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.orderStatus}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-status-value">
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700 }}
+                data-testid="order-details-summary-status-value"
+              >
                 {order.status}
               </Typography>
             </Stack>
@@ -682,8 +702,14 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.delivery}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-delivery-date-value">
-                {order.delivery?.finalDate ? formatDateTime(order.delivery.finalDate) : 'Not Scheduled'}
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700 }}
+                data-testid="order-details-summary-delivery-date-value"
+              >
+                {order.delivery?.finalDate
+                  ? formatDate(order.delivery.finalDate)
+                  : ordersUiText.detailsPage.placeholders.noDelivery}
               </Typography>
             </Stack>
 
@@ -695,7 +721,11 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.totalPrice}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-total-price-value">
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700 }}
+                data-testid="order-details-summary-total-price-value"
+              >
                 {formatPrice(order.total_price)}
               </Typography>
             </Stack>
@@ -708,7 +738,11 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.assignedManager}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-assigned-manager-value">
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700 }}
+                data-testid="order-details-summary-assigned-manager-value"
+              >
                 {assignedManagerDisplayValue}
               </Typography>
             </Stack>
@@ -721,7 +755,11 @@ export function OrderDetailsPage() {
               <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
                 {ordersUiText.detailsPage.labels.createdOn}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }} data-testid="order-details-summary-created-on-value">
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700 }}
+                data-testid="order-details-summary-created-on-value"
+              >
                 {formatDateTime(order.createdOn)}
               </Typography>
             </Stack>
@@ -754,50 +792,70 @@ export function OrderDetailsPage() {
                 gridTemplateColumns: { xs: '1fr', sm: '170px 1fr' },
               }}
             >
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.email}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.email}
+              </Typography>
               <Typography data-testid="order-details-customer-email-value">
                 {normalizeValue(order.customer.email)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.name}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.name}
+              </Typography>
               <Typography data-testid="order-details-customer-name-value">
                 {normalizeValue(order.customer.name)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.country}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.country}
+              </Typography>
               <Typography data-testid="order-details-customer-country-value">
                 {normalizeValue(order.customer.country)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.city}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.city}
+              </Typography>
               <Typography data-testid="order-details-customer-city-value">
                 {normalizeValue(order.customer.city)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.street}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.street}
+              </Typography>
               <Typography data-testid="order-details-customer-street-value">
                 {normalizeValue(order.customer.street)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.house}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.house}
+              </Typography>
               <Typography data-testid="order-details-customer-house-value">
                 {normalizeValue(order.customer.house)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.flat}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.flat}
+              </Typography>
               <Typography data-testid="order-details-customer-flat-value">
                 {normalizeValue(order.customer.flat)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.phone}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.phone}
+              </Typography>
               <Typography data-testid="order-details-customer-phone-value">
                 {normalizeValue(order.customer.phone)}
               </Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.createdOn}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.createdOn}
+              </Typography>
               <Typography>{formatDateTime(order.customer.createdOn)}</Typography>
 
-              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.notes}</Typography>
+              <Typography fontWeight={700}>
+                {ordersUiText.detailsPage.fields.customer.notes}
+              </Typography>
               <Typography
                 data-testid="order-details-customer-notes-value"
                 sx={{
@@ -815,7 +873,13 @@ export function OrderDetailsPage() {
 
         <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-products-section">
           <Stack spacing={2}>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" flexWrap="wrap">
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="space-between"
+              flexWrap="wrap"
+            >
               <Stack direction="row" spacing={0.75} alignItems="center">
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>
                   {ordersUiText.detailsPage.labels.requestedProducts}
@@ -923,7 +987,8 @@ export function OrderDetailsPage() {
                               <Checkbox
                                 size="small"
                                 checked={
-                                  product.received || selectedReceivePendingRowIndices.includes(index)
+                                  product.received ||
+                                  selectedReceivePendingRowIndices.includes(index)
                                 }
                                 disabled={product.received || isReceiveSavePending}
                                 onChange={() => handleToggleReceiveProduct(index)}
@@ -949,7 +1014,9 @@ export function OrderDetailsPage() {
                     </AccordionSummary>
                     <AccordionDetails>
                       <Stack spacing={0.8}>
-                        <Typography data-testid={`order-details-products-row-${index}-manufacturer`}>
+                        <Typography
+                          data-testid={`order-details-products-row-${index}-manufacturer`}
+                        >
                           <Typography
                             component="span"
                             variant="subtitle2"
@@ -992,7 +1059,11 @@ export function OrderDetailsPage() {
       </Box>
 
       <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-placeholder-section">
-        <Tabs value={activeTab} onChange={(_, value: DetailsTab) => setActiveTab(value)} sx={{ mb: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, value: DetailsTab) => setActiveTab(value)}
+          sx={{ mb: 2 }}
+        >
           <Tab
             label={ordersUiText.detailsPage.tabs.delivery}
             value="delivery"
@@ -1023,29 +1094,45 @@ export function OrderDetailsPage() {
                     gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' },
                   }}
                 >
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.condition}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.condition}
+                  </Typography>
                   <Typography>{normalizeValue(order.delivery.condition)}</Typography>
 
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.finalDate}</Typography>
-                  <Typography>{formatDateTime(order.delivery.finalDate)}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.finalDate}
+                  </Typography>
+                  <Typography>{formatDate(order.delivery.finalDate)}</Typography>
 
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.country}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.country}
+                  </Typography>
                   <Typography>{normalizeValue(order.delivery.address.country)}</Typography>
 
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.city}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.city}
+                  </Typography>
                   <Typography>{normalizeValue(order.delivery.address.city)}</Typography>
 
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.street}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.street}
+                  </Typography>
                   <Typography>{normalizeValue(order.delivery.address.street)}</Typography>
 
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.house}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.house}
+                  </Typography>
                   <Typography>{normalizeValue(order.delivery.address.house)}</Typography>
 
-                  <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.flat}</Typography>
+                  <Typography fontWeight={700}>
+                    {ordersUiText.detailsPage.fields.delivery.flat}
+                  </Typography>
                   <Typography>{normalizeValue(order.delivery.address.flat)}</Typography>
                 </Box>
               ) : (
-                <Typography color="text.secondary">{ordersUiText.detailsPage.placeholders.noDeliveryScheduled}</Typography>
+                <Typography color="text.secondary">
+                  {ordersUiText.detailsPage.placeholders.noDeliveryScheduled}
+                </Typography>
               )}
             </Stack>
           ) : null}
@@ -1055,7 +1142,7 @@ export function OrderDetailsPage() {
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {ordersUiText.detailsPage.labels.orderHistory}
               </Typography>
-              <Typography color="text.secondary">{ordersUiText.detailsPage.placeholders.historyPlaceholder}</Typography>
+              <OrderHistoryTimeline history={order.history} />
             </Stack>
           ) : null}
 
@@ -1073,7 +1160,11 @@ export function OrderDetailsPage() {
                 data-testid="order-details-comments-input"
                 inputProps={{ 'data-testid': 'order-details-comments-input-field' }}
                 error={commentDraft.length > 0 && !isCommentValid}
-                helperText={commentDraft.length > 0 && !isCommentValid ? ordersUiText.validation.commentsInvalid : ' '}
+                helperText={
+                  commentDraft.length > 0 && !isCommentValid
+                    ? ordersUiText.validation.commentsInvalid
+                    : ' '
+                }
                 disabled={isCommentCreatePending}
               />
               <Button
@@ -1099,8 +1190,15 @@ export function OrderDetailsPage() {
                     data-testid={`order-details-comments-item-${index}`}
                   >
                     <Stack spacing={1}>
-                      <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
-                        <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}>
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        justifyContent="space-between"
+                        alignItems="flex-start"
+                      >
+                        <Typography
+                          sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}
+                        >
                           {comment.text}
                         </Typography>
                         <IconButton

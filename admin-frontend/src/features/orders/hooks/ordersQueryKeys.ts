@@ -9,6 +9,8 @@ export const ordersQueryKeys = {
   details: () => [...ORDERS_QUERY_KEY_BASE, 'details'] as const,
   detail: (orderId: string) => [...ordersQueryKeys.details(), orderId] as const,
   customerOptions: (search: string) => [...ORDERS_QUERY_KEY_BASE, 'customer-options', search] as const,
+  historyCustomer: (customerId: string) =>
+    [...ORDERS_QUERY_KEY_BASE, 'history-customer', customerId] as const,
   productOptions: (search: string) => [...ORDERS_QUERY_KEY_BASE, 'product-options', search] as const,
   productAvailability: (productId: string) =>
     [...ORDERS_QUERY_KEY_BASE, 'product-availability', productId] as const,

@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client'
+import type { ApiRequestConfig } from '@/api/types'
 
 export type Customer = {
   _id: string
@@ -121,8 +122,8 @@ export async function getAllCustomers() {
   return response.data.Customers
 }
 
-export async function getCustomerById(customerId: string) {
-  const response = await apiClient.get<CustomerResponse>(`/customers/${customerId}`)
+export async function getCustomerById(customerId: string, requestConfig?: ApiRequestConfig) {
+  const response = await apiClient.get<CustomerResponse>(`/customers/${customerId}`, requestConfig)
   return response.data.Customer
 }
 

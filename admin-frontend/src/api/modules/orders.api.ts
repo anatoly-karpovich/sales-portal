@@ -71,15 +71,18 @@ export type OrderComment = {
   createdBy?: string | { firstName?: string; lastName?: string; username?: string }
 }
 
+export type OrderHistoryCustomerRef = string | { _id?: string } | null
+
 export type OrderHistoryEntry = {
   action?: string
-  status?: string
+  status?: OrderStatus
+  customer?: OrderHistoryCustomerRef
+  products?: OrderProduct[]
+  delivery?: OrderDelivery | null
+  total_price?: number
   changedOn?: string
-  performer?: {
-    firstName?: string
-    lastName?: string
-    username?: string
-  }
+  performer?: OrderAssignedManager | null
+  assignedManager?: OrderAssignedManager | null
 }
 
 export type OrderDetails = Omit<OrderListItem, 'customer'> & {
