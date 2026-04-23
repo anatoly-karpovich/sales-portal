@@ -1,6 +1,16 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import { useQuery } from '@tanstack/react-query'
-import { Box, CircularProgress, Paper, Stack, Typography } from '@mui/material'
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  CircularProgress,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material'
 import { getCustomerById } from '@/api/modules/customers.api'
 import type {
   OrderAssignedManager,
@@ -285,8 +295,9 @@ function buildHistoryChanges(
   if (STATUS_ACTIONS.has(action)) return buildStatusChanges(current, previous)
   if (DELIVERY_ACTIONS.has(action)) return buildDeliveryChanges(current, previous)
   if (CUSTOMER_ACTIONS.has(action)) return buildCustomerChanges(current, previous, customerNames)
-  if (REQUESTED_PRODUCTS_ACTIONS.has(action))
+  if (REQUESTED_PRODUCTS_ACTIONS.has(action)) {
     return buildRequestedProductsChanges(current, previous)
+  }
   if (RECEIVED_ACTIONS.has(action)) return buildReceivedChanges(current, previous)
   if (MANAGER_ACTIONS.has(action)) return buildManagerChanges(current, previous)
 
@@ -334,7 +345,7 @@ function HistoryProducts({ products, index }: { products: OrderProduct[]; index:
           data-testid={`order-details-history-item-${index}-products-item-${productIndex}`}
         >
           {product.name}
-          {product.received ? ' ✓' : ''}
+          {product.received ? ' \u2713' : ''}
         </Box>
       ))}
     </Box>
@@ -431,7 +442,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                 height: 12,
                 borderRadius: '50%',
                 left: { xs: -18, md: -22 },
-                top: 21,
+                top: 22,
                 border: 2,
                 borderColor: 'background.paper',
                 backgroundColor: 'primary.main',
@@ -443,15 +454,52 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
               aria-hidden
             />
 
-            <Paper
-              variant="outlined"
+            <Accordion
+              disableGutters
+              elevation={0}
+              defaultExpanded={index === 0}
+              data-testid={`order-details-history-item-${index}-accordion`}
               sx={{
-                p: { xs: 1.5, md: 2 },
+                border: 1,
+                borderColor: 'divider',
                 borderRadius: 2,
+                backgroundColor: 'background.paper',
+                overflow: 'hidden',
+                '&::before': {
+                  display: 'none',
+                },
+                '& .MuiAccordionSummary-root': {
+                  px: { xs: 1.5, md: 2 },
+                  py: 1.5,
+                  minHeight: 0,
+                },
+                '& .MuiAccordionSummary-content': {
+                  my: 0,
+                },
+                '& .MuiAccordionSummary-expandIconWrapper': {
+                  color: 'text.secondary',
+                },
+                '& .MuiAccordionDetails-root': {
+                  px: { xs: 1.5, md: 2 },
+                  pt: 0,
+                  pb: { xs: 1.5, md: 2 },
+                },
               }}
             >
-              <Stack spacing={1.5}>
-                <Stack spacing={0.5}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreRoundedIcon fontSize="small" />}
+                data-testid={`order-details-history-item-${index}-summary`}
+              >
+                <Box
+                  sx={{
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    flexDirection: { xs: 'column', md: 'row' },
+                    gap: 1,
+                  }}
+                >
                   <Typography
                     variant="h6"
                     sx={{ fontWeight: 700, fontSize: '1.3125rem', lineHeight: 1.25 }}
@@ -459,7 +507,14 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                   >
                     {resolveActionLabel(entry.action)}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    flexWrap="wrap"
+                    sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}
+                  >
                     <Typography
                       variant="body2"
                       color="text.secondary"
@@ -473,7 +528,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                       color="text.secondary"
                       sx={{ fontSize: '0.8125rem', lineHeight: 1.35 }}
                     >
-                      •
+                      &bull;
                     </Typography>
                     <Typography
                       variant="body2"
@@ -490,8 +545,10 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                       />
                     ) : null}
                   </Stack>
-                </Stack>
+                </Box>
+              </AccordionSummary>
 
+              <AccordionDetails>
                 <Box
                   sx={{
                     display: 'grid',
@@ -531,7 +588,12 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                           <Typography
                             variant="body2"
                             color="text.secondary"
-                            sx={{ mb: 0.75, fontSize: '0.875rem', lineHeight: 1.4, fontWeight: 500 }}
+                            sx={{
+                              mb: 0.75,
+                              fontSize: '0.875rem',
+                              lineHeight: 1.4,
+                              fontWeight: 500,
+                            }}
                           >
                             {change.label}
                           </Typography>
@@ -568,7 +630,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                                 lineHeight: 1.4,
                               }}
                             >
-                              →
+                              &rarr;
                             </Typography>
                             <Box
                               sx={{
@@ -660,8 +722,8 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                     </Paper>
                   </Stack>
                 </Box>
-              </Stack>
-            </Paper>
+              </AccordionDetails>
+            </Accordion>
           </Box>
         )
       })}
