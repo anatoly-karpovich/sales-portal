@@ -5,6 +5,7 @@ export const customersUiText = {
     title: 'Customers List',
     addButton: '+ Add Customer',
     filtersTitle: 'Filters',
+    emptyStateNoCustomers: 'No customers created yet.',
   },
   form: {
     backToCustomers: 'Customers',
@@ -59,6 +60,7 @@ export const customersUiText = {
     registrationDateTitle: 'Registration Date',
     notesTitle: 'Notes',
     ordersTitle: 'Orders',
+    emptyOrders: 'No orders for this customer yet.',
     orderColumns: {
       orderNumber: 'Order Number',
       price: 'Price',

@@ -5,6 +5,7 @@ export const productsUiText = {
     title: 'Products List',
     addButton: '+ Add Product',
     filtersTitle: 'Filters',
+    emptyStateNoProducts: 'No products created yet.',
   },
   form: {
     backToProducts: 'Products',

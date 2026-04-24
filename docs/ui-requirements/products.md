@@ -50,7 +50,8 @@
 
 ## Loading and Empty States
 - The table container shows a spinner overlay while data loads.
-- When no records match, show "No records created yet" while keeping chips visible so filters can be removed quickly.
+- When search/filter criteria return zero rows, show "No records found." while keeping chips visible so filters can be removed quickly.
+- When the product dataset is empty without active search/filters, show "No products created yet."
 
 ## Backend Contracts
 

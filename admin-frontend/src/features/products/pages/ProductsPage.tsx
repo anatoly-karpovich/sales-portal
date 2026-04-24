@@ -7,6 +7,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { sharedUiText } from '@/components/shared/shared.ui-text'
 import {
   getProductsTableColumns,
   PRODUCTS_EXPORT_AVAILABLE_FIELDS,
@@ -18,6 +19,10 @@ import { getDeleteProductMessage, productsUiText } from '@/features/products/pro
 
 export function ProductsPage() {
   const state = useProductsPageState()
+  const hasActiveCriteria = Boolean(state.search) || state.manufacturer.length > 0
+  const emptyText = hasActiveCriteria
+    ? sharedUiText.table.emptyFiltered
+    : productsUiText.listPage.emptyStateNoProducts
 
   const columns = getProductsTableColumns({
     onView: state.openDetailsDialog,
@@ -62,6 +67,7 @@ export function ProductsPage() {
             sortOrder={state.sortOrder}
             onSort={state.onSort}
             isLoading={state.isLoading}
+            emptyText={emptyText}
           />
           {!state.isLoading ? (
             <PaginationControls

@@ -7,6 +7,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { sharedUiText } from '@/components/shared/shared.ui-text'
 import {
   CUSTOMERS_EXPORT_AVAILABLE_FIELDS,
   CUSTOMERS_EXPORT_DEFAULT_FIELDS,
@@ -17,6 +18,10 @@ import { customersUiText, getDeleteCustomerMessage } from '@/features/customers/
 
 export function CustomersPage() {
   const state = useCustomersPageState()
+  const hasActiveCriteria = Boolean(state.search) || state.country.length > 0
+  const emptyText = hasActiveCriteria
+    ? sharedUiText.table.emptyFiltered
+    : customersUiText.listPage.emptyStateNoCustomers
 
   const columns = getCustomersTableColumns({
     onView: (customer) => state.goToCustomerDetails(customer._id),
@@ -72,6 +77,7 @@ export function CustomersPage() {
             sortOrder={state.sortOrder}
             onSort={state.onSort}
             isLoading={state.isLoading}
+            emptyText={emptyText}
           />
           {!state.isLoading ? (
             <PaginationControls

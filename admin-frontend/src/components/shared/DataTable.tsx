@@ -1,4 +1,4 @@
-import { Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel } from '@mui/material'
+import { Alert, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel } from '@mui/material'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
 
 export type DataTableColumnKey<Row> = Extract<keyof Row, string> | (string & {})
@@ -22,7 +22,7 @@ type Props<Row> = {
   onSort: (field: string) => void
   isLoading?: boolean
   loadingRowCount?: number
-  emptyText?: string
+  emptyText?: React.ReactNode
 }
 
 export function DataTable<Row>({
@@ -107,7 +107,33 @@ export function DataTable<Row>({
             ))
           ) : rows.length === 0 ? (
             <TableRow data-testid="data-table-empty-row">
-              <TableCell colSpan={columns.length} data-testid="data-table-empty-text">{emptyText}</TableCell>
+              <TableCell colSpan={columns.length} data-testid="data-table-empty-text">
+                <Alert
+                  severity="info"
+                  variant="outlined"
+                  sx={{
+                    alignSelf: 'flex-start',
+                    width: 'fit-content',
+                    px: 1.25,
+                    py: 0.25,
+                    '& .MuiAlert-icon': {
+                      py: 0,
+                      my: 'auto',
+                      mr: 1,
+                    },
+                    '& .MuiAlert-message': {
+                      py: 0,
+                      pr: 0.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      minHeight: 24,
+                    },
+                  }}
+                  data-testid="data-table-empty-alert"
+                >
+                  {emptyText}
+                </Alert>
+              </TableCell>
             </TableRow>
           ) : (
             rows.map((row, index) => (

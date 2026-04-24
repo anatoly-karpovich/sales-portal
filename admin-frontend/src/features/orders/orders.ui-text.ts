@@ -3,6 +3,7 @@ export const ordersUiText = {
     title: 'Orders List',
     createButton: 'Create Order',
     filtersTitle: 'Filters',
+    emptyStateNoOrders: 'No orders created yet.',
   },
   detailsPage: {
     title: 'Order Details',

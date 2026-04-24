@@ -286,6 +286,7 @@ export function CustomerDetailsPage() {
             sortOrder="desc"
             onSort={() => undefined}
             isLoading={false}
+            emptyText={customersUiText.detailsPage.emptyOrders}
           />
         </Stack>
       </Paper>

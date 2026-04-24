@@ -20,6 +20,7 @@
 | Toolbar | Search (shared chip behavior), Filter (status chips), Export (CSV/JSON modal with field selector). |
 | Table | Columns Order Number (`_id`), Customer Email, Price (`$`), Delivery Date, Status, Assigned Manager, Created On. All sortable. |
 | Row actions | Details navigate to `#/orders/{id}`. `Reopen` appears only for canceled orders. |
+| Empty state | "No records found." when search/filters are active and no rows match; "No orders created yet." when the base dataset is empty. |
 | Pagination | Auto-adjust when deletions empty the current page. |
 
 ### Filters and Export

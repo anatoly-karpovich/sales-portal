@@ -6,6 +6,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { sharedUiText } from '@/components/shared/shared.ui-text'
 import { CreateOrderDialog } from '@/features/orders/components/CreateOrderDialog'
 import {
   getOrdersTableColumns,
@@ -17,6 +18,10 @@ import { ordersUiText } from '@/features/orders/orders.ui-text'
 
 export function OrdersPage() {
   const state = useOrdersPageState()
+  const hasActiveCriteria = Boolean(state.search) || state.status.length > 0
+  const emptyText = hasActiveCriteria
+    ? sharedUiText.table.emptyFiltered
+    : ordersUiText.listPage.emptyStateNoOrders
 
   const columns = getOrdersTableColumns({
     onDetails: state.goToOrderDetails,
@@ -72,6 +77,7 @@ export function OrdersPage() {
             sortOrder={state.sortOrder}
             onSort={state.onSort}
             isLoading={state.isLoading}
+            emptyText={emptyText}
           />
           {!state.isLoading ? (
             <PaginationControls
