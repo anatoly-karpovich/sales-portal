@@ -7,212 +7,230 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  MenuItem,
+  LinearProgress,
+  List,
+  ListItemButton,
+  ListItemText,
+  InputAdornment,
+  Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import type { CreateOrderPayload } from '@/api/modules/orders.api'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Customer } from '@/api/modules/customers.api'
 import type { Product } from '@/api/modules/products.api'
+import type { CreateOrderPayload } from '@/api/modules/orders.api'
+import {
+  ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS,
+  ORDER_DETAILS_SEARCH_DEBOUNCE_MS,
+} from '@/features/orders/config/orderDetails.config'
+import {
+  useOrderCustomerOptionsQuery,
+  useOrderProductOptionsQuery,
+  useOrderProductsAvailability,
+} from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatPrice } from '@/utils/number'
-
-const MAX_PRODUCTS_ROWS = 5
-const SELECT_MENU_PROPS = { transitionDuration: 0 } as const
 
 type ProductRow = {
   id: number
   productId: string
+  summary: ProductSummary | null
+}
+
+type CustomerSummary = {
+  _id: string
+  name: string
+  email: string
+}
+
+type ProductSummary = {
+  _id: string
+  name: string
+  manufacturer: string
+  price: number
 }
 
 type Props = {
   open: boolean
-  customers: Customer[]
-  products: Product[]
   isSubmitting: boolean
   onClose: () => void
   onSubmit: (payload: CreateOrderPayload) => Promise<void>
 }
 
-type ProductSelectRowProps = {
-  rowId: number
-  rowIndex: number
-  value: string
-  products: Product[]
-  selectedProduct: Product | undefined
-  isOpen: boolean
-  canRemoveProduct: boolean
-  isSubmitting: boolean
-  onChange: (rowId: number, value: string) => void
-  onRemove: (rowId: number) => void
-  onOpen: (rowId: number) => void
-  onClose: () => void
+function toCustomerSummary(customer: Customer): CustomerSummary {
+  return {
+    _id: customer._id,
+    name: customer.name,
+    email: customer.email,
+  }
 }
 
-const ProductSelectRow = memo(function ProductSelectRow({
-  rowId,
-  rowIndex,
-  value,
-  products,
-  selectedProduct,
-  isOpen,
-  canRemoveProduct,
-  isSubmitting,
-  onChange,
-  onRemove,
-  onOpen,
-  onClose,
-}: ProductSelectRowProps) {
-  return (
-    <Stack
-      direction="row"
-      spacing={1}
-      alignItems="center"
-      data-testid={`orders-create-product-row-${rowIndex}`}
-    >
-      <TextField
-        select
-        fullWidth
-        label={ordersUiText.dialogs.createOrderProductLabel}
-        value={value}
-        onChange={(event) => onChange(rowId, event.target.value)}
-        data-testid={`orders-create-product-select-${rowIndex}`}
-        SelectProps={{
-          inputProps: { 'data-testid': `orders-create-product-select-${rowIndex}-field` },
-          open: isOpen,
-          onOpen: () => onOpen(rowId),
-          onClose,
-          MenuProps: SELECT_MENU_PROPS,
-        }}
-      >
-        <MenuItem value="" disabled id={`orders-create-product-option-${rowIndex}-placeholder`}>
-          Select product
-        </MenuItem>
-        {!isOpen && value && selectedProduct ? (
-          <MenuItem
-            value={selectedProduct._id}
-            id={`orders-create-product-select-${rowIndex}-selected-option`}
-            data-testid={`orders-create-product-select-${rowIndex}-selected-option`}
-          >
-            {selectedProduct.name}
-          </MenuItem>
-        ) : null}
-        {isOpen
-          ? products.map((product) => (
-              <MenuItem
-                key={product._id}
-                value={product._id}
-                id={`orders-create-product-select-${rowIndex}-option-${product._id}`}
-                data-testid={`orders-create-product-select-${rowIndex}-option-${product._id}`}
-              >
-                {product.name}
-              </MenuItem>
-            ))
-          : null}
-      </TextField>
-      {canRemoveProduct ? (
-        <IconButton
-          color="error"
-          onClick={() => onRemove(rowId)}
-          disabled={isSubmitting}
-          data-testid={`orders-create-product-remove-button-${rowIndex}`}
-        >
-          <DeleteOutlineOutlinedIcon fontSize="small" />
-        </IconButton>
-      ) : (
-        <Box sx={{ width: 40 }} />
-      )}
-    </Stack>
-  )
-})
+function toProductSummary(product: Product): ProductSummary {
+  return {
+    _id: product._id,
+    name: product.name,
+    manufacturer: product.manufacturer,
+    price: product.price,
+  }
+}
 
-export function CreateOrderDialog({
-  open,
-  customers,
-  products,
-  isSubmitting,
-  onClose,
-  onSubmit,
-}: Props) {
-  const [customerId, setCustomerId] = useState('')
-  const [productRows, setProductRows] = useState<ProductRow[]>([{ id: 1, productId: '' }])
-  const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false)
-  const [openProductMenuRowId, setOpenProductMenuRowId] = useState<number | null>(null)
+export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Props) {
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null)
+  const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState('')
+  const [productRows, setProductRows] = useState<ProductRow[]>([
+    { id: 1, productId: '', summary: null },
+  ])
+  const [editingRowId, setEditingRowId] = useState<number | null>(null)
+  const [productSearch, setProductSearch] = useState('')
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState('')
   const nextRowId = useRef(2)
 
-  const productsById = useMemo(() => {
-    return new Map(products.map((product) => [product._id, product]))
-  }, [products])
+  useEffect(() => {
+    if (!open) return
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedCustomerSearch(customerSearch.trim())
+    }, ORDER_DETAILS_SEARCH_DEBOUNCE_MS)
 
-  const selectedProductIds = useMemo(() => productRows.map((row) => row.productId), [productRows])
-  const customersById = useMemo(
-    () => new Map(customers.map((customer) => [customer._id, customer])),
-    [customers],
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [customerSearch, open])
+
+  useEffect(() => {
+    if (!open) return
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedProductSearch(productSearch.trim())
+    }, ORDER_DETAILS_SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [open, productSearch])
+
+  const customerOptionsQuery = useOrderCustomerOptionsQuery(
+    debouncedCustomerSearch,
+    open && isCustomerPickerOpen,
   )
-  const selectedCustomer = customerId ? customersById.get(customerId) : undefined
+  const customerOptions = customerOptionsQuery.data?.Customers ?? []
+  const isCustomerInitialLoading = customerOptionsQuery.isLoading && customerOptions.length === 0
+  const isCustomerUpdating = customerOptionsQuery.isFetching && customerOptions.length > 0
+
+  const activeRow = editingRowId ? productRows.find((row) => row.id === editingRowId) : null
+  const productOptionsQuery = useOrderProductOptionsQuery(
+    debouncedProductSearch,
+    open && editingRowId !== null,
+  )
+  const productOptions = productOptionsQuery.data?.Products ?? []
+  const isProductInitialLoading = productOptionsQuery.isLoading && productOptions.length === 0
+  const isProductUpdating = productOptionsQuery.isFetching && productOptions.length > 0
+
+  const selectedProductIds = useMemo(
+    () => productRows.map((row) => row.productId).filter(Boolean),
+    [productRows],
+  )
+  const { unavailableIds, isLoading: isAvailabilityLoading } = useOrderProductsAvailability(
+    selectedProductIds,
+    open && selectedProductIds.length > 0,
+  )
+
+  const hasValidCustomer = Boolean(selectedCustomer)
+  const hasEmptyRows = productRows.some((row) => !row.productId)
+  const hasUnavailableRows = productRows.some(
+    (row) => row.productId && unavailableIds.has(row.productId),
+  )
+  const canRemoveRow = productRows.length > 1
+  const canAddRow = productRows.length < ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS && !isSubmitting
+  const canSubmit =
+    hasValidCustomer &&
+    !hasEmptyRows &&
+    !hasUnavailableRows &&
+    !isAvailabilityLoading &&
+    !isSubmitting
 
   const totalPrice = useMemo(() => {
-    return selectedProductIds.reduce((sum, productId) => {
-      const selectedProduct = productsById.get(productId)
-      return selectedProduct ? sum + selectedProduct.price : sum
+    return productRows.reduce((sum, row) => {
+      if (!row.summary) return sum
+      return sum + row.summary.price
     }, 0)
-  }, [productsById, selectedProductIds])
+  }, [productRows])
 
-  const canAddProduct = productRows.length < MAX_PRODUCTS_ROWS
-  const canRemoveProduct = productRows.length > 1
-  const hasValidCustomer = Boolean(customerId)
-  const hasSelectedProducts =
-    productRows.length > 0 && productRows.every((row) => Boolean(row.productId))
-  const canSubmit = hasValidCustomer && hasSelectedProducts && !isSubmitting
+  const handleOpenCustomerPicker = () => {
+    if (isSubmitting) return
+    setIsCustomerPickerOpen(true)
+    setCustomerSearch('')
+    setDebouncedCustomerSearch('')
+  }
 
-  const addProductRow = useCallback(() => {
-    setProductRows((current) => {
-      if (current.length >= MAX_PRODUCTS_ROWS) return current
-      const newRow = { id: nextRowId.current, productId: '' }
-      nextRowId.current += 1
-      return [...current, newRow]
-    })
-  }, [])
+  const handleSelectCustomer = (customer: Customer) => {
+    setSelectedCustomer(toCustomerSummary(customer))
+    setIsCustomerPickerOpen(false)
+    setCustomerSearch('')
+    setDebouncedCustomerSearch('')
+  }
 
-  const removeProductRow = useCallback((rowId: number) => {
+  const handleAddProductRow = () => {
+    if (!canAddRow) return
+    const nextId = nextRowId.current
+    nextRowId.current += 1
+    setProductRows((current) => [...current, { id: nextId, productId: '', summary: null }])
+    setEditingRowId(nextId)
+    setProductSearch('')
+    setDebouncedProductSearch('')
+  }
+
+  const handleRemoveProductRow = (rowId: number) => {
+    if (!canRemoveRow || isSubmitting) return
     setProductRows((current) => {
       if (current.length <= 1) return current
       return current.filter((row) => row.id !== rowId)
     })
-    setOpenProductMenuRowId((current) => (current === rowId ? null : current))
-  }, [])
-
-  const updateProduct = useCallback((rowId: number, value: string) => {
-    setProductRows((current) =>
-      current.map((row) => (row.id === rowId ? { ...row, productId: value } : row)),
-    )
-  }, [])
-
-  const submit = async () => {
-    if (!canSubmit) return
-    await onSubmit({
-      customer: customerId,
-      products: selectedProductIds,
-    })
-    setCustomerId('')
-    setProductRows([{ id: nextRowId.current, productId: '' }])
-    setIsCustomerMenuOpen(false)
-    setOpenProductMenuRowId(null)
-    nextRowId.current += 1
+    setEditingRowId((current) => (current === rowId ? null : current))
   }
 
-  const openProductMenu = useCallback((rowId: number) => {
-    setOpenProductMenuRowId(rowId)
-  }, [])
+  const handleActivateProductRow = (rowId: number) => {
+    if (isSubmitting) return
+    setEditingRowId((current) => (current === rowId ? null : rowId))
+    setProductSearch('')
+    setDebouncedProductSearch('')
+  }
 
-  const closeProductMenu = useCallback(() => {
-    setOpenProductMenuRowId(null)
-  }, [])
+  const handleSelectProduct = (product: Product) => {
+    if (!editingRowId || isSubmitting) return
+    setProductRows((current) =>
+      current.map((row) =>
+        row.id === editingRowId
+          ? { ...row, productId: product._id, summary: toProductSummary(product) }
+          : row,
+      ),
+    )
+    setProductSearch('')
+    setDebouncedProductSearch('')
+    setEditingRowId(null)
+  }
+
+  const resolveProductRowSummary = (row: ProductRow) => {
+    if (!row.productId) {
+      return ordersUiText.dialogs.details.editProductsSelectProduct
+    }
+    if (!row.summary) return row.productId
+    return `${row.summary.name} | ${row.summary.manufacturer} | ${formatPrice(row.summary.price)}`
+  }
+
+  const handleSubmit = async () => {
+    if (!canSubmit || !selectedCustomer) return
+    await onSubmit({
+      customer: selectedCustomer._id,
+      products: selectedProductIds,
+    })
+  }
 
   return (
     <Dialog
@@ -237,81 +255,285 @@ export function CreateOrderDialog({
 
       <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
         <Stack spacing={2.25}>
-          <TextField
-            select
-            label={ordersUiText.dialogs.createOrderCustomerLabel}
-            value={customerId}
-            onChange={(event) => setCustomerId(event.target.value)}
-            data-testid="orders-create-customer-select"
-            SelectProps={{
-              inputProps: { 'data-testid': 'orders-create-customer-select-field' },
-              open: isCustomerMenuOpen,
-              onOpen: () => setIsCustomerMenuOpen(true),
-              onClose: () => setIsCustomerMenuOpen(false),
-              MenuProps: SELECT_MENU_PROPS,
-            }}
-          >
-            <MenuItem value="" disabled id="orders-create-customer-option-placeholder">
-              Select customer
-            </MenuItem>
-            {!isCustomerMenuOpen && customerId && selectedCustomer ? (
-              <MenuItem
-                value={selectedCustomer._id}
-                title={selectedCustomer.email}
-                id="orders-create-customer-selected-option"
-                data-testid="orders-create-customer-selected-option"
+          <Stack spacing={1.25} data-testid="orders-create-customer-section">
+            <Typography variant="subtitle2">{ordersUiText.dialogs.createOrderCustomerLabel}</Typography>
+            <TextField
+              placeholder={ordersUiText.dialogs.createOrderCustomerPlaceholder}
+              value={
+                isCustomerPickerOpen
+                  ? customerSearch
+                  : selectedCustomer
+                    ? `${selectedCustomer.name} | ${selectedCustomer.email}`
+                    : ''
+              }
+              onChange={(event) => {
+                if (!isCustomerPickerOpen) return
+                setCustomerSearch(event.target.value)
+              }}
+              onClick={() => {
+                if (!selectedCustomer) {
+                  handleOpenCustomerPicker()
+                }
+              }}
+              disabled={isSubmitting}
+              data-testid="orders-create-customer-search-input"
+              inputProps={{
+                'data-testid': 'orders-create-customer-search-input-field',
+                readOnly: !isCustomerPickerOpen,
+              }}
+              InputProps={{
+                endAdornment: selectedCustomer ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={handleOpenCustomerPicker}
+                      disabled={isSubmitting}
+                      data-testid="orders-create-customer-edit-button"
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+            />
+
+            {isCustomerPickerOpen ? (
+              <Paper
+                variant="outlined"
+                sx={{ maxHeight: 220, overflowY: 'auto', position: 'relative' }}
+                data-testid="orders-create-customer-list"
               >
-                {selectedCustomer.name}
-              </MenuItem>
-            ) : null}
-            {isCustomerMenuOpen
-              ? customers.map((customer) => (
-                  <MenuItem
-                    key={customer._id}
-                    value={customer._id}
-                    title={customer.email}
-                    id={`orders-create-customer-option-${customer._id}`}
-                    data-testid={`orders-create-customer-option-${customer._id}`}
+                {isCustomerUpdating ? (
+                  <LinearProgress
+                    sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
+                    data-testid="orders-create-customer-list-updating"
+                  />
+                ) : null}
+
+                {isCustomerInitialLoading ? (
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    sx={{ py: 4 }}
+                    data-testid="orders-create-customer-list-loading"
                   >
-                    {customer.name}
-                  </MenuItem>
-                ))
-              : null}
-          </TextField>
+                    <CircularProgress size={18} />
+                    <Typography color="text.secondary">
+                      {ordersUiText.dialogs.details.editCustomerLoading}
+                    </Typography>
+                  </Stack>
+                ) : customerOptions.length === 0 ? (
+                  <Typography
+                    sx={{ py: 3, px: 2 }}
+                    color="text.secondary"
+                    data-testid="orders-create-customer-list-empty"
+                  >
+                    {ordersUiText.dialogs.details.editCustomerNoResults}
+                  </Typography>
+                ) : (
+                  <List disablePadding>
+                    {customerOptions.map((customer, index) => (
+                      <ListItemButton
+                        key={customer._id}
+                        selected={selectedCustomer?._id === customer._id}
+                        onClick={() => handleSelectCustomer(customer)}
+                        disabled={isSubmitting}
+                        data-testid={`orders-create-customer-item-${index}`}
+                      >
+                        <ListItemText
+                          primary={
+                            <Typography
+                              sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                              data-testid={`orders-create-customer-item-${index}-name`}
+                            >
+                              {customer.name}
+                            </Typography>
+                          }
+                          secondary={
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                              data-testid={`orders-create-customer-item-${index}-email`}
+                            >
+                              {customer.email}
+                            </Typography>
+                          }
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                )}
+              </Paper>
+            ) : null}
+          </Stack>
 
           <Stack spacing={1.25} data-testid="orders-create-products-section">
             <Typography variant="subtitle2">
               {ordersUiText.dialogs.createOrderProductsTitle}
             </Typography>
-            {productRows.map((row, index) => (
-              <ProductSelectRow
-                key={row.id}
-                rowId={row.id}
-                rowIndex={index}
-                value={row.productId}
-                products={products}
-                selectedProduct={productsById.get(row.productId)}
-                isOpen={openProductMenuRowId === row.id}
-                canRemoveProduct={canRemoveProduct}
-                isSubmitting={isSubmitting}
-                onChange={updateProduct}
-                onRemove={removeProductRow}
-                onOpen={openProductMenu}
-                onClose={closeProductMenu}
-              />
-            ))}
 
-            {canAddProduct ? (
+            {productRows.map((row, index) => {
+              const isActive = editingRowId === row.id
+              const isUnavailable = Boolean(row.productId) && unavailableIds.has(row.productId)
+              return (
+                <Paper
+                  key={row.id}
+                  variant="outlined"
+                  sx={{
+                    p: 1.25,
+                    borderColor: isUnavailable
+                      ? 'error.main'
+                      : isActive
+                        ? 'primary.main'
+                        : 'divider',
+                  }}
+                  data-testid={`orders-create-product-row-${index}`}
+                >
+                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                        color={row.productId ? 'text.primary' : 'text.secondary'}
+                        data-testid={`orders-create-product-row-${index}-summary`}
+                      >
+                        {resolveProductRowSummary(row)}
+                      </Typography>
+
+                      {isUnavailable ? (
+                        <Typography
+                          variant="body2"
+                          color="error.main"
+                          data-testid={`orders-create-product-row-${index}-unavailable`}
+                        >
+                          {ordersUiText.dialogs.details.editProductsUnavailable}
+                        </Typography>
+                      ) : null}
+                    </Box>
+
+                    <IconButton
+                      size="small"
+                      onClick={() => handleActivateProductRow(row.id)}
+                      disabled={isSubmitting}
+                      color={isActive ? 'primary' : 'default'}
+                      data-testid={`orders-create-product-row-${index}-edit-button`}
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleRemoveProductRow(row.id)}
+                      disabled={!canRemoveRow || isSubmitting}
+                      data-testid={`orders-create-product-row-${index}-delete-button`}
+                    >
+                      <DeleteOutlineOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </Paper>
+              )
+            })}
+
+            {canAddRow ? (
               <Button
                 variant="outlined"
                 startIcon={<AddRoundedIcon />}
-                onClick={addProductRow}
+                onClick={handleAddProductRow}
                 disabled={isSubmitting}
                 sx={{ alignSelf: 'flex-start' }}
                 data-testid="orders-create-add-product-button"
               >
                 {ordersUiText.dialogs.createOrderAddProductButton}
               </Button>
+            ) : null}
+          </Stack>
+
+          <Stack spacing={1.25} data-testid="orders-create-product-search-section">
+            {activeRow ? (
+              <>
+                <TextField
+                  label={ordersUiText.dialogs.createOrderProductLabel}
+                  placeholder={ordersUiText.dialogs.details.editProductsSearchPlaceholder}
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  disabled={isSubmitting}
+                  data-testid="orders-create-product-search-input"
+                  inputProps={{ 'data-testid': 'orders-create-product-search-input-field' }}
+                />
+
+                <Paper
+                  variant="outlined"
+                  sx={{ maxHeight: 260, overflowY: 'auto', position: 'relative' }}
+                  data-testid="orders-create-product-search-list"
+                >
+                  {isProductUpdating ? (
+                    <LinearProgress
+                      sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
+                      data-testid="orders-create-product-search-list-updating"
+                    />
+                  ) : null}
+
+                  {isProductInitialLoading ? (
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      justifyContent="center"
+                      sx={{ py: 4 }}
+                      data-testid="orders-create-product-search-list-loading"
+                    >
+                      <CircularProgress size={18} />
+                      <Typography color="text.secondary">
+                        {ordersUiText.dialogs.details.editProductsLoading}
+                      </Typography>
+                    </Stack>
+                  ) : productOptions.length === 0 ? (
+                    <Typography
+                      sx={{ py: 3, px: 2 }}
+                      color="text.secondary"
+                      data-testid="orders-create-product-search-list-empty"
+                    >
+                      {ordersUiText.dialogs.details.editProductsNoResults}
+                    </Typography>
+                  ) : (
+                    <List disablePadding>
+                      {productOptions.map((product, index) => (
+                        <ListItemButton
+                          key={product._id}
+                          selected={activeRow.productId === product._id}
+                          onClick={() => handleSelectProduct(product)}
+                          disabled={isSubmitting}
+                          data-testid={`orders-create-product-search-item-${index}`}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography
+                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                                data-testid={`orders-create-product-search-item-${index}-name`}
+                              >
+                                {product.name}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                                data-testid={`orders-create-product-search-item-${index}-meta`}
+                              >
+                                {product.manufacturer} | {formatPrice(product.price)}
+                              </Typography>
+                            }
+                          />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  )}
+                </Paper>
+              </>
             ) : null}
           </Stack>
         </Stack>
@@ -334,9 +556,10 @@ export function CreateOrderDialog({
             {formatPrice(totalPrice)}
           </Typography>
         </Stack>
+
         <Button
           variant="contained"
-          onClick={() => void submit()}
+          onClick={() => void handleSubmit()}
           disabled={!canSubmit}
           data-testid="orders-create-submit-button"
         >

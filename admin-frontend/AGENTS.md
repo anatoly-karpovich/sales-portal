@@ -98,7 +98,8 @@ Top-level source layout:
 - `api/modules/users.api.ts`
   - minimal users contract and `getUsers()` (`GET /users`) used by manager assignment flow on order details.
 - `api/modules/products.api.ts`
-  - includes `getAllProducts()` (`GET /products/all`) used by Orders create modal preload.
+  - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
+  - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
 
 ### 4.3 `features` layer
 - `features/auth`
@@ -135,11 +136,17 @@ Top-level source layout:
   - `customers.ui-text.ts` - labels, validation text, toast text
 - `features/orders` (iteration 6 in active implementation)
   - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export
-  - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows
+  - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows.
+    - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
   - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields
   - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit, delivery date offsets)
-  - `components/CreateOrderDialog.tsx` - create modal (customer/products preload, total price, row add/remove)
+  - `components/CreateOrderDialog.tsx` - create modal with search-driven pickers:
+    - customer picker is closed by default, opens on user action, and closes after selection;
+    - selected customer value is shown in the input, with edit-pencil trigger for reselection;
+    - product rows support `1..5`, duplicates are allowed, and only one active product search chooser is rendered at a time;
+    - unavailable products are detected via availability checks and block create action;
+    - total price is recalculated from selected product summaries.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
   - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
   - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard

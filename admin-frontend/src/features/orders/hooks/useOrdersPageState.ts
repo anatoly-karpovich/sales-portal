@@ -2,8 +2,8 @@ import { isAxiosError } from 'axios'
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
-import { getAllCustomers, type Customer } from '@/api/modules/customers.api'
-import { getAllProducts, type Product } from '@/api/modules/products.api'
+import { getCustomers } from '@/api/modules/customers.api'
+import { getProducts } from '@/api/modules/products.api'
 import type { CreateOrderPayload, OrderListItem, OrderStatus } from '@/api/modules/orders.api'
 import { downloadBlobResponse } from '@/utils/download'
 import { ORDER_STATUSES } from '@/constants/dictionaries'
@@ -26,11 +26,6 @@ type ExportSubmitPayload = {
   fields: string[]
 }
 
-type CreateDialogData = {
-  customers: Customer[]
-  products: Product[]
-}
-
 const ORDER_STATUS_SET = new Set<string>(ORDER_STATUSES)
 
 function toOrderStatusList(values: string[]): OrderStatus[] {
@@ -51,7 +46,6 @@ export function useOrdersPageState() {
   const [exportOpen, setExportOpen] = useState(false)
   const [selectedReopenOrder, setSelectedReopenOrder] = useState<OrderListItem | null>(null)
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false)
-  const [createDialogData, setCreateDialogData] = useState<CreateDialogData | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [createDialogKey, setCreateDialogKey] = useState(0)
   const [isCreateDialogPreloading, setIsCreateDialogPreloading] = useState(false)
@@ -169,22 +163,37 @@ export function useOrdersPageState() {
     if (isCreateDialogPreloading) return
 
     setCreateDialogOpen(false)
-    setCreateDialogData(null)
     setIsCreateDialogPreloading(true)
     try {
-      const [customers, products] = await Promise.all([getAllCustomers(), getAllProducts()])
+      const [customersResponse, productsResponse] = await Promise.all([
+        getCustomers({
+          search: '',
+          country: [],
+          sortField: 'name',
+          sortOrder: 'asc',
+          page: 1,
+          limit: 1,
+        }),
+        getProducts({
+          search: '',
+          manufacturer: [],
+          sortField: 'name',
+          sortOrder: 'asc',
+          page: 1,
+          limit: 1,
+        }),
+      ])
 
-      if (!customers.length) {
+      if (!customersResponse.total) {
         enqueueSnackbar(ordersUiText.errors.noCustomers, { variant: 'error' })
         return
       }
 
-      if (!products.length) {
+      if (!productsResponse.total) {
         enqueueSnackbar(ordersUiText.errors.noProducts, { variant: 'error' })
         return
       }
 
-      setCreateDialogData({ customers, products })
       setCreateDialogKey((current) => current + 1)
       setCreateDialogOpen(true)
     } catch (error) {
@@ -256,8 +265,6 @@ export function useOrdersPageState() {
     selectedReopenOrder,
     createDialogOpen,
     createDialogKey,
-    createDialogCustomers: createDialogData?.customers ?? [],
-    createDialogProducts: createDialogData?.products ?? [],
     isLoading,
     isTableUpdating,
     isCreateDialogPreloading,

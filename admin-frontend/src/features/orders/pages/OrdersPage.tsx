@@ -123,8 +123,6 @@ export function OrdersPage() {
       <CreateOrderDialog
         key={state.createDialogKey}
         open={state.createDialogOpen}
-        customers={state.createDialogCustomers}
-        products={state.createDialogProducts}
         isSubmitting={state.isCreatePending}
         onClose={state.closeCreateDialog}
         onSubmit={state.submitCreateOrder}
