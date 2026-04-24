@@ -1,8 +1,10 @@
 import { createElement } from 'react'
+import { Typography } from '@mui/material'
 import type { OrderListItem } from '@/api/modules/orders.api'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
+import { getOrderStatusColor } from '@/utils/orderStatus'
 import { OrdersTableActionsCell } from '@/features/orders/components/OrdersTableActionsCell'
 
 export const ORDERS_EXPORT_AVAILABLE_FIELDS = [
@@ -75,7 +77,12 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
       sortable: true,
       width: '12%',
       minWidth: 170,
-      render: (row) => row.status,
+      render: (row) =>
+        createElement(
+          Typography,
+          { sx: { color: getOrderStatusColor(row.status) } },
+          row.status,
+        ),
     },
     {
       key: 'assignedManager',

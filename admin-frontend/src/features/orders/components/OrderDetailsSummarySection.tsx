@@ -14,6 +14,7 @@ import type { OrderDetails } from '@/api/modules/orders.api'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatDate, formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
+import { getOrderStatusColor } from '@/utils/orderStatus'
 
 type OrderDetailsSummarySectionProps = {
   order: OrderDetails
@@ -188,7 +189,7 @@ export function OrderDetailsSummarySection({
             </Typography>
             <Typography
               variant="subtitle1"
-              sx={{ fontWeight: 700 }}
+              sx={{ fontWeight: 700, color: getOrderStatusColor(order.status) }}
               data-testid="order-details-summary-status-value"
             >
               {order.status}

@@ -23,6 +23,7 @@ import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatDate, formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
+import { getOrderStatusColor } from '@/utils/orderStatus'
 
 type OrderHistoryTimelineProps = {
   history: OrderHistoryEntry[]
@@ -410,10 +411,11 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
       {history.map((entry, index) => {
         const previousEntry = history[index + 1]
         const changes = buildHistoryChanges(entry, previousEntry, customerNamesById)
-        const stateRows = [
+        const stateRows: Array<{ label: string; value: string; valueColor?: string }> = [
           {
             label: ordersUiText.detailsPage.history.orderStatus,
             value: normalizeText(entry.status),
+            valueColor: getOrderStatusColor(normalizeText(entry.status)),
           },
           {
             label: ordersUiText.detailsPage.history.totalPrice,
@@ -694,6 +696,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                                 textAlign: 'right',
                                 fontSize: '0.875rem',
                                 lineHeight: 1.4,
+                                color: row.valueColor ?? 'text.primary',
                               }}
                             >
                               {row.value}

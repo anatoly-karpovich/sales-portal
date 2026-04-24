@@ -3,6 +3,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import { Link } from 'react-router-dom'
 import type { HomeMetricsViewModel } from '@/features/home/mappers/homeMetrics.mapper'
 import { formatDateTime } from '@/utils/date'
+import { getOrderStatusColor } from '@/utils/orderStatus'
 
 type Props = {
   recentOrders: HomeMetricsViewModel['recentOrders']
@@ -37,7 +38,11 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
             {recentOrders.map((order, index) => (
               <TableRow key={order.id} data-testid={`home-recent-orders-row-${index}`}>
                 <TableCell data-testid={`home-recent-orders-row-${index}-customer`}>{order.customerName}</TableCell>
-                <TableCell data-testid={`home-recent-orders-row-${index}-status`}>{order.status}</TableCell>
+                <TableCell data-testid={`home-recent-orders-row-${index}-status`}>
+                  <Typography component="span" sx={{ color: getOrderStatusColor(order.status) }}>
+                    {order.status}
+                  </Typography>
+                </TableCell>
                 <TableCell data-testid={`home-recent-orders-row-${index}-total`}>{order.totalPrice}</TableCell>
                 <TableCell data-testid={`home-recent-orders-row-${index}-created`}>{formatDateTime(order.createdOn)}</TableCell>
                 <TableCell>

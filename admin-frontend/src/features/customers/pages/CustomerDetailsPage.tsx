@@ -12,6 +12,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { CustomerOrder } from '@/api/modules/customers.api'
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable'
 import { formatDateTime } from '@/utils/date'
+import { getOrderStatusColor } from '@/utils/orderStatus'
 import {
   useCustomerOrdersQuery,
   useCustomerQuery,
@@ -40,23 +41,6 @@ function CustomerDetailsSkeleton() {
       </Paper>
     </Stack>
   )
-}
-
-function getOrderStatusColor(status: string) {
-  switch (status) {
-    case 'Draft':
-      return 'warning.main'
-    case 'In Process':
-      return 'info.main'
-    case 'Partially Received':
-      return 'primary.main'
-    case 'Received':
-      return 'success.main'
-    case 'Canceled':
-      return 'error.main'
-    default:
-      return 'text.primary'
-  }
 }
 
 function resolveLastModified(order: CustomerOrder) {
