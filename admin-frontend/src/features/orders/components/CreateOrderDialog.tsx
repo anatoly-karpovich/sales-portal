@@ -20,6 +20,7 @@ import type { CreateOrderPayload } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import type { Product } from '@/api/modules/products.api'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
+import { formatPrice } from '@/utils/number'
 
 const MAX_PRODUCTS_ROWS = 5
 const SELECT_MENU_PROPS = { transitionDuration: 0 } as const
@@ -330,7 +331,7 @@ export function CreateOrderDialog({
             sx={{ fontWeight: 700, color: 'primary.main' }}
             data-testid="orders-create-total-price-value"
           >
-            ${totalPrice}
+            {formatPrice(totalPrice)}
           </Typography>
         </Stack>
         <Button

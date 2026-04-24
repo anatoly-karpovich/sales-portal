@@ -238,7 +238,9 @@ export function OrderDetailsProductsSection({
               </Accordion>
             ))
           ) : (
-            <Typography color="text.secondary">-</Typography>
+            <Typography color="text.secondary" data-testid="order-details-products-empty">
+              -
+            </Typography>
           )}
         </Stack>
       </Stack>

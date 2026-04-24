@@ -126,7 +126,8 @@ export function useCreateOrderMutation() {
 export function useOrderStatusMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderId, status }: OrderStatusUpdatePayload) => updateOrderStatus(orderId, status),
+    mutationFn: ({ orderId, status, requestConfig }: OrderStatusUpdatePayload) =>
+      updateOrderStatus(orderId, status, requestConfig),
     onSuccess: async (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
@@ -173,7 +174,8 @@ export function useDeleteOrderCommentMutation() {
 export function useReceiveOrderProductsMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderId, products }: OrderReceivePayload) => receiveOrderProducts(orderId, products),
+    mutationFn: ({ orderId, products, requestConfig }: OrderReceivePayload) =>
+      receiveOrderProducts(orderId, products, requestConfig),
     onSuccess: async (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })

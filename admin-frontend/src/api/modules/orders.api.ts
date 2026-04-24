@@ -144,6 +144,7 @@ export type UpdateOrderPayload = CreateOrderPayload
 export type OrderStatusUpdatePayload = {
   orderId: string
   status: OrderStatus
+  requestConfig?: ApiRequestConfig
 }
 
 export type OrderCommentCreatePayload = {
@@ -159,6 +160,7 @@ export type OrderCommentDeletePayload = {
 export type OrderReceivePayload = {
   orderId: string
   products: string[]
+  requestConfig?: ApiRequestConfig
 }
 
 export type OrderDeliveryUpdatePayload = {
@@ -185,8 +187,16 @@ export async function updateOrder(orderId: string, payload: UpdateOrderPayload, 
   return response.data.Order
 }
 
-export async function updateOrderStatus(orderId: string, status: OrderStatus) {
-  const response = await apiClient.put<OrderResponse<OrderDetails>>(`/orders/${orderId}/status`, { status })
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus,
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.put<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/status`,
+    { status },
+    requestConfig,
+  )
   return response.data.Order
 }
 
@@ -209,8 +219,16 @@ export async function deleteOrderComment(orderId: string, commentId: string, req
   await apiClient.delete(`/orders/${orderId}/comments/${commentId}`, requestConfig)
 }
 
-export async function receiveOrderProducts(orderId: string, products: string[]) {
-  const response = await apiClient.post<OrderResponse<OrderDetails>>(`/orders/${orderId}/receive`, { products })
+export async function receiveOrderProducts(
+  orderId: string,
+  products: string[],
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.post<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/receive`,
+    { products },
+    requestConfig,
+  )
   return response.data.Order
 }
 

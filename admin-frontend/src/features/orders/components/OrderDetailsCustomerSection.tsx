@@ -91,7 +91,9 @@ export function OrderDetailsCustomerSection({
           <Typography fontWeight={700}>
             {ordersUiText.detailsPage.fields.customer.createdOn}
           </Typography>
-          <Typography>{formatDateTime(order.customer.createdOn)}</Typography>
+          <Typography data-testid="order-details-customer-created-on-value">
+            {formatDateTime(order.customer.createdOn)}
+          </Typography>
 
           <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.notes}</Typography>
           <Typography

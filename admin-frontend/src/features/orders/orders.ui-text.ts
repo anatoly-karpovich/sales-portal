@@ -68,6 +68,7 @@ export const ordersUiText = {
       commentInput: 'Enter a comment',
       commentAuthorFallback: 'AQA User',
       selectAll: 'Select All',
+      noComments: 'No comments yet.',
     },
     fields: {
       customer: {
@@ -161,11 +162,13 @@ export const ordersUiText = {
     createUnavailable: 'Unable to create an order. Please try again later.',
     customersLoadFailed: 'Unable to load customers. Please try again later.',
     missingOrderId: 'Order id is missing.',
+    invalidOrderId: 'Order id is invalid.',
     orderNotFound: 'Order was not found.',
     detailsUnavailable: 'Unable to load order details. Please refresh the page.',
     updateCustomerFailed: 'Failed to update customer. Please try again later.',
     updateProductsFailed: 'Failed to update products. Please try again later.',
     orderNoLongerDraft: 'Order is no longer in Draft status. Page data was refreshed.',
+    orderStateChanged: 'Order state has changed. Page data was refreshed.',
     deliverySaveFailed: 'Failed to save delivery. Please try again later.',
     receiveProductsFailed: 'Failed to receive products. Please try again later.',
     commentCreateFailed: 'Failed to post comment. Please try again later.',

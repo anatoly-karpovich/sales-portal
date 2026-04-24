@@ -40,6 +40,13 @@ import {
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 
 type PendingStatusAction = 'cancel' | 'process' | 'reopen' | null
+const MONGO_OBJECT_ID_REGEX = /^[a-f0-9]{24}$/i
+
+const ORDER_STATE_CHANGED_ERROR_MESSAGES = new Set([
+  'Invalid order status',
+  "Can't reopen not canceled order",
+  'Incorrect amount of received products',
+])
 
 function resolveApiErrorMessage(error: unknown, fallback: string) {
   if (isAxiosError(error)) {
@@ -52,6 +59,25 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
     }
   }
   return fallback
+}
+
+function isValidOrderId(value: string) {
+  return MONGO_OBJECT_ID_REGEX.test(value)
+}
+
+function isOrderNotFoundErrorMessage(message: string) {
+  return message === ordersUiText.errors.orderNotFound || /^Order with id '.*' wasn't found$/.test(message)
+}
+
+function isOrderStateChangedErrorMessage(message: string) {
+  return (
+    ORDER_STATE_CHANGED_ERROR_MESSAGES.has(message) ||
+    /^Product with Id '.*' is not requested$/.test(message)
+  )
+}
+
+function isProcessNeedsDeliveryErrorMessage(message: string) {
+  return message === "Can't process order. Please, schedule delivery"
 }
 
 function OrderDetailsSkeleton() {
@@ -110,7 +136,8 @@ export function OrderDetailsPage() {
   const [debouncedCustomerEditSearch, setDebouncedCustomerEditSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
 
-  const shouldLoadOrder = Boolean(orderId)
+  const isOrderIdInvalid = Boolean(orderId) && !isValidOrderId(orderId)
+  const shouldLoadOrder = Boolean(orderId) && !isOrderIdInvalid
   const orderDetailsQuery = useOrderDetailsQuery(orderId ?? '', shouldLoadOrder)
   const customerOptionsQuery = useOrderCustomerOptionsQuery(
     debouncedCustomerEditSearch,
@@ -253,6 +280,18 @@ export function OrderDetailsPage() {
     }
   }
 
+  const refreshAfterStateChangeError = async (message?: string) => {
+    if (message && isProcessNeedsDeliveryErrorMessage(message)) {
+      enqueueSnackbar(ordersUiText.detailsPage.placeholders.processNeedsDelivery, {
+        variant: 'warning',
+      })
+    } else {
+      enqueueSnackbar(ordersUiText.errors.orderStateChanged, { variant: 'warning' })
+    }
+
+    await reloadOrderDetailsWithSkeleton()
+  }
+
   const handleRefresh = async () => {
     if (!orderId) return
     setIsRefreshPending(true)
@@ -302,12 +341,24 @@ export function OrderDetailsPage() {
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
-    } catch (error) {
-      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateCustomerFailed)
-      enqueueSnackbar(errorMessage, { variant: 'error' })
-    } finally {
       setIsCustomerEditDialogOpen(false)
       await reloadOrderDetailsWithSkeleton()
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateCustomerFailed)
+      if (isOrderNotFoundErrorMessage(errorMessage)) {
+        setIsCustomerEditDialogOpen(false)
+        await reloadOrderDetailsWithSkeleton()
+        return
+      }
+
+      if (isOrderStateChangedErrorMessage(errorMessage)) {
+        setIsCustomerEditDialogOpen(false)
+        enqueueSnackbar(ordersUiText.errors.orderNoLongerDraft, { variant: 'warning' })
+        await reloadOrderDetailsWithSkeleton()
+        return
+      }
+
+      enqueueSnackbar(errorMessage, { variant: 'error' })
     }
   }
 
@@ -328,7 +379,13 @@ export function OrderDetailsPage() {
       await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateProductsFailed)
-      if (errorMessage === 'Invalid order status') {
+      if (isOrderNotFoundErrorMessage(errorMessage)) {
+        setIsProductsEditDialogOpen(false)
+        await reloadOrderDetailsWithSkeleton()
+        return
+      }
+
+      if (isOrderStateChangedErrorMessage(errorMessage)) {
         enqueueSnackbar(ordersUiText.errors.orderNoLongerDraft, { variant: 'warning' })
         setIsProductsEditDialogOpen(false)
         await reloadOrderDetailsWithSkeleton()
@@ -384,13 +441,31 @@ export function OrderDetailsPage() {
     if (!products.length) return
 
     try {
-      await receiveOrderProductsMutation.mutateAsync({ orderId, products })
+      await receiveOrderProductsMutation.mutateAsync({
+        orderId,
+        products,
+        requestConfig: { skipErrorToast: true },
+      })
       enqueueSnackbar(ordersUiText.toasts.productsReceived, { variant: 'success' })
       setSelectedReceiveRowIndices([])
       setIsReceiveMode(false)
       await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.receiveProductsFailed)
+      if (isOrderNotFoundErrorMessage(errorMessage)) {
+        setSelectedReceiveRowIndices([])
+        setIsReceiveMode(false)
+        await reloadOrderDetailsWithSkeleton()
+        return
+      }
+
+      if (isOrderStateChangedErrorMessage(errorMessage)) {
+        setSelectedReceiveRowIndices([])
+        setIsReceiveMode(false)
+        await refreshAfterStateChangeError(errorMessage)
+        return
+      }
+
       enqueueSnackbar(errorMessage, { variant: 'error' })
     }
   }
@@ -409,6 +484,16 @@ export function OrderDetailsPage() {
       return true
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.deliverySaveFailed)
+      if (isOrderNotFoundErrorMessage(errorMessage)) {
+        await reloadOrderDetailsWithSkeleton()
+        return false
+      }
+
+      if (isOrderStateChangedErrorMessage(errorMessage)) {
+        await refreshAfterStateChangeError(errorMessage)
+        return false
+      }
+
       enqueueSnackbar(errorMessage, { variant: 'error' })
       return false
     }
@@ -430,9 +515,31 @@ export function OrderDetailsPage() {
     }
 
     const nextStatus = statusByAction[pendingStatusAction]
-    await statusMutation.mutateAsync({ orderId, status: nextStatus })
-    enqueueSnackbar(toastByAction[pendingStatusAction], { variant: 'success' })
-    setPendingStatusAction(null)
+    try {
+      await statusMutation.mutateAsync({
+        orderId,
+        status: nextStatus,
+        requestConfig: { skipErrorToast: true },
+      })
+      enqueueSnackbar(toastByAction[pendingStatusAction], { variant: 'success' })
+      setPendingStatusAction(null)
+    } catch (error) {
+      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.detailsUnavailable)
+
+      if (isOrderNotFoundErrorMessage(errorMessage)) {
+        setPendingStatusAction(null)
+        await reloadOrderDetailsWithSkeleton()
+        return
+      }
+
+      if (isOrderStateChangedErrorMessage(errorMessage) || isProcessNeedsDeliveryErrorMessage(errorMessage)) {
+        setPendingStatusAction(null)
+        await refreshAfterStateChangeError(errorMessage)
+        return
+      }
+
+      enqueueSnackbar(errorMessage, { variant: 'error' })
+    }
   }
 
   const handleCreateComment = async () => {
@@ -475,6 +582,23 @@ export function OrderDetailsPage() {
     return (
       <Paper sx={{ p: 3 }} data-testid="order-details-page-missing-id">
         <Typography color="error">{ordersUiText.errors.missingOrderId}</Typography>
+      </Paper>
+    )
+  }
+
+  if (isOrderIdInvalid) {
+    return (
+      <Paper sx={{ p: 3 }} data-testid="order-details-page-invalid-id">
+        <Stack spacing={1.5} alignItems="flex-start">
+          <Typography color="error">{ordersUiText.errors.invalidOrderId}</Typography>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/orders', { replace: true })}
+            data-testid="order-details-page-invalid-id-back-button"
+          >
+            {ordersUiText.detailsPage.backToOrders}
+          </Button>
+        </Stack>
       </Paper>
     )
   }

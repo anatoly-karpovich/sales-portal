@@ -55,7 +55,7 @@ export function OrderDetailsTabsSection({
   onDeleteComment,
 }: OrderDetailsTabsSectionProps) {
   return (
-    <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-placeholder-section">
+    <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
       <Tabs
         value={activeTab}
         onChange={(_, value: OrderDetailsTab) => onTabChange(value)}
@@ -64,20 +64,20 @@ export function OrderDetailsTabsSection({
         <Tab
           label={ordersUiText.detailsPage.tabs.delivery}
           value="delivery"
-          data-testid="order-details-tabs-placeholder-delivery-tab"
+          data-testid="order-details-tab-delivery"
         />
         <Tab
           label={ordersUiText.detailsPage.tabs.history}
           value="history"
-          data-testid="order-details-tabs-placeholder-history-tab"
+          data-testid="order-details-tab-history"
         />
         <Tab
           label={ordersUiText.detailsPage.tabs.comments}
           value="comments"
-          data-testid="order-details-tabs-placeholder-comments-tab"
+          data-testid="order-details-tab-comments"
         />
       </Tabs>
-      <Box data-testid="order-details-tabs-placeholder-content">
+      <Box data-testid="order-details-tabs-content">
         {activeTab === 'delivery' ? (
           <OrderDetailsDeliveryTab
             key={[
@@ -143,7 +143,13 @@ export function OrderDetailsTabsSection({
               )}
             </Button>
 
-            <Stack spacing={1.25}>
+            <Stack spacing={1.25} data-testid="order-details-comments-list">
+              {orderedComments.length === 0 ? (
+                <Typography color="text.secondary" data-testid="order-details-comments-empty">
+                  {ordersUiText.detailsPage.placeholders.noComments}
+                </Typography>
+              ) : null}
+
               {orderedComments.map((comment, index) => (
                 <Paper
                   key={comment._id ?? `${comment.createdOn}-${index}`}

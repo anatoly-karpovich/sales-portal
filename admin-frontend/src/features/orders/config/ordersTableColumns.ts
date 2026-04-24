@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import type { OrderListItem } from '@/api/modules/orders.api'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { formatDateTime } from '@/utils/date'
+import { formatPrice } from '@/utils/number'
 import { OrdersTableActionsCell } from '@/features/orders/components/OrdersTableActionsCell'
 
 export const ORDERS_EXPORT_AVAILABLE_FIELDS = [
@@ -59,7 +60,7 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
       sortable: true,
       width: 130,
       minWidth: 120,
-      render: (row) => `$${row.total_price}`,
+      render: (row) => formatPrice(row.total_price),
     },
     {
       key: 'deliveryDate',
