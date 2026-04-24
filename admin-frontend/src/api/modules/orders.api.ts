@@ -1,7 +1,12 @@
 import { apiClient } from '@/api/client'
 import type { ApiRequestConfig } from '@/api/types'
 
-export type OrderStatus = 'Draft' | 'In Process' | 'Partially Received' | 'Received' | 'Canceled'
+export type OrderStatus = 'Draft' | 'In Process' | 'Completed' | 'Canceled'
+export type OrderDeliveryStatus =
+  | 'Not Scheduled'
+  | 'Scheduled'
+  | 'Partially Delivered'
+  | 'Delivered'
 
 export type OrderCustomerSnapshot = {
   _id: string
@@ -45,6 +50,7 @@ export type OrderProduct = {
 export type OrderListItem = {
   _id: string
   status: OrderStatus
+  deliveryStatus: OrderDeliveryStatus
   customer: OrderCustomerSnapshot
   products: OrderProduct[]
   delivery: OrderDelivery | null
@@ -76,6 +82,7 @@ export type OrderHistoryCustomerRef = string | { _id?: string } | null
 export type OrderHistoryEntry = {
   action?: string
   status?: OrderStatus
+  deliveryStatus?: OrderDeliveryStatus
   customer?: OrderHistoryCustomerRef
   products?: OrderProduct[]
   delivery?: OrderDelivery | null
@@ -98,6 +105,7 @@ export type OrdersListResponse = {
   limit: number
   search: string
   status: OrderStatus[]
+  deliveryStatus: OrderDeliveryStatus[]
   sorting: {
     sortField: 'createdOn' | 'total_price' | 'status'
     sortOrder: 'asc' | 'desc'
@@ -115,6 +123,7 @@ type OrderResponse<TOrder = OrderListItem> = {
 export type OrdersQuery = {
   search: string
   status: OrderStatus[]
+  deliveryStatus?: OrderDeliveryStatus[]
   sortField: 'createdOn' | 'total_price' | 'status'
   sortOrder: 'asc' | 'desc'
   page: number
@@ -126,6 +135,7 @@ export type OrdersExportPayload = {
   filters: {
     search: string
     status: OrderStatus[]
+    deliveryStatus?: OrderDeliveryStatus[]
     page: number
     limit: number
     sortField: 'createdOn' | 'total_price' | 'status'

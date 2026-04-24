@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DELIVERY, ORDER_HISTORY_ACTIONS } from "../data/enums";
+import { DELIVERY, DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import { IOrderDocument } from "../data/types";
 
 const user = new mongoose.Schema(
@@ -49,7 +49,8 @@ const comment = new mongoose.Schema({
 
 const history = new mongoose.Schema(
   {
-    status: { type: String, required: true },
+    status: { type: String, enum: ORDER_STATUSES, required: true },
+    deliveryStatus: { type: String, enum: DELIVERY_STATUSES, required: true },
     customer: { type: mongoose.SchemaTypes.ObjectId, required: true },
     products: [{ type: product, required: true }],
     total_price: { type: Number, require: true },
@@ -73,7 +74,8 @@ const customerSnapshot = new mongoose.Schema(
 
 const Order = new mongoose.Schema(
   {
-    status: { type: String, required: true },
+    status: { type: String, enum: ORDER_STATUSES, required: true },
+    deliveryStatus: { type: String, enum: DELIVERY_STATUSES, required: true },
     customer: { type: customerSnapshot, required: true },
     products: [{ type: product, required: true }],
     delivery: { type: delivery, required: false },

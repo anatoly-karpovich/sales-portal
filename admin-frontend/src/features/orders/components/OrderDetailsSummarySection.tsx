@@ -15,7 +15,7 @@ import {
 import { Link } from 'react-router-dom'
 import type { OrderDetails } from '@/api/modules/orders.api'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
-import { formatDate, formatDateTime } from '@/utils/date'
+import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { getOrderStatusColor } from '@/utils/orderStatus'
 
@@ -25,6 +25,7 @@ type OrderDetailsSummarySectionProps = {
   isManagerAssigned: boolean
   isManagerActionPending: boolean
   isCancelVisible: boolean
+  isCancelDisabled: boolean
   isReopenVisible: boolean
   isProcessVisible: boolean
   isProcessDisabled: boolean
@@ -45,6 +46,7 @@ export function OrderDetailsSummarySection({
   isManagerAssigned,
   isManagerActionPending,
   isCancelVisible,
+  isCancelDisabled,
   isReopenVisible,
   isProcessVisible,
   isProcessDisabled,
@@ -195,6 +197,7 @@ export function OrderDetailsSummarySection({
                   variant="outlined"
                   color="error"
                   onClick={onCancel}
+                  disabled={isCancelDisabled}
                   data-testid="order-details-action-cancel-button"
                 >
                   {ordersUiText.detailsPage.actions.cancel}
@@ -293,9 +296,7 @@ export function OrderDetailsSummarySection({
               sx={{ fontWeight: 700 }}
               data-testid="order-details-summary-delivery-date-value"
             >
-              {order.delivery?.finalDate
-                ? formatDate(order.delivery.finalDate)
-                : ordersUiText.detailsPage.placeholders.noDelivery}
+              {order.deliveryStatus}
             </Typography>
           </Stack>
 

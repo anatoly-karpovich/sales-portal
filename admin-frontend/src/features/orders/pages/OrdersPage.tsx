@@ -1,13 +1,13 @@
 import { Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
-import { FilterDialog } from '@/components/shared/FilterDialog'
-import { FilterChips } from '@/components/shared/FilterChips'
 import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
 import { CreateOrderDialog } from '@/features/orders/components/CreateOrderDialog'
+import { OrdersFilterChips } from '@/features/orders/components/OrdersFilterChips'
+import { OrdersFiltersDialog } from '@/features/orders/components/OrdersFiltersDialog'
 import {
   getOrdersTableColumns,
   ORDERS_EXPORT_AVAILABLE_FIELDS,
@@ -18,7 +18,8 @@ import { ordersUiText } from '@/features/orders/orders.ui-text'
 
 export function OrdersPage() {
   const state = useOrdersPageState()
-  const hasActiveCriteria = Boolean(state.search) || state.status.length > 0
+  const hasActiveCriteria =
+    Boolean(state.search) || state.status.length > 0 || state.deliveryStatus.length > 0
   const emptyText = hasActiveCriteria
     ? sharedUiText.table.emptyFiltered
     : ordersUiText.listPage.emptyStateNoOrders
@@ -63,11 +64,16 @@ export function OrdersPage() {
             onOpenExport={() => state.setExportOpen(true)}
           />
 
-          <FilterChips
+          <OrdersFilterChips
             search={state.search}
-            filters={state.status}
+            searchPrefix={ordersUiText.listPage.chips.searchPrefix}
+            statusFilters={state.status}
+            deliveryStatusFilters={state.deliveryStatus}
+            orderStatusPrefix={ordersUiText.listPage.chips.orderStatusPrefix}
+            deliveryStatusPrefix={ordersUiText.listPage.chips.deliveryStatusPrefix}
             onRemoveSearch={state.onRemoveSearch}
-            onRemoveFilter={state.onRemoveStatusFilter}
+            onRemoveStatusFilter={state.onRemoveStatusFilter}
+            onRemoveDeliveryStatusFilter={state.onRemoveDeliveryStatusFilter}
           />
 
           <DataTable
@@ -92,13 +98,17 @@ export function OrdersPage() {
         </Stack>
       </Paper>
 
-      <FilterDialog
+      <OrdersFiltersDialog
         open={state.filtersOpen}
         title={ordersUiText.listPage.filtersTitle}
-        values={state.statusOptions}
-        selected={state.status}
+        orderStatusTitle={ordersUiText.listPage.filterSections.orderStatus}
+        deliveryStatusTitle={ordersUiText.listPage.filterSections.deliveryStatus}
+        statusValues={state.statusOptions}
+        selectedStatus={state.status}
+        deliveryStatusValues={state.deliveryStatusOptions}
+        selectedDeliveryStatus={state.deliveryStatus}
         onClose={() => state.setFiltersOpen(false)}
-        onApply={state.applyStatusFilters}
+        onApply={state.applyFilters}
       />
 
       <ExportDialog

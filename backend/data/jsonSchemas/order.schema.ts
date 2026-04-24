@@ -46,7 +46,10 @@ export const orderReceiveSchema: AllowedSchema = {
 export const orderStatusSchema: AllowedSchema = {
   type: "object",
   properties: {
-    status: { type: "string", enum: Object.values(ORDER_STATUSES) },
+    status: {
+      type: "string",
+      enum: [ORDER_STATUSES.DRAFT, ORDER_STATUSES.IN_PROCESS, ORDER_STATUSES.CANCELED],
+    },
   },
   required: ["status"],
 };

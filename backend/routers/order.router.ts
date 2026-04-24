@@ -172,11 +172,14 @@ orderRouter.put(
  *           format: date-time
  *     OrderHistoryEntry:
  *       type: object
- *       required: [status, customer, products, total_price, changedOn, action, performer]
+ *       required: [status, deliveryStatus, customer, products, total_price, changedOn, action, performer]
  *       properties:
  *         status:
  *           type: string
- *           enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *           enum: [Draft, In Process, Completed, Canceled]
+ *         deliveryStatus:
+ *           type: string
+ *           enum: [Not Scheduled, Scheduled, Partially Delivered, Delivered]
  *         customer:
  *           type: string
  *         products:
@@ -215,13 +218,16 @@ orderRouter.put(
  *           nullable: true
  *     OrderListItem:
  *       type: object
- *       required: [_id, status, customer, products, total_price, createdOn]
+ *       required: [_id, status, deliveryStatus, customer, products, total_price, createdOn]
  *       properties:
  *         _id:
  *           type: string
  *         status:
  *           type: string
- *           enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *           enum: [Draft, In Process, Completed, Canceled]
+ *         deliveryStatus:
+ *           type: string
+ *           enum: [Not Scheduled, Scheduled, Partially Delivered, Delivered]
  *         customer:
  *           $ref: '#/components/schemas/OrderCustomerSnapshot'
  *         products:
@@ -258,7 +264,7 @@ orderRouter.put(
  *                 $ref: '#/components/schemas/OrderHistoryEntry'
  *     OrdersListResponse:
  *       type: object
- *       required: [Orders, total, page, limit, search, status, sorting, IsSuccess, ErrorMessage]
+ *       required: [Orders, total, page, limit, search, status, deliveryStatus, sorting, IsSuccess, ErrorMessage]
  *       properties:
  *         Orders:
  *           type: array
@@ -273,6 +279,10 @@ orderRouter.put(
  *         search:
  *           type: string
  *         status:
+ *           type: array
+ *           items:
+ *             type: string
+ *         deliveryStatus:
  *           type: array
  *           items:
  *             type: string
@@ -330,7 +340,12 @@ orderRouter.put(
  *               type: array
  *               items:
  *                 type: string
- *                 enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *                 enum: [Draft, In Process, Completed, Canceled]
+ *             deliveryStatus:
+ *               type: array
+ *               items:
+ *                 type: string
+ *                 enum: [Not Scheduled, Scheduled, Partially Delivered, Delivered]
  *             page:
  *               type: number
  *             limit:
@@ -345,14 +360,14 @@ orderRouter.put(
  *           type: array
  *           items:
  *             type: string
- *             enum: [status, total_price, delivery, customer, products, assignedManager, createdOn]
+ *             enum: [status, deliveryStatus, total_price, delivery, customer, products, assignedManager, createdOn]
  *     OrderStatusPayload:
  *       type: object
  *       required: [status]
  *       properties:
  *         status:
  *           type: string
- *           enum: [Draft, In Process, Partially Received, Received, Canceled]
+ *           enum: [Draft, In Process, Canceled]
  *     OrderReceivePayload:
  *       type: object
  *       required: [products]
@@ -424,7 +439,7 @@ orderRouter.put(
  *         name: search
  *         schema:
  *           type: string
- *         description: Search term for filtering orders by ID, customer name, customer email, total price, or status
+ *         description: Search term for filtering orders by ID, customer name, customer email, total price, or statuses
  *       - in: query
  *         name: status
  *         schema:
@@ -433,6 +448,14 @@ orderRouter.put(
  *             type: string
  *           example: ["In Process", "Draft"]
  *         description: Filter orders by status
+ *       - in: query
+ *         name: deliveryStatus
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["Scheduled", "Not Scheduled"]
+ *         description: Filter orders by delivery status
  *       - in: query
  *         name: sortField
  *         schema:

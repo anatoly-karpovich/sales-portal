@@ -50,6 +50,7 @@ class OrderController {
         sortField = "createdOn",
         sortOrder = "asc",
         status,
+        deliveryStatus,
         page = "1",
         limit = MIN_LIMIT,
       } = req.query;
@@ -59,8 +60,11 @@ class OrderController {
       const skip = (pageNumber - 1) * limitNumber;
 
       const statuses = (Array.isArray(status) ? status : status ? [status] : []) as string[];
+      const deliveryStatuses = (
+        Array.isArray(deliveryStatus) ? deliveryStatus : deliveryStatus ? [deliveryStatus] : []
+      ) as string[];
 
-      const filters = { search, status: statuses };
+      const filters = { search, status: statuses, deliveryStatus: deliveryStatuses };
       const sortOptions = { sortField, sortOrder };
 
       const { orders, total } = await OrderService.getSorted(filters, sortOptions, { skip, limit: limitNumber });
@@ -72,6 +76,7 @@ class OrderController {
         limit: limitNumber,
         search,
         status: statuses,
+        deliveryStatus: deliveryStatuses,
         sorting: sortOptions,
         IsSuccess: true,
         ErrorMessage: null,
@@ -166,6 +171,7 @@ class OrderController {
           ? {
               search: filters.search,
               status: filters.status,
+              deliveryStatus: filters.deliveryStatus,
               page: filters.page,
               limit: filters.limit,
               sortField: filters.sortField,

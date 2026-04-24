@@ -4,6 +4,15 @@ export const ordersUiText = {
     createButton: 'Create Order',
     filtersTitle: 'Filters',
     emptyStateNoOrders: 'No orders created yet.',
+    filterSections: {
+      orderStatus: 'Order Status',
+      deliveryStatus: 'Delivery Status',
+    },
+    chips: {
+      searchPrefix: 'Search',
+      orderStatusPrefix: 'Order',
+      deliveryStatusPrefix: 'Delivery',
+    },
   },
   detailsPage: {
     title: 'Order Details',
@@ -59,7 +68,7 @@ export const ordersUiText = {
       noHistory: 'History is empty.',
     },
     placeholders: {
-      processNeedsDelivery: 'Add delivery before processing order',
+      processNeedsDelivery: 'Schedule delivery before processing order',
       noDeliveryScheduled: 'Delivery is not scheduled yet',
       noDelivery: 'Not Scheduled',
       selectManager: 'Click to select manager',
@@ -195,8 +204,10 @@ export const ordersUiText = {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',
     deliveryDateInvalid: 'Delivery date is required',
     deliveryCountryInvalid: 'Select a valid country',
-    deliveryCityInvalid: "City's name should contain only 1-20 alphabetical characters and one space between",
-    deliveryStreetInvalid: 'Street should contain only 1-40 alphanumerical characters and one space between',
+    deliveryCityInvalid:
+      "City's name should contain only 1-20 alphabetical characters and one space between",
+    deliveryStreetInvalid:
+      'Street should contain only 1-40 alphanumerical characters and one space between',
     deliveryHouseInvalid: 'House number should be in range 1-999',
     deliveryFlatInvalid: 'Flat number should be in range 1-9999',
   },

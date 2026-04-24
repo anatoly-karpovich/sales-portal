@@ -3,7 +3,7 @@ import OrderService from "./order.service";
 import type { IOrder, ICustomer } from "../data/types";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
-import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
 
@@ -11,7 +11,7 @@ class OrderStatusService {
   private notificationService = new NotificationService();
   async updateStatus(
     orderId: Types.ObjectId,
-    status: string,
+    status: ORDER_STATUSES,
     performerId: string,
     currentOrder: IOrder<ICustomer>,
   ): Promise<IOrder<ICustomer>> {
@@ -23,12 +23,15 @@ class OrderStatusService {
       ...currentOrder,
       status: status as ORDER_STATUSES,
     };
-    let action: ORDER_HISTORY_ACTIONS;
-    if (status === ORDER_STATUSES.IN_PROCESS) action = ORDER_HISTORY_ACTIONS.PROCESSED;
-    if (status === ORDER_STATUSES.CANCELED) action = ORDER_HISTORY_ACTIONS.CANCELED;
-    if (status === ORDER_STATUSES.DRAFT) {
+    let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.PROCESSED;
+    if (status === ORDER_STATUSES.IN_PROCESS) {
+      action = ORDER_HISTORY_ACTIONS.PROCESSED;
+    } else if (status === ORDER_STATUSES.CANCELED) {
+      action = ORDER_HISTORY_ACTIONS.CANCELED;
+    } else if (status === ORDER_STATUSES.DRAFT) {
       action = ORDER_HISTORY_ACTIONS.REOPENED;
       newOrder.delivery = null;
+      newOrder.deliveryStatus = DELIVERY_STATUSES.NOT_SCHEDULED;
     }
 
     // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.

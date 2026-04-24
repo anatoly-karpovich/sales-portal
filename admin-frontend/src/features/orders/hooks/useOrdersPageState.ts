@@ -4,9 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { getCustomers } from '@/api/modules/customers.api'
 import { getProducts } from '@/api/modules/products.api'
-import type { CreateOrderPayload, OrderListItem, OrderStatus } from '@/api/modules/orders.api'
+import type {
+  CreateOrderPayload,
+  OrderDeliveryStatus,
+  OrderListItem,
+  OrderStatus,
+} from '@/api/modules/orders.api'
 import { downloadBlobResponse } from '@/utils/download'
-import { ORDER_STATUSES } from '@/constants/dictionaries'
+import { DELIVERY_STATUSES, ORDER_STATUSES } from '@/constants/dictionaries'
 import {
   isOrdersSortField,
   type OrdersSortField,
@@ -26,10 +31,22 @@ type ExportSubmitPayload = {
   fields: string[]
 }
 
+type OrdersFiltersApplyPayload = {
+  status: string[]
+  deliveryStatus: string[]
+}
+
 const ORDER_STATUS_SET = new Set<string>(ORDER_STATUSES)
+const DELIVERY_STATUS_SET = new Set<string>(DELIVERY_STATUSES)
 
 function toOrderStatusList(values: string[]): OrderStatus[] {
   return values.filter((value): value is OrderStatus => ORDER_STATUS_SET.has(value))
+}
+
+function toOrderDeliveryStatusList(values: string[]): OrderDeliveryStatus[] {
+  return values.filter(
+    (value): value is OrderDeliveryStatus => DELIVERY_STATUS_SET.has(value),
+  )
 }
 
 export function useOrdersPageState() {
@@ -38,6 +55,7 @@ export function useOrdersPageState() {
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
   const [status, setStatus] = useState<OrderStatus[]>([])
+  const [deliveryStatus, setDeliveryStatus] = useState<OrderDeliveryStatus[]>([])
   const [sortField, setSortField] = useState<OrdersSortField>('createdOn')
   const [sortOrder, setSortOrder] = useState<OrdersSortOrder>('desc')
   const [page, setPage] = useState(1)
@@ -55,12 +73,13 @@ export function useOrdersPageState() {
     () => ({
       search,
       status,
+      deliveryStatus,
       sortField,
       sortOrder,
       page,
       limit,
     }),
-    [search, status, sortField, sortOrder, page, limit],
+    [search, status, deliveryStatus, sortField, sortOrder, page, limit],
   )
 
   const { data, isLoading, isFetching } = useOrdersQuery(query)
@@ -92,14 +111,20 @@ export function useOrdersPageState() {
     setPage(1)
   }, [])
 
-  const applyStatusFilters = useCallback((values: string[]) => {
-    setStatus(toOrderStatusList(values))
+  const applyFilters = useCallback((values: OrdersFiltersApplyPayload) => {
+    setStatus(toOrderStatusList(values.status))
+    setDeliveryStatus(toOrderDeliveryStatusList(values.deliveryStatus))
     setPage(1)
     setFiltersOpen(false)
   }, [])
 
   const onRemoveStatusFilter = useCallback((value: string) => {
     setStatus((current) => current.filter((item) => item !== value))
+    setPage(1)
+  }, [])
+
+  const onRemoveDeliveryStatusFilter = useCallback((value: string) => {
+    setDeliveryStatus((current) => current.filter((item) => item !== value))
     setPage(1)
   }, [])
 
@@ -142,6 +167,7 @@ export function useOrdersPageState() {
           : {
               search,
               status,
+              deliveryStatus,
               page,
               limit,
               sortField,
@@ -156,7 +182,17 @@ export function useOrdersPageState() {
       downloadBlobResponse(response, `orders-export.${payload.format}`)
       enqueueSnackbar(ordersUiText.toasts.exportCompleted, { variant: 'success' })
     },
-    [enqueueSnackbar, exportMutation, limit, page, search, sortField, sortOrder, status],
+    [
+      deliveryStatus,
+      enqueueSnackbar,
+      exportMutation,
+      limit,
+      page,
+      search,
+      sortField,
+      sortOrder,
+      status,
+    ],
   )
 
   const openCreateDialog = useCallback(async () => {
@@ -252,7 +288,9 @@ export function useOrdersPageState() {
     search,
     searchDraft,
     status,
+    deliveryStatus,
     statusOptions: [...ORDER_STATUSES],
+    deliveryStatusOptions: [...DELIVERY_STATUSES],
     sortField,
     sortOrder,
     page,
@@ -275,8 +313,9 @@ export function useOrdersPageState() {
     setExportOpen,
     onSearchApply,
     onRemoveSearch,
-    applyStatusFilters,
+    applyFilters,
     onRemoveStatusFilter,
+    onRemoveDeliveryStatusFilter,
     onSort,
     onPageChange,
     onLimitChange,

@@ -13,6 +13,7 @@ export type OrderCommentParamsDTO = { orderId?: string; commentId?: string };
 export type OrderSortedQueryDTO = {
   search?: string;
   status?: string | string[];
+  deliveryStatus?: string | string[];
   sortField?: "createdOn" | "total_price" | "status";
   sortOrder?: "asc" | "desc";
   page?: string;
@@ -24,6 +25,7 @@ export type OrderExportFormatDTO = "csv" | "json";
 export type OrderExportFiltersDTO = {
   search?: string;
   status?: string[];
+  deliveryStatus?: string[];
   page?: number;
   limit?: number;
   sortField?: "createdOn" | "total_price" | "status";
@@ -33,7 +35,9 @@ export type OrderExportFiltersDTO = {
 export type OrderExportRequestBodyDTO = {
   format: OrderExportFormatDTO;
   filters?: OrderExportFiltersDTO;
-  fields: Array<"status" | "total_price" | "delivery" | "customer" | "products" | "assignedManager" | "createdOn">;
+  fields: Array<
+    "status" | "deliveryStatus" | "total_price" | "delivery" | "customer" | "products" | "assignedManager" | "createdOn"
+  >;
 };
 
 export type OrderCreateOrUpdateRequestDTO = {
@@ -42,7 +46,7 @@ export type OrderCreateOrUpdateRequestDTO = {
 };
 
 export type OrderStatusRequestDTO = {
-  status: ORDER_STATUSES;
+  status: ORDER_STATUSES.DRAFT | ORDER_STATUSES.IN_PROCESS | ORDER_STATUSES.CANCELED;
 };
 
 export type OrderReceiveRequestDTO = {
@@ -116,5 +120,6 @@ export type OrdersSortedResponseDTO = BaseResponseDTO & {
   limit: number;
   search: string;
   status: string[];
+  deliveryStatus: string[];
   sorting: { sortField: "createdOn" | "total_price" | "status"; sortOrder: "asc" | "desc" };
 };

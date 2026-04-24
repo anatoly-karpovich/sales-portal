@@ -14,7 +14,12 @@ import {
 } from '@mui/material'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { OrderAssignedManager, OrderDelivery, OrderStatus } from '@/api/modules/orders.api'
+import type {
+  OrderAssignedManager,
+  OrderDelivery,
+  OrderDeliveryStatus,
+  OrderStatus,
+} from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import type { User } from '@/api/modules/users.api'
 import { AssignManagerDialog } from '@/features/orders/components/AssignManagerDialog'
@@ -118,8 +123,19 @@ function canCancelOrder(status: OrderStatus) {
   return status === 'Draft' || status === 'In Process'
 }
 
-function canReceiveOrderProducts(status: OrderStatus) {
-  return status === 'In Process' || status === 'Partially Received'
+function canCancelOrderByDeliveryStatus(deliveryStatus: OrderDeliveryStatus) {
+  return deliveryStatus === 'Not Scheduled' || deliveryStatus === 'Scheduled'
+}
+
+function canShowCancelOrder(status: OrderStatus, deliveryStatus: OrderDeliveryStatus) {
+  return canCancelOrder(status) && canCancelOrderByDeliveryStatus(deliveryStatus)
+}
+
+function canReceiveOrderProducts(status: OrderStatus, deliveryStatus: OrderDeliveryStatus) {
+  return (
+    status === 'In Process' &&
+    (deliveryStatus === 'Scheduled' || deliveryStatus === 'Partially Delivered')
+  )
 }
 
 function isAssignableManager(user: User) {
@@ -194,7 +210,9 @@ export function OrderDetailsPage() {
   )
   const hasPendingProductsToReceive = pendingReceiveRowIndices.length > 0
   const canStartReceive =
-    Boolean(order) && canReceiveOrderProducts(order.status) && hasPendingProductsToReceive
+    Boolean(order) &&
+    canReceiveOrderProducts(order.status, order.deliveryStatus) &&
+    hasPendingProductsToReceive
   const isSelectAllChecked =
     hasPendingProductsToReceive &&
     selectedReceivePendingRowIndices.length === pendingReceiveRowIndices.length
@@ -216,7 +234,7 @@ export function OrderDetailsPage() {
     }
 
     if (
-      !canReceiveOrderProducts(order.status) ||
+      !canReceiveOrderProducts(order.status, order.deliveryStatus) ||
       !order.products.some((product) => !product.received)
     ) {
       setIsReceiveMode(false)
@@ -778,9 +796,9 @@ export function OrderDetailsPage() {
   const isProductsEditable = order.status === 'Draft'
   const isReceiveStartVisible = canStartReceive && !isReceiveMode
   const isReceiveModeVisible = isReceiveMode && canStartReceive
-  const isCancelVisible = canCancelOrder(order.status)
+  const isCancelVisible = canShowCancelOrder(order.status, order.deliveryStatus)
   const isProcessVisible = order.status === 'Draft'
-  const isProcessDisabled = isProcessVisible && !order.delivery
+  const isProcessDisabled = isProcessVisible && order.deliveryStatus !== 'Scheduled'
   const isReopenVisible = order.status === 'Canceled'
 
   const detailsDialogCopy =
@@ -815,6 +833,7 @@ export function OrderDetailsPage() {
         isManagerAssigned={isManagerAssigned}
         isManagerActionPending={isManagerActionPending}
         isCancelVisible={isCancelVisible}
+        isCancelDisabled={false}
         isReopenVisible={isReopenVisible}
         isProcessVisible={isProcessVisible}
         isProcessDisabled={isProcessDisabled}

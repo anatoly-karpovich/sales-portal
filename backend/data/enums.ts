@@ -33,9 +33,15 @@ export enum ROLES {
 export enum ORDER_STATUSES {
   DRAFT = "Draft",
   IN_PROCESS = "In Process",
-  PARTIALLY_RECEIVED = "Partially Received",
-  RECEIVED = "Received",
+  COMPLETED = "Completed",
   CANCELED = "Canceled",
+}
+
+export enum DELIVERY_STATUSES {
+  NOT_SCHEDULED = "Not Scheduled",
+  SCHEDULED = "Scheduled",
+  PARTIALLY_DELIVERED = "Partially Delivered",
+  DELIVERED = "Delivered",
 }
 
 export enum VALIDATION_ERROR_MESSAGES {

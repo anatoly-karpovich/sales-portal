@@ -9,15 +9,23 @@ import { OrdersTableActionsCell } from '@/features/orders/components/OrdersTable
 
 export const ORDERS_EXPORT_AVAILABLE_FIELDS = [
   'status',
-  'total_price',
   'delivery',
+  'deliveryStatus',
+  'total_price',
   'customer',
   'products',
   'assignedManager',
   'createdOn',
 ]
 
-export const ORDERS_EXPORT_DEFAULT_FIELDS = ['status', 'total_price', 'customer', 'products', 'createdOn']
+export const ORDERS_EXPORT_DEFAULT_FIELDS = [
+  'status',
+  'deliveryStatus',
+  'total_price',
+  'customer',
+  'products',
+  'createdOn',
+]
 
 export const ORDERS_SORT_FIELDS = ['createdOn', 'total_price', 'status'] as const
 export type OrdersSortField = (typeof ORDERS_SORT_FIELDS)[number]
@@ -65,13 +73,6 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
       render: (row) => formatPrice(row.total_price),
     },
     {
-      key: 'deliveryDate',
-      label: 'Delivery Date',
-      width: '16%',
-      minWidth: 200,
-      render: (row) => (row.delivery?.finalDate ? formatDateTime(row.delivery.finalDate) : '-'),
-    },
-    {
       key: 'status',
       label: 'Status',
       sortable: true,
@@ -83,6 +84,13 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
           { sx: { color: getOrderStatusColor(row.status) } },
           row.status,
         ),
+    },
+    {
+      key: 'deliveryStatus',
+      label: 'Delivery',
+      width: '16%',
+      minWidth: 200,
+      render: (row) => row.deliveryStatus || '-',
     },
     {
       key: 'assignedManager',

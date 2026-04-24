@@ -1,4 +1,4 @@
-import { ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
+import { DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
 import type { Document } from "mongoose";
 import { Types } from "mongoose";
 import type { ICustomer, IProduct, IDelivery, DocumentResult, IComment } from ".";
@@ -13,6 +13,7 @@ export type IOrderCustomerSnapshot = {
 export interface IOrder<CustomerType = IOrderCustomerSnapshot> {
   readonly _id?: Types.ObjectId;
   status: ORDER_STATUSES;
+  deliveryStatus: DELIVERY_STATUSES;
   customer: CustomerType;
   products: IProductInOrder[];
   delivery: IDelivery | null;
@@ -41,7 +42,8 @@ export interface IOrderDocument
 
 export interface IHistory {
   readonly action: ORDER_HISTORY_ACTIONS;
-  readonly status: string;
+  readonly status: ORDER_STATUSES;
+  readonly deliveryStatus: DELIVERY_STATUSES;
   readonly customer: Types.ObjectId;
   readonly products: IProduct[];
   readonly delivery: IDelivery | null;

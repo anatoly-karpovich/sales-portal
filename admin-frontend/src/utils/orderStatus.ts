@@ -3,9 +3,8 @@ export function getOrderStatusColor(status: string) {
     case 'Draft':
       return 'text.primary'
     case 'In Process':
-    case 'Partially Received':
       return 'primary.main'
-    case 'Received':
+    case 'Completed':
       return 'success.main'
     case 'Canceled':
       return 'error.main'

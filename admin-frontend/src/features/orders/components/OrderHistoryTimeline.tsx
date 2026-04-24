@@ -110,12 +110,26 @@ function resolveDeliveryFieldValue(
   return normalizeText(delivery.address?.[field])
 }
 
-function resolveDeliverySummary(delivery: OrderDelivery | null | undefined) {
-  if (!delivery) return ordersUiText.detailsPage.placeholders.noDelivery
-  const condition = normalizeText(delivery.condition)
-  const dateLabel = formatDate(delivery.finalDate)
-  if (dateLabel === '-') return condition
-  return `${condition}, ${dateLabel}`
+function resolveDeliverySummary(
+  deliveryStatus: string | undefined,
+  delivery: OrderDelivery | null | undefined,
+) {
+  const statusLabel = normalizeText(deliveryStatus)
+  const dateLabel = delivery?.finalDate ? formatDate(delivery.finalDate) : '-'
+
+  if (statusLabel === '-' && dateLabel === '-') {
+    return ordersUiText.detailsPage.placeholders.noDelivery
+  }
+
+  if (statusLabel === '-') {
+    return dateLabel
+  }
+
+  if (dateLabel === '-') {
+    return statusLabel
+  }
+
+  return `${statusLabel}, ${dateLabel}`
 }
 
 function buildStatusChanges(
@@ -255,8 +269,8 @@ function buildFallbackChanges(
     })
   }
 
-  const previousDelivery = resolveDeliverySummary(previous?.delivery)
-  const updatedDelivery = resolveDeliverySummary(current.delivery)
+  const previousDelivery = resolveDeliverySummary(previous?.deliveryStatus, previous?.delivery)
+  const updatedDelivery = resolveDeliverySummary(current.deliveryStatus, current.delivery)
   if (previousDelivery !== updatedDelivery) {
     fallbackChanges.push({
       label: ordersUiText.detailsPage.history.delivery,
@@ -423,7 +437,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
           },
           {
             label: ordersUiText.detailsPage.history.delivery,
-            value: resolveDeliverySummary(entry.delivery),
+            value: resolveDeliverySummary(entry.deliveryStatus, entry.delivery),
           },
           {
             label: ordersUiText.detailsPage.history.assignedManager,

@@ -15,14 +15,13 @@ type Props = {
 
 export function SearchToolbar({
   searchDraft,
-  hasActiveSearch = false,
   onSearchDraftChange,
   onSearchApply,
   onOpenFilters,
   onOpenExport,
   isSearching = false,
 }: Props) {
-  const canApplySearch = Boolean(searchDraft.trim()) || hasActiveSearch
+  const canApplySearch = Boolean(searchDraft.trim())
 
   return (
     <Stack

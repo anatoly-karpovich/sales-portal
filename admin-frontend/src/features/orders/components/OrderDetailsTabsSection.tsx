@@ -82,6 +82,7 @@ export function OrderDetailsTabsSection({
           <OrderDetailsDeliveryTab
             key={[
               order.status,
+              order.deliveryStatus,
               order.customer._id,
               order.customer.country,
               order.customer.city,

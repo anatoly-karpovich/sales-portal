@@ -2,7 +2,7 @@ import OrderService from "../services/order.service.js";
 import CustomerService from "../services/customer.service.js";
 import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
-import { ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
+import { DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidDate, isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
@@ -110,6 +110,21 @@ export async function orderStatus(
     if (status === ORDER_STATUSES.IN_PROCESS && !order.delivery) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
+    if (status === ORDER_STATUSES.IN_PROCESS && order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
+    }
+
+    if (
+      status === ORDER_STATUSES.CANCELED &&
+      order.deliveryStatus !== DELIVERY_STATUSES.NOT_SCHEDULED &&
+      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED
+    ) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
+
+    if (status === ORDER_STATUSES.CANCELED && order.products.some((product) => product.received)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
 
     if (status === ORDER_STATUSES.DRAFT && order.status !== ORDER_STATUSES.CANCELED) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't reopen not canceled order` });
@@ -155,7 +170,14 @@ export async function orderReceiveValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Incorrect amount of received products` });
     }
 
-    if (order.status === "Draft" || order.status === "Received") {
+    if (order.status !== ORDER_STATUSES.IN_PROCESS) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
+
+    if (
+      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED &&
+      order.deliveryStatus !== DELIVERY_STATUSES.PARTIALLY_DELIVERED
+    ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
 

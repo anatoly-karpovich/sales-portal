@@ -86,6 +86,9 @@ Top-level source layout:
 - `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`, `users`).
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
+  - order model uses split state axes:
+    - `status`: `Draft | In Process | Completed | Canceled`;
+    - `deliveryStatus`: `Not Scheduled | Scheduled | Partially Delivered | Delivered`;
   - create order (`POST /orders`);
   - update order customer/products (`PUT /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
@@ -135,12 +138,28 @@ Top-level source layout:
   - `forms/*` - form mappers, touched state, validation
   - `customers.ui-text.ts` - labels, validation text, toast text
 - `features/orders` (iteration 6 in active implementation)
-  - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export
+  - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export.
+    - list filters are split into two independent groups:
+      - `status[]` (order status)
+      - `deliveryStatus[]` (delivery status)
+    - filters are represented by prefixed chips:
+      - `Search: <value>`
+      - `Order: <status>`
+      - `Delivery: <deliveryStatus>`
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows.
+    - query and export (`filtered`) include both filter arrays: `status[]` and `deliveryStatus[]`.
     - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
   - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment
-  - `config/ordersTableColumns.ts` - columns, sort fields, export fields
+  - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
+    - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `deliveryStatus`.
+    - export fields include both `delivery` and `deliveryStatus`.
   - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit, delivery date offsets)
+  - `components/OrdersFiltersDialog.tsx` - orders-only filters modal with two accordions:
+    - sections: `Order Status`, `Delivery Status`;
+    - only one accordion can be expanded at a time;
+    - default expanded section on open: `Order Status`;
+    - section header shows `<N> selected` only when section has at least one selected value.
+  - `components/OrdersFilterChips.tsx` - orders-only chip row for search/status/deliveryStatus filters with per-chip removal
   - `components/CreateOrderDialog.tsx` - create modal with search-driven pickers:
     - customer selection uses MUI `Autocomplete` with popper overlay (outside dialog flow), opens on field click, and closes after selection;
     - selected customer value is shown in the same input field (`name | email`), without separate pencil action;
@@ -159,7 +178,10 @@ Top-level source layout:
   - `components/OrderDetailsTabsSection.tsx` - tabs switcher and tab-level composition (`Delivery`, `Order History`, `Comments`)
   - `components/OrderDetailsDeliveryTab.tsx` - delivery tab content:
     - view mode with delivery summary and source chip;
-    - draft-only actions: `Schedule` button (no delivery yet) or edit pencil (delivery exists);
+    - status-based actions:
+      - `Draft + Not Scheduled` -> `Schedule`;
+      - `Draft + Scheduled` -> edit pencil;
+      - any other state combination -> no delivery edit actions;
     - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules;
     - pickup address autofill by country;
     - date picker-only input with allowed range from config (`+3`..`+10` days);
@@ -175,6 +197,10 @@ Top-level source layout:
   - `pages/OrderDetailsPage.tsx` - implemented details page:
     - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
+    - action visibility/availability is based on both `status` and `deliveryStatus`:
+      - `Process` is shown only for `Draft`; enabled only when `deliveryStatus = Scheduled`;
+      - `Cancel` is shown only for `Draft | In Process` with `deliveryStatus in [Not Scheduled, Scheduled]`;
+      - `Reopen` is shown only for `Canceled`;
     - read-only customer/products blocks;
     - manager assignment flow:
       - if manager is absent: `Click to select manager` trigger opens assignment dialog;
@@ -184,7 +210,8 @@ Top-level source layout:
       - save is disabled for empty selection or unchanged manager;
       - unassign uses shared `ConfirmDialog`;
       - assign/unassign success closes modal, shows toast, and refreshes details with skeleton reload;
-    - receive mode for products in `In Process`/`Partially Received`:
+    - receive mode for products:
+      - available only when `status = In Process` and `deliveryStatus in [Scheduled, Partially Delivered]`;
       - `Receive` CTA only when there are pending (not received) products;
       - per-product checkboxes in receive mode with `Select All`;
       - already received rows are prechecked and disabled;
@@ -203,8 +230,9 @@ Top-level source layout:
 - `components/shared`
   - `DataTable`
   - `SearchToolbar`
-  - `FilterDialog`
-  - `FilterChips`
+    - search apply button is enabled only when search input contains a non-empty value
+  - `FilterDialog` (generic modal, still used by products/customers pages)
+  - `FilterChips` (generic chips, still used by products/customers pages)
   - `ExportDialog`
   - `PaginationControls`
   - `ConfirmDialog`
@@ -345,8 +373,7 @@ Do not change these keys without explicit migration requirements.
 - Current order status color mapping:
   - `Draft` -> `text.primary`
   - `In Process` -> `primary.main`
-  - `Partially Received` -> `primary.main`
-  - `Received` -> `success.main`
+  - `Completed` -> `success.main`
   - `Canceled` -> `error.main`
 
 ## 12) Pre-handoff checklist

@@ -405,7 +405,15 @@ export function OrderDetailsDeliveryTab({
   const [isEditing, setIsEditing] = useState(false)
   const [formState, setFormState] = useState(initialFormState)
   const [touched, setTouched] = useState<DeliveryTouchedState>(INITIAL_TOUCHED_STATE)
-  const isEditModeVisible = isEditing && isDeliveryEditable
+  const canScheduleDelivery =
+    isDeliveryEditable && order.status === 'Draft' && order.deliveryStatus === 'Not Scheduled'
+  const canEditDelivery =
+    isDeliveryEditable &&
+    order.status === 'Draft' &&
+    order.deliveryStatus === 'Scheduled' &&
+    Boolean(order.delivery)
+  const canEnterEditMode = canScheduleDelivery || canEditDelivery
+  const isEditModeVisible = isEditing && canEnterEditMode
 
   const validation = useMemo(
     () => validateDeliveryForm(formState, allowedDeliveryDates),
@@ -435,6 +443,7 @@ export function OrderDetailsDeliveryTab({
   }
 
   const handleStartEditing = () => {
+    if (!canEnterEditMode) return
     setFormState(initialFormState)
     setTouched(INITIAL_TOUCHED_STATE)
     setIsEditing(true)
@@ -554,7 +563,7 @@ export function OrderDetailsDeliveryTab({
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {ordersUiText.detailsPage.labels.deliveryInformation}
           </Typography>
-          {!isEditModeVisible && isDeliveryEditable && order.delivery ? (
+          {!isEditModeVisible && canEditDelivery ? (
             <IconButton
               size="small"
               onClick={handleStartEditing}
@@ -565,7 +574,7 @@ export function OrderDetailsDeliveryTab({
           ) : null}
         </Stack>
 
-        {!isEditModeVisible && isDeliveryEditable && !order.delivery ? (
+        {!isEditModeVisible && canScheduleDelivery ? (
           <Button
             variant="contained"
             onClick={handleStartEditing}
