@@ -168,6 +168,17 @@ export type OrderDeliveryUpdatePayload = {
   delivery: OrderDelivery
 }
 
+export type OrderAssignManagerPayload = {
+  orderId: string
+  managerId: string
+  requestConfig?: ApiRequestConfig
+}
+
+export type OrderUnassignManagerPayload = {
+  orderId: string
+  requestConfig?: ApiRequestConfig
+}
+
 export type OrderQuery = OrdersQuery
 
 export async function getOrders(query: OrdersQuery) {
@@ -240,6 +251,28 @@ export async function updateOrderDelivery(
   const response = await apiClient.post<OrderResponse<OrderDetails>>(
     `/orders/${orderId}/delivery`,
     delivery,
+    requestConfig,
+  )
+  return response.data.Order
+}
+
+export async function assignOrderManager(
+  orderId: string,
+  managerId: string,
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.put<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/assign-manager/${managerId}`,
+    {},
+    requestConfig,
+  )
+  return response.data.Order
+}
+
+export async function unassignOrderManager(orderId: string, requestConfig?: ApiRequestConfig) {
+  const response = await apiClient.put<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/unassign-manager`,
+    {},
     requestConfig,
   )
   return response.data.Order

@@ -2,7 +2,9 @@ import { isAxiosError } from 'axios'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCustomers } from '@/api/modules/customers.api'
 import { getProductById, getProducts } from '@/api/modules/products.api'
+import { getUsers } from '@/api/modules/users.api'
 import {
+  assignOrderManager,
   createOrderComment,
   createOrder,
   deleteOrderComment,
@@ -10,13 +12,16 @@ import {
   getOrderById,
   getOrders,
   receiveOrderProducts,
+  unassignOrderManager,
   updateOrderDelivery,
   updateOrder,
   updateOrderStatus,
   type OrderDetails,
+  type OrderAssignManagerPayload,
   type OrderCommentCreatePayload,
   type OrderCommentDeletePayload,
   type OrderDeliveryUpdatePayload,
+  type OrderUnassignManagerPayload,
   type OrderReceivePayload,
   type UpdateOrderPayload,
   type CreateOrderPayload,
@@ -79,6 +84,15 @@ export function useOrderProductOptionsQuery(search: string, enabled = true) {
         page: 1,
         limit: ORDER_DETAILS_PRODUCT_SEARCH_LIMIT,
       }),
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useOrderManagerOptionsQuery(enabled = true) {
+  return useQuery({
+    queryKey: ordersQueryKeys.managerOptions(),
+    queryFn: () => getUsers(),
     enabled,
     placeholderData: (previousData) => previousData,
   })
@@ -190,6 +204,30 @@ export function useUpdateOrderDeliveryMutation() {
       updateOrderDelivery(orderId, delivery, requestConfig),
     onSuccess: async (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
+    },
+  })
+}
+
+export function useAssignOrderManagerMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderId, managerId, requestConfig }: OrderAssignManagerPayload) =>
+      assignOrderManager(orderId, managerId, requestConfig),
+    onSuccess: async (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
+    },
+  })
+}
+
+export function useUnassignOrderManagerMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderId, requestConfig }: OrderUnassignManagerPayload) =>
+      unassignOrderManager(orderId, requestConfig),
+    onSuccess: async (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
     },
   })

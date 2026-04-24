@@ -1,9 +1,12 @@
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import {
   Box,
   Button,
   CircularProgress,
+  IconButton,
   Paper,
   Stack,
   Tooltip,
@@ -19,12 +22,17 @@ import { getOrderStatusColor } from '@/utils/orderStatus'
 type OrderDetailsSummarySectionProps = {
   order: OrderDetails
   assignedManagerDisplayValue: string
+  isManagerAssigned: boolean
+  isManagerActionPending: boolean
   isCancelVisible: boolean
   isReopenVisible: boolean
   isProcessVisible: boolean
   isProcessDisabled: boolean
   isRefreshPending: boolean
   isOrderFetching: boolean
+  onAssignManager: () => void
+  onEditManager: () => void
+  onUnassignManager: () => void
   onCancel: () => void
   onReopen: () => void
   onProcess: () => void
@@ -34,12 +42,17 @@ type OrderDetailsSummarySectionProps = {
 export function OrderDetailsSummarySection({
   order,
   assignedManagerDisplayValue,
+  isManagerAssigned,
+  isManagerActionPending,
   isCancelVisible,
   isReopenVisible,
   isProcessVisible,
   isProcessDisabled,
   isRefreshPending,
   isOrderFetching,
+  onAssignManager,
+  onEditManager,
+  onUnassignManager,
   onCancel,
   onReopen,
   onProcess,
@@ -81,7 +94,7 @@ export function OrderDetailsSummarySection({
             alignItems={{ xs: 'flex-start', md: 'flex-start' }}
             justifyContent="space-between"
           >
-            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+            <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
               <Typography color="text.secondary" sx={{ lineHeight: 1.4 }}>
                 <Typography
                   component="span"
@@ -98,6 +111,77 @@ export function OrderDetailsSummarySection({
                   {order._id}
                 </Typography>
               </Typography>
+
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 0.5, rowGap: 0.25 }}
+                data-testid="order-details-assigned-manager-section"
+              >
+                <Typography color="text.secondary" sx={{ lineHeight: 1.4 }}>
+                  <Typography
+                    component="span"
+                    variant="subtitle2"
+                    sx={{ color: 'text.primary', fontWeight: 700 }}
+                  >
+                    {ordersUiText.detailsPage.labels.assignedManager}:
+                  </Typography>{' '}
+
+                  {isManagerAssigned ? (
+                    <Typography
+                      component="span"
+                      sx={{ fontStyle: 'italic' }}
+                      data-testid="order-details-assigned-manager-value"
+                    >
+                      {assignedManagerDisplayValue}
+                    </Typography>
+                  ) : (
+                    <Button
+                      variant="text"
+                      onClick={onAssignManager}
+                      disabled={isManagerActionPending}
+                      data-testid="order-details-manager-assign-trigger"
+                      sx={{
+                        px: 0,
+                        minWidth: 0,
+                        textTransform: 'none',
+                        textDecoration: 'underline',
+                        verticalAlign: 'baseline',
+                      }}
+                    >
+                      <Typography
+                        component="span"
+                        sx={{ fontStyle: 'italic' }}
+                        data-testid="order-details-assigned-manager-value"
+                      >
+                        {ordersUiText.detailsPage.placeholders.selectManager}
+                      </Typography>
+                    </Button>
+                  )}
+                </Typography>
+
+                {isManagerAssigned ? (
+                  <>
+                    <IconButton
+                      size="small"
+                      onClick={onEditManager}
+                      disabled={isManagerActionPending}
+                      aria-label="edit assigned manager"
+                      data-testid="order-details-manager-edit-trigger"
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={onUnassignManager}
+                      disabled={isManagerActionPending}
+                      aria-label="unassign manager"
+                      data-testid="order-details-manager-unassign-trigger"
+                    >
+                      <CloseRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                ) : null}
+              </Box>
             </Stack>
 
             <Stack
@@ -229,23 +313,6 @@ export function OrderDetailsSummarySection({
               data-testid="order-details-summary-total-price-value"
             >
               {formatPrice(order.total_price)}
-            </Typography>
-          </Stack>
-
-          <Stack
-            spacing={0.75}
-            sx={summaryMetricCardSx}
-            data-testid="order-details-summary-metric-assigned-manager-card"
-          >
-            <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: 0.2 }}>
-              {ordersUiText.detailsPage.labels.assignedManager}
-            </Typography>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 700 }}
-              data-testid="order-details-summary-assigned-manager-value"
-            >
-              {assignedManagerDisplayValue}
             </Typography>
           </Stack>
 

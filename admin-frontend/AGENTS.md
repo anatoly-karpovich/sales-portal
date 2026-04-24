@@ -83,17 +83,20 @@ Top-level source layout:
     - emits API error event unless request has `skipErrorToast: true`.
 - `api/events.ts` - internal event bus for `error` and `unauthorized`.
 - `api/types.ts` - `ApiRequestConfig` extension with `skipErrorToast`.
-- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`).
+- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`, `users`).
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
   - create order (`POST /orders`);
   - update order customer/products (`PUT /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
   - status update/reopen (`PUT /orders/:orderId/status`);
+  - assign/unassign manager (`PUT /orders/:orderId/assign-manager/:managerId`, `PUT /orders/:orderId/unassign-manager`);
   - schedule/edit delivery (`POST /orders/:orderId/delivery`);
   - receive requested products (`POST /orders/:orderId/receive`);
   - comments create/delete (`POST /orders/:orderId/comments`, `DELETE /orders/:orderId/comments/:commentId`);
   - export (`POST /orders/export` with blob response).
+- `api/modules/users.api.ts`
+  - minimal users contract and `getUsers()` (`GET /users`) used by manager assignment flow on order details.
 - `api/modules/products.api.ts`
   - includes `getAllProducts()` (`GET /products/all`) used by Orders create modal preload.
 
@@ -133,14 +136,15 @@ Top-level source layout:
 - `features/orders` (iteration 6 in active implementation)
   - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows
-  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields
   - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit, delivery date offsets)
   - `components/CreateOrderDialog.tsx` - create modal (customer/products preload, total price, row add/remove)
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
   - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
   - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard
-  - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order meta, status actions, metrics cards)
+  - `components/AssignManagerDialog.tsx` - assign/edit manager dialog with searchable manager list and save-state guards
+  - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order id, assigned manager controls near order number, status actions, metrics cards)
   - `components/OrderDetailsCustomerSection.tsx` - customer read-only block + draft-only edit trigger
   - `components/OrderDetailsProductsSection.tsx` - products block + draft edit + receive-mode controls
   - `components/OrderDetailsTabsSection.tsx` - tabs switcher and tab-level composition (`Delivery`, `Order History`, `Comments`)
@@ -156,12 +160,21 @@ Top-level source layout:
     - per-action diff blocks (status, delivery fields, customer, requested products, receive, manager assignment);
     - fallback diff mode for unknown actions;
     - state snapshot and product chips per event;
-    - lazy customer name resolution for historical customer ids.
+    - lazy customer name resolution for historical customer ids;
+    - manager names are resolved from history payload (`performer`, `assignedManager`) without extra manager lookup requests.
   - `orders.ui-text.ts` - labels, dialog text, toasts, errors
   - `pages/OrderDetailsPage.tsx` - implemented details page:
     - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
-    - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`);
+    - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
     - read-only customer/products blocks;
+    - manager assignment flow:
+      - if manager is absent: `Click to select manager` trigger opens assignment dialog;
+      - if manager exists: show manager value + edit trigger + unassign trigger;
+      - assign dialog loads users from `/users`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
+      - list is sorted A-Z by full name (fallback to username);
+      - save is disabled for empty selection or unchanged manager;
+      - unassign uses shared `ConfirmDialog`;
+      - assign/unassign success closes modal, shows toast, and refreshes details with skeleton reload;
     - receive mode for products in `In Process`/`Partially Received`:
       - `Receive` CTA only when there are pending (not received) products;
       - per-product checkboxes in receive mode with `Select All`;
@@ -194,6 +207,7 @@ Top-level source layout:
 - `constants/dictionaries.ts` - manufacturers, countries, statuses, page size options.
 - `utils/date.ts` - `formatDateTime`.
 - `utils/download.ts` - blob download from axios response.
+- `utils/orderStatus.ts` - centralized order status color mapping used across orders/customers/home.
 
 ## 5) Routing and access rules
 Routes:
@@ -306,10 +320,20 @@ Do not change these keys without explicit migration requirements.
 ## 10) Text management
 - Put domain text in `<feature>.ui-text.ts` for that feature.
 - Keep generic shared text near shared components (example: `components/shared/shared.ui-text.ts`).
+- For table empty states, reuse shared copy from `components/shared/shared.ui-text.ts`:
+  - base empty: `No records created yet`
+  - filtered/criteria empty: `No records found.`
 
-## 11) Number and money formatting
+## 11) Number, money, and status formatting
 - Display monetary values with thousands separators in UI.
 - Prefer a shared formatter/helper (for example locale-based `toLocaleString`) instead of ad-hoc string concatenation in components.
+- For order statuses, always use `utils/orderStatus.ts#getOrderStatusColor` (do not inline per-component color logic).
+- Current order status color mapping:
+  - `Draft` -> `text.primary`
+  - `In Process` -> `primary.main`
+  - `Partially Received` -> `primary.main`
+  - `Received` -> `success.main`
+  - `Canceled` -> `error.main`
 
 ## 12) Pre-handoff checklist
 - Ensure code is in correct layer (`api`, `features`, `components/shared`, `app`).
