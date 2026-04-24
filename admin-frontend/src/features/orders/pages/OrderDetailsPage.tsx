@@ -878,7 +878,6 @@ export function OrderDetailsPage() {
         open={isCustomerEditDialogOpen}
         customers={availableCustomers}
         currentCustomerId={order.customer._id}
-        search={customerEditSearch}
         selectedCustomerId={selectedCustomerId}
         isInitialLoading={customerOptionsQuery.isLoading && availableCustomers.length === 0}
         isUpdating={customerOptionsQuery.isFetching && availableCustomers.length > 0}
@@ -893,7 +892,6 @@ export function OrderDetailsPage() {
         open={isManagerAssignDialogOpen}
         managers={filteredManagers}
         currentManagerId={order.assignedManager?._id ?? null}
-        search={managerSearch}
         selectedManagerId={selectedManagerId}
         isInitialLoading={managerOptionsQuery.isLoading && availableManagers.length === 0}
         isUpdating={managerOptionsQuery.isFetching && availableManagers.length > 0}

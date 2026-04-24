@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import CloseIcon from '@mui/icons-material/Close'
 import {
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -8,11 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  LinearProgress,
-  List,
-  ListItemButton,
-  ListItemText,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -24,7 +21,6 @@ type Props = {
   open: boolean
   managers: User[]
   currentManagerId: string | null
-  search: string
   selectedManagerId: string
   isInitialLoading: boolean
   isUpdating: boolean
@@ -40,11 +36,14 @@ function resolveManagerName(manager: User) {
   return fullName || manager.username
 }
 
+function formatManagerLabel(manager: User) {
+  return `${resolveManagerName(manager)} (${manager.username})`
+}
+
 export function AssignManagerDialog({
   open,
   managers,
   currentManagerId,
-  search,
   selectedManagerId,
   isInitialLoading,
   isUpdating,
@@ -54,16 +53,27 @@ export function AssignManagerDialog({
   onClose,
   onSave,
 }: Props) {
+  const selectedManager = useMemo(
+    () => managers.find((manager) => manager._id === selectedManagerId) ?? null,
+    [managers, selectedManagerId],
+  )
+
   const isSaveDisabled =
     isInitialLoading ||
     isSubmitting ||
     !selectedManagerId ||
     selectedManagerId === currentManagerId
 
+  const isLoading = isInitialLoading || isUpdating
+  const requestClose = () => {
+    onSearchChange('')
+    onClose()
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={isSubmitting ? undefined : onClose}
+      onClose={isSubmitting ? undefined : requestClose}
       fullWidth
       maxWidth="sm"
       data-testid="order-details-assign-manager-dialog"
@@ -74,7 +84,7 @@ export function AssignManagerDialog({
           : ordersUiText.dialogs.details.assignManagerTitle}
         <IconButton
           aria-label="close"
-          onClick={onClose}
+          onClick={requestClose}
           disabled={isSubmitting}
           sx={{ position: 'absolute', right: 16, top: 12 }}
           data-testid="order-details-assign-manager-close-button"
@@ -85,72 +95,72 @@ export function AssignManagerDialog({
 
       <DialogContent dividers>
         <Stack spacing={2}>
-          <TextField
-            label={ordersUiText.dialogs.details.assignManagerSearchLabel}
-            placeholder={ordersUiText.dialogs.details.assignManagerSearchPlaceholder}
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            disabled={isInitialLoading || isSubmitting}
-            data-testid="order-details-assign-manager-search-input"
-            inputProps={{ 'data-testid': 'order-details-assign-manager-search-input-field' }}
-          />
-
-          <Paper
-            variant="outlined"
-            sx={{ maxHeight: 320, overflowY: 'auto', position: 'relative' }}
-            data-testid="order-details-assign-manager-list"
-          >
-            {isUpdating && managers.length > 0 ? (
-              <LinearProgress
-                sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
-                data-testid="order-details-assign-manager-list-updating"
-              />
-            ) : null}
-
-            {isInitialLoading ? (
+          <Autocomplete
+            options={managers}
+            value={selectedManager}
+            openOnFocus
+            disableClearable
+            forcePopupIcon={false}
+            loading={isLoading}
+            filterOptions={(options) => options}
+            getOptionLabel={formatManagerLabel}
+            isOptionEqualToValue={(option, value) => option._id === value._id}
+            onClose={() => {
+              onSearchChange('')
+            }}
+            onChange={(_, manager) => {
+              if (!manager) return
+              onSelectManager(manager._id)
+              onSearchChange('')
+            }}
+            onInputChange={(_, value, reason) => {
+              if (reason === 'reset') return
+              onSearchChange(value)
+            }}
+            noOptionsText={
+              <Typography data-testid="order-details-assign-manager-list-empty" color="text.secondary">
+                {ordersUiText.dialogs.details.assignManagerNoResults}
+              </Typography>
+            }
+            loadingText={
               <Stack
                 direction="row"
                 spacing={1}
                 alignItems="center"
-                justifyContent="center"
-                sx={{ py: 4 }}
                 data-testid="order-details-assign-manager-list-loading"
               >
-                <CircularProgress size={18} />
+                <CircularProgress size={16} />
                 <Typography color="text.secondary">
                   {ordersUiText.dialogs.details.assignManagerLoading}
                 </Typography>
               </Stack>
-            ) : managers.length === 0 ? (
-              <Typography
-                sx={{ py: 3, px: 2 }}
-                color="text.secondary"
-                data-testid="order-details-assign-manager-list-empty"
-              >
-                {ordersUiText.dialogs.details.assignManagerNoResults}
-              </Typography>
-            ) : (
-              <List disablePadding>
-                {managers.map((manager, index) => (
-                  <ListItemButton
-                    key={manager._id}
-                    selected={selectedManagerId === manager._id}
-                    onClick={() => onSelectManager(manager._id)}
-                    disabled={isSubmitting || isInitialLoading}
-                    data-testid={`order-details-assign-manager-item-${index}`}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                          {resolveManagerName(manager)} ({manager.username})
-                        </Typography>
-                      }
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
+            }
+            slotProps={{
+              popper: {
+                sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
+              },
+            }}
+            renderOption={(props, manager, state) => (
+              <li {...props} data-testid={`order-details-assign-manager-item-${state.index}`}>
+                <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                  {formatManagerLabel(manager)}
+                </Typography>
+              </li>
             )}
-          </Paper>
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={ordersUiText.dialogs.details.assignManagerSearchLabel}
+                placeholder={ordersUiText.dialogs.details.assignManagerSearchPlaceholder}
+                disabled={isSubmitting}
+                data-testid="order-details-assign-manager-search-input"
+                inputProps={{
+                  ...params.inputProps,
+                  'data-testid': 'order-details-assign-manager-search-input-field',
+                }}
+              />
+            )}
+          />
         </Stack>
       </DialogContent>
 
@@ -162,10 +172,14 @@ export function AssignManagerDialog({
           disabled={isSaveDisabled}
           data-testid="order-details-assign-manager-save-button"
         >
-          {isSubmitting ? <CircularProgress size={18} color="inherit" /> : ordersUiText.dialogs.details.assignManagerSave}
+          {isSubmitting ? (
+            <CircularProgress size={18} color="inherit" />
+          ) : (
+            ordersUiText.dialogs.details.assignManagerSave
+          )}
         </Button>
         <Button
-          onClick={onClose}
+          onClick={requestClose}
           disabled={isSubmitting}
           data-testid="order-details-assign-manager-cancel-button"
         >

@@ -1,4 +1,5 @@
 import {
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -7,10 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  LinearProgress,
-  List,
-  ListItemButton,
-  ListItemText,
   Paper,
   Stack,
   TextField,
@@ -19,7 +16,6 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Product } from '@/api/modules/products.api'
 import type { OrderProduct } from '@/api/modules/orders.api'
@@ -100,12 +96,18 @@ export function EditOrderProductsDialog({
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
   const [knownProductsById, setKnownProductsById] = useState<Map<string, ProductSummary>>(
-    () => new Map(initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)])),
+    () =>
+      new Map(
+        initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)]),
+      ),
   )
   const nextRowId = useRef(initialProducts.length > 0 ? initialProducts.length + 1 : 2)
 
   const initialProductsById = useMemo(
-    () => new Map(initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)])),
+    () =>
+      new Map(
+        initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)]),
+      ),
     [initialProducts],
   )
 
@@ -142,11 +144,7 @@ export function EditOrderProductsDialog({
   const hasChanges = !areEqualProductMultiset(initialProductIds, currentProductIds)
   const canAddRow = rows.length < ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS && !hasEmptyRows
   const isSaveDisabled =
-    isSubmitting ||
-    isAvailabilityLoading ||
-    hasEmptyRows ||
-    hasUnavailableRows ||
-    !hasChanges
+    isSubmitting || isAvailabilityLoading || hasEmptyRows || hasUnavailableRows || !hasChanges
   const saveDisabledReason = isSubmitting
     ? null
     : isAvailabilityLoading
@@ -197,21 +195,23 @@ export function EditOrderProductsDialog({
     setDebouncedSearch('')
   }
 
-  const handleSelectProduct = (product: Product) => {
-    if (!editingRowId || isSubmitting) return
+  const handleClosePicker = () => {
+    setEditingRowId(null)
+    setSearch('')
+    setDebouncedSearch('')
+  }
+
+  const handleSelectProduct = (product: Product | null) => {
+    if (!editingRowId || isSubmitting || !product) return
     setRows((current) =>
-      current.map((row) =>
-        row.id === editingRowId ? { ...row, productId: product._id } : row,
-      ),
+      current.map((row) => (row.id === editingRowId ? { ...row, productId: product._id } : row)),
     )
     setKnownProductsById((current) => {
       const next = new Map(current)
       next.set(product._id, buildSummaryFromProduct(product))
       return next
     })
-    setSearch('')
-    setDebouncedSearch('')
-    setEditingRowId(null)
+    handleClosePicker()
   }
 
   const resolveRowSummary = (row: ProductRow) => {
@@ -226,10 +226,9 @@ export function EditOrderProductsDialog({
   }
 
   const activeRow = editingRowId ? rows.find((row) => row.id === editingRowId) : null
-  const isInitialLoading = optionsQuery.isLoading && options.length === 0
-  const isUpdating = optionsQuery.isFetching && options.length > 0
 
   const requestClose = () => {
+    handleClosePicker()
     if (hasChanges && !isSubmitting) {
       setIsDiscardConfirmOpen(true)
       return
@@ -251,250 +250,254 @@ export function EditOrderProductsDialog({
         maxWidth="sm"
         data-testid="order-details-products-edit-dialog"
       >
-      <DialogTitle sx={{ pr: 6 }} data-testid="order-details-products-edit-dialog-title">
-        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
-          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
-            {ordersUiText.dialogs.details.editProductsTitle}
-          </Typography>
-          {saveDisabledReason ? (
-            <Typography
-              variant="body2"
-              color="warning.main"
-              sx={{ textAlign: 'right', maxWidth: 320, mr: 4.5 }}
-              data-testid="order-details-products-edit-save-disabled-reason"
-            >
-              {saveDisabledReason}
+        <DialogTitle sx={{ pr: 6 }} data-testid="order-details-products-edit-dialog-title">
+          <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
+            <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+              {ordersUiText.dialogs.details.editProductsTitle}
             </Typography>
-          ) : null}
-        </Stack>
-        <IconButton
-          aria-label="close"
-          onClick={requestClose}
-          disabled={isSubmitting}
-          sx={{ position: 'absolute', right: 16, top: 12 }}
-          data-testid="order-details-products-edit-dialog-close-button"
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent dividers>
-        <Stack spacing={2.25}>
-          <Stack spacing={1.25} data-testid="order-details-products-edit-selected-rows-section">
-            <Typography variant="subtitle2">
-              {ordersUiText.dialogs.details.editProductsLabel}
-            </Typography>
-
-            {rows.map((row, index) => {
-              const isActive = editingRowId === row.id
-              const isUnavailable = Boolean(row.productId) && unavailableIds.has(row.productId)
-              return (
-                <Paper
-                  key={row.id}
-                  variant="outlined"
-                  sx={{
-                    p: 1.25,
-                    borderColor: isUnavailable
-                      ? 'error.main'
-                      : isActive
-                        ? 'primary.main'
-                        : 'divider',
-                  }}
-                  data-testid={`order-details-products-edit-row-${index}`}
-                >
-                  <Stack direction="row" spacing={1} alignItems="flex-start">
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                        data-testid={`order-details-products-edit-row-${index}-summary`}
-                      >
-                        {resolveRowSummary(row)}
-                      </Typography>
-                      {isUnavailable ? (
-                        <Typography
-                          variant="body2"
-                          color="error.main"
-                          data-testid={`order-details-products-edit-row-${index}-unavailable`}
-                        >
-                          {ordersUiText.dialogs.details.editProductsUnavailable}
-                        </Typography>
-                      ) : null}
-                    </Box>
-
-                    <IconButton
-                      size="small"
-                      onClick={() => handleActivateRow(row.id)}
-                      disabled={isSubmitting}
-                      color={isActive ? 'primary' : 'default'}
-                      data-testid={`order-details-products-edit-row-${index}-edit-button`}
-                    >
-                      <EditOutlinedIcon fontSize="small" />
-                    </IconButton>
-
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemoveRow(row.id)}
-                      disabled={!canRemoveRow || isSubmitting}
-                      data-testid={`order-details-products-edit-row-${index}-delete-button`}
-                    >
-                      <DeleteOutlineOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                </Paper>
-              )
-            })}
-
-            {canAddRow ? (
-              <Button
-                variant="outlined"
-                startIcon={<AddRoundedIcon />}
-                onClick={handleAddRow}
-                disabled={isSubmitting}
-                sx={{ alignSelf: 'flex-start' }}
-                data-testid="order-details-products-edit-add-product-button"
+            {saveDisabledReason ? (
+              <Typography
+                variant="body2"
+                color="warning.main"
+                sx={{ textAlign: 'right', maxWidth: 320, mr: 4.5 }}
+                data-testid="order-details-products-edit-save-disabled-reason"
               >
-                {ordersUiText.dialogs.details.editProductsAdd}
-              </Button>
+                {saveDisabledReason}
+              </Typography>
             ) : null}
           </Stack>
+          <IconButton
+            aria-label="close"
+            onClick={requestClose}
+            disabled={isSubmitting}
+            sx={{ position: 'absolute', right: 16, top: 12 }}
+            data-testid="order-details-products-edit-dialog-close-button"
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
 
-          <Stack spacing={1.25}>
-            {activeRow ? (
-              <>
-                <TextField
-                  label={ordersUiText.dialogs.details.editProductsSearchLabel}
-                  placeholder={ordersUiText.dialogs.details.editProductsSearchPlaceholder}
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  disabled={isSubmitting}
-                  data-testid="order-details-products-edit-search-input"
-                  inputProps={{ 'data-testid': 'order-details-products-edit-search-input-field' }}
-                />
+        <DialogContent dividers>
+          <Stack spacing={2.25}>
+            <Stack spacing={1.25} data-testid="order-details-products-edit-selected-rows-section">
+              <Typography variant="subtitle2">
+                {ordersUiText.dialogs.details.editProductsLabel}
+              </Typography>
 
-                <Paper
-                  variant="outlined"
-                  sx={{ maxHeight: 320, overflowY: 'auto', position: 'relative' }}
-                  data-testid="order-details-products-edit-search-list"
-                >
-                  {isUpdating ? (
-                    <LinearProgress
-                      sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
-                      data-testid="order-details-products-edit-search-list-updating"
-                    />
-                  ) : null}
+              {rows.map((row, index) => {
+                const isActive = editingRowId === row.id
+                const isUnavailable = Boolean(row.productId) && unavailableIds.has(row.productId)
+                return (
+                  <Paper
+                    key={row.id}
+                    variant="outlined"
+                    onClick={() => handleActivateRow(row.id)}
+                    sx={{
+                      p: 1.25,
+                      cursor: isSubmitting ? 'default' : 'pointer',
+                      transition: (theme) =>
+                        theme.transitions.create('border-color', {
+                          duration: theme.transitions.duration.shortest,
+                        }),
+                      borderColor: isUnavailable
+                        ? 'error.main'
+                        : isActive
+                          ? 'primary.main'
+                          : 'action.disabled',
+                      '&:hover': {
+                        borderColor: isUnavailable
+                          ? 'error.main'
+                          : isActive
+                            ? 'primary.main'
+                            : 'text.primary',
+                      },
+                    }}
+                    data-testid={`order-details-products-edit-row-${index}`}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          color={row.productId ? 'text.primary' : 'text.secondary'}
+                          data-testid={`order-details-products-edit-row-${index}-summary`}
+                        >
+                          {resolveRowSummary(row)}
+                        </Typography>
+                        {isUnavailable ? (
+                          <Typography
+                            variant="body2"
+                            color="error.main"
+                            data-testid={`order-details-products-edit-row-${index}-unavailable`}
+                          >
+                            {ordersUiText.dialogs.details.editProductsUnavailable}
+                          </Typography>
+                        ) : null}
+                      </Box>
 
-                  {isInitialLoading ? (
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="center"
-                      sx={{ py: 4 }}
-                      data-testid="order-details-products-edit-search-list-loading"
-                    >
-                      <CircularProgress size={18} />
-                      <Typography color="text.secondary">
-                        {ordersUiText.dialogs.details.editProductsLoading}
-                      </Typography>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleRemoveRow(row.id)
+                        }}
+                        disabled={!canRemoveRow || isSubmitting}
+                        data-testid={`order-details-products-edit-row-${index}-delete-button`}
+                      >
+                        <DeleteOutlineOutlinedIcon fontSize="small" />
+                      </IconButton>
                     </Stack>
-                  ) : options.length === 0 ? (
+                  </Paper>
+                )
+              })}
+
+              {canAddRow ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<AddRoundedIcon />}
+                  onClick={handleAddRow}
+                  disabled={isSubmitting}
+                  sx={{ alignSelf: 'flex-start' }}
+                  data-testid="order-details-products-edit-add-product-button"
+                >
+                  {ordersUiText.dialogs.details.editProductsAdd}
+                </Button>
+              ) : null}
+            </Stack>
+
+            <Stack spacing={1.25}>
+              {activeRow ? (
+                <Autocomplete
+                  options={options}
+                  value={null}
+                  open={Boolean(activeRow)}
+                  loading={optionsQuery.isLoading || optionsQuery.isFetching}
+                  inputValue={search}
+                  filterOptions={(availableOptions) => availableOptions}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option._id === value._id}
+                  onClose={(_, reason) => {
+                    if (reason === 'selectOption') return
+                    handleClosePicker()
+                  }}
+                  onChange={(_, product) => handleSelectProduct(product)}
+                  onInputChange={(_, value, reason) => {
+                    if (reason === 'reset') return
+                    setSearch(value)
+                  }}
+                  noOptionsText={
                     <Typography
-                      sx={{ py: 3, px: 2 }}
                       color="text.secondary"
                       data-testid="order-details-products-edit-search-list-empty"
                     >
                       {ordersUiText.dialogs.details.editProductsNoResults}
                     </Typography>
-                  ) : (
-                    <List disablePadding>
-                      {options.map((product, index) => (
-                        <ListItemButton
-                          key={product._id}
-                          selected={activeRow.productId === product._id}
-                          onClick={() => handleSelectProduct(product)}
-                          disabled={isSubmitting}
-                          data-testid={`order-details-products-edit-search-item-${index}`}
+                  }
+                  loadingText={
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      data-testid="order-details-products-edit-search-list-loading"
+                    >
+                      <CircularProgress size={16} />
+                      <Typography color="text.secondary">
+                        {ordersUiText.dialogs.details.editProductsLoading}
+                      </Typography>
+                    </Stack>
+                  }
+                  slotProps={{
+                    popper: {
+                      sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
+                    },
+                  }}
+                  renderOption={(props, product, state) => (
+                    <li {...props} data-testid={`order-details-products-edit-search-item-${state.index}`}>
+                      <Stack spacing={0.25}>
+                        <Typography
+                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          data-testid={`order-details-products-edit-search-item-${state.index}-name`}
                         >
-                          <ListItemText
-                            primary={
-                              <Typography
-                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                                data-testid={`order-details-products-edit-search-item-${index}-name`}
-                              >
-                                {product.name}
-                              </Typography>
-                            }
-                            secondary={
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                                data-testid={`order-details-products-edit-search-item-${index}-meta`}
-                              >
-                                {product.manufacturer} | {formatPrice(product.price)}
-                              </Typography>
-                            }
-                          />
-                        </ListItemButton>
-                      ))}
-                    </List>
+                          {product.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          data-testid={`order-details-products-edit-search-item-${state.index}-meta`}
+                        >
+                          {product.manufacturer} | {formatPrice(product.price)}
+                        </Typography>
+                      </Stack>
+                    </li>
                   )}
-                </Paper>
-              </>
-            ) : (
-              <Typography
-                sx={{ py: 0.5 }}
-                color="text.secondary"
-                data-testid="order-details-products-edit-search-list-no-active-row"
-              >
-                {ordersUiText.dialogs.details.editProductsSelectRowHint}
-              </Typography>
-            )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={ordersUiText.dialogs.details.editProductsSearchLabel}
+                      placeholder={ordersUiText.dialogs.details.editProductsSearchPlaceholder}
+                      disabled={isSubmitting}
+                      data-testid="order-details-products-edit-search-input"
+                      inputProps={{
+                        ...params.inputProps,
+                        'data-testid': 'order-details-products-edit-search-input-field',
+                      }}
+                    />
+                  )}
+                />
+              ) : (
+                <Typography
+                  sx={{ py: 0.5 }}
+                  color="text.secondary"
+                  data-testid="order-details-products-edit-search-list-no-active-row"
+                >
+                  {ordersUiText.dialogs.details.editProductsSelectRowHint}
+                </Typography>
+              )}
+            </Stack>
           </Stack>
-        </Stack>
-      </DialogContent>
+        </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{ mr: 'auto' }}
-          data-testid="order-details-products-edit-total-price-section"
-        >
-          <Typography variant="body2">{ordersUiText.dialogs.createOrderTotalPriceLabel}</Typography>
-          <Typography
-            variant="body1"
-            sx={{ fontWeight: 700, color: 'primary.main' }}
-            data-testid="order-details-products-edit-total-price-value"
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ mr: 'auto' }}
+            data-testid="order-details-products-edit-total-price-section"
           >
-            {formatPrice(totalPrice)}
-          </Typography>
-        </Stack>
+            <Typography variant="body2">{ordersUiText.dialogs.createOrderTotalPriceLabel}</Typography>
+            <Typography
+              variant="body1"
+              sx={{ fontWeight: 700, color: 'primary.main' }}
+              data-testid="order-details-products-edit-total-price-value"
+            >
+              {formatPrice(totalPrice)}
+            </Typography>
+          </Stack>
 
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="contained"
-            onClick={() => void onSave(currentProductIds)}
-            disabled={isSaveDisabled}
-            data-testid="order-details-products-edit-save-button"
-          >
-            {isSubmitting ? (
-              <CircularProgress size={18} color="inherit" />
-            ) : (
-              ordersUiText.dialogs.details.editProductsSave
-            )}
-          </Button>
-          <Button
-            onClick={requestClose}
-            disabled={isSubmitting}
-            data-testid="order-details-products-edit-cancel-button"
-          >
-            {ordersUiText.dialogs.cancel}
-          </Button>
-        </Stack>
-      </DialogActions>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              onClick={() => void onSave(currentProductIds)}
+              disabled={isSaveDisabled}
+              data-testid="order-details-products-edit-save-button"
+            >
+              {isSubmitting ? (
+                <CircularProgress size={18} color="inherit" />
+              ) : (
+                ordersUiText.dialogs.details.editProductsSave
+              )}
+            </Button>
+            <Button
+              onClick={requestClose}
+              disabled={isSubmitting}
+              data-testid="order-details-products-edit-cancel-button"
+            >
+              {ordersUiText.dialogs.cancel}
+            </Button>
+          </Stack>
+        </DialogActions>
       </Dialog>
 
       <ConfirmDialog
