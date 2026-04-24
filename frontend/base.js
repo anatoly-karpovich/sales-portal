@@ -4,7 +4,8 @@ const CONTENT_ID = "contentInner";
 const PAGE_TITLE_ID = "title";
 
 // const BASE_URL = "https://aqa-course-project.app";
-const BASE_URL = "http://localhost:8686";
+// const BASE_URL = "http://localhost:8686";
+const BASE_URL = "http://localhost:5000";
 
 const NUMBER_KEYS = ["amount", "price", "flat", "house"];
 
