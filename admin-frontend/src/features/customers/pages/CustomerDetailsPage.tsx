@@ -256,7 +256,16 @@ export function CustomerDetailsPage() {
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {customersUiText.detailsPage.notesTitle}
               </Typography>
-              <Typography color="text.secondary" data-testid="customer-details-notes-text">
+              <Typography
+                color="text.secondary"
+                data-testid="customer-details-notes-text"
+                sx={{
+                  maxWidth: '100%',
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {customer.notes?.trim() ? customer.notes : '-'}
               </Typography>
             </Stack>
