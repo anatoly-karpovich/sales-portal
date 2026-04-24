@@ -142,9 +142,11 @@ Top-level source layout:
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields
   - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit, delivery date offsets)
   - `components/CreateOrderDialog.tsx` - create modal with search-driven pickers:
-    - customer picker is closed by default, opens on user action, and closes after selection;
-    - selected customer value is shown in the input, with edit-pencil trigger for reselection;
-    - product rows support `1..5`, duplicates are allowed, and only one active product search chooser is rendered at a time;
+    - customer selection uses MUI `Autocomplete` with popper overlay (outside dialog flow), opens on field click, and closes after selection;
+    - selected customer value is shown in the same input field (`name | email`), without separate pencil action;
+    - product rows support `1..5`, duplicates are allowed, and only one active product `Autocomplete` chooser is rendered at a time;
+    - product row click opens editing chooser; delete action is independent and does not trigger edit open;
+    - product row outline/hovers are aligned with outlined-input style for consistent visual affordance;
     - unavailable products are detected via availability checks and block create action;
     - total price is recalculated from selected product summaries.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
@@ -312,6 +314,11 @@ For `TextField`:
 For `TextField select`:
 - set `SelectProps={{ inputProps: { 'data-testid': '<...>-field' } }}`;
 - set explicit IDs on `MenuItem` options.
+
+For `Autocomplete`:
+- set `data-testid` on the rendered input through `renderInput`;
+- set `inputProps.data-testid` for the actual input node;
+- set deterministic `data-testid` on `renderOption` items (for example by index).
 
 ### 8.5 Shared-first rule
 If behavior comes from a shared component, add base `data-testid` values in that shared component first.

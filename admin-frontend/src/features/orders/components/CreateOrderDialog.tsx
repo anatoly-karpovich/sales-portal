@@ -1,4 +1,5 @@
 import {
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -7,11 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  LinearProgress,
-  List,
-  ListItemButton,
-  ListItemText,
-  InputAdornment,
   Paper,
   Stack,
   TextField,
@@ -20,7 +16,6 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Customer } from '@/api/modules/customers.api'
 import type { Product } from '@/api/modules/products.api'
@@ -37,12 +32,6 @@ import {
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatPrice } from '@/utils/number'
 
-type ProductRow = {
-  id: number
-  productId: string
-  summary: ProductSummary | null
-}
-
 type CustomerSummary = {
   _id: string
   name: string
@@ -54,6 +43,12 @@ type ProductSummary = {
   name: string
   manufacturer: string
   price: number
+}
+
+type ProductRow = {
+  id: number
+  productId: string
+  summary: ProductSummary | null
 }
 
 type Props = {
@@ -78,6 +73,10 @@ function toProductSummary(product: Product): ProductSummary {
     manufacturer: product.manufacturer,
     price: product.price,
   }
+}
+
+function formatCustomerSummary(customer: CustomerSummary) {
+  return `${customer.name} | ${customer.email}`
 }
 
 export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Props) {
@@ -119,18 +118,20 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
     debouncedCustomerSearch,
     open && isCustomerPickerOpen,
   )
-  const customerOptions = customerOptionsQuery.data?.Customers ?? []
-  const isCustomerInitialLoading = customerOptionsQuery.isLoading && customerOptions.length === 0
-  const isCustomerUpdating = customerOptionsQuery.isFetching && customerOptions.length > 0
+  const customerOptions = useMemo(
+    () => (customerOptionsQuery.data?.Customers ?? []).map(toCustomerSummary),
+    [customerOptionsQuery.data?.Customers],
+  )
 
   const activeRow = editingRowId ? productRows.find((row) => row.id === editingRowId) : null
   const productOptionsQuery = useOrderProductOptionsQuery(
     debouncedProductSearch,
     open && editingRowId !== null,
   )
-  const productOptions = productOptionsQuery.data?.Products ?? []
-  const isProductInitialLoading = productOptionsQuery.isLoading && productOptions.length === 0
-  const isProductUpdating = productOptionsQuery.isFetching && productOptions.length > 0
+  const productOptions = useMemo(
+    () => (productOptionsQuery.data?.Products ?? []).map(toProductSummary),
+    [productOptionsQuery.data?.Products],
+  )
 
   const selectedProductIds = useMemo(
     () => productRows.map((row) => row.productId).filter(Boolean),
@@ -169,11 +170,16 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
     setDebouncedCustomerSearch('')
   }
 
-  const handleSelectCustomer = (customer: Customer) => {
-    setSelectedCustomer(toCustomerSummary(customer))
+  const handleCloseCustomerPicker = () => {
     setIsCustomerPickerOpen(false)
     setCustomerSearch('')
     setDebouncedCustomerSearch('')
+  }
+
+  const handleSelectCustomer = (customer: CustomerSummary | null) => {
+    if (!customer) return
+    setSelectedCustomer(customer)
+    handleCloseCustomerPicker()
   }
 
   const handleAddProductRow = () => {
@@ -202,18 +208,20 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
     setDebouncedProductSearch('')
   }
 
-  const handleSelectProduct = (product: Product) => {
-    if (!editingRowId || isSubmitting) return
-    setProductRows((current) =>
-      current.map((row) =>
-        row.id === editingRowId
-          ? { ...row, productId: product._id, summary: toProductSummary(product) }
-          : row,
-      ),
-    )
+  const handleCloseProductPicker = () => {
+    setEditingRowId(null)
     setProductSearch('')
     setDebouncedProductSearch('')
-    setEditingRowId(null)
+  }
+
+  const handleSelectProduct = (product: ProductSummary | null) => {
+    if (!editingRowId || isSubmitting || !product) return
+    setProductRows((current) =>
+      current.map((row) =>
+        row.id === editingRowId ? { ...row, productId: product._id, summary: product } : row,
+      ),
+    )
+    handleCloseProductPicker()
   }
 
   const resolveProductRowSummary = (row: ProductRow) => {
@@ -257,117 +265,77 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
         <Stack spacing={2.25}>
           <Stack spacing={1.25} data-testid="orders-create-customer-section">
             <Typography variant="subtitle2">{ordersUiText.dialogs.createOrderCustomerLabel}</Typography>
-            <TextField
-              placeholder={ordersUiText.dialogs.createOrderCustomerPlaceholder}
-              value={
+
+            <Autocomplete
+              options={customerOptions}
+              value={selectedCustomer}
+              open={isCustomerPickerOpen}
+              disableClearable
+              forcePopupIcon={false}
+              loading={customerOptionsQuery.isLoading || customerOptionsQuery.isFetching}
+              inputValue={
                 isCustomerPickerOpen
                   ? customerSearch
                   : selectedCustomer
-                    ? `${selectedCustomer.name} | ${selectedCustomer.email}`
+                    ? formatCustomerSummary(selectedCustomer)
                     : ''
               }
-              onChange={(event) => {
+              filterOptions={(options) => options}
+              getOptionLabel={formatCustomerSummary}
+              isOptionEqualToValue={(option, value) => option._id === value._id}
+              onOpen={handleOpenCustomerPicker}
+              onClose={(_, reason) => {
+                if (reason === 'selectOption') return
+                handleCloseCustomerPicker()
+              }}
+              onChange={(_, customer) => handleSelectCustomer(customer)}
+              onInputChange={(_, value, reason) => {
                 if (!isCustomerPickerOpen) return
-                setCustomerSearch(event.target.value)
+                if (reason === 'reset') return
+                setCustomerSearch(value)
               }}
-              onClick={() => {
-                if (!selectedCustomer) {
-                  handleOpenCustomerPicker()
-                }
+              noOptionsText={ordersUiText.dialogs.details.editCustomerNoResults}
+              loadingText={ordersUiText.dialogs.details.editCustomerLoading}
+              slotProps={{
+                popper: {
+                  sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
+                },
               }}
-              disabled={isSubmitting}
-              data-testid="orders-create-customer-search-input"
-              inputProps={{
-                'data-testid': 'orders-create-customer-search-input-field',
-                readOnly: !isCustomerPickerOpen,
-              }}
-              InputProps={{
-                endAdornment: selectedCustomer ? (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={handleOpenCustomerPicker}
-                      disabled={isSubmitting}
-                      data-testid="orders-create-customer-edit-button"
+              renderOption={(props, option, state) => (
+                <li {...props} data-testid={`orders-create-customer-item-${state.index}`}>
+                  <Stack spacing={0.25}>
+                    <Typography
+                      sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                      data-testid={`orders-create-customer-item-${state.index}-name`}
                     >
-                      <EditOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null,
-              }}
-            />
-
-            {isCustomerPickerOpen ? (
-              <Paper
-                variant="outlined"
-                sx={{ maxHeight: 220, overflowY: 'auto', position: 'relative' }}
-                data-testid="orders-create-customer-list"
-              >
-                {isCustomerUpdating ? (
-                  <LinearProgress
-                    sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
-                    data-testid="orders-create-customer-list-updating"
-                  />
-                ) : null}
-
-                {isCustomerInitialLoading ? (
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    justifyContent="center"
-                    sx={{ py: 4 }}
-                    data-testid="orders-create-customer-list-loading"
-                  >
-                    <CircularProgress size={18} />
-                    <Typography color="text.secondary">
-                      {ordersUiText.dialogs.details.editCustomerLoading}
+                      {option.name}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                      data-testid={`orders-create-customer-item-${state.index}-email`}
+                    >
+                      {option.email}
                     </Typography>
                   </Stack>
-                ) : customerOptions.length === 0 ? (
-                  <Typography
-                    sx={{ py: 3, px: 2 }}
-                    color="text.secondary"
-                    data-testid="orders-create-customer-list-empty"
-                  >
-                    {ordersUiText.dialogs.details.editCustomerNoResults}
-                  </Typography>
-                ) : (
-                  <List disablePadding>
-                    {customerOptions.map((customer, index) => (
-                      <ListItemButton
-                        key={customer._id}
-                        selected={selectedCustomer?._id === customer._id}
-                        onClick={() => handleSelectCustomer(customer)}
-                        disabled={isSubmitting}
-                        data-testid={`orders-create-customer-item-${index}`}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography
-                              sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                              data-testid={`orders-create-customer-item-${index}-name`}
-                            >
-                              {customer.name}
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                              data-testid={`orders-create-customer-item-${index}-email`}
-                            >
-                              {customer.email}
-                            </Typography>
-                          }
-                        />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                )}
-              </Paper>
-            ) : null}
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder={ordersUiText.dialogs.createOrderCustomerPlaceholder}
+                  onClick={handleOpenCustomerPicker}
+                  disabled={isSubmitting}
+                  data-testid="orders-create-customer-search-input"
+                  inputProps={{
+                    ...params.inputProps,
+                    'data-testid': 'orders-create-customer-search-input-field',
+                    readOnly: !isCustomerPickerOpen,
+                  }}
+                />
+              )}
+            />
           </Stack>
 
           <Stack spacing={1.25} data-testid="orders-create-products-section">
@@ -378,17 +346,31 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
             {productRows.map((row, index) => {
               const isActive = editingRowId === row.id
               const isUnavailable = Boolean(row.productId) && unavailableIds.has(row.productId)
+
               return (
                 <Paper
                   key={row.id}
                   variant="outlined"
+                  onClick={() => handleActivateProductRow(row.id)}
                   sx={{
                     p: 1.25,
+                    cursor: isSubmitting ? 'default' : 'pointer',
+                    transition: (theme) =>
+                      theme.transitions.create('border-color', {
+                        duration: theme.transitions.duration.shortest,
+                      }),
                     borderColor: isUnavailable
                       ? 'error.main'
                       : isActive
                         ? 'primary.main'
-                        : 'divider',
+                        : 'action.disabled',
+                    '&:hover': {
+                      borderColor: isUnavailable
+                        ? 'error.main'
+                        : isActive
+                          ? 'primary.main'
+                          : 'text.primary',
+                    },
                   }}
                   data-testid={`orders-create-product-row-${index}`}
                 >
@@ -415,18 +397,11 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
 
                     <IconButton
                       size="small"
-                      onClick={() => handleActivateProductRow(row.id)}
-                      disabled={isSubmitting}
-                      color={isActive ? 'primary' : 'default'}
-                      data-testid={`orders-create-product-row-${index}-edit-button`}
-                    >
-                      <EditOutlinedIcon fontSize="small" />
-                    </IconButton>
-
-                    <IconButton
-                      size="small"
                       color="error"
-                      onClick={() => handleRemoveProductRow(row.id)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        handleRemoveProductRow(row.id)
+                      }}
                       disabled={!canRemoveRow || isSubmitting}
                       data-testid={`orders-create-product-row-${index}-delete-button`}
                     >
@@ -451,91 +426,68 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
             ) : null}
           </Stack>
 
-          <Stack spacing={1.25} data-testid="orders-create-product-search-section">
-            {activeRow ? (
-              <>
-                <TextField
-                  label={ordersUiText.dialogs.createOrderProductLabel}
-                  placeholder={ordersUiText.dialogs.details.editProductsSearchPlaceholder}
-                  value={productSearch}
-                  onChange={(event) => setProductSearch(event.target.value)}
-                  disabled={isSubmitting}
-                  data-testid="orders-create-product-search-input"
-                  inputProps={{ 'data-testid': 'orders-create-product-search-input-field' }}
-                />
-
-                <Paper
-                  variant="outlined"
-                  sx={{ maxHeight: 260, overflowY: 'auto', position: 'relative' }}
-                  data-testid="orders-create-product-search-list"
-                >
-                  {isProductUpdating ? (
-                    <LinearProgress
-                      sx={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1 }}
-                      data-testid="orders-create-product-search-list-updating"
-                    />
-                  ) : null}
-
-                  {isProductInitialLoading ? (
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="center"
-                      sx={{ py: 4 }}
-                      data-testid="orders-create-product-search-list-loading"
-                    >
-                      <CircularProgress size={18} />
-                      <Typography color="text.secondary">
-                        {ordersUiText.dialogs.details.editProductsLoading}
+          {activeRow ? (
+            <Stack spacing={1.25} data-testid="orders-create-product-search-section">
+              <Autocomplete
+                options={productOptions}
+                value={null}
+                open={Boolean(activeRow)}
+                loading={productOptionsQuery.isLoading || productOptionsQuery.isFetching}
+                inputValue={productSearch}
+                filterOptions={(options) => options}
+                getOptionLabel={(option) => option.name}
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+                onClose={(_, reason) => {
+                  if (reason === 'selectOption') return
+                  handleCloseProductPicker()
+                }}
+                onChange={(_, product) => handleSelectProduct(product)}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') return
+                  setProductSearch(value)
+                }}
+                noOptionsText={ordersUiText.dialogs.details.editProductsNoResults}
+                loadingText={ordersUiText.dialogs.details.editProductsLoading}
+                slotProps={{
+                  popper: {
+                    sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
+                  },
+                }}
+                renderOption={(props, option, state) => (
+                  <li {...props} data-testid={`orders-create-product-search-item-${state.index}`}>
+                    <Stack spacing={0.25}>
+                      <Typography
+                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                        data-testid={`orders-create-product-search-item-${state.index}-name`}
+                      >
+                        {option.name}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                        data-testid={`orders-create-product-search-item-${state.index}-meta`}
+                      >
+                        {option.manufacturer} | {formatPrice(option.price)}
                       </Typography>
                     </Stack>
-                  ) : productOptions.length === 0 ? (
-                    <Typography
-                      sx={{ py: 3, px: 2 }}
-                      color="text.secondary"
-                      data-testid="orders-create-product-search-list-empty"
-                    >
-                      {ordersUiText.dialogs.details.editProductsNoResults}
-                    </Typography>
-                  ) : (
-                    <List disablePadding>
-                      {productOptions.map((product, index) => (
-                        <ListItemButton
-                          key={product._id}
-                          selected={activeRow.productId === product._id}
-                          onClick={() => handleSelectProduct(product)}
-                          disabled={isSubmitting}
-                          data-testid={`orders-create-product-search-item-${index}`}
-                        >
-                          <ListItemText
-                            primary={
-                              <Typography
-                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                                data-testid={`orders-create-product-search-item-${index}-name`}
-                              >
-                                {product.name}
-                              </Typography>
-                            }
-                            secondary={
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                                data-testid={`orders-create-product-search-item-${index}-meta`}
-                              >
-                                {product.manufacturer} | {formatPrice(product.price)}
-                              </Typography>
-                            }
-                          />
-                        </ListItemButton>
-                      ))}
-                    </List>
-                  )}
-                </Paper>
-              </>
-            ) : null}
-          </Stack>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder={ordersUiText.dialogs.details.editProductsSearchPlaceholder}
+                    disabled={isSubmitting}
+                    data-testid="orders-create-product-search-input"
+                    inputProps={{
+                      ...params.inputProps,
+                      'data-testid': 'orders-create-product-search-input-field',
+                    }}
+                  />
+                )}
+              />
+            </Stack>
+          ) : null}
         </Stack>
       </DialogContent>
 
