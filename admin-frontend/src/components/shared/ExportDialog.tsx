@@ -35,22 +35,29 @@ export function ExportDialog({ open, availableFields, defaultFields, onClose, on
     if (open) {
       setFormat('csv')
       setExportFrom('all')
-      setFields(defaultFields)
+      setFields(defaultFields.filter((field) => availableFields.includes(field)))
       setIsSubmitting(false)
     }
-  }, [open, defaultFields])
+  }, [availableFields, defaultFields, open])
 
-  const isAllSelected = useMemo(
-    () => availableFields.length > 0 && availableFields.every((value) => fields.includes(value)),
+  const selectedFieldsCount = useMemo(
+    () => availableFields.filter((value) => fields.includes(value)).length,
     [availableFields, fields],
   )
+
+  const isAllSelected = useMemo(
+    () => availableFields.length > 0 && selectedFieldsCount === availableFields.length,
+    [availableFields.length, selectedFieldsCount],
+  )
+  const isSelectAllIndeterminate =
+    selectedFieldsCount > 0 && selectedFieldsCount < availableFields.length
 
   const toggleField = (value: string) => {
     setFields((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
   }
 
   const toggleSelectAll = () => {
-    setFields((current) => (current.length === availableFields.length ? [] : [...availableFields]))
+    setFields(isAllSelected ? [] : [...availableFields])
   }
 
   const submit = async () => {
@@ -110,14 +117,29 @@ export function ExportDialog({ open, availableFields, defaultFields, onClose, on
             </Typography>
             <Stack spacing={0.25} sx={{ mt: 1 }} data-testid="export-dialog-fields-options">
               <FormControlLabel
-                control={<Checkbox checked={isAllSelected} onChange={toggleSelectAll} />}
+                control={
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isSelectAllIndeterminate}
+                    disabled={!availableFields.length || isSubmitting}
+                    onChange={toggleSelectAll}
+                    data-testid="export-dialog-fields-select-all-checkbox"
+                  />
+                }
                 label="Select All"
                 data-testid="export-dialog-fields-select-all-option"
               />
               {availableFields.map((value) => (
                 <FormControlLabel
                   key={value}
-                  control={<Checkbox checked={fields.includes(value)} onChange={() => toggleField(value)} />}
+                  control={
+                    <Checkbox
+                      checked={fields.includes(value)}
+                      disabled={isSubmitting}
+                      onChange={() => toggleField(value)}
+                      data-testid={`export-dialog-field-${toFieldTestId(value)}-checkbox`}
+                    />
+                  }
                   label={formatFieldLabel(value)}
                   data-testid={`export-dialog-field-${toFieldTestId(value)}-option`}
                 />

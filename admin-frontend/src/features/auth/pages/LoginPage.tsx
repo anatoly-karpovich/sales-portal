@@ -1,4 +1,4 @@
-import { Alert, Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useState } from 'react'
 import axios from 'axios'
 import { useAuth } from '@/features/auth/useAuth'
@@ -26,7 +26,8 @@ export function LoginPage() {
       navigate('/home', { replace: true })
     } catch (error: unknown) {
       const message = axios.isAxiosError(error)
-        ? (error.response?.data as { ErrorMessage?: string } | undefined)?.ErrorMessage ?? authUiText.login.failed
+        ? ((error.response?.data as { ErrorMessage?: string } | undefined)?.ErrorMessage ??
+          authUiText.login.failed)
         : authUiText.login.failed
       enqueueSnackbar(message, { variant: 'error' })
     } finally {
@@ -35,10 +36,15 @@ export function LoginPage() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }} data-testid="login-page">
+    <Box
+      sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}
+      data-testid="login-page"
+    >
       <Paper sx={{ width: '100%', maxWidth: 420, p: 3 }} data-testid="login-page-card">
         <Stack spacing={2} data-testid="login-page-form">
-          <Typography variant="h5" data-testid="login-page-title">{authUiText.login.title}</Typography>
+          <Typography variant="h5" data-testid="login-page-title">
+            {authUiText.login.title}
+          </Typography>
           <TextField
             label={authUiText.login.emailLabel}
             type="email"
@@ -63,9 +69,17 @@ export function LoginPage() {
             data-testid="login-page-password-input"
             inputProps={{ 'data-testid': 'login-page-password-input-field' }}
           />
-          <Alert severity="info" data-testid="login-page-hint-alert">{authUiText.login.hint}</Alert>
-          <Button variant="contained" onClick={() => void onSubmit()} disabled={!canSubmit} data-testid="login-page-submit-button">
-            {isSubmitting ? <CircularProgress size={18} color="inherit" /> : authUiText.login.submitLabel}
+          <Button
+            variant="contained"
+            onClick={() => void onSubmit()}
+            disabled={!canSubmit}
+            data-testid="login-page-submit-button"
+          >
+            {isSubmitting ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              authUiText.login.submitLabel
+            )}
           </Button>
         </Stack>
       </Paper>
