@@ -39,7 +39,7 @@ If using repository `docker-compose.yml`:
 1. Set API URL for build.
 
 ```bash
-set VITE_API_BASE_URL=http://localhost:5000/api
+set VITE_API_BASE_URL=http://localhost:8686/api
 ```
 
 2. Build new image.

@@ -30,12 +30,13 @@ Default dev URL: `http://localhost:5173`
 `VITE_API_BASE_URL` is required:
 
 - `.env.development`: `http://localhost:5000/api`
+  (for Docker stack use `http://localhost:8686/api`)
 - `.env.production`: `https://aqa-course-project.app/api`
 
 For Docker compose, pass it as build arg:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:5000/api docker-compose up --build admin-frontend
+VITE_API_BASE_URL=http://localhost:8686/api docker-compose up --build admin-frontend
 ```
 
 ## Quality Gates

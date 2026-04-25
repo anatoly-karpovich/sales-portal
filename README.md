@@ -34,7 +34,7 @@ docker-compose up
 docker-compose down -v
 ```
 
-`admin-frontend` image build uses `VITE_API_BASE_URL=http://localhost:5000/api` by default (same as legacy frontend setup).  
+`admin-frontend` image build uses `VITE_API_BASE_URL=http://localhost:8686/api` by default.  
 To override it for another environment, set `VITE_API_BASE_URL` before `docker-compose up --build`.
 
 ## Access Points
