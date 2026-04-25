@@ -3,7 +3,7 @@ import type { IOrder, ICustomer, IDelivery } from "../data/types";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
-import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS } from "../data/enums";
+import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS } from "../data/enums";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
 
@@ -27,6 +27,7 @@ class OrderDeliveryService {
     const newOrder: IOrder<ICustomer> = {
       ...currentOrder,
       delivery: delivery,
+      deliveryStatus: DELIVERY_STATUSES.SCHEDULED,
     };
     // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
     newOrder.history.unshift(createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager));

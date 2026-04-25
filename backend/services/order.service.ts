@@ -1,19 +1,28 @@
 import Order from "../models/order.model";
 import CustomerService from "./customer.service";
-import { IOrder, IOrderRequest, ICustomer, IHistory, IOrderCustomerSnapshot } from "../data/types";
+import {
+  IOrder,
+  IOrderRequest,
+  IOrderUpdateRequest,
+  ICustomer,
+  IHistory,
+  IOrderCustomerSnapshot,
+} from "../data/types";
 import { Types } from "mongoose";
 import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
-import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import _ from "lodash";
 import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
 import ExportService from "./export.service";
 import { OrderExportFormatDTO } from "../data/types/dto/orders.dto";
+import { ICommentAuthor } from "../data/types/comments.type";
 
 class OrderService {
   private notificationService = new NotificationService();
   private readonly exportableFields = new Set<string>([
     "status",
+    "deliveryStatus",
     "total_price",
     "delivery",
     "customer",
@@ -38,6 +47,7 @@ class OrderService {
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
+      deliveryStatus: DELIVERY_STATUSES.NOT_SCHEDULED,
       customer: customerSnapshot,
       products,
       delivery: null,
@@ -61,18 +71,21 @@ class OrderService {
   }
 
   async getSorted(
-    filters: { search?: string; status?: string[] },
+    filters: { search?: string; status?: string[]; deliveryStatus?: string[] },
     sortOptions: { sortField: string; sortOrder: string },
     pagination: { skip: number; limit: number },
     projectionFields?: string[],
   ): Promise<{ orders: IOrder<IOrderCustomerSnapshot>[]; total: number }> {
-    const { search = "", status = [] } = filters;
+    const { search = "", status = [], deliveryStatus = [] } = filters;
     const { skip, limit } = pagination;
 
     const filter: Record<string, unknown> = {};
 
     if (status.length > 0) {
       filter.status = { $in: status };
+    }
+    if (deliveryStatus.length > 0) {
+      filter.deliveryStatus = { $in: deliveryStatus };
     }
 
     if (search.trim() !== "") {
@@ -82,6 +95,7 @@ class OrderService {
         { "customer.name": { $regex: searchRegex } },
         { "customer.email": { $regex: searchRegex } },
         { status: { $regex: searchRegex } },
+        { deliveryStatus: { $regex: searchRegex } },
       ];
 
       if (Types.ObjectId.isValid(search.trim())) {
@@ -128,6 +142,7 @@ class OrderService {
     filters?: {
       search?: string;
       status?: string[];
+      deliveryStatus?: string[];
       page?: number;
       limit?: number;
       sortField?: "createdOn" | "total_price" | "status";
@@ -150,7 +165,11 @@ class OrderService {
         : { skip: 0, limit: 1000000 };
 
     const { orders } = await this.getSorted(
-      { search: filters?.search ?? "", status: filters?.status ?? [] },
+      {
+        search: filters?.search ?? "",
+        status: filters?.status ?? [],
+        deliveryStatus: filters?.deliveryStatus ?? [],
+      },
       { sortField: filters?.sortField ?? "createdOn", sortOrder: filters?.sortOrder ?? "desc" },
       pagination,
       this.buildExportProjection(fields),
@@ -254,6 +273,7 @@ class OrderService {
           projection.add("assignedManager");
           break;
         case "status":
+        case "deliveryStatus":
         case "total_price":
         case "createdOn":
           projection.add(field);
@@ -273,27 +293,69 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
+    const authorIds = [...new Set(
+      (orderFromDB.comments ?? [])
+        .map((comment) => {
+          const createdBy = comment.createdBy;
+          if (!createdBy) return null;
+          return createdBy.toString();
+        })
+        .filter((value): value is string => Boolean(value)),
+    )];
+
+    const authors = await usersService.getUsersByIds(authorIds);
+    const authorById = new Map<string, ICommentAuthor>(
+      authors.map((author) => [
+        author._id.toString(),
+        {
+          _id: author._id,
+          username: author.username,
+          firstName: author.firstName,
+          lastName: author.lastName,
+        },
+      ]),
+    );
+
+    const commentsWithResolvedAuthors = (orderFromDB.comments ?? []).map((comment) => {
+      const createdBy = comment.createdBy;
+      if (!createdBy) {
+        return comment;
+      }
+
+      const resolvedAuthor = authorById.get(createdBy.toString());
+      if (!resolvedAuthor) {
+        return comment;
+      }
+
+      return { ...comment, createdBy: resolvedAuthor };
+    });
+
     // TODO(types): replace cast with dedicated getOrderById response mapper (snapshot customer -> full customer).
-    return { ...orderFromDB, customer } as unknown as IOrder<ICustomer>;
+    return { ...orderFromDB, customer, comments: commentsWithResolvedAuthors } as unknown as IOrder<ICustomer>;
   }
 
   async update(
     orderId: Types.ObjectId,
-    order: IOrderRequest,
+    order: IOrderUpdateRequest,
     performerId: string,
     currentOrder: IOrder<ICustomer>,
   ): Promise<IOrder<ICustomer>> {
-    const products = await productsMapping(order);
+    const nextCustomer = order.customer
+      ? await CustomerService.getCustomer(order.customer)
+      : (currentOrder.customer as ICustomer);
+    const nextProducts = order.products
+      ? await productsMapping({ products: order.products })
+      : [...currentOrder.products];
     const manager = await usersService.getUser(performerId);
-    const customer = await CustomerService.getCustomer(order.customer);
-    const customerSnapshot = this.buildCustomerSnapshot(customer);
+    const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
+      deliveryStatus: currentOrder.deliveryStatus,
       customer: customerSnapshot,
-      products,
+      products: nextProducts,
       delivery: currentOrder.delivery,
-      total_price: getTotalPrice(products),
+      total_price: getTotalPrice(nextProducts),
       history: currentOrder.history,
       createdOn: currentOrder.createdOn,
       comments: currentOrder.comments,
@@ -302,19 +364,17 @@ class OrderService {
 
     const changed = { products: false, customer: false };
 
-    if (
-      !_.isEqual(
-        order.products,
-        currentOrder.products.map((p) => p._id.toString()),
-      )
-    ) {
+    const requestedProductIds = order.products?.map((productId) => productId.toString());
+    const currentProductIds = currentOrder.products.map((product) => product._id.toString());
+
+    if (requestedProductIds && !_.isEqual(requestedProductIds, currentProductIds)) {
       changed.products = true;
       const o = _.cloneDeep(newOrder);
       o.customer = this.buildCustomerSnapshot(currentOrder.customer as ICustomer);
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
     }
 
-    if (!_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
+    if (order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
       changed.customer = true;
       const o = _.cloneDeep(newOrder);
       o.products = [...currentOrder.products];

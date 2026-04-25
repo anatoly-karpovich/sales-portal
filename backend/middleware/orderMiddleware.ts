@@ -2,7 +2,7 @@ import OrderService from "../services/order.service.js";
 import CustomerService from "../services/customer.service.js";
 import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
-import { ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
+import { DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidDate, isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
@@ -38,34 +38,42 @@ export async function orderValidations(
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
-  if (!req.body.customer) {
-    return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing customer` });
-  }
-
-  if (!req.body.products || !req.body.products.length) {
-    return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing products` });
-  }
-
   try {
-    const customer = await CustomerService.getCustomer(new Types.ObjectId(req.body.customer));
-    if (!customer) {
-      return res
-        .status(404)
-        .json({ IsSuccess: false, ErrorMessage: `Customer with id '${req.body.customer}' wasn't found` });
+    const hasCustomer = typeof req.body.customer === "string";
+    const hasProducts = Array.isArray(req.body.products);
+
+    if (!hasCustomer && !hasProducts) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
-    const requestedProducts = req.body.products as string[];
-    const uniqueProductIds = [...new Set(requestedProducts)];
-    const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
-    const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
-    const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
-
-    const missingProductId = uniqueProductIds.find((productId) => !existingProductIds.has(productId));
-    if (missingProductId) {
-      return res
-        .status(404)
-        .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
+    if (hasCustomer) {
+      const customer = await CustomerService.getCustomer(new Types.ObjectId(req.body.customer));
+      if (!customer) {
+        return res
+          .status(404)
+          .json({ IsSuccess: false, ErrorMessage: `Customer with id '${req.body.customer}' wasn't found` });
+      }
     }
+
+    if (hasProducts) {
+      if (!req.body.products.length) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing products` });
+      }
+
+      const requestedProducts = req.body.products as string[];
+      const uniqueProductIds = [...new Set(requestedProducts)];
+      const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
+      const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
+      const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
+
+      const missingProductId = uniqueProductIds.find((productId) => !existingProductIds.has(productId));
+      if (missingProductId) {
+        return res
+          .status(404)
+          .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
+      }
+    }
+
     next();
   } catch (e: any) {
     console.log(e);
@@ -110,6 +118,21 @@ export async function orderStatus(
     if (status === ORDER_STATUSES.IN_PROCESS && !order.delivery) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
+    if (status === ORDER_STATUSES.IN_PROCESS && order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
+    }
+
+    if (
+      status === ORDER_STATUSES.CANCELED &&
+      order.deliveryStatus !== DELIVERY_STATUSES.NOT_SCHEDULED &&
+      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED
+    ) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
+
+    if (status === ORDER_STATUSES.CANCELED && order.products.some((product) => product.received)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
 
     if (status === ORDER_STATUSES.DRAFT && order.status !== ORDER_STATUSES.CANCELED) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't reopen not canceled order` });
@@ -122,7 +145,7 @@ export async function orderStatus(
 }
 
 export async function orderUpdateValidations(
-  req: GetOrderByIdRequestDTO,
+  req: UpdateOrderRequestDTO,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
@@ -133,6 +156,14 @@ export async function orderUpdateValidations(
     if (order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
+
+    const hasCustomer = typeof req.body?.customer === "string";
+    const hasProducts = Array.isArray(req.body?.products);
+
+    if (!hasCustomer && !hasProducts) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
     next();
   } catch (e: any) {
     console.log(e);
@@ -155,7 +186,14 @@ export async function orderReceiveValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Incorrect amount of received products` });
     }
 
-    if (order.status === "Draft" || order.status === "Received") {
+    if (order.status !== ORDER_STATUSES.IN_PROCESS) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
+
+    if (
+      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED &&
+      order.deliveryStatus !== DELIVERY_STATUSES.PARTIALLY_DELIVERED
+    ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
 

@@ -1,4 +1,4 @@
-import { ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
+import { DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
 import type { Document } from "mongoose";
 import { Types } from "mongoose";
 import type { ICustomer, IProduct, IDelivery, DocumentResult, IComment } from ".";
@@ -13,6 +13,7 @@ export type IOrderCustomerSnapshot = {
 export interface IOrder<CustomerType = IOrderCustomerSnapshot> {
   readonly _id?: Types.ObjectId;
   status: ORDER_STATUSES;
+  deliveryStatus: DELIVERY_STATUSES;
   customer: CustomerType;
   products: IProductInOrder[];
   delivery: IDelivery | null;
@@ -27,21 +28,21 @@ export interface IProductInOrder extends IProduct {
   received: boolean;
 }
 
-export interface IOrderRequest {
-  customer: Types.ObjectId;
-  products: Types.ObjectId[];
+export interface IOrderUpdateRequest {
+  customer?: Types.ObjectId;
+  products?: Types.ObjectId[];
 }
 
-export interface IOrderDocument
-  extends IOrder<IOrderCustomerSnapshot>,
-    Document,
-    DocumentResult<IOrderDocument> {
+export type IOrderRequest = Required<IOrderUpdateRequest>;
+
+export interface IOrderDocument extends IOrder<IOrderCustomerSnapshot>, Document, DocumentResult<IOrderDocument> {
   readonly _id: Types.ObjectId;
 }
 
 export interface IHistory {
   readonly action: ORDER_HISTORY_ACTIONS;
-  readonly status: string;
+  readonly status: ORDER_STATUSES;
+  readonly deliveryStatus: DELIVERY_STATUSES;
   readonly customer: Types.ObjectId;
   readonly products: IProduct[];
   readonly delivery: IDelivery | null;
@@ -50,4 +51,3 @@ export interface IHistory {
   readonly performer: IUserWithRoles;
   readonly assignedManager: IUserWithRoles | null;
 }
-

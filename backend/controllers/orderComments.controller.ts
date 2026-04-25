@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import OrderCommentsService from "../services/orderComments.service";
 import { Request, Response } from "express";
+import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
   CreateOrderCommentRequestDTO,
@@ -14,9 +15,16 @@ class OrderCommentsController {
       if (!req.order) {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
       }
+      const token = getTokenFromRequest(req);
+      const userData = getDataDataFromToken(token);
       const orderId = new Types.ObjectId(req.params.orderId);
       const comment = req.body.comment as string;
-      const updatedOrder = await OrderCommentsService.createComment(orderId, comment, req.order);
+      const updatedOrder = await OrderCommentsService.createComment({
+        orderId,
+        commentText: comment,
+        performerId: userData.id,
+        currentOrder: req.order,
+      });
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

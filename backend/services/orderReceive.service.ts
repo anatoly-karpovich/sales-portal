@@ -1,4 +1,4 @@
-import { NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import type { IOrder, ICustomer } from "../data/types";
 import Order from "../models/order.model";
 import OrderService from "./order.service";
@@ -32,7 +32,6 @@ class OrderReceiveService {
       history: [...currentOrder.history],
       comments: [...currentOrder.comments],
     };
-    const previousStatus = orderFromDB.status;
     const manager = await usersService.getUser(performerId);
     const requestedProductIds = products.map((productId) => productId.toString());
     let receivedChanged = false;
@@ -55,11 +54,13 @@ class OrderReceiveService {
     const numberOfReceived = orderFromDB.products.filter((el) => el.received).length;
     let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.RECEIVED;
     if (numberOfReceived > 0 && numberOfReceived < orderFromDB.products.length) {
-      orderFromDB.status = ORDER_STATUSES.PARTIALLY_RECEIVED;
+      orderFromDB.status = ORDER_STATUSES.IN_PROCESS;
+      orderFromDB.deliveryStatus = DELIVERY_STATUSES.PARTIALLY_DELIVERED;
       action = ORDER_HISTORY_ACTIONS.RECEIVED;
     }
     if (numberOfReceived === orderFromDB.products.length) {
-      orderFromDB.status = ORDER_STATUSES.RECEIVED;
+      orderFromDB.status = ORDER_STATUSES.COMPLETED;
+      orderFromDB.deliveryStatus = DELIVERY_STATUSES.DELIVERED;
       action = ORDER_HISTORY_ACTIONS.RECEIVED_ALL;
     }
 
@@ -79,17 +80,7 @@ class OrderReceiveService {
         type: "productsDelivered",
         message: NOTIFICATIONS.productsDelivered,
       });
-      if (updatedOrder.status === ORDER_STATUSES.RECEIVED) {
-        await this.notificationService.create({
-          userId: updatedOrder.assignedManager._id.toString(),
-          orderId: updatedOrder._id.toString(),
-          type: "statusChanged",
-          message: NOTIFICATIONS.statusChanged(updatedOrder.status),
-        });
-      } else if (
-        updatedOrder.status === ORDER_STATUSES.PARTIALLY_RECEIVED &&
-        previousStatus === ORDER_STATUSES.IN_PROCESS
-      ) {
+      if (updatedOrder.status === ORDER_STATUSES.COMPLETED) {
         await this.notificationService.create({
           userId: updatedOrder.assignedManager._id.toString(),
           orderId: updatedOrder._id.toString(),

@@ -20,7 +20,7 @@
 | Utility row | Search bar (shared component), Filter button, chip container. |
 | Data table | Columns Email, Name, Country, Created On; sortable on every column. |
 | Row actions | Details (`#/customers/{id}`), Edit (`#/customers/{id}/edit`), Delete (standard confirmation modal asking whether to remove the customer). |
-| Pagination | Auto-adjusts when deletions empty the current page; spinner shows while `getCustomersAndRenderTable` is running; empty state reads "No records created yet". |
+| Pagination | Auto-adjusts when deletions empty the current page; spinner shows while `getCustomersAndRenderTable` is running; empty state reads "No records found." for active search/filters and "No customers created yet." when the dataset is empty. |
 
 ### Search and Filter Rules
 - Search button stays disabled until the input has text. Submitting stores the query in `state.search.customers`, renders a chip, clears the input, and fetches sorted data.
@@ -53,7 +53,7 @@
 | Contact | Email, name, phone. |
 | Address | Country, city, street, house, flat. |
 | Registration & Notes | `createdOn` formatted via `formatDateToDateAndTime`; notes default to `-` when empty. |
-| Orders table | Columns Order Number (link to details), Price (prefixed with `$`), Status (colored), Created On, Last Modified (latest history entry). Empty state uses "No records created yet". |
+| Orders table | Columns Order Number (link to details), Price (prefixed with `$`), Status (colored), Created On, Last Modified (latest history entry). Empty state uses "No orders for this customer yet." |
 
 ## Backend Contracts
 
