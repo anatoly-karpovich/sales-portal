@@ -46,6 +46,17 @@ class UsersService {
     return users;
   }
 
+  async getUsersByIds(ids: string[]) {
+    if (!ids.length) {
+      return [];
+    }
+
+    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    return User.find({ _id: { $in: objectIds } }, { _id: 1, username: 1, firstName: 1, lastName: 1 })
+      .lean()
+      .exec();
+  }
+
   async getUserName(id: string) {
     const manager = await User.findById(new Types.ObjectId(id));
     return `${manager.firstName} ${manager.lastName}`;

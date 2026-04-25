@@ -45,6 +45,7 @@ const delivery = new mongoose.Schema(
 const comment = new mongoose.Schema({
   text: { type: String, required: true },
   createdOn: { type: Date, required: true },
+  createdBy: { type: mongoose.SchemaTypes.ObjectId, ref: "User", required: false },
 });
 
 const history = new mongoose.Schema(

@@ -170,6 +170,19 @@ orderRouter.put(
  *         createdOn:
  *           type: string
  *           format: date-time
+ *         createdBy:
+ *           type: object
+ *           nullable: true
+ *           required: [_id, username, firstName, lastName]
+ *           properties:
+ *             _id:
+ *               type: string
+ *             username:
+ *               type: string
+ *             firstName:
+ *               type: string
+ *             lastName:
+ *               type: string
  *     OrderHistoryEntry:
  *       type: object
  *       required: [status, deliveryStatus, customer, products, total_price, changedOn, action, performer]

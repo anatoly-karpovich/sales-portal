@@ -16,6 +16,7 @@ import usersService from "./users.service";
 import { NotificationService } from "./notification.service";
 import ExportService from "./export.service";
 import { OrderExportFormatDTO } from "../data/types/dto/orders.dto";
+import { ICommentAuthor } from "../data/types/comments.type";
 
 class OrderService {
   private notificationService = new NotificationService();
@@ -292,8 +293,45 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
+    const authorIds = [...new Set(
+      (orderFromDB.comments ?? [])
+        .map((comment) => {
+          const createdBy = comment.createdBy;
+          if (!createdBy) return null;
+          return createdBy.toString();
+        })
+        .filter((value): value is string => Boolean(value)),
+    )];
+
+    const authors = await usersService.getUsersByIds(authorIds);
+    const authorById = new Map<string, ICommentAuthor>(
+      authors.map((author) => [
+        author._id.toString(),
+        {
+          _id: author._id,
+          username: author.username,
+          firstName: author.firstName,
+          lastName: author.lastName,
+        },
+      ]),
+    );
+
+    const commentsWithResolvedAuthors = (orderFromDB.comments ?? []).map((comment) => {
+      const createdBy = comment.createdBy;
+      if (!createdBy) {
+        return comment;
+      }
+
+      const resolvedAuthor = authorById.get(createdBy.toString());
+      if (!resolvedAuthor) {
+        return comment;
+      }
+
+      return { ...comment, createdBy: resolvedAuthor };
+    });
+
     // TODO(types): replace cast with dedicated getOrderById response mapper (snapshot customer -> full customer).
-    return { ...orderFromDB, customer } as unknown as IOrder<ICustomer>;
+    return { ...orderFromDB, customer, comments: commentsWithResolvedAuthors } as unknown as IOrder<ICustomer>;
   }
 
   async update(

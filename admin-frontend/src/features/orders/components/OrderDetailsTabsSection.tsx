@@ -37,6 +37,16 @@ type OrderDetailsTabsSectionProps = {
   onDeleteComment: (commentId: string | undefined) => void
 }
 
+function resolveCommentAuthorName(comment: OrderComment) {
+  const author = comment.createdBy
+  if (!author || typeof author !== 'object') {
+    return ordersUiText.detailsPage.placeholders.commentAuthorFallback
+  }
+
+  const fullName = `${author.firstName ?? ''} ${author.lastName ?? ''}`.trim()
+  return fullName || author.username || ordersUiText.detailsPage.placeholders.commentAuthorFallback
+}
+
 export function OrderDetailsTabsSection({
   order,
   activeTab,
@@ -179,7 +189,7 @@ export function OrderDetailsTabsSection({
                     </Stack>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography variant="body2" color="primary.main">
-                        {ordersUiText.detailsPage.placeholders.commentAuthorFallback}
+                        {resolveCommentAuthorName(comment)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {formatDateTime(comment.createdOn)}

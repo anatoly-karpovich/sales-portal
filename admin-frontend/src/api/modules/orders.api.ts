@@ -74,7 +74,12 @@ export type OrderComment = {
   _id?: string
   text: string
   createdOn: string
-  createdBy?: string | { firstName?: string; lastName?: string; username?: string }
+  createdBy?: {
+    _id?: string
+    firstName?: string
+    lastName?: string
+    username?: string
+  } | null
 }
 
 export type OrderHistoryCustomerRef = string | { _id?: string } | null

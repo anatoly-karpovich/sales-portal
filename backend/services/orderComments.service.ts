@@ -9,13 +9,24 @@ import { NotificationService } from "./notification.service";
 class OrderCommentsService {
   private notificationService = new NotificationService();
 
-  async createComment(orderId: Types.ObjectId, commentText: string, currentOrder: IOrder<ICustomer>): Promise<IOrder<ICustomer>> {
+  async createComment({
+    orderId,
+    commentText,
+    performerId,
+    currentOrder,
+  }: {
+    orderId: Types.ObjectId;
+    commentText: string;
+    performerId: string;
+    currentOrder: IOrder<ICustomer>;
+  }): Promise<IOrder<ICustomer>> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
     const comment: IComment = {
       text: commentText,
       createdOn: getTodaysDate(true),
+      createdBy: new Types.ObjectId(performerId),
     };
     const newOrder: IOrder<ICustomer> = {
       ...currentOrder,

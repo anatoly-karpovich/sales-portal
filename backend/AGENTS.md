@@ -27,6 +27,7 @@ Project constraints:
 - Compiler target/module: `es2016` + `commonjs` (see `tsconfig.json`).
 - Build output is `dist/`; runtime uses compiled JS from `dist/index.js`.
 - Imports are mixed (`.js` suffix in many TS files and extensionless in some); follow local file style, do not mass-normalize imports.
+- When a function needs more than 3 arguments, pass a single typed object parameter instead of positional arguments.
 
 ## 3) Local commands and quality gates
 Main commands:
