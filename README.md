@@ -69,3 +69,4 @@ Detailed UI and business requirements are in `docs/ui-requirements/` plus `docs/
 - Admin frontend code is in `admin-frontend/` (React + TypeScript + Vite). Use `npm install` and `npm run dev` for local development.
 - Backend code is in `backend/` (TypeScript + Express). Use `npm install`, then `npm run dev` or `npm run build && npm start`.
 - If you run services outside Docker, update `.env` files as needed.
+- Frontend cutover runbook is in `admin-frontend/CUTOVER.md`.

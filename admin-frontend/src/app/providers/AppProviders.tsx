@@ -15,6 +15,7 @@ function createQueryClient() {
       queries: {
         retry: 1,
         refetchOnWindowFocus: false,
+        staleTime: 30_000,
       },
     },
   })

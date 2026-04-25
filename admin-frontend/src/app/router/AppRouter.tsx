@@ -1,22 +1,25 @@
+import { Suspense, lazy, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/app/layout/AppShell'
-import { LoginPage } from '@/features/auth/pages/LoginPage'
-import { HomePage } from '@/features/home/pages/HomePage'
-import { OrdersPage } from '@/features/orders/pages/OrdersPage'
-import { OrderDetailsPage } from '@/features/orders/pages/OrderDetailsPage'
-import { ProductsPage } from '@/features/products/pages/ProductsPage'
-import { ProductCreatePage } from '@/features/products/pages/ProductCreatePage'
-import { ProductEditPage } from '@/features/products/pages/ProductEditPage'
-import { CustomersPage } from '@/features/customers/pages/CustomersPage'
-import { CustomerCreatePage } from '@/features/customers/pages/CustomerCreatePage'
-import { CustomerDetailsPage } from '@/features/customers/pages/CustomerDetailsPage'
-import { CustomerEditPage } from '@/features/customers/pages/CustomerEditPage'
-import { ManagersPage } from '@/features/users/pages/ManagersPage'
-import { ManagerCreatePage } from '@/features/users/pages/ManagerCreatePage'
-import { ManagerDetailsPage } from '@/features/users/pages/ManagerDetailsPage'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
 import { PublicOnlyRoute } from '@/app/router/PublicOnlyRoute'
 import { NotFoundPage } from '@/app/router/NotFoundPage'
+import { RouteLoadingFallback } from '@/app/router/RouteLoadingFallback'
+
+const LoginPage = lazy(async () => ({ default: (await import('@/features/auth/pages/LoginPage')).LoginPage }))
+const HomePage = lazy(async () => ({ default: (await import('@/features/home/pages/HomePage')).HomePage }))
+const OrdersPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrdersPage')).OrdersPage }))
+const OrderDetailsPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderDetailsPage')).OrderDetailsPage }))
+const ProductsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductsPage')).ProductsPage }))
+const ProductCreatePage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductCreatePage')).ProductCreatePage }))
+const ProductEditPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductEditPage')).ProductEditPage }))
+const CustomersPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomersPage')).CustomersPage }))
+const CustomerCreatePage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerCreatePage')).CustomerCreatePage }))
+const CustomerDetailsPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerDetailsPage')).CustomerDetailsPage }))
+const CustomerEditPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerEditPage')).CustomerEditPage }))
+const ManagersPage = lazy(async () => ({ default: (await import('@/features/users/pages/ManagersPage')).ManagersPage }))
+const ManagerCreatePage = lazy(async () => ({ default: (await import('@/features/users/pages/ManagerCreatePage')).ManagerCreatePage }))
+const ManagerDetailsPage = lazy(async () => ({ default: (await import('@/features/users/pages/ManagerDetailsPage')).ManagerDetailsPage }))
 
 function ProtectedLayout() {
   return (
@@ -26,6 +29,10 @@ function ProtectedLayout() {
   )
 }
 
+function SuspendedRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -33,24 +40,117 @@ function AppRoutes() {
         path="/login"
         element={
           <PublicOnlyRoute>
-            <LoginPage />
+            <SuspendedRoute>
+              <LoginPage />
+            </SuspendedRoute>
           </PublicOnlyRoute>
         }
       />
       <Route element={<ProtectedLayout />}>
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/products/add" element={<ProductCreatePage />} />
-        <Route path="/products/:productId/edit" element={<ProductEditPage />} />
-        <Route path="/products" element={<ProductsPage />} />
-        <Route path="/customers/add" element={<CustomerCreatePage />} />
-        <Route path="/customers/:customerId/edit" element={<CustomerEditPage />} />
-        <Route path="/customers/:customerId" element={<CustomerDetailsPage />} />
-        <Route path="/customers" element={<CustomersPage />} />
-        <Route path="/managers/add" element={<ManagerCreatePage />} />
-        <Route path="/managers/:managerId" element={<ManagerDetailsPage />} />
-        <Route path="/managers" element={<ManagersPage />} />
+        <Route
+          path="/home"
+          element={
+            <SuspendedRoute>
+              <HomePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/orders/:orderId"
+          element={
+            <SuspendedRoute>
+              <OrderDetailsPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <SuspendedRoute>
+              <OrdersPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/products/add"
+          element={
+            <SuspendedRoute>
+              <ProductCreatePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/products/:productId/edit"
+          element={
+            <SuspendedRoute>
+              <ProductEditPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            <SuspendedRoute>
+              <ProductsPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/customers/add"
+          element={
+            <SuspendedRoute>
+              <CustomerCreatePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/customers/:customerId/edit"
+          element={
+            <SuspendedRoute>
+              <CustomerEditPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/customers/:customerId"
+          element={
+            <SuspendedRoute>
+              <CustomerDetailsPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/customers"
+          element={
+            <SuspendedRoute>
+              <CustomersPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/managers/add"
+          element={
+            <SuspendedRoute>
+              <ManagerCreatePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/managers/:managerId"
+          element={
+            <SuspendedRoute>
+              <ManagerDetailsPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/managers"
+          element={
+            <SuspendedRoute>
+              <ManagersPage />
+            </SuspendedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
