@@ -4,7 +4,7 @@ import Order from "../models/order.model";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
-import usersService from "./users.service";
+import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 
 class OrderReceiveService {
@@ -32,7 +32,7 @@ class OrderReceiveService {
       history: [...currentOrder.history],
       comments: [...currentOrder.comments],
     };
-    const manager = await usersService.getUser(performerId);
+    const manager = await managersService.getManager(performerId);
     const requestedProductIds = products.map((productId) => productId.toString());
     let receivedChanged = false;
     for (const requestedProductId of requestedProductIds) {
@@ -75,14 +75,14 @@ class OrderReceiveService {
 
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
-        userId: updatedOrder.assignedManager._id.toString(),
+        managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "productsDelivered",
         message: NOTIFICATIONS.productsDelivered,
       });
       if (updatedOrder.status === ORDER_STATUSES.COMPLETED) {
         await this.notificationService.create({
-          userId: updatedOrder.assignedManager._id.toString(),
+          managerId: updatedOrder.assignedManager._id.toString(),
           orderId: updatedOrder._id.toString(),
           type: "statusChanged",
           message: NOTIFICATIONS.statusChanged(updatedOrder.status),

@@ -7,8 +7,8 @@ const authRouter = Router();
 
 authRouter.post("/login", AuthController.login.bind(AuthController));
 authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthController));
-// authRouter.get('/users', authmiddleware, AuthController.getUsers) FOR CHECHING AUTHORIZATION
-// authRouter.get('/users', roleMiddleware(ROLES.ADMIN), AuthController.getUsers)
+// authRouter.get('/managers', authmiddleware, AuthController.getManagers) FOR CHECHING AUTHORIZATION
+// authRouter.get('/managers', roleMiddleware(ROLES.ADMIN), AuthController.getManagers)
 
 /**
  * @swagger
@@ -22,14 +22,14 @@ authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthContro
  *       properties:
  *         username:
  *           type: string
- *           description: The user's username
+ *           description: The manager username
  *         password:
  *           type: string
- *           description: The user's password
+ *           description: The manager password
  *       example:
  *         username: "user123@example.com"
  *         password: "Password123"
- *     AuthUser:
+ *     AuthManager:
  *       type: object
  *       properties:
  *         _id:
@@ -49,15 +49,15 @@ authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthContro
  *           format: date-time
  *     AuthLoginResponse:
  *       type: object
- *       required: [IsSuccess, ErrorMessage, User]
+ *       required: [IsSuccess, ErrorMessage, Manager]
  *       properties:
  *         IsSuccess:
  *           type: boolean
  *         ErrorMessage:
  *           type: string
  *           nullable: true
- *         User:
- *           $ref: '#/components/schemas/AuthUser'
+ *         Manager:
+ *           $ref: '#/components/schemas/AuthManager'
  *     AuthLogoutResponse:
  *       type: object
  *       required: [IsSuccess, ErrorMessage]
@@ -84,7 +84,7 @@ authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthContro
  *
  * /api/login:
  *   post:
- *     summary: User login
+ *     summary: Manager login
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -100,8 +100,8 @@ authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthContro
  *             description: JWT access token
  *             schema:
  *               type: string
- *           X-User-Name:
- *             description: User first name
+ *           X-Manager-Name:
+ *             description: Manager first name
  *             schema:
  *               type: string
  *         content:
@@ -116,7 +116,7 @@ authRouter.post("/logout", authmiddleware, AuthController.logout.bind(AuthContro
  *               $ref: '#/components/schemas/AuthErrorResponse'
  * /api/logout:
  *   post:
- *     summary: User logout
+ *     summary: Manager logout
  *     tags: [Auth]
  *     security:
  *       - BearerAuth: []

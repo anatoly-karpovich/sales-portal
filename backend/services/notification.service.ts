@@ -11,37 +11,37 @@ export class NotificationService {
     NotificationService.io = io;
   }
 
-  static sendToUser(userId: string, data: any) {
+  static sendToManager(managerId: string, data: any) {
     if (NotificationService.io) {
-      NotificationService.io.to(userId).emit("new_notification", data);
+      NotificationService.io.to(managerId).emit("new_notification", data);
     }
   }
 
   async create({
-    userId,
+    managerId,
     type,
     orderId,
     message,
   }: {
-    userId: string | Types.ObjectId;
+    managerId: string | Types.ObjectId;
     type: INotification["type"];
     orderId: string | Types.ObjectId;
     message: string;
   }) {
-    const userObjectId = userId instanceof Types.ObjectId ? userId : new Types.ObjectId(userId);
+    const managerObjectId = managerId instanceof Types.ObjectId ? managerId : new Types.ObjectId(managerId);
     const orderObjectId = orderId instanceof Types.ObjectId ? orderId : new Types.ObjectId(orderId);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const result = await this.Notification.create({
-      userId: userObjectId,
+      managerId: managerObjectId,
       type,
       orderId: orderObjectId,
       message,
       expiresAt,
     });
 
-    const notifications = await this.getNotifications(userObjectId);
-    NotificationService.sendToUser(userObjectId.toString(), {
+    const notifications = await this.getNotifications(managerObjectId);
+    NotificationService.sendToManager(managerObjectId.toString(), {
       message,
       unreadAmount: notifications.filter((n) => !n.read).length,
     });
@@ -49,26 +49,26 @@ export class NotificationService {
     return result;
   }
 
-  async getNotifications(userId: string | Types.ObjectId) {
-    const userObjectId = userId instanceof Types.ObjectId ? userId : new Types.ObjectId(userId);
-    return await this.Notification.find({ userId: userObjectId }).sort({ createdAt: -1 });
+  async getNotifications(managerId: string | Types.ObjectId) {
+    const managerObjectId = managerId instanceof Types.ObjectId ? managerId : new Types.ObjectId(managerId);
+    return await this.Notification.find({ managerId: managerObjectId }).sort({ createdAt: -1 });
   }
 
-  async markNotificationAsRead(notificationId: string, userId: string | Types.ObjectId) {
-    const userObjectId = userId instanceof Types.ObjectId ? userId : new Types.ObjectId(userId);
+  async markNotificationAsRead(notificationId: string, managerId: string | Types.ObjectId) {
+    const managerObjectId = managerId instanceof Types.ObjectId ? managerId : new Types.ObjectId(managerId);
     await this.Notification.findOneAndUpdate(
-      { _id: new Types.ObjectId(notificationId), userId: userObjectId },
+      { _id: new Types.ObjectId(notificationId), managerId: managerObjectId },
       { read: true },
       { new: true }
     );
 
-    return await this.getNotifications(userObjectId);
+    return await this.getNotifications(managerObjectId);
   }
 
-  async markAllNotificationsAsRead(userId: string | Types.ObjectId) {
-    const userObjectId = userId instanceof Types.ObjectId ? userId : new Types.ObjectId(userId);
-    await this.Notification.updateMany({ userId: userObjectId, read: false }, { read: true });
-    return await this.getNotifications(userObjectId);
+  async markAllNotificationsAsRead(managerId: string | Types.ObjectId) {
+    const managerObjectId = managerId instanceof Types.ObjectId ? managerId : new Types.ObjectId(managerId);
+    await this.Notification.updateMany({ managerId: managerObjectId, read: false }, { read: true });
+    return await this.getNotifications(managerObjectId);
   }
 }
 

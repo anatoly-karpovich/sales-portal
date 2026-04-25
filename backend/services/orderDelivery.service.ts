@@ -4,7 +4,7 @@ import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS } from "../data/enums";
-import usersService from "./users.service";
+import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 
 class OrderDeliveryService {
@@ -19,7 +19,7 @@ class OrderDeliveryService {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const manager = await usersService.getUser(performerId);
+    const manager = await managersService.getManager(performerId);
 
     let action = currentOrder.delivery
       ? ORDER_HISTORY_ACTIONS.DELIVERY_EDITED
@@ -30,14 +30,16 @@ class OrderDeliveryService {
       deliveryStatus: DELIVERY_STATUSES.SCHEDULED,
     };
     // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
-    newOrder.history.unshift(createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager));
+    newOrder.history.unshift(
+      createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
+    );
     const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");
     }
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
-        userId: updatedOrder.assignedManager._id.toString(),
+        managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "deliveryUpdated",
         message: NOTIFICATIONS.deliveryUpdated,
@@ -48,4 +50,3 @@ class OrderDeliveryService {
 }
 
 export default new OrderDeliveryService();
-

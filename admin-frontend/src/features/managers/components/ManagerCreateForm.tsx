@@ -2,12 +2,12 @@ import { Button, Paper, Stack, TextField, Typography } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
-import type { UserCreatePayload } from '@/api/modules/users.api'
-import { usersUiText } from '@/features/users/users.ui-text'
+import type { ManagerCreatePayload } from '@/api/modules/managers.api'
+import { managersUiText } from '@/features/managers/managers.ui-text'
 
 type Props = {
   isSubmitting: boolean
-  onSubmit: (payload: UserCreatePayload) => Promise<void>
+  onSubmit: (payload: ManagerCreatePayload) => Promise<void>
 }
 
 type ManagerCreateFormState = {
@@ -46,19 +46,15 @@ function validateManagerCreateForm(state: ManagerCreateFormState) {
   const confirmPassword = state.confirmPassword
 
   return {
-    usernameError:
-      username.length === 0 ? usersUiText.validation.usernameRequired : null,
-    firstNameError:
-      firstName.length === 0 ? usersUiText.validation.firstNameRequired : null,
-    lastNameError:
-      lastName.length === 0 ? usersUiText.validation.lastNameRequired : null,
-    passwordError:
-      password.length < 8 ? usersUiText.validation.passwordMinLength : null,
+    usernameError: username.length === 0 ? managersUiText.validation.usernameRequired : null,
+    firstNameError: firstName.length === 0 ? managersUiText.validation.firstNameRequired : null,
+    lastNameError: lastName.length === 0 ? managersUiText.validation.lastNameRequired : null,
+    passwordError: password.length < 8 ? managersUiText.validation.passwordMinLength : null,
     confirmPasswordError:
       confirmPassword.length === 0
-        ? usersUiText.validation.confirmPasswordRequired
+        ? managersUiText.validation.confirmPasswordRequired
         : confirmPassword !== password
-          ? usersUiText.validation.confirmPasswordMismatch
+          ? managersUiText.validation.confirmPasswordMismatch
           : null,
   }
 }
@@ -97,17 +93,17 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
           sx={{ alignSelf: 'flex-start', px: 0, textTransform: 'none' }}
           data-testid="managers-upsert-back-to-list-link"
         >
-          {usersUiText.createPage.backToManagers}
+          {managersUiText.createPage.backToManagers}
         </Button>
 
         <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="managers-upsert-form-title">
-          {usersUiText.createPage.title}
+          {managersUiText.createPage.title}
         </Typography>
 
         <Stack spacing={2} data-testid="managers-upsert-form-fields">
           <TextField
-            label={usersUiText.createPage.fields.username}
-            placeholder={usersUiText.createPage.placeholders.username}
+            label={managersUiText.createPage.fields.username}
+            placeholder={managersUiText.createPage.placeholders.username}
             value={formState.username}
             onChange={(event) =>
               setFormState((current) => ({ ...current, username: event.target.value }))
@@ -120,8 +116,8 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
           />
 
           <TextField
-            label={usersUiText.createPage.fields.firstName}
-            placeholder={usersUiText.createPage.placeholders.firstName}
+            label={managersUiText.createPage.fields.firstName}
+            placeholder={managersUiText.createPage.placeholders.firstName}
             value={formState.firstName}
             onChange={(event) =>
               setFormState((current) => ({ ...current, firstName: event.target.value }))
@@ -134,8 +130,8 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
           />
 
           <TextField
-            label={usersUiText.createPage.fields.lastName}
-            placeholder={usersUiText.createPage.placeholders.lastName}
+            label={managersUiText.createPage.fields.lastName}
+            placeholder={managersUiText.createPage.placeholders.lastName}
             value={formState.lastName}
             onChange={(event) =>
               setFormState((current) => ({ ...current, lastName: event.target.value }))
@@ -149,8 +145,8 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
 
           <TextField
             type="password"
-            label={usersUiText.createPage.fields.password}
-            placeholder={usersUiText.createPage.placeholders.password}
+            label={managersUiText.createPage.fields.password}
+            placeholder={managersUiText.createPage.placeholders.password}
             value={formState.password}
             onChange={(event) =>
               setFormState((current) => ({ ...current, password: event.target.value }))
@@ -164,8 +160,8 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
 
           <TextField
             type="password"
-            label={usersUiText.createPage.fields.confirmPassword}
-            placeholder={usersUiText.createPage.placeholders.confirmPassword}
+            label={managersUiText.createPage.fields.confirmPassword}
+            placeholder={managersUiText.createPage.placeholders.confirmPassword}
             value={formState.confirmPassword}
             onChange={(event) =>
               setFormState((current) => ({
@@ -200,13 +196,15 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
             disabled={!canSubmit}
             data-testid="managers-upsert-save-button"
           >
-            {usersUiText.createPage.actions.save}
+            {managersUiText.createPage.actions.save}
           </Button>
           <Button onClick={resetForm} data-testid="managers-upsert-clear-button">
-            {usersUiText.createPage.actions.clear}
+            {managersUiText.createPage.actions.clear}
           </Button>
         </Stack>
       </Stack>
     </Paper>
   )
 }
+
+

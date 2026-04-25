@@ -1,28 +1,28 @@
 import { NextFunction, Request, Response } from "express";
-import { getUserFromRequest } from "../utils/utils";
+import { getManagerFromRequest } from "../utils/utils";
 import bcrypt from "bcrypt";
 import { ROLES } from "../data/enums";
-import userModel from "../models/user.model";
+import managerModel from "../models/manager.model";
 
 export async function changePasswordMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    const dataFromToken = getUserFromRequest(req);
-    const user = await userModel.findById(req.params.userId);
-    const userId = req.params.userId;
-    if (!user) {
-      return res.status(404).json({ IsSuccess: false, ErrorMessage: "User was not found" });
+    const dataFromToken = getManagerFromRequest(req);
+    const manager = await managerModel.findById(req.params.managerId);
+    const managerId = req.params.managerId;
+    if (!manager) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: "Manager was not found" });
     }
-    if (userId !== dataFromToken.id && !dataFromToken.roles.includes(ROLES.ADMIN)) {
+    if (managerId !== dataFromToken.id && !dataFromToken.roles.includes(ROLES.ADMIN)) {
       return res.status(403).json({ IsSuccess: false, ErrorMessage: "Not allowed to change password" });
     }
 
-    if (user.roles.includes(ROLES.ADMIN)) {
+    if (manager.roles.includes(ROLES.ADMIN)) {
       return res.status(403).json({ IsSuccess: false, ErrorMessage: "Not allowed to change password" });
     }
 
     const { oldPassword, newPassword } = req.body;
     // Проверяем старый пароль
-    const isPasswordValid = bcrypt.compareSync(oldPassword, user.password);
+    const isPasswordValid = bcrypt.compareSync(oldPassword, manager.password);
     if (!isPasswordValid) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Old password is incorrect." });
     }

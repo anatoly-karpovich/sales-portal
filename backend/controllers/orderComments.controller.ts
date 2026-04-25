@@ -16,13 +16,13 @@ class OrderCommentsController {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
       }
       const token = getTokenFromRequest(req);
-      const userData = getDataDataFromToken(token);
+      const managerData = getDataDataFromToken(token);
       const orderId = new Types.ObjectId(req.params.orderId);
       const comment = req.body.comment as string;
       const updatedOrder = await OrderCommentsService.createComment({
         orderId,
         commentText: comment,
-        performerId: userData.id,
+        performerId: managerData.id,
         currentOrder: req.order,
       });
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });

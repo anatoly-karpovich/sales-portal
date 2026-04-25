@@ -10,12 +10,13 @@ import orderReceiveRouter from "./orderReceive.router";
 import orderStatusRouter from "./orderStatus.router";
 import productsRouter from "./products.router";
 import rebatesRouter from "./rebates.router";
-import usersRouter from "./users.router";
+import managersRouter from "./managers.router";
 
 export {
   authRouter,
   customerRouter,
   customerOrdersRouter,
+  managersRouter,
   metricsRouter,
   notificationRouter,
   orderRouter,
@@ -25,5 +26,4 @@ export {
   orderStatusRouter,
   productsRouter,
   rebatesRouter,
-  usersRouter,
 };

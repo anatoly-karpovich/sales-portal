@@ -15,7 +15,7 @@ export type NotificationType =
   | "assigned";
 
 export interface INotification extends Document {
-  userId: Types.ObjectId;
+  managerId: Types.ObjectId;
   type: NotificationType;
   orderId: Types.ObjectId;
   message: string;

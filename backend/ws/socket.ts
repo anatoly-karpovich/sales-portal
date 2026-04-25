@@ -12,8 +12,8 @@ export default function initSocketIO(server: http.Server) {
   io.use(wsAuthMiddleware); // Авторизация как у REST
 
   io.on("connection", (socket) => {
-    const userId = socket.data.user.id;
-    socket.join(userId);
+    const managerId = socket.data.manager.id;
+    socket.join(managerId);
   });
 
   NotificationService.setSocketIO(io);

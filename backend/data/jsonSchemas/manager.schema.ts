@@ -1,6 +1,6 @@
 import { AllowedSchema } from "express-json-validator-middleware";
 
-export const userSchema: AllowedSchema = {
+export const managerSchema: AllowedSchema = {
   type: "object",
   properties: {
     username: { type: "string" },

@@ -77,7 +77,7 @@ export const ordersUiText = {
       deliveryAddressSourceCustom: 'Custom address',
       historyPlaceholder: 'Order history will be implemented in a separate iteration.',
       commentInput: 'Enter a comment',
-      commentAuthorFallback: 'AQA User',
+      commentAuthorFallback: 'AQA Manager',
       selectAll: 'Select All',
       noComments: 'No comments yet.',
     },

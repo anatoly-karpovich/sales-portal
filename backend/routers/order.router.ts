@@ -3,7 +3,7 @@ import OrderController from "../controllers/order.controller.js";
 import { authmiddleware } from "../middleware/authmiddleware.js";
 import { orderById, orderValidations, orderUpdateValidations } from "../middleware/orderMiddleware.js";
 import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
-import { isManager, managerById } from "../middleware/usersMiddleware.js";
+import { isManager, managerById } from "../middleware/managersMiddleware.js";
 
 const orderRouter = Router();
 
@@ -680,7 +680,7 @@ orderRouter.put(
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       403:
- *         description: Forbidden. The selected user does not have the Manager role
+ *         description: Forbidden. The selected account does not have the Manager role
  *       404:
  *         description: Order or Manager not found
  *       409:
@@ -724,5 +724,3 @@ orderRouter.put(
  */
 
 export default orderRouter;
-
-

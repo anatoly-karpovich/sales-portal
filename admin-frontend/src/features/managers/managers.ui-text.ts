@@ -1,4 +1,4 @@
-export const usersUiText = {
+export const managersUiText = {
   listPage: {
     title: 'Managers List',
     addButton: '+ Add Manager',
@@ -65,7 +65,7 @@ export const usersUiText = {
     addAccessDenied: 'Only admins can create managers.',
   },
   errors: {
-    managerNotFound: 'User was not found',
+    managerNotFound: 'Manager was not found',
     missingManagerId: 'Manager id is missing.',
     loadFailed: 'Failed to load manager details.',
   },
@@ -85,3 +85,4 @@ export function getDeleteManagerMessage(username?: string | null) {
   const safeName = username ?? 'this manager'
   return `Are you sure you want to delete "${safeName}"?`
 }
+

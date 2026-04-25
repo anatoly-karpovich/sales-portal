@@ -1,6 +1,6 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
 import { type FormEvent, useMemo, useState } from 'react'
-import { usersUiText } from '@/features/users/users.ui-text'
+import { managersUiText } from '@/features/managers/managers.ui-text'
 
 type Props = {
   open: boolean
@@ -34,14 +34,14 @@ function getTouchedState(): ChangePasswordTouchedState {
 function validateChangePassword(state: ChangePasswordFormState) {
   return {
     oldPasswordError:
-      state.oldPassword.length < 8 ? usersUiText.validation.currentPasswordMinLength : null,
+      state.oldPassword.length < 8 ? managersUiText.validation.currentPasswordMinLength : null,
     newPasswordError:
-      state.newPassword.length < 8 ? usersUiText.validation.newPasswordMinLength : null,
+      state.newPassword.length < 8 ? managersUiText.validation.newPasswordMinLength : null,
     confirmPasswordError:
       state.confirmPassword.length === 0
-        ? usersUiText.validation.confirmPasswordRequired
+        ? managersUiText.validation.confirmPasswordRequired
         : state.confirmPassword !== state.newPassword
-          ? usersUiText.validation.confirmPasswordMismatch
+          ? managersUiText.validation.confirmPasswordMismatch
           : null,
   }
 }
@@ -90,7 +90,7 @@ export function ChangePasswordDialog({ open, isSubmitting, onClose, onSubmit }: 
       }}
     >
       <DialogTitle data-testid="change-password-dialog-title">
-        {usersUiText.dialogs.changePasswordTitle}
+        {managersUiText.dialogs.changePasswordTitle}
       </DialogTitle>
       <DialogContent dividers data-testid="change-password-dialog-content">
         <Stack spacing={2} sx={{ pt: 0.5 }} data-testid="change-password-dialog-fields">
@@ -148,12 +148,14 @@ export function ChangePasswordDialog({ open, isSubmitting, onClose, onSubmit }: 
           disabled={!canSubmit}
           data-testid="change-password-dialog-submit-button"
         >
-          {usersUiText.dialogs.changePasswordConfirm}
+          {managersUiText.dialogs.changePasswordConfirm}
         </Button>
         <Button onClick={onClose} disabled={isSubmitting} data-testid="change-password-dialog-cancel-button">
-          {usersUiText.dialogs.cancel}
+          {managersUiText.dialogs.cancel}
         </Button>
       </DialogActions>
     </Dialog>
   )
 }
+
+

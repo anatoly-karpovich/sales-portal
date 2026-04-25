@@ -9,13 +9,13 @@ class OrderStatusController {
   async update(req: UpdateOrderStatusRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
-      const userData = getDataDataFromToken(token);
+      const managerData = getDataDataFromToken(token);
       if (!req.order) {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
       }
       const orderId = new Types.ObjectId(req.params.orderId);
       const status = req.body.status;
-      const updatedOrder = await OrderStatusService.updateStatus(orderId, status, userData.id, req.order);
+      const updatedOrder = await OrderStatusService.updateStatus(orderId, status, managerData.id, req.order);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

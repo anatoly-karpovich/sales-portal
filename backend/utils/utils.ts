@@ -6,7 +6,7 @@ import { IProductInOrder } from "../data/types/order.type";
 import ProductsService from "../services/products.service";
 import { Request } from "express";
 import jsonwebtoken from "jsonwebtoken";
-import { IUserWithRoles } from "../data/types/users.types";
+import { IManagerWithRoles } from "../data/types/manager.types";
 import { Types } from "mongoose";
 
 export const getTotalPrice = (products: IProduct[]) => {
@@ -33,7 +33,7 @@ type HistorySource = {
 export function createHistoryEntry(
   order: HistorySource,
   action: ORDER_HISTORY_ACTIONS,
-  performer: IUserWithRoles
+  performer: IManagerWithRoles,
 ): IHistory {
   const orderCustomer = order.customer;
   if (orderCustomer instanceof Types.ObjectId) {
@@ -84,7 +84,7 @@ export async function productsMapping<T extends Pick<IOrderRequest, "products">>
         notes: product.notes,
         received: false,
       };
-    })
+    }),
   );
   return products;
 }
@@ -97,7 +97,7 @@ export async function productsMapping<T extends Pick<IOrderRequest, "products">>
  */
 export function customSort<T extends IProduct | ICustomer | IOrder<IOrderCustomerSnapshot>>(
   entities: T[],
-  sortOptions: { sortField: string; sortOrder: string }
+  sortOptions: { sortField: string; sortOrder: string },
 ): T[] {
   return [...entities].sort((a, b) => {
     const { sortField, sortOrder } = sortOptions;
@@ -154,8 +154,7 @@ export function getDataDataFromToken(token: string) {
   };
 }
 
-export function getUserFromRequest(req: Request) {
+export function getManagerFromRequest(req: Request) {
   const token = getTokenFromRequest(req);
   return getDataDataFromToken(token);
 }
-

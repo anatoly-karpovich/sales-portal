@@ -2,7 +2,7 @@ import { DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enu
 import type { Document } from "mongoose";
 import { Types } from "mongoose";
 import type { ICustomer, IProduct, IDelivery, DocumentResult, IComment } from ".";
-import { IUserWithRoles } from "./users.types";
+import { IManagerWithRoles } from "./manager.types";
 
 export type IOrderCustomerSnapshot = {
   _id: Types.ObjectId;
@@ -21,7 +21,7 @@ export interface IOrder<CustomerType = IOrderCustomerSnapshot> {
   createdOn: string;
   history: IHistory[];
   comments: IComment[];
-  assignedManager: IUserWithRoles | null;
+  assignedManager: IManagerWithRoles | null;
 }
 
 export interface IProductInOrder extends IProduct {
@@ -48,6 +48,6 @@ export interface IHistory {
   readonly delivery: IDelivery | null;
   readonly total_price: number;
   readonly changedOn: string;
-  readonly performer: IUserWithRoles;
-  readonly assignedManager: IUserWithRoles | null;
+  readonly performer: IManagerWithRoles;
+  readonly assignedManager: IManagerWithRoles | null;
 }
