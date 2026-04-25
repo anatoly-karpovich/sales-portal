@@ -48,7 +48,12 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
                   <TableCell data-testid={`home-recent-orders-row-${index}-created`}>{formatDateTime(order.createdOn)}</TableCell>
                   <TableCell>
                     <Tooltip title="Details">
-                      <IconButton component={Link} to="/orders" size="small" data-testid={`home-recent-orders-row-${index}-details-button`}>
+                      <IconButton
+                        component={Link}
+                        to={`/orders/${order.id}`}
+                        size="small"
+                        data-testid={`home-recent-orders-row-${index}-details-button`}
+                      >
                         <VisibilityOutlinedIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -84,7 +89,12 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
                   <TableCell data-testid={`home-top-customers-row-${index}-orders`}>{customer.ordersCount}</TableCell>
                   <TableCell>
                     <Tooltip title="Details">
-                      <IconButton component={Link} to="/customers" size="small" data-testid={`home-top-customers-row-${index}-details-button`}>
+                      <IconButton
+                        component={Link}
+                        to={`/customers/${customer.id}`}
+                        size="small"
+                        data-testid={`home-top-customers-row-${index}-details-button`}
+                      >
                         <VisibilityOutlinedIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
