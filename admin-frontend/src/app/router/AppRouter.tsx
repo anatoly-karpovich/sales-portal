@@ -17,9 +17,9 @@ const CustomersPage = lazy(async () => ({ default: (await import('@/features/cus
 const CustomerCreatePage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerCreatePage')).CustomerCreatePage }))
 const CustomerDetailsPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerDetailsPage')).CustomerDetailsPage }))
 const CustomerEditPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerEditPage')).CustomerEditPage }))
-const ManagersPage = lazy(async () => ({ default: (await import('@/features/users/pages/ManagersPage')).ManagersPage }))
-const ManagerCreatePage = lazy(async () => ({ default: (await import('@/features/users/pages/ManagerCreatePage')).ManagerCreatePage }))
-const ManagerDetailsPage = lazy(async () => ({ default: (await import('@/features/users/pages/ManagerDetailsPage')).ManagerDetailsPage }))
+const ManagersPage = lazy(async () => ({ default: (await import('@/features/managers/pages/ManagersPage')).ManagersPage }))
+const ManagerCreatePage = lazy(async () => ({ default: (await import('@/features/managers/pages/ManagerCreatePage')).ManagerCreatePage }))
+const ManagerDetailsPage = lazy(async () => ({ default: (await import('@/features/managers/pages/ManagerDetailsPage')).ManagerDetailsPage }))
 
 function ProtectedLayout() {
   return (
@@ -165,3 +165,4 @@ export function AppRouter() {
     </HashRouter>
   )
 }
+

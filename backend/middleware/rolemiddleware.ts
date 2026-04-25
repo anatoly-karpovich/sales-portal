@@ -14,14 +14,14 @@ export const roleMiddleware = (roles: ROLES) => {
       if (!token) {
         return res.status(401).json({ IsSuccess: false, ErrorMessage: "Not authorized" });
       }
-      const { roles: userRoles } = getDataDataFromToken(token) as jsonwebtoken.JwtPayload;
-      let hashrole = false;
-      userRoles.forEach((role) => {
+      const { roles: managerRoles } = getDataDataFromToken(token) as jsonwebtoken.JwtPayload;
+      let hasRole = false;
+      managerRoles.forEach((role) => {
         if (roles.includes(role)) {
-          hashrole = true;
+          hasRole = true;
         }
       });
-      if (!hashrole) {
+      if (!hasRole) {
         return res.status(403).json({ IsSuccess: false, ErrorMessage: "Access denied" });
       }
       next();

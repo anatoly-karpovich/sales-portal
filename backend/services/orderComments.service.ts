@@ -40,7 +40,7 @@ class OrderCommentsService {
 
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
-        userId: updatedOrder.assignedManager._id.toString(),
+        managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "commentAdded",
         message: NOTIFICATIONS.commentAdded,
@@ -54,7 +54,7 @@ class OrderCommentsService {
     const updatedOrder = await OrderService.getOrder(orderId);
     if (updatedOrder.assignedManager) {
       await this.notificationService.create({
-        userId: updatedOrder.assignedManager._id.toString(),
+        managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "commentDeleted",
         message: NOTIFICATIONS.commentDeleted,

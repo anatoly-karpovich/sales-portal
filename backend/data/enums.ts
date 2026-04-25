@@ -64,7 +64,7 @@ export enum VALIDATION_ERROR_MESSAGES {
   DELIVERY = "Incorrect Delivery",
   BODY = "Incorrect request body",
   COMMENT_NOT_FOUND = "Comment was not found",
-  GET_USERS = "Failed to get users",
+  GET_MANAGERS = "Failed to get Managers",
 }
 
 export enum ORDER_HISTORY_ACTIONS {

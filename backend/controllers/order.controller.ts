@@ -45,8 +45,8 @@ class OrderController {
   async create(req: CreateOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
-      const userData = getDataDataFromToken(token);
-      const order = await OrderService.create(this.mapCreateOrderRequestBody(req.body), userData.id);
+      const managerData = getDataDataFromToken(token);
+      const order = await OrderService.create(this.mapCreateOrderRequestBody(req.body), managerData.id);
       res.status(201).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -117,7 +117,7 @@ class OrderController {
   async update(req: UpdateOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
-      const userData = getDataDataFromToken(token);
+      const managerData = getDataDataFromToken(token);
       if (!req.order) {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
       }
@@ -125,7 +125,7 @@ class OrderController {
       const updatedOrder = await OrderService.update(
         orderId,
         this.mapUpdateOrderRequestBody(req.body),
-        userData.id,
+        managerData.id,
         req.order,
       );
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });

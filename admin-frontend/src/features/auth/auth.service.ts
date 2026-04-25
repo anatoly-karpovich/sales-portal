@@ -7,13 +7,13 @@ export const USER_STORAGE_KEY = 'admin-frontend-user'
 type LoginResponse = {
   IsSuccess: boolean
   ErrorMessage: string | null
-  User: AppUser
+  Manager: AppUser
 }
 
 type MeResponse = {
   IsSuccess: boolean
   ErrorMessage: string | null
-  User: AppUser
+  Manager: AppUser
 }
 
 function readTokenFromHeaders(headers: unknown) {
@@ -39,16 +39,16 @@ export async function loginRequest(username: string, password: string) {
   }
 
   window.localStorage.setItem(TOKEN_STORAGE_KEY, token)
-  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.data.User))
+  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.data.Manager))
 
-  return response.data.User
+  return response.data.Manager
 }
 
 export async function meRequest() {
   const requestConfig: ApiRequestConfig = { skipErrorToast: true }
-  const response = await apiClient.get<MeResponse>('/users/me', requestConfig)
-  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.data.User))
-  return response.data.User
+  const response = await apiClient.get<MeResponse>('/managers/me', requestConfig)
+  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.data.Manager))
+  return response.data.Manager
 }
 
 export async function logoutRequest() {

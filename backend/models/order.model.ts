@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { DELIVERY, DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import { IOrderDocument } from "../data/types";
 
-const user = new mongoose.Schema(
+const manager = new mongoose.Schema(
   {
     _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
     username: { type: String, required: true },
@@ -45,7 +45,7 @@ const delivery = new mongoose.Schema(
 const comment = new mongoose.Schema({
   text: { type: String, required: true },
   createdOn: { type: Date, required: true },
-  createdBy: { type: mongoose.SchemaTypes.ObjectId, ref: "User", required: false },
+  createdBy: { type: mongoose.SchemaTypes.ObjectId, ref: "Manager", required: false },
 });
 
 const history = new mongoose.Schema(
@@ -58,8 +58,8 @@ const history = new mongoose.Schema(
     delivery: { type: delivery, required: false },
     changedOn: { type: Date, required: true },
     action: { type: String, enum: ORDER_HISTORY_ACTIONS, required: true },
-    performer: { type: user, required: true },
-    assignedManager: { type: user, required: false, default: null },
+    performer: { type: manager, required: true },
+    assignedManager: { type: manager, required: false, default: null },
   },
   { _id: false, versionKey: false }
 );
@@ -84,7 +84,7 @@ const Order = new mongoose.Schema(
     createdOn: { type: Date, required: true },
     comments: [{ type: comment, required: false }],
     history: [{ type: history, required: false }],
-    assignedManager: { type: user, required: false, default: null },
+    assignedManager: { type: manager, required: false, default: null },
   },
   { versionKey: false }
 );

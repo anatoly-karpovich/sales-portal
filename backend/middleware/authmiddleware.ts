@@ -1,6 +1,6 @@
 import { TokenExpiredError } from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import Token from "../models/token.model"; // Импорт модели токена
+import Token from "../models/token.model";
 import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils";
 
 export async function authmiddleware(req: Request, res: Response, next: NextFunction) {
@@ -18,23 +18,20 @@ export async function authmiddleware(req: Request, res: Response, next: NextFunc
       return res.status(401).json({ IsSuccess: false, ErrorMessage: "Not authorized" });
     }
 
-    // Проверяем, есть ли этот токен в базе
     const foundToken = await Token.findOne({ token });
     if (!foundToken) {
       return res.status(401).json({ IsSuccess: false, ErrorMessage: "Invalid access token" });
     }
 
-    // Декодируем токен и сохраняем в `req.user`
     let decodedData: ReturnType<typeof getDataDataFromToken>;
     try {
       decodedData = getDataDataFromToken(token);
-      req["user"] = decodedData;
+      req["manager"] = decodedData;
     } catch (e) {
-      await Token.deleteOne({ token }); // Удаляем истекший токен
+      await Token.deleteOne({ token });
       return res.status(401).json({ IsSuccess: false, ErrorMessage: "Access token expired" });
     }
 
-    // Обновляем срок жизни токена (продлеваем на 24 часа)
     const now = new Date();
     const newExpirationDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     foundToken.expiresAt = newExpirationDate;

@@ -14,12 +14,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { User } from '@/api/modules/users.api'
+import type { Manager } from '@/api/modules/managers.api'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 
 type Props = {
   open: boolean
-  managers: User[]
+  managers: Manager[]
   currentManagerId: string | null
   selectedManagerId: string
   isInitialLoading: boolean
@@ -31,12 +31,12 @@ type Props = {
   onSave: (managerId: string) => Promise<void> | void
 }
 
-function resolveManagerName(manager: User) {
+function resolveManagerName(manager: Manager) {
   const fullName = `${manager.firstName ?? ''} ${manager.lastName ?? ''}`.trim()
   return fullName || manager.username
 }
 
-function formatManagerLabel(manager: User) {
+function formatManagerLabel(manager: Manager) {
   return `${resolveManagerName(manager)} (${manager.username})`
 }
 
@@ -59,10 +59,7 @@ export function AssignManagerDialog({
   )
 
   const isSaveDisabled =
-    isInitialLoading ||
-    isSubmitting ||
-    !selectedManagerId ||
-    selectedManagerId === currentManagerId
+    isInitialLoading || isSubmitting || !selectedManagerId || selectedManagerId === currentManagerId
 
   const isLoading = isInitialLoading || isUpdating
   const requestClose = () => {
@@ -118,7 +115,10 @@ export function AssignManagerDialog({
               onSearchChange(value)
             }}
             noOptionsText={
-              <Typography data-testid="order-details-assign-manager-list-empty" color="text.secondary">
+              <Typography
+                data-testid="order-details-assign-manager-list-empty"
+                color="text.secondary"
+              >
                 {ordersUiText.dialogs.details.assignManagerNoResults}
               </Typography>
             }
@@ -143,7 +143,11 @@ export function AssignManagerDialog({
             renderOption={(props, manager, state) => {
               const { key, ...optionProps } = props
               return (
-                <li key={key} {...optionProps} data-testid={`order-details-assign-manager-item-${state.index}`}>
+                <li
+                  key={key}
+                  {...optionProps}
+                  data-testid={`order-details-assign-manager-item-${state.index}`}
+                >
                   <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                     {formatManagerLabel(manager)}
                   </Typography>

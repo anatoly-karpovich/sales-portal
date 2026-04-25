@@ -6,8 +6,8 @@ class NotificationController {
   async getNotifications(req: Request, res: Response) {
     try {
       const token = getTokenFromRequest(req);
-      const userData = getDataDataFromToken(token);
-      const notifications = await service.getNotifications(userData.id);
+      const managerData = getDataDataFromToken(token);
+      const notifications = await service.getNotifications(managerData.id);
       return res.json({ Notifications: notifications, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
@@ -17,9 +17,9 @@ class NotificationController {
   async readNotification(req: Request, res: Response) {
     try {
       const token = getTokenFromRequest(req);
-      const userId = getDataDataFromToken(token).id;
+      const managerId = getDataDataFromToken(token).id;
       const notificationId = req.params.notificationId;
-      const notifications = await service.markNotificationAsRead(notificationId, userId);
+      const notifications = await service.markNotificationAsRead(notificationId, managerId);
       return res.json({ Notifications: notifications, IsSuccess: true, ErrorMessage: null });
     } catch (err: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: err.message });
@@ -29,8 +29,8 @@ class NotificationController {
   async readAllNotifications(req: Request, res: Response) {
     try {
       const token = getTokenFromRequest(req);
-      const userId = getDataDataFromToken(token).id;
-      const notifications = await service.markAllNotificationsAsRead(userId);
+      const managerId = getDataDataFromToken(token).id;
+      const notifications = await service.markAllNotificationsAsRead(managerId);
       return res.json({ Notifications: notifications, IsSuccess: true, ErrorMessage: null });
     } catch (err: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: err.message });

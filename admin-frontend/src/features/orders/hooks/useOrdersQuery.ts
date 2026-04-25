@@ -2,7 +2,7 @@ import { isAxiosError } from 'axios'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCustomers } from '@/api/modules/customers.api'
 import { getProductById, getProducts } from '@/api/modules/products.api'
-import { getUsers } from '@/api/modules/users.api'
+import { getManagers } from '@/api/modules/managers.api'
 import {
   assignOrderManager,
   createOrderComment,
@@ -92,7 +92,7 @@ export function useOrderProductOptionsQuery(search: string, enabled = true) {
 export function useOrderManagerOptionsQuery(enabled = true) {
   return useQuery({
     queryKey: ordersQueryKeys.managerOptions(),
-    queryFn: () => getUsers(),
+    queryFn: () => getManagers(),
     enabled,
     placeholderData: (previousData) => previousData,
   })
@@ -143,7 +143,10 @@ export function useOrderStatusMutation() {
     mutationFn: ({ orderId, status, requestConfig }: OrderStatusUpdatePayload) =>
       updateOrderStatus(orderId, status, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })
@@ -162,7 +165,10 @@ export function useUpdateOrderMutation() {
       requestConfig?: ApiRequestConfig
     }) => updateOrder(orderId, payload, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })
@@ -171,10 +177,17 @@ export function useUpdateOrderMutation() {
 export function useCreateOrderCommentMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderId, comment, requestConfig }: OrderCommentCreatePayload & { requestConfig?: ApiRequestConfig }) =>
+    mutationFn: ({
+      orderId,
+      comment,
+      requestConfig,
+    }: OrderCommentCreatePayload & { requestConfig?: ApiRequestConfig }) =>
       createOrderComment(orderId, comment, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
     },
   })
 }
@@ -182,7 +195,11 @@ export function useCreateOrderCommentMutation() {
 export function useDeleteOrderCommentMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderId, commentId, requestConfig }: OrderCommentDeletePayload & { requestConfig?: ApiRequestConfig }) =>
+    mutationFn: ({
+      orderId,
+      commentId,
+      requestConfig,
+    }: OrderCommentDeletePayload & { requestConfig?: ApiRequestConfig }) =>
       deleteOrderComment(orderId, commentId, requestConfig),
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.detail(variables.orderId) })
@@ -196,7 +213,10 @@ export function useReceiveOrderProductsMutation() {
     mutationFn: ({ orderId, products, requestConfig }: OrderReceivePayload) =>
       receiveOrderProducts(orderId, products, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })
@@ -205,10 +225,17 @@ export function useReceiveOrderProductsMutation() {
 export function useUpdateOrderDeliveryMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ orderId, delivery, requestConfig }: OrderDeliveryUpdatePayload & { requestConfig?: ApiRequestConfig }) =>
+    mutationFn: ({
+      orderId,
+      delivery,
+      requestConfig,
+    }: OrderDeliveryUpdatePayload & { requestConfig?: ApiRequestConfig }) =>
       updateOrderDelivery(orderId, delivery, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })
@@ -220,7 +247,10 @@ export function useAssignOrderManagerMutation() {
     mutationFn: ({ orderId, managerId, requestConfig }: OrderAssignManagerPayload) =>
       assignOrderManager(orderId, managerId, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })
@@ -232,7 +262,10 @@ export function useUnassignOrderManagerMutation() {
     mutationFn: ({ orderId, requestConfig }: OrderUnassignManagerPayload) =>
       unassignOrderManager(orderId, requestConfig),
     onSuccess: (updatedOrder, variables) => {
-      queryClient.setQueryData<OrderDetails>(ordersQueryKeys.detail(variables.orderId), updatedOrder)
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
   })

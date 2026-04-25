@@ -1,40 +1,45 @@
 import { Router } from "express";
-import UsersController from "../controllers/users.controller";
+import ManagersController from "../controllers/managers.controller";
 import { authmiddleware } from "../middleware/authmiddleware";
 import { check } from "express-validator";
 import { schemaMiddleware } from "../middleware/schemaMiddleware";
-import { deleteUserMiddleware } from "../middleware/usersMiddleware";
+import { deleteManagerMiddleware } from "../middleware/managersMiddleware";
 import { changePasswordMiddleware } from "../middleware/changePasswordMiddleware";
 
-const usersRouter = Router();
+const managersRouter = Router();
 
-usersRouter.get("/users", authmiddleware, UsersController.getUsers.bind(UsersController));
-usersRouter.get("/users/me", authmiddleware, UsersController.getMe.bind(UsersController));
-usersRouter.get("/users/:userId", authmiddleware, UsersController.getUser.bind(UsersController));
+managersRouter.get("/managers", authmiddleware, ManagersController.getManagers.bind(ManagersController));
+managersRouter.get("/managers/me", authmiddleware, ManagersController.getMe.bind(ManagersController));
+managersRouter.get("/managers/:managerId", authmiddleware, ManagersController.getManager.bind(ManagersController));
 
-usersRouter.post(
-  "/users",
+managersRouter.post(
+  "/managers",
   authmiddleware,
   [
     check("username", "Username is required").notEmpty(),
     check("password", `Password can't be less then 8 characters`).isLength({ min: 8 }),
   ],
-  schemaMiddleware("userSchema"),
-  UsersController.registration.bind(UsersController)
+  schemaMiddleware("managerSchema"),
+  ManagersController.registration.bind(ManagersController),
 );
-usersRouter.delete("/users/:userId", authmiddleware, deleteUserMiddleware, UsersController.deleteUser.bind(UsersController));
-usersRouter.patch(
-  "/users/password/:userId",
+managersRouter.delete(
+  "/managers/:managerId",
+  authmiddleware,
+  deleteManagerMiddleware,
+  ManagersController.deleteManager.bind(ManagersController),
+);
+managersRouter.patch(
+  "/managers/password/:managerId",
   authmiddleware,
   changePasswordMiddleware,
-  UsersController.changePassword.bind(UsersController),
+  ManagersController.changePassword.bind(ManagersController),
 );
 
 /**
  * @swagger
  * components:
  *   schemas:
- *     User:
+ *     Manager:
  *       type: object
  *       properties:
  *         _id:
@@ -52,7 +57,7 @@ usersRouter.patch(
  *         createdOn:
  *           type: string
  *           format: date-time
- *     UserCreatePayload:
+ *     ManagerCreatePayload:
  *       type: object
  *       required: [username, password, firstName, lastName]
  *       properties:
@@ -72,33 +77,33 @@ usersRouter.patch(
  *           type: string
  *         newPassword:
  *           type: string
- *     UserResponse:
+ *     ManagerResponse:
  *       type: object
  *       properties:
- *         User:
- *           $ref: '#/components/schemas/User'
+ *         Manager:
+ *           $ref: '#/components/schemas/Manager'
  *         IsSuccess:
  *           type: boolean
  *         ErrorMessage:
  *           type: string
  *           nullable: true
- *     UsersResponse:
+ *     ManagersResponse:
  *       type: object
  *       properties:
- *         Users:
+ *         Managers:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/User'
+ *             $ref: '#/components/schemas/Manager'
  *         IsSuccess:
  *           type: boolean
  *         ErrorMessage:
  *           type: string
  *           nullable: true
- *     UserWithOrdersResponse:
+ *     ManagerWithOrdersResponse:
  *       type: object
  *       properties:
- *         User:
- *           $ref: '#/components/schemas/User'
+ *         Manager:
+ *           $ref: '#/components/schemas/Manager'
  *         Orders:
  *           type: array
  *           items:
@@ -108,7 +113,7 @@ usersRouter.patch(
  *         ErrorMessage:
  *           type: string
  *           nullable: true
- *     UserErrorResponse:
+ *     ManagerErrorResponse:
  *       type: object
  *       properties:
  *         IsSuccess:
@@ -123,34 +128,34 @@ usersRouter.patch(
  *                 type: string
  *
  * tags:
- *   - name: Users
- *     description: Users management service
+ *   - name: Managers
+ *     description: Managers management service
  *
- * /api/users:
+ * /api/managers:
  *   get:
- *     summary: Get all users
- *     tags: [Users]
+ *     summary: Get all managers
+ *     tags: [Managers]
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: List of users
+ *         description: List of managers
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UsersResponse'
+ *               $ref: '#/components/schemas/ManagersResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       400:
- *         description: Failed to get users
+ *         description: Failed to get managers
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserErrorResponse'
+ *               $ref: '#/components/schemas/ManagerErrorResponse'
  *
  *   post:
- *     summary: Register a new user
- *     tags: [Users]
+ *     summary: Register a new manager
+ *     tags: [Managers]
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -158,117 +163,117 @@ usersRouter.patch(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/UserCreatePayload'
+ *             $ref: '#/components/schemas/ManagerCreatePayload'
  *     responses:
  *       201:
- *         description: User successfully created
+ *         description: Manager successfully created
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserResponse'
+ *               $ref: '#/components/schemas/ManagerResponse'
  *       400:
  *         description: Validation or registration error
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserErrorResponse'
+ *               $ref: '#/components/schemas/ManagerErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *
- * /api/users/me:
+ * /api/managers/me:
  *   get:
- *     summary: Get current authenticated user profile
- *     tags: [Users]
+ *     summary: Get current authenticated manager profile
+ *     tags: [Managers]
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: Current user profile
+ *         description: Current manager profile
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserResponse'
+ *               $ref: '#/components/schemas/ManagerResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
- *         description: User was not found
+ *         description: Manager was not found
  *       400:
- *         description: Failed to get user
+ *         description: Failed to get manager
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserErrorResponse'
+ *               $ref: '#/components/schemas/ManagerErrorResponse'
  *
- * /api/users/{userId}:
+ * /api/managers/{managerId}:
  *   get:
- *     summary: Get user by id with assigned orders
- *     tags: [Users]
+ *     summary: Get manager by id with assigned orders
+ *     tags: [Managers]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
- *         name: userId
+ *         name: managerId
  *         required: true
  *         schema:
  *           type: string
- *         description: User id
+ *         description: Manager id
  *     responses:
  *       200:
- *         description: User and assigned orders
+ *         description: Manager and assigned orders
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserWithOrdersResponse'
+ *               $ref: '#/components/schemas/ManagerWithOrdersResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       400:
- *         description: Failed to get user
+ *         description: Failed to get manager
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserErrorResponse'
+ *               $ref: '#/components/schemas/ManagerErrorResponse'
  *
  *   delete:
- *     summary: Delete user by id
- *     tags: [Users]
+ *     summary: Delete manager by id
+ *     tags: [Managers]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
- *         name: userId
+ *         name: managerId
  *         required: true
  *         schema:
  *           type: string
- *         description: User id
+ *         description: Manager id
  *     responses:
  *       204:
- *         description: User successfully deleted
+ *         description: Manager successfully deleted
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       403:
- *         description: Forbidden, not allowed to delete this user
+ *         description: Forbidden, not allowed to delete this manager
  *       400:
- *         description: Failed to delete user
+ *         description: Failed to delete manager
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserErrorResponse'
+ *               $ref: '#/components/schemas/ManagerErrorResponse'
  *       500:
  *         description: Server error
  *
- * /api/users/password/{userId}:
+ * /api/managers/password/{managerId}:
  *   patch:
- *     summary: Change user password
- *     tags: [Users]
+ *     summary: Change manager password
+ *     tags: [Managers]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: path
- *         name: userId
+ *         name: managerId
  *         required: true
  *         schema:
  *           type: string
- *         description: User id
+ *         description: Manager id
  *     requestBody:
  *       required: true
  *       content:
@@ -281,7 +286,7 @@ usersRouter.patch(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserResponse'
+ *               $ref: '#/components/schemas/ManagerResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       403:
@@ -291,9 +296,9 @@ usersRouter.patch(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/UserErrorResponse'
+ *               $ref: '#/components/schemas/ManagerErrorResponse'
  *       500:
  *         description: Server error
  */
 
-export default usersRouter;
+export default managersRouter;

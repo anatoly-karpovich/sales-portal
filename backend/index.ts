@@ -12,6 +12,7 @@ import {
   authRouter,
   customerOrdersRouter,
   customerRouter,
+  managersRouter,
   notificationRouter,
   orderCommentsRouter,
   orderDeliveryRouter,
@@ -20,7 +21,6 @@ import {
   orderStatusRouter,
   productsRouter,
   rebatesRouter,
-  usersRouter,
   metricsRouter,
 } from "./routers/index.js";
 import { seed } from "./mongo/init";
@@ -36,7 +36,7 @@ const cors_options: cors.CorsOptions = {
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   preflightContinue: false,
   optionsSuccessStatus: 200,
-  exposedHeaders: ["Authorization", "X-User-Name", "Content-Disposition", "Content-Type"],
+  exposedHeaders: ["Authorization", "X-Manager-Name", "Content-Disposition", "Content-Type"],
 };
 
 app.use(cors(cors_options));
@@ -55,7 +55,7 @@ app.use("/api", orderDeliveryRouter);
 app.use("/api", orderCommentsRouter);
 app.use("/api", customerOrdersRouter);
 app.use("/api", metricsRouter);
-app.use("/api", usersRouter);
+app.use("/api", managersRouter);
 app.use("/api", notificationRouter);
 app.use(errorHandleMiddleware);
 

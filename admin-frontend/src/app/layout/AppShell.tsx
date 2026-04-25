@@ -94,7 +94,7 @@ export function AppShell() {
               }}
               data-testid="app-shell-user-name"
             >
-              <Typography variant="body2">{user?.firstName ?? 'User'}</Typography>
+              <Typography variant="body2">{user?.firstName ?? 'Manager'}</Typography>
             </Button>
             <IconButton
               color="inherit"

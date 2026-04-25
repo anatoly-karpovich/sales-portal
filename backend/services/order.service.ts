@@ -1,18 +1,11 @@
 import Order from "../models/order.model";
 import CustomerService from "./customer.service";
-import {
-  IOrder,
-  IOrderRequest,
-  IOrderUpdateRequest,
-  ICustomer,
-  IHistory,
-  IOrderCustomerSnapshot,
-} from "../data/types";
+import { IOrder, IOrderRequest, IOrderUpdateRequest, ICustomer, IHistory, IOrderCustomerSnapshot } from "../data/types";
 import { Types } from "mongoose";
 import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import _ from "lodash";
-import usersService from "./users.service";
+import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import ExportService from "./export.service";
 import { OrderExportFormatDTO } from "../data/types/dto/orders.dto";
@@ -41,7 +34,7 @@ class OrderService {
 
   async create(order: IOrderRequest, performerdId: string): Promise<IOrder<ICustomer>> {
     const products = await productsMapping(order);
-    const performer = await usersService.getUser(performerdId);
+    const performer = await managersService.getManager(performerdId);
     const customer = await CustomerService.getCustomer(order.customer);
     const customerSnapshot = this.buildCustomerSnapshot(customer);
 
@@ -293,17 +286,19 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
-    const authorIds = [...new Set(
-      (orderFromDB.comments ?? [])
-        .map((comment) => {
-          const createdBy = comment.createdBy;
-          if (!createdBy) return null;
-          return createdBy.toString();
-        })
-        .filter((value): value is string => Boolean(value)),
-    )];
+    const authorIds = [
+      ...new Set(
+        (orderFromDB.comments ?? [])
+          .map((comment) => {
+            const createdBy = comment.createdBy;
+            if (!createdBy) return null;
+            return createdBy.toString();
+          })
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ];
 
-    const authors = await usersService.getUsersByIds(authorIds);
+    const authors = await managersService.getManagersByIds(authorIds);
     const authorById = new Map<string, ICommentAuthor>(
       authors.map((author) => [
         author._id.toString(),
@@ -346,7 +341,7 @@ class OrderService {
     const nextProducts = order.products
       ? await productsMapping({ products: order.products })
       : [...currentOrder.products];
-    const manager = await usersService.getUser(performerId);
+    const manager = await managersService.getManager(performerId);
     const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
@@ -389,7 +384,7 @@ class OrderService {
     if (updatedOrder.assignedManager) {
       if (changed.products) {
         await this.notificationService.create({
-          userId: updatedOrder.assignedManager._id.toString(),
+          managerId: updatedOrder.assignedManager._id.toString(),
           orderId: updatedOrder._id.toString(),
           type: "productsChanged",
           message: NOTIFICATIONS.productsChanged,
@@ -397,7 +392,7 @@ class OrderService {
       }
       if (changed.customer) {
         await this.notificationService.create({
-          userId: updatedOrder.assignedManager._id.toString(),
+          managerId: updatedOrder.assignedManager._id.toString(),
           orderId: updatedOrder._id.toString(),
           type: "customerChanged",
           message: NOTIFICATIONS.customerChanged,
@@ -426,7 +421,9 @@ class OrderService {
     if (!customerId) {
       throw new Error("Customer ID was not provided");
     }
-    return Order.find({ "customer._id": new Types.ObjectId(customerId) }).lean().exec();
+    return Order.find({ "customer._id": new Types.ObjectId(customerId) })
+      .lean()
+      .exec();
   }
 
   async getOrdersByManager(managerId: string) {
@@ -438,12 +435,14 @@ class OrderService {
       throw new Error("Invalid Manager ID format");
     }
 
-    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) }).lean().exec();
+    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) })
+      .lean()
+      .exec();
   }
 
   async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
-    const manager = await usersService.getUser(managerId);
-    const performer = await usersService.getUser(performerId);
+    const manager = await managersService.getManager(managerId);
+    const performer = await managersService.getManager(performerId);
     const newOrder: IOrder<ICustomer> = {
       ...currentOrder,
       assignedManager: manager,
@@ -462,7 +461,7 @@ class OrderService {
     if (!updatedOrder) throw new Error("Order not found");
 
     await this.notificationService.create({
-      userId: updatedOrder.assignedManager._id.toString(),
+      managerId: updatedOrder.assignedManager._id.toString(),
       orderId: updatedOrder._id.toString(),
       type: "assigned",
       message: NOTIFICATIONS.assigned,
@@ -473,7 +472,7 @@ class OrderService {
 
   async unassignManager(orderId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
     const previousAssignee = currentOrder.assignedManager;
-    const performer = await usersService.getUser(performerId);
+    const performer = await managersService.getManager(performerId);
     const newOrder: IOrder<ICustomer> = {
       ...currentOrder,
       assignedManager: null,
@@ -495,7 +494,7 @@ class OrderService {
 
     if (previousAssignee) {
       await this.notificationService.create({
-        userId: previousAssignee._id.toString(),
+        managerId: previousAssignee._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "unassigned",
         message: NOTIFICATIONS.unassigned,

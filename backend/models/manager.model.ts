@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const UserModel = new mongoose.Schema(
+const ManagerModel = new mongoose.Schema(
   {
     username: { type: String, unique: true, required: true },
     password: { type: String, required: true },
@@ -9,7 +9,7 @@ const UserModel = new mongoose.Schema(
     roles: [{ type: String, ref: "Role" }],
     createdOn: { type: String, required: true },
   },
-  { versionKey: false }
+  { versionKey: false },
 );
 
-export default mongoose.model("User", UserModel);
+export default mongoose.model("Manager", ManagerModel, "managers");

@@ -21,7 +21,7 @@ import type {
   OrderStatus,
 } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
-import type { User } from '@/api/modules/users.api'
+import type { Manager } from '@/api/modules/managers.api'
 import { AssignManagerDialog } from '@/features/orders/components/AssignManagerDialog'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
 import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
@@ -77,7 +77,10 @@ function isValidOrderId(value: string) {
 }
 
 function isOrderNotFoundErrorMessage(message: string) {
-  return message === ordersUiText.errors.orderNotFound || /^Order with id '.*' wasn't found$/.test(message)
+  return (
+    message === ordersUiText.errors.orderNotFound ||
+    /^Order with id '.*' wasn't found$/.test(message)
+  )
 }
 
 function isOrderStateChangedErrorMessage(message: string) {
@@ -138,11 +141,11 @@ function canReceiveOrderProducts(status: OrderStatus, deliveryStatus: OrderDeliv
   )
 }
 
-function isAssignableManager(user: User) {
+function isAssignableManager(user: Manager) {
   return user.roles.some((role) => ASSIGNABLE_MANAGER_ROLES.has(role))
 }
 
-function resolveManagerSortKey(manager: User) {
+function resolveManagerSortKey(manager: Manager) {
   const fullName = `${manager.firstName ?? ''} ${manager.lastName ?? ''}`.trim()
   return (fullName || manager.username).toLocaleLowerCase()
 }
@@ -671,7 +674,10 @@ export function OrderDetailsPage() {
         return
       }
 
-      if (isOrderStateChangedErrorMessage(errorMessage) || isProcessNeedsDeliveryErrorMessage(errorMessage)) {
+      if (
+        isOrderStateChangedErrorMessage(errorMessage) ||
+        isProcessNeedsDeliveryErrorMessage(errorMessage)
+      ) {
         setPendingStatusAction(null)
         await refreshAfterStateChangeError(errorMessage)
         return

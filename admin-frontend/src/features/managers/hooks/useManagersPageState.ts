@@ -1,16 +1,16 @@
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { User } from '@/api/modules/users.api'
+import type { Manager } from '@/api/modules/managers.api'
 import {
   isManagersSortField,
   type ManagersSortField,
   type ManagersSortOrder,
-} from '@/features/users/config/managersTableColumns'
-import { useUsersQuery } from '@/features/users/hooks/useUsersQuery'
+} from '@/features/managers/config/managersTableColumns'
+import { useManagersQuery } from '@/features/managers/hooks/useManagersQuery'
 
-const EMPTY_USERS: User[] = []
+const EMPTY_MANAGERS: Manager[] = []
 
-function compareUsers(left: User, right: User, field: ManagersSortField) {
+function compareManagers(left: Manager, right: Manager, field: ManagersSortField) {
   if (field === 'createdOn') {
     return new Date(left.createdOn).getTime() - new Date(right.createdOn).getTime()
   }
@@ -35,9 +35,9 @@ export function useManagersPageState() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [isTransitionPending, startTransition] = useTransition()
-  const { data, isLoading, isFetching } = useUsersQuery()
+  const { data, isLoading, isFetching } = useManagersQuery()
 
-  const rows = data ?? EMPTY_USERS
+  const rows = data ?? EMPTY_MANAGERS
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase()
@@ -57,7 +57,7 @@ export function useManagersPageState() {
   const sortedRows = useMemo(() => {
     const result = [...filteredRows]
     result.sort((left, right) => {
-      const orderResult = compareUsers(left, right, sortField)
+      const orderResult = compareManagers(left, right, sortField)
       return sortOrder === 'asc' ? orderResult : -orderResult
     })
     return result
@@ -136,3 +136,4 @@ export function useManagersPageState() {
     },
   }
 }
+

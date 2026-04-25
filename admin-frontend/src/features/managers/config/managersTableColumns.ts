@@ -1,8 +1,8 @@
 import { createElement } from 'react'
-import type { User } from '@/api/modules/users.api'
+import type { Manager } from '@/api/modules/managers.api'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { formatDateTime } from '@/utils/date'
-import { ManagersTableActionsCell } from '@/features/users/components/ManagersTableActionsCell'
+import { ManagersTableActionsCell } from '@/features/managers/components/ManagersTableActionsCell'
 
 export const MANAGERS_SORT_FIELDS = ['firstName', 'lastName', 'roles', 'createdOn'] as const
 export type ManagersSortField = (typeof MANAGERS_SORT_FIELDS)[number]
@@ -13,7 +13,7 @@ export function isManagersSortField(field: string): field is ManagersSortField {
 }
 
 type ManagersTableColumnActions = {
-  onView: (manager: User) => void
+  onView: (manager: Manager) => void
 }
 
 function formatRoles(roles: string[]) {
@@ -22,7 +22,7 @@ function formatRoles(roles: string[]) {
 
 export function getManagersTableColumns({
   onView,
-}: ManagersTableColumnActions): DataTableColumn<User>[] {
+}: ManagersTableColumnActions): DataTableColumn<Manager>[] {
   return [
     {
       key: 'firstName',
@@ -71,3 +71,4 @@ export function getManagersTableColumns({
     },
   ]
 }
+

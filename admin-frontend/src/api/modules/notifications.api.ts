@@ -2,7 +2,7 @@ import { apiClient } from '@/api/client'
 
 export type NotificationItem = {
   _id: string
-  userId: string
+  managerId: string
   type: string
   orderId: string
   message: string

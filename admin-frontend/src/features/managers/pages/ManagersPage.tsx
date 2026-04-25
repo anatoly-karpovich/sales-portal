@@ -6,9 +6,9 @@ import { FilterChips } from '@/components/shared/FilterChips'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
 import { useAuth } from '@/features/auth/useAuth'
-import { getManagersTableColumns } from '@/features/users/config/managersTableColumns'
-import { useManagersPageState } from '@/features/users/hooks/useManagersPageState'
-import { usersUiText } from '@/features/users/users.ui-text'
+import { getManagersTableColumns } from '@/features/managers/config/managersTableColumns'
+import { useManagersPageState } from '@/features/managers/hooks/useManagersPageState'
+import { managersUiText } from '@/features/managers/managers.ui-text'
 
 const EMPTY_FILTERS: string[] = []
 
@@ -19,7 +19,7 @@ export function ManagersPage() {
   const hasActiveCriteria = Boolean(state.search)
   const emptyText = hasActiveCriteria
     ? sharedUiText.table.emptyFiltered
-    : usersUiText.listPage.emptyStateNoManagers
+    : managersUiText.listPage.emptyStateNoManagers
 
   const columns = getManagersTableColumns({
     onView: (manager) => state.goToManagerDetails(manager._id),
@@ -35,11 +35,11 @@ export function ManagersPage() {
         data-testid="managers-list-page-header"
       >
         <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="managers-list-page-title">
-          {usersUiText.listPage.title}
+          {managersUiText.listPage.title}
         </Typography>
         {isAdmin ? (
           <Button component={Link} to="/managers/add" variant="contained" data-testid="managers-list-add-button">
-            {usersUiText.listPage.addButton}
+            {managersUiText.listPage.addButton}
           </Button>
         ) : null}
       </Stack>
@@ -104,3 +104,5 @@ export function ManagersPage() {
     </Stack>
   )
 }
+
+

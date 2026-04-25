@@ -1,14 +1,14 @@
 import { ROLES } from "../enums";
 import mongoose, { Types } from "mongoose";
 
-export interface IUser {
+export interface IManager {
   username: string;
   firstName: string;
   lastName: string;
   password: string;
 }
 
-export interface IUserWithRoles {
+export interface IManagerWithRoles {
   username: string;
   firstName: string;
   lastName: string;

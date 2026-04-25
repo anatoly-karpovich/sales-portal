@@ -1,4 +1,4 @@
-import User from "../models/user.model";
+import Manager from "../models/manager.model";
 import Token from "../models/token.model";
 import bcrypt from "bcrypt";
 import jsonwebtoken from "jsonwebtoken";
@@ -19,11 +19,11 @@ class AuthController {
   async login(req: Request, res: Response) {
     try {
       const { username, password } = req.body;
-      const user = await User.findOne({ username });
-      if (!user) {
+      const manager = await Manager.findOne({ username });
+      if (!manager) {
         return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect credentials" });
       }
-      const isValidPassword = bcrypt.compareSync(password, user.password);
+      const isValidPassword = bcrypt.compareSync(password, manager.password);
       if (!isValidPassword) {
         return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect credentials" });
       }
@@ -33,7 +33,7 @@ class AuthController {
       const now = new Date();
 
       const existingToken = await Token.findOne({
-        userId: user._id,
+        managerId: manager._id,
         expiresAt: { $gt: now }, // Проверяем, что токен еще жив
       });
 
@@ -44,23 +44,23 @@ class AuthController {
         await existingToken.save();
         return res
           .header("Authorization", existingToken.token)
-          .header("X-User-Name", user.firstName)
+          .header("X-Manager-Name", manager.firstName)
           .json({
             IsSuccess: true,
             ErrorMessage: null,
-            User: _.omit(user.toObject(), ["password"]),
+            Manager: _.omit(manager.toObject(), ["password"]),
           });
       }
 
-      const token = generateAccessToken(user._id, user.roles);
+      const token = generateAccessToken(manager._id, manager.roles);
       const expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-      await new Token({ userId: user._id, token, expiresAt: expirationDate }).save();
+      await new Token({ managerId: manager._id, token, expiresAt: expirationDate }).save();
 
       return res
         .header("Authorization", token)
-        .header("X-User-Name", user.firstName)
-        .json({ IsSuccess: true, ErrorMessage: null, User: _.omit(user.toObject(), ["password"]) });
+        .header("X-Manager-Name", manager.firstName)
+        .json({ IsSuccess: true, ErrorMessage: null, Manager: _.omit(manager.toObject(), ["password"]) });
     } catch (e) {
       console.log(e);
       res.status(400).json({ IsSuccess: false, ErrorMessage: "Login error", reason: (e as Error).message });

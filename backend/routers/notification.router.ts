@@ -23,7 +23,7 @@ notification.patch(
  *     Notification:
  *       type: object
  *       required:
- *         - userId
+ *         - managerId
  *         - type
  *         - orderId
  *         - message
@@ -32,9 +32,9 @@ notification.patch(
  *         _id:
  *           type: string
  *           description: The notification ID
- *         userId:
+ *         managerId:
  *           type: string
- *           description: The user this notification belongs to
+ *           description: The manager this notification belongs to
  *         type:
  *           type: string
  *           description: The type of notification (e.g., statusChanged, assigned, etc.)
@@ -57,7 +57,7 @@ notification.patch(
  *           description: When notification expires (for cleanup)
  *       example:
  *         _id: "66685e03a49be8eea8b3b111"
- *         userId: "6650b914db6d1d4d12c6c915"
+ *         managerId: "6650b914db6d1d4d12c6c915"
  *         type: "statusChanged"
  *         orderId: "6628e650db61bb3e9ed9ef19"
  *         message: "Order #12345 status changed to 'In Process'"
@@ -70,14 +70,14 @@ notification.patch(
  * @swagger
  * tags:
  *   - name: Notifications
- *     description: User notifications management
+ *     description: Manager notifications management
  */
 
 /**
  * @swagger
  * /api/notifications:
  *   get:
- *     summary: Get all notifications for the authenticated user
+ *     summary: Get all notifications for the authenticated manager
  *     tags: [Notifications]
  *     parameters:
  *     security:
@@ -149,7 +149,7 @@ notification.patch(
  * @swagger
  * /api/notifications/mark-all-read:
  *   patch:
- *     summary: Mark all notifications as read for the authenticated user
+ *     summary: Mark all notifications as read for the authenticated manager
  *     tags: [Notifications]
  *     parameters:
  *     security:
