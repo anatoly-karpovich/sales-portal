@@ -72,6 +72,7 @@ Top-level source layout:
 - `app/router/ProtectedRoute.tsx` and `PublicOnlyRoute.tsx` - auth guards.
 - `app/router/AuthRouteFallback.tsx` - loading fallback during auth bootstrap.
 - `app/layout/AppShell.tsx` - top nav, user actions, mobile menu, main outlet.
+  - top-bar user first name is a link to current manager details (`/managers/:userId`) when user id is available.
 - `app/config/navigation.ts` - single navigation source.
 
 ### 4.2 `api` layer
@@ -99,7 +100,14 @@ Top-level source layout:
   - comments create/delete (`POST /orders/:orderId/comments`, `DELETE /orders/:orderId/comments/:commentId`);
   - export (`POST /orders/export` with blob response).
 - `api/modules/users.api.ts`
-  - minimal users contract and `getUsers()` (`GET /users`) used by manager assignment flow on order details.
+  - users contract includes list, details with orders, create, delete, and password change.
+  - implemented requests:
+    - `getUsers()` (`GET /users`)
+    - `getUserById()` (`GET /users/:userId`) returning `{ User, Orders }`
+    - `createUser()` (`POST /users`)
+    - `deleteUser()` (`DELETE /users/:userId`)
+    - `changeUserPassword()` (`PATCH /users/password/:userId`)
+  - `UserOrder` shape is shared with manager details "Assigned Orders" table rendering.
 - `api/modules/products.api.ts`
   - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
   - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
@@ -173,6 +181,7 @@ Top-level source layout:
   - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard
   - `components/AssignManagerDialog.tsx` - assign/edit manager dialog with searchable manager list and save-state guards
   - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order id, assigned manager controls near order number, status actions, metrics cards)
+    - when manager is assigned and id is present, assigned manager value is a link to `/managers/:managerId`.
   - `components/OrderDetailsCustomerSection.tsx` - customer read-only block + draft-only edit trigger
   - `components/OrderDetailsProductsSection.tsx` - products block + draft edit + receive-mode controls
   - `components/OrderDetailsTabsSection.tsx` - tabs switcher and tab-level composition (`Delivery`, `Order History`, `Comments`)
@@ -224,7 +233,29 @@ Top-level source layout:
     - comments tab integrated with API create/delete;
     - known limitation: comment author uses fallback label (`AQA User`) until backend exposes stable `createdBy`.
 - `features/users`
-  - `pages/ManagersPage.tsx` currently placeholder using `PagePlaceholder`.
+  - `pages/ManagersPage.tsx` - managers list page implemented (search/sort/pagination + details navigation).
+    - list uses client-side filtering, sorting, and pagination over `/users` result because backend pagination for users is not implemented yet.
+    - `+ Add Manager` button is visible only for `ADMIN`.
+  - `pages/ManagerCreatePage.tsx` - admin-only manager creation page (`/managers/add`) with redirect+toast guard for non-admin users.
+  - `pages/ManagerDetailsPage.tsx` - manager details page (`/managers/:managerId`) with:
+    - manager summary fields (`username`, `firstName`, `lastName`, `roles`, `createdOn`);
+    - assigned orders table aligned with Customer Details table columns;
+    - `404` or invalid id redirect to `/managers` with warning toast;
+    - self-delete handling: successful delete of current user triggers logout and redirect to `/login`.
+  - `hooks/useUsersQuery.ts`, `hooks/usersQueryKeys.ts` - users query/mutation layer and keys.
+  - `hooks/useManagersPageState.ts` - managers list UI orchestration (client-side search/sort/pagination state).
+  - `config/managersTableColumns.ts` - managers list table schema and sortable fields.
+  - `components/ManagersTableActionsCell.tsx` - managers list actions cell (`Details`).
+  - `components/ManagerCreateForm.tsx` - create manager form with legacy-parity validation:
+    - required `username`, `firstName`, `lastName`;
+    - password min length 8;
+    - confirm password required and must match.
+  - `components/ChangePasswordDialog.tsx` - manager password dialog with form submit semantics.
+    - password inputs are contained in a `<form>` (dialog paper as form) to avoid browser password-field warnings.
+  - `users.ui-text.ts` - labels, validation text, dialogs, and toasts for managers/users module.
+  - details page permission rules (legacy parity):
+    - `Change Password` and `Delete` are shown only when performer is self or `ADMIN`, and target user is not `ADMIN`;
+    - password change payload always requires `oldPassword` + `newPassword` (including admin flow).
 
 ### 4.4 Shared UI layer
 - `components/shared`
@@ -261,6 +292,8 @@ Routes:
   - `/customers/:customerId`
   - `/customers/:customerId/edit`
   - `/managers`
+  - `/managers/add`
+  - `/managers/:managerId`
 
 Rules:
 - unauthenticated users are redirected to `/login`;
@@ -333,6 +366,10 @@ Existing scope prefixes to follow:
 - `pagination-controls-*`
 - `notifications-*`
 - `home-*`
+- `managers-list-*`
+- `managers-upsert-*`
+- `manager-details-*`
+- `change-password-dialog-*`
 
 ### 8.4 MUI input specifics
 For `TextField`:

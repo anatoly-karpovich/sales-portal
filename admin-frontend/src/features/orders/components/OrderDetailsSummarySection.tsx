@@ -128,13 +128,33 @@ export function OrderDetailsSummarySection({
                   </Typography>{' '}
 
                   {isManagerAssigned ? (
-                    <Typography
-                      component="span"
-                      sx={{ fontStyle: 'italic' }}
-                      data-testid="order-details-assigned-manager-value"
-                    >
-                      {assignedManagerDisplayValue}
-                    </Typography>
+                    typeof order.assignedManager?._id === 'string' && order.assignedManager._id.length > 0 ? (
+                      <Button
+                        component={Link}
+                        to={`/managers/${order.assignedManager._id}`}
+                        variant="text"
+                        sx={{
+                          px: 0,
+                          minWidth: 0,
+                          textTransform: 'none',
+                          textDecoration: 'underline',
+                          verticalAlign: 'baseline',
+                        }}
+                        data-testid="order-details-assigned-manager-value"
+                      >
+                        <Typography component="span" sx={{ fontStyle: 'italic' }}>
+                          {assignedManagerDisplayValue}
+                        </Typography>
+                      </Button>
+                    ) : (
+                      <Typography
+                        component="span"
+                        sx={{ fontStyle: 'italic' }}
+                        data-testid="order-details-assigned-manager-value"
+                      >
+                        {assignedManagerDisplayValue}
+                      </Typography>
+                    )
                   ) : (
                     <Button
                       variant="text"

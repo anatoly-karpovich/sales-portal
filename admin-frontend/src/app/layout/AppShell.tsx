@@ -81,9 +81,21 @@ export function AppShell() {
             <IconButton color="inherit" onClick={toggleMode} data-testid="app-shell-theme-toggle-button">
               {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
-            <Typography sx={{ px: 0.5, display: { xs: 'none', sm: 'block' } }} variant="body2" data-testid="app-shell-user-name">
-              {user?.firstName ?? 'User'}
-            </Typography>
+            <Button
+              component={Link}
+              to={user?._id ? `/managers/${user._id}` : '/managers'}
+              color="inherit"
+              disabled={!user?._id}
+              sx={{
+                px: 0.5,
+                minWidth: 0,
+                textTransform: 'none',
+                display: { xs: 'none', sm: 'inline-flex' },
+              }}
+              data-testid="app-shell-user-name"
+            >
+              <Typography variant="body2">{user?.firstName ?? 'User'}</Typography>
+            </Button>
             <IconButton
               color="inherit"
               disabled={isLoggingOut}

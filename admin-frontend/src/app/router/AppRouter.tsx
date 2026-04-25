@@ -12,6 +12,8 @@ import { CustomerCreatePage } from '@/features/customers/pages/CustomerCreatePag
 import { CustomerDetailsPage } from '@/features/customers/pages/CustomerDetailsPage'
 import { CustomerEditPage } from '@/features/customers/pages/CustomerEditPage'
 import { ManagersPage } from '@/features/users/pages/ManagersPage'
+import { ManagerCreatePage } from '@/features/users/pages/ManagerCreatePage'
+import { ManagerDetailsPage } from '@/features/users/pages/ManagerDetailsPage'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
 import { PublicOnlyRoute } from '@/app/router/PublicOnlyRoute'
 
@@ -45,6 +47,8 @@ function AppRoutes() {
         <Route path="/customers/:customerId/edit" element={<CustomerEditPage />} />
         <Route path="/customers/:customerId" element={<CustomerDetailsPage />} />
         <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/managers/add" element={<ManagerCreatePage />} />
+        <Route path="/managers/:managerId" element={<ManagerDetailsPage />} />
         <Route path="/managers" element={<ManagersPage />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Route>
