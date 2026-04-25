@@ -411,26 +411,29 @@ export function EditOrderProductsDialog({
                       sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
                     },
                   }}
-                  renderOption={(props, product, state) => (
-                    <li {...props} data-testid={`order-details-products-edit-search-item-${state.index}`}>
-                      <Stack spacing={0.25}>
-                        <Typography
-                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                          data-testid={`order-details-products-edit-search-item-${state.index}-name`}
-                        >
-                          {product.name}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                          data-testid={`order-details-products-edit-search-item-${state.index}-meta`}
-                        >
-                          {product.manufacturer} | {formatPrice(product.price)}
-                        </Typography>
-                      </Stack>
-                    </li>
-                  )}
+                  renderOption={(props, product, state) => {
+                    const { key, ...optionProps } = props
+                    return (
+                      <li key={key} {...optionProps} data-testid={`order-details-products-edit-search-item-${state.index}`}>
+                        <Stack spacing={0.25}>
+                          <Typography
+                            sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`order-details-products-edit-search-item-${state.index}-name`}
+                          >
+                            {product.name}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`order-details-products-edit-search-item-${state.index}-meta`}
+                          >
+                            {product.manufacturer} | {formatPrice(product.price)}
+                          </Typography>
+                        </Stack>
+                      </li>
+                    )
+                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}

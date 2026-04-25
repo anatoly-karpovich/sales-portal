@@ -301,26 +301,29 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
                   sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
                 },
               }}
-              renderOption={(props, option, state) => (
-                <li {...props} data-testid={`orders-create-customer-item-${state.index}`}>
-                  <Stack spacing={0.25}>
-                    <Typography
-                      sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                      data-testid={`orders-create-customer-item-${state.index}-name`}
-                    >
-                      {option.name}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                      data-testid={`orders-create-customer-item-${state.index}-email`}
-                    >
-                      {option.email}
-                    </Typography>
-                  </Stack>
-                </li>
-              )}
+              renderOption={(props, option, state) => {
+                const { key, ...optionProps } = props
+                return (
+                  <li key={key} {...optionProps} data-testid={`orders-create-customer-item-${state.index}`}>
+                    <Stack spacing={0.25}>
+                      <Typography
+                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                        data-testid={`orders-create-customer-item-${state.index}-name`}
+                      >
+                        {option.name}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                        data-testid={`orders-create-customer-item-${state.index}-email`}
+                      >
+                        {option.email}
+                      </Typography>
+                    </Stack>
+                  </li>
+                )
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -453,26 +456,29 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
                     sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
                   },
                 }}
-                renderOption={(props, option, state) => (
-                  <li {...props} data-testid={`orders-create-product-search-item-${state.index}`}>
-                    <Stack spacing={0.25}>
-                      <Typography
-                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                        data-testid={`orders-create-product-search-item-${state.index}-name`}
-                      >
-                        {option.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                        data-testid={`orders-create-product-search-item-${state.index}-meta`}
-                      >
-                        {option.manufacturer} | {formatPrice(option.price)}
-                      </Typography>
-                    </Stack>
-                  </li>
-                )}
+                renderOption={(props, option, state) => {
+                  const { key, ...optionProps } = props
+                  return (
+                    <li key={key} {...optionProps} data-testid={`orders-create-product-search-item-${state.index}`}>
+                      <Stack spacing={0.25}>
+                        <Typography
+                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          data-testid={`orders-create-product-search-item-${state.index}-name`}
+                        >
+                          {option.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          data-testid={`orders-create-product-search-item-${state.index}-meta`}
+                        >
+                          {option.manufacturer} | {formatPrice(option.price)}
+                        </Typography>
+                      </Stack>
+                    </li>
+                  )
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}

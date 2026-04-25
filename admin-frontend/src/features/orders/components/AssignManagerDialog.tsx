@@ -140,13 +140,16 @@ export function AssignManagerDialog({
                 sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
               },
             }}
-            renderOption={(props, manager, state) => (
-              <li {...props} data-testid={`order-details-assign-manager-item-${state.index}`}>
-                <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                  {formatManagerLabel(manager)}
-                </Typography>
-              </li>
-            )}
+            renderOption={(props, manager, state) => {
+              const { key, ...optionProps } = props
+              return (
+                <li key={key} {...optionProps} data-testid={`order-details-assign-manager-item-${state.index}`}>
+                  <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                    {formatManagerLabel(manager)}
+                  </Typography>
+                </li>
+              )
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}

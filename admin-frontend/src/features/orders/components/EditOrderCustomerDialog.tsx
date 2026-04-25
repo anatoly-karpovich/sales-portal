@@ -133,26 +133,29 @@ export function EditOrderCustomerDialog({
                 sx: { zIndex: (theme) => theme.zIndex.modal + 1 },
               },
             }}
-            renderOption={(props, customer, state) => (
-              <li {...props} data-testid={`order-details-customer-edit-item-${state.index}`}>
-                <Stack spacing={0.25}>
-                  <Typography
-                    sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                    data-testid={`order-details-customer-edit-item-${state.index}-name`}
-                  >
-                    {customer.name}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                    data-testid={`order-details-customer-edit-item-${state.index}-email`}
-                  >
-                    {customer.email}
-                  </Typography>
-                </Stack>
-              </li>
-            )}
+            renderOption={(props, customer, state) => {
+              const { key, ...optionProps } = props
+              return (
+                <li key={key} {...optionProps} data-testid={`order-details-customer-edit-item-${state.index}`}>
+                  <Stack spacing={0.25}>
+                    <Typography
+                      sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                      data-testid={`order-details-customer-edit-item-${state.index}-name`}
+                    >
+                      {customer.name}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                      data-testid={`order-details-customer-edit-item-${state.index}-email`}
+                    >
+                      {customer.email}
+                    </Typography>
+                  </Stack>
+                </li>
+              )
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}

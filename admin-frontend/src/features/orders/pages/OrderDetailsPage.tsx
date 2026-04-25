@@ -424,7 +424,6 @@ export function OrderDetailsPage() {
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
       setIsCustomerEditDialogOpen(false)
-      await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateCustomerFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
@@ -458,7 +457,6 @@ export function OrderDetailsPage() {
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
       setIsProductsEditDialogOpen(false)
-      await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateProductsFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
@@ -501,7 +499,6 @@ export function OrderDetailsPage() {
       })
       enqueueSnackbar(ordersUiText.toasts.managerAssigned, { variant: 'success' })
       setIsManagerAssignDialogOpen(false)
-      await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.assignManagerFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
@@ -534,7 +531,6 @@ export function OrderDetailsPage() {
       })
       enqueueSnackbar(ordersUiText.toasts.managerUnassigned, { variant: 'success' })
       setIsManagerUnassignDialogOpen(false)
-      await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.unassignManagerFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
@@ -600,7 +596,6 @@ export function OrderDetailsPage() {
       enqueueSnackbar(ordersUiText.toasts.productsReceived, { variant: 'success' })
       setSelectedReceiveRowIndices([])
       setIsReceiveMode(false)
-      await reloadOrderDetailsWithSkeleton()
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.receiveProductsFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
@@ -631,7 +626,6 @@ export function OrderDetailsPage() {
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.deliverySaved, { variant: 'success' })
-      await reloadOrderDetailsWithSkeleton()
       return true
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.deliverySaveFailed)

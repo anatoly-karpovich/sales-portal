@@ -142,9 +142,6 @@ export function ChangePasswordDialog({ open, isSubmitting, onClose, onSubmit }: 
         </Stack>
       </DialogContent>
       <DialogActions data-testid="change-password-dialog-actions">
-        <Button onClick={onClose} disabled={isSubmitting} data-testid="change-password-dialog-cancel-button">
-          {usersUiText.dialogs.cancel}
-        </Button>
         <Button
           type="submit"
           variant="contained"
@@ -152,6 +149,9 @@ export function ChangePasswordDialog({ open, isSubmitting, onClose, onSubmit }: 
           data-testid="change-password-dialog-submit-button"
         >
           {usersUiText.dialogs.changePasswordConfirm}
+        </Button>
+        <Button onClick={onClose} disabled={isSubmitting} data-testid="change-password-dialog-cancel-button">
+          {usersUiText.dialogs.cancel}
         </Button>
       </DialogActions>
     </Dialog>
