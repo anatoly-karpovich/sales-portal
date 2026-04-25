@@ -16,6 +16,7 @@ import { ManagerCreatePage } from '@/features/users/pages/ManagerCreatePage'
 import { ManagerDetailsPage } from '@/features/users/pages/ManagerDetailsPage'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
 import { PublicOnlyRoute } from '@/app/router/PublicOnlyRoute'
+import { NotFoundPage } from '@/app/router/NotFoundPage'
 
 function ProtectedLayout() {
   return (
@@ -51,8 +52,8 @@ function AppRoutes() {
         <Route path="/managers/:managerId" element={<ManagerDetailsPage />} />
         <Route path="/managers" element={<ManagersPage />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
