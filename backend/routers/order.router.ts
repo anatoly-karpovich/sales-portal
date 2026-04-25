@@ -21,7 +21,7 @@ orderRouter.post("/orders/export", authmiddleware, OrderController.export.bind(O
 
 orderRouter.get("/orders/:orderId", authmiddleware, orderById, OrderController.getOrder.bind(OrderController));
 
-orderRouter.put(
+orderRouter.patch(
   "/orders/:orderId",
   authmiddleware,
   schemaMiddleware("orderUpdateSchema"),
@@ -311,7 +311,7 @@ orderRouter.put(
  *         ErrorMessage:
  *           type: string
  *           nullable: true
- *     CreateOrUpdateOrderPayload:
+ *     CreateOrderPayload:
  *       type: object
  *       required: [customer, products]
  *       properties:
@@ -320,6 +320,20 @@ orderRouter.put(
  *           description: Customer id
  *         products:
  *           type: array
+ *           items:
+ *             type: string
+ *           description: Array of product ids
+ *     UpdateOrderPatchPayload:
+ *       type: object
+ *       minProperties: 1
+ *       properties:
+ *         customer:
+ *           type: string
+ *           description: Customer id
+ *         products:
+ *           type: array
+ *           minItems: 1
+ *           maxItems: 5
  *           items:
  *             type: string
  *           description: Array of product ids
@@ -408,7 +422,7 @@ orderRouter.put(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreateOrUpdateOrderPayload'
+ *             $ref: '#/components/schemas/CreateOrderPayload'
  *     responses:
  *       201:
  *         description: The order was successfully created
@@ -557,8 +571,8 @@ orderRouter.put(
 /**
  * @swagger
  * /api/orders/{orderId}:
- *   put:
- *     summary: Update an order
+ *   patch:
+ *     summary: Partially update an order
  *     tags: [Orders]
  *     parameters:
  *       - in: path
@@ -574,7 +588,7 @@ orderRouter.put(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreateOrUpdateOrderPayload'
+ *             $ref: '#/components/schemas/UpdateOrderPatchPayload'
  *     responses:
  *       200:
  *         description: The order was successfully updated

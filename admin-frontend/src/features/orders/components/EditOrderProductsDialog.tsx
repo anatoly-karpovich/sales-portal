@@ -48,7 +48,7 @@ type Props = {
   initialProducts: OrderProduct[]
   isSubmitting: boolean
   onClose: () => void
-  onSave: (productIds: string[]) => Promise<void> | void
+  onSave: (payload: { products: string[] }) => Promise<void> | void
 }
 
 function areEqualProductMultiset(a: string[], b: string[]) {
@@ -482,7 +482,7 @@ export function EditOrderProductsDialog({
           <Stack direction="row" spacing={1}>
             <Button
               variant="contained"
-              onClick={() => void onSave(currentProductIds)}
+              onClick={() => void onSave({ products: currentProductIds })}
               disabled={isSaveDisabled}
               data-testid="order-details-products-edit-save-button"
             >

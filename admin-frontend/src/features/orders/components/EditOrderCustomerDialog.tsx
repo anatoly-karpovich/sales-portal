@@ -28,7 +28,7 @@ type Props = {
   onSearchChange: (value: string) => void
   onSelectCustomer: (customerId: string) => void
   onClose: () => void
-  onSave: (customerId: string) => Promise<void> | void
+  onSave: (payload: { customer: string }) => Promise<void> | void
 }
 
 function formatCustomerLabel(customer: Customer) {
@@ -177,7 +177,7 @@ export function EditOrderCustomerDialog({
         <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
-          onClick={() => void onSave(selectedCustomerId)}
+          onClick={() => void onSave({ customer: selectedCustomerId })}
           disabled={isSaveDisabled}
           data-testid="order-details-customer-edit-save-button"
         >

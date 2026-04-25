@@ -27,7 +27,8 @@ export const orderUpdateSchema: AllowedSchema = {
       minItems: MINIMUN_REQUESTED_PRODUCTS,
     },
   },
-  required: ["customer", "products"],
+  additionalProperties: false,
+  anyOf: [{ required: ["customer"] }, { required: ["products"] }],
 };
 
 export const orderReceiveSchema: AllowedSchema = {

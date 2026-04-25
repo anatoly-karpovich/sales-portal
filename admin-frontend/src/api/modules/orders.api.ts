@@ -149,7 +149,15 @@ export type CreateOrderPayload = {
   products: string[]
 }
 
-export type UpdateOrderPayload = CreateOrderPayload
+export type UpdateOrderPayload =
+  | {
+      customer: string
+      products?: string[]
+    }
+  | {
+      customer?: string
+      products: string[]
+    }
 
 export type OrderStatusUpdatePayload = {
   orderId: string
@@ -204,7 +212,7 @@ export async function createOrder(payload: CreateOrderPayload) {
 }
 
 export async function updateOrder(orderId: string, payload: UpdateOrderPayload, requestConfig?: ApiRequestConfig) {
-  const response = await apiClient.put<OrderResponse<OrderDetails>>(`/orders/${orderId}`, payload, requestConfig)
+  const response = await apiClient.patch<OrderResponse<OrderDetails>>(`/orders/${orderId}`, payload, requestConfig)
   return response.data.Order
 }
 

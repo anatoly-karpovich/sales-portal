@@ -40,9 +40,14 @@ export type OrderExportRequestBodyDTO = {
   >;
 };
 
-export type OrderCreateOrUpdateRequestDTO = {
+export type OrderCreateRequestBodyDTO = {
   customer: string;
   products: string[];
+};
+
+export type OrderUpdateRequestBodyDTO = {
+  customer?: string;
+  products?: string[];
 };
 
 export type OrderStatusRequestDTO = {
@@ -57,8 +62,8 @@ export type OrderCommentCreateRequestDTO = {
   comment: string;
 };
 
-export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateOrUpdateRequestDTO>;
-export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderCreateOrUpdateRequestDTO> & {
+export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateRequestBodyDTO>;
+export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderUpdateRequestBodyDTO> & {
   order?: IOrder<ICustomer>;
 };
 export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO> & {

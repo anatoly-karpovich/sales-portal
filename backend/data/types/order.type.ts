@@ -28,15 +28,14 @@ export interface IProductInOrder extends IProduct {
   received: boolean;
 }
 
-export interface IOrderRequest {
-  customer: Types.ObjectId;
-  products: Types.ObjectId[];
+export interface IOrderUpdateRequest {
+  customer?: Types.ObjectId;
+  products?: Types.ObjectId[];
 }
 
-export interface IOrderDocument
-  extends IOrder<IOrderCustomerSnapshot>,
-    Document,
-    DocumentResult<IOrderDocument> {
+export type IOrderRequest = Required<IOrderUpdateRequest>;
+
+export interface IOrderDocument extends IOrder<IOrderCustomerSnapshot>, Document, DocumentResult<IOrderDocument> {
   readonly _id: Types.ObjectId;
 }
 
@@ -52,4 +51,3 @@ export interface IHistory {
   readonly performer: IUserWithRoles;
   readonly assignedManager: IUserWithRoles | null;
 }
-

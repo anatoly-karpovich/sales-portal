@@ -15,24 +15,38 @@ import {
   UnassignManagerRequestDTO,
   UpdateOrderRequestDTO,
 } from "../data/types/dto/orders.dto.js";
-import { IOrderRequest } from "../data/types/order.type.js";
+import { IOrderRequest, IOrderUpdateRequest } from "../data/types/order.type.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class OrderController {
-  private mapOrderRequestBody(body: CreateOrderRequestDTO["body"] | UpdateOrderRequestDTO["body"]): IOrderRequest {
+  private mapCreateOrderRequestBody(body: CreateOrderRequestDTO["body"]): IOrderRequest {
     return {
       customer: new Types.ObjectId(body.customer),
       products: body.products.map((id) => new Types.ObjectId(id)),
     };
   }
 
+  private mapUpdateOrderRequestBody(body: UpdateOrderRequestDTO["body"]): IOrderUpdateRequest {
+    const updatePayload: IOrderUpdateRequest = {};
+
+    if (typeof body.customer === "string") {
+      updatePayload.customer = new Types.ObjectId(body.customer);
+    }
+
+    if (Array.isArray(body.products)) {
+      updatePayload.products = body.products.map((id) => new Types.ObjectId(id));
+    }
+
+    return updatePayload;
+  }
+
   async create(req: CreateOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
     try {
       const token = getTokenFromRequest(req);
       const userData = getDataDataFromToken(token);
-      const order = await OrderService.create(this.mapOrderRequestBody(req.body), userData.id);
+      const order = await OrderService.create(this.mapCreateOrderRequestBody(req.body), userData.id);
       res.status(201).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);
@@ -108,7 +122,12 @@ class OrderController {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
       }
       const orderId = new Types.ObjectId(req.params.orderId);
-      const updatedOrder = await OrderService.update(orderId, this.mapOrderRequestBody(req.body), userData.id, req.order);
+      const updatedOrder = await OrderService.update(
+        orderId,
+        this.mapUpdateOrderRequestBody(req.body),
+        userData.id,
+        req.order,
+      );
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       console.log(e);

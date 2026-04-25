@@ -410,16 +410,13 @@ export function OrderDetailsPage() {
     setIsProductsEditDialogOpen(false)
   }
 
-  const handleSaveEditedCustomer = async (nextCustomerId: string) => {
+  const handleSaveEditedCustomer = async (payload: { customer: string }) => {
     if (!order || !orderId) return
 
     try {
       await updateOrderMutation.mutateAsync({
         orderId,
-        payload: {
-          customer: nextCustomerId,
-          products: order.products.map((product) => product._id),
-        },
+        payload,
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
@@ -443,16 +440,13 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleSaveEditedProducts = async (nextProducts: string[]) => {
+  const handleSaveEditedProducts = async (payload: { products: string[] }) => {
     if (!order || !orderId) return
 
     try {
       await updateOrderMutation.mutateAsync({
         orderId,
-        payload: {
-          customer: order.customer._id,
-          products: nextProducts,
-        },
+        payload,
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })

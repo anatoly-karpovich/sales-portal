@@ -1,6 +1,13 @@
 import Order from "../models/order.model";
 import CustomerService from "./customer.service";
-import { IOrder, IOrderRequest, ICustomer, IHistory, IOrderCustomerSnapshot } from "../data/types";
+import {
+  IOrder,
+  IOrderRequest,
+  IOrderUpdateRequest,
+  ICustomer,
+  IHistory,
+  IOrderCustomerSnapshot,
+} from "../data/types";
 import { Types } from "mongoose";
 import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
@@ -291,22 +298,26 @@ class OrderService {
 
   async update(
     orderId: Types.ObjectId,
-    order: IOrderRequest,
+    order: IOrderUpdateRequest,
     performerId: string,
     currentOrder: IOrder<ICustomer>,
   ): Promise<IOrder<ICustomer>> {
-    const products = await productsMapping(order);
+    const nextCustomer = order.customer
+      ? await CustomerService.getCustomer(order.customer)
+      : (currentOrder.customer as ICustomer);
+    const nextProducts = order.products
+      ? await productsMapping({ products: order.products })
+      : [...currentOrder.products];
     const manager = await usersService.getUser(performerId);
-    const customer = await CustomerService.getCustomer(order.customer);
-    const customerSnapshot = this.buildCustomerSnapshot(customer);
+    const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
       deliveryStatus: currentOrder.deliveryStatus,
       customer: customerSnapshot,
-      products,
+      products: nextProducts,
       delivery: currentOrder.delivery,
-      total_price: getTotalPrice(products),
+      total_price: getTotalPrice(nextProducts),
       history: currentOrder.history,
       createdOn: currentOrder.createdOn,
       comments: currentOrder.comments,
@@ -315,19 +326,17 @@ class OrderService {
 
     const changed = { products: false, customer: false };
 
-    if (
-      !_.isEqual(
-        order.products,
-        currentOrder.products.map((p) => p._id.toString()),
-      )
-    ) {
+    const requestedProductIds = order.products?.map((productId) => productId.toString());
+    const currentProductIds = currentOrder.products.map((product) => product._id.toString());
+
+    if (requestedProductIds && !_.isEqual(requestedProductIds, currentProductIds)) {
       changed.products = true;
       const o = _.cloneDeep(newOrder);
       o.customer = this.buildCustomerSnapshot(currentOrder.customer as ICustomer);
       newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
     }
 
-    if (!_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
+    if (order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
       changed.customer = true;
       const o = _.cloneDeep(newOrder);
       o.products = [...currentOrder.products];

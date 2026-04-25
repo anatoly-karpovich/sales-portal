@@ -38,34 +38,42 @@ export async function orderValidations(
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
-  if (!req.body.customer) {
-    return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing customer` });
-  }
-
-  if (!req.body.products || !req.body.products.length) {
-    return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing products` });
-  }
-
   try {
-    const customer = await CustomerService.getCustomer(new Types.ObjectId(req.body.customer));
-    if (!customer) {
-      return res
-        .status(404)
-        .json({ IsSuccess: false, ErrorMessage: `Customer with id '${req.body.customer}' wasn't found` });
+    const hasCustomer = typeof req.body.customer === "string";
+    const hasProducts = Array.isArray(req.body.products);
+
+    if (!hasCustomer && !hasProducts) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
-    const requestedProducts = req.body.products as string[];
-    const uniqueProductIds = [...new Set(requestedProducts)];
-    const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
-    const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
-    const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
-
-    const missingProductId = uniqueProductIds.find((productId) => !existingProductIds.has(productId));
-    if (missingProductId) {
-      return res
-        .status(404)
-        .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
+    if (hasCustomer) {
+      const customer = await CustomerService.getCustomer(new Types.ObjectId(req.body.customer));
+      if (!customer) {
+        return res
+          .status(404)
+          .json({ IsSuccess: false, ErrorMessage: `Customer with id '${req.body.customer}' wasn't found` });
+      }
     }
+
+    if (hasProducts) {
+      if (!req.body.products.length) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing products` });
+      }
+
+      const requestedProducts = req.body.products as string[];
+      const uniqueProductIds = [...new Set(requestedProducts)];
+      const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
+      const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
+      const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
+
+      const missingProductId = uniqueProductIds.find((productId) => !existingProductIds.has(productId));
+      if (missingProductId) {
+        return res
+          .status(404)
+          .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
+      }
+    }
+
     next();
   } catch (e: any) {
     console.log(e);
@@ -137,7 +145,7 @@ export async function orderStatus(
 }
 
 export async function orderUpdateValidations(
-  req: GetOrderByIdRequestDTO,
+  req: UpdateOrderRequestDTO,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
@@ -148,6 +156,14 @@ export async function orderUpdateValidations(
     if (order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
+
+    const hasCustomer = typeof req.body?.customer === "string";
+    const hasProducts = Array.isArray(req.body?.products);
+
+    if (!hasCustomer && !hasProducts) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
     next();
   } catch (e: any) {
     console.log(e);
