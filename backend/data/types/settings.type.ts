@@ -1,3 +1,5 @@
+import { IDelivery } from "./delivery.type";
+
 export interface ISettings {
   order: {
     maxProductsInOrder: number;
@@ -7,8 +9,9 @@ export interface ISettings {
     defaultLowStockThreshold: number;
   };
   delivery: {
-    defaultCities: string[];
+    defaultCities: readonly string[];
     basePricePerItem: number;
     extraPriceForOtherCity: number;
+    pickupAddresses: Record<string, Omit<IDelivery["address"], "city">>;
   };
 }

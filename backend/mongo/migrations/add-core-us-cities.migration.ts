@@ -10,7 +10,14 @@ async function runMigration() {
   const dbUrl = getDbUrl();
   await mongoose.connect(dbUrl, {});
 
-  const initResult = await SettingsModel.updateOne({}, { $setOnInsert: DEFAULT_SETTINGS }, { upsert: true });
+  const existingSettings = await SettingsModel.findOne().lean().exec();
+
+  if (!existingSettings) {
+    await SettingsModel.create(DEFAULT_SETTINGS);
+    console.log("Settings were created with default cities and pickup addresses");
+    return;
+  }
+
   const addCitiesResult = await SettingsModel.updateOne(
     {},
     {
@@ -20,17 +27,29 @@ async function runMigration() {
     },
   );
 
-  if (initResult.upsertedCount > 0) {
-    console.log("Settings were created with default cities");
+  const existingPickupAddresses = (existingSettings.delivery?.pickupAddresses ?? {}) as Record<
+    string,
+    { street: string; house: number; flat: number }
+  >;
+
+  const pickupAddressUpdates: Record<string, unknown> = {};
+  for (const city of CORE_US_DEFAULT_CITIES) {
+    if (!existingPickupAddresses[city]) {
+      pickupAddressUpdates[`delivery.pickupAddresses.${city}`] = DEFAULT_SETTINGS.delivery.pickupAddresses[city];
+    }
+  }
+
+  let addPickupAddressesResult = { modifiedCount: 0 };
+  if (Object.keys(pickupAddressUpdates).length > 0) {
+    addPickupAddressesResult = await SettingsModel.updateOne({}, { $set: pickupAddressUpdates });
+  }
+
+  if (addCitiesResult.modifiedCount > 0 || addPickupAddressesResult.modifiedCount > 0) {
+    console.log("Settings updated: core US cities and pickup addresses were synchronized");
     return;
   }
 
-  if (addCitiesResult.modifiedCount > 0) {
-    console.log("Settings updated: core US cities were added");
-    return;
-  }
-
-  console.log("Settings migration skipped: all core US cities already exist");
+  console.log("Settings migration skipped: core US cities and pickup addresses are already up to date");
 }
 
 runMigration()

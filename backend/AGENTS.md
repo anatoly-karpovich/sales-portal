@@ -41,7 +41,7 @@ Main commands:
 - `npm run dev` - watch mode (`tsc -w`) + `nodemon dist/index.js`
 - `npm start` - production start (`prestart` runs build first)
 - `npm run mongo:migrate:settings:init` - create singleton `settings` document if it does not exist
-- `npm run mongo:migrate:settings:add-core-us-cities` - ensure core US cities exist in `settings.delivery.defaultCities` for existing DBs
+- `npm run mongo:migrate:settings:add-core-us-cities` - ensure core US cities and default pickup addresses are synchronized in existing `settings`
 
 Notes:
 
@@ -202,6 +202,7 @@ Current important constraints:
 - `GET /orders` and `POST /orders/export` support filters by both `status` and `deliveryStatus`.
 - Product uniqueness: case-insensitive by trimmed `name`.
 - Customer uniqueness: case-insensitive by trimmed/lowercased `email`.
+- `POST /settings` and `PATCH /settings`: delivery cities and pickup addresses must stay synchronized by keys (`delivery.defaultCities` == `Object.keys(delivery.pickupAddresses)`), validated in dedicated settings middleware.
 - Notes/comment textual limits rely on validation helpers and middleware checks.
 
 ## 9) Core business invariants
@@ -238,6 +239,8 @@ Settings invariants:
 - `Settings` collection is treated as singleton (exactly one document expected).
 - `POST /settings` is intended for initial creation and returns conflict when settings already exist.
 - `PATCH /settings` is the normal update path for existing deployments.
+- `settings.delivery.pickupAddresses` is a required city-keyed map; each value contains `street`, `house`, `flat`.
+- `settings.delivery.defaultCities` and `settings.delivery.pickupAddresses` must always represent the same city set.
 
 ## 10) Auth, tokens, and permissions
 

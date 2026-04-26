@@ -104,7 +104,6 @@ Payload:
   "finalDate": "2026-05-01T12:00:00.000Z",
   "condition": "Delivery",
   "address": {
-    "country": "USA",
     "city": "New York",
     "street": "Broadway",
     "house": 1,

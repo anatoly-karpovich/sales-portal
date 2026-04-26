@@ -16,11 +16,21 @@ const inventorySettings = new mongoose.Schema(
   { _id: false, versionKey: false },
 );
 
+const pickupAddressSettings = new mongoose.Schema(
+  {
+    street: { type: String, required: true },
+    house: { type: Number, required: true },
+    flat: { type: Number, required: true },
+  },
+  { _id: false, versionKey: false },
+);
+
 const deliverySettings = new mongoose.Schema(
   {
     defaultCities: [{ type: String, required: true }],
     basePricePerItem: { type: Number, required: true },
     extraPriceForOtherCity: { type: Number, required: true },
+    pickupAddresses: { type: Map, of: pickupAddressSettings, required: true },
   },
   { _id: false, versionKey: false },
 );

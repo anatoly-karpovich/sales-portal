@@ -20,6 +20,23 @@ const inventorySettingsRequiredSchema: JSONSchema7 = {
   additionalProperties: false,
 };
 
+const pickupAddressSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    street: { type: "string", minLength: 1 },
+    house: { type: "integer", minimum: 1 },
+    flat: { type: "integer", minimum: 1 },
+  },
+  required: ["street", "house", "flat"],
+  additionalProperties: false,
+};
+
+const pickupAddressesSchema: JSONSchema7 = {
+  type: "object",
+  minProperties: 1,
+  additionalProperties: pickupAddressSchema,
+};
+
 const deliverySettingsRequiredSchema: JSONSchema7 = {
   type: "object",
   properties: {
@@ -30,8 +47,9 @@ const deliverySettingsRequiredSchema: JSONSchema7 = {
     },
     basePricePerItem: { type: "integer", minimum: 0 },
     extraPriceForOtherCity: { type: "integer", minimum: 0 },
+    pickupAddresses: pickupAddressesSchema,
   },
-  required: ["defaultCities", "basePricePerItem", "extraPriceForOtherCity"],
+  required: ["defaultCities", "basePricePerItem", "extraPriceForOtherCity", "pickupAddresses"],
   additionalProperties: false,
 };
 
@@ -64,9 +82,15 @@ const deliverySettingsPartialSchema: JSONSchema7 = {
     },
     basePricePerItem: { type: "integer", minimum: 0 },
     extraPriceForOtherCity: { type: "integer", minimum: 0 },
+    pickupAddresses: pickupAddressesSchema,
   },
   additionalProperties: false,
-  anyOf: [{ required: ["defaultCities"] }, { required: ["basePricePerItem"] }, { required: ["extraPriceForOtherCity"] }],
+  anyOf: [
+    { required: ["defaultCities"] },
+    { required: ["basePricePerItem"] },
+    { required: ["extraPriceForOtherCity"] },
+    { required: ["pickupAddresses"] },
+  ],
 };
 
 export const settingsCreateSchema: AllowedSchema = {

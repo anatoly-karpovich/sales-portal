@@ -34,7 +34,11 @@
   "delivery": {
     "defaultCities": ["New York", "Los Angeles"],
     "basePricePerItem": 0,
-    "extraPriceForOtherCity": 0
+    "extraPriceForOtherCity": 0,
+    "pickupAddresses": {
+      "New York": { "street": "5th Avenue", "house": 742, "flat": 12 },
+      "Los Angeles": { "street": "Sunset Boulevard", "house": 1050, "flat": 8 }
+    }
   }
 }
 ```
@@ -48,12 +52,17 @@
 - `inventory.defaultLowStockThreshold` must be integer `>= 0`.
 - `delivery.defaultCities` must be non-empty string array.
 - `delivery.basePricePerItem` and `delivery.extraPriceForOtherCity` must be integers `>= 0`.
+- `delivery.pickupAddresses` is required and must be a non-empty object.
+- Each `pickupAddresses.<city>` value must include `street` (string), `house` (integer `>= 1`), `flat` (integer `>= 1`).
+- `delivery.defaultCities` and `delivery.pickupAddresses` must match by city keys (no missing and no extra pickup city keys).
 
 ### Update (`PATCH /api/settings`)
 
 - Partial payload allowed.
 - At least one of `order`, `inventory`, `delivery` must be present.
 - Nested section objects accept only known fields (`additionalProperties: false`).
+- `delivery.pickupAddresses` can be updated as a whole object.
+- If `delivery` is patched, resulting `defaultCities` and `pickupAddresses` must remain consistent by city keys.
 
 ## Response Envelopes
 
@@ -80,7 +89,7 @@
 ### `PATCH /api/settings`
 
 - `200` updated
-- `400` validation error
+- `400` validation error (including defaultCities/pickupAddresses key mismatch)
 - `401` unauthorized
 
 ## Bootstrap and Migration Notes
@@ -88,5 +97,5 @@
 - On app startup, `seed()` creates default settings if collection is empty.
 - For existing environments, use migrations:
   - `npm run mongo:migrate:settings:init`
-  - `npm run mongo:migrate:settings:add-core-us-cities`
+  - `npm run mongo:migrate:settings:add-core-us-cities` (synchronizes `delivery.defaultCities` and default `delivery.pickupAddresses`)
 - Default values source of truth is `backend/data/defaultSettings.ts`.

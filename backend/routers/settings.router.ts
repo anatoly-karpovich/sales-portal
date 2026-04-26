@@ -2,14 +2,27 @@ import { Router } from "express";
 import { authmiddleware } from "../middleware/authmiddleware";
 import { SettingsController } from "../controllers/settings.controller";
 import { schemaMiddleware } from "../middleware/schemaMiddleware";
+import { settingsCreateDeliveryConsistency, settingsUpdateDeliveryConsistency } from "../middleware/settingsMiddleware";
 
 const settingsRouter = Router();
 
 const controller = new SettingsController();
 
 settingsRouter.get("/settings", authmiddleware, controller.getSettings.bind(controller));
-settingsRouter.post("/settings", authmiddleware, schemaMiddleware("settingsCreateSchema"), controller.createSettings.bind(controller));
-settingsRouter.patch("/settings", authmiddleware, schemaMiddleware("settingsUpdateSchema"), controller.updateSettings.bind(controller));
+settingsRouter.post(
+  "/settings",
+  authmiddleware,
+  schemaMiddleware("settingsCreateSchema"),
+  settingsCreateDeliveryConsistency,
+  controller.createSettings.bind(controller),
+);
+settingsRouter.patch(
+  "/settings",
+  authmiddleware,
+  schemaMiddleware("settingsUpdateSchema"),
+  settingsUpdateDeliveryConsistency,
+  controller.updateSettings.bind(controller),
+);
 
 /**
  * @swagger
@@ -35,7 +48,7 @@ settingsRouter.patch("/settings", authmiddleware, schemaMiddleware("settingsUpda
  *               type: integer
  *         delivery:
  *           type: object
- *           required: [defaultCities, basePricePerItem, extraPriceForOtherCity]
+ *           required: [defaultCities, basePricePerItem, extraPriceForOtherCity, pickupAddresses]
  *           properties:
  *             defaultCities:
  *               type: array
@@ -45,6 +58,18 @@ settingsRouter.patch("/settings", authmiddleware, schemaMiddleware("settingsUpda
  *               type: integer
  *             extraPriceForOtherCity:
  *               type: integer
+ *             pickupAddresses:
+ *               type: object
+ *               additionalProperties:
+ *                 type: object
+ *                 required: [street, house, flat]
+ *                 properties:
+ *                   street:
+ *                     type: string
+ *                   house:
+ *                     type: integer
+ *                   flat:
+ *                     type: integer
  *     SettingsResponse:
  *       type: object
  *       properties:

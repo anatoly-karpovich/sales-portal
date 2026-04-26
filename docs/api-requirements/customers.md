@@ -9,7 +9,7 @@
 | Base path | `/api/customers` |
 | Auth | Required |
 | Pagination limits | `limit` clamped to `10..100` |
-| Sorted list response | Includes `total`, `page`, `limit`, `search`, `country`, `sorting` |
+| Sorted list response | Includes `total`, `page`, `limit`, `search`, `sorting` |
 | Delete guard | Customer cannot be deleted if referenced by any order |
 
 ## Endpoints
@@ -29,9 +29,8 @@
 
 | Query param | Type | Notes |
 | --- | --- | --- |
-| `search` | string | Matches customer fields (`email`, `name`, `country`). |
-| `country` | string or string[] | Multi-filter supported. |
-| `sortField` | `email \| name \| country \| createdOn` | Defaults to `createdOn`. |
+| `search` | string | Matches customer fields (`email`, `name`). |
+| `sortField` | `email \| name \| createdOn` | Defaults to `createdOn`. |
 | `sortOrder` | `asc \| desc` | Defaults to `desc`. |
 | `page` | string number | Minimum effective page is `1`. |
 | `limit` | string number | Clamped to `10..100`. |
@@ -41,7 +40,6 @@
 Schema-required fields:
 - `email`
 - `name`
-- `country`
 - `city`
 - `street`
 - `house`
@@ -54,7 +52,7 @@ Optional:
 ## Validation and Business Guards
 
 - Email uniqueness is enforced case-insensitively (`trim + lowercase`).
-- Name/city/street/phone/country/notes format checks run in middleware.
+- Name/city/street/phone/notes format checks run in middleware.
 - `house` must be `1..999`.
 - `flat` must be `1..9999`.
 - `notes` max effective length is `250`, disallows invalid patterns per validation rules.
@@ -70,7 +68,6 @@ Payload:
   "fields": ["_id", "email", "name"],
   "filters": {
     "search": "",
-    "country": ["USA"],
     "page": 1,
     "limit": 20,
     "sortField": "createdOn",
@@ -84,7 +81,7 @@ Allowed `format`:
 - `json`
 
 Allowed `fields`:
-- `_id`, `email`, `name`, `country`, `city`, `street`, `house`, `flat`, `phone`, `createdOn`, `notes`
+- `_id`, `email`, `name`, `city`, `street`, `house`, `flat`, `phone`, `createdOn`, `notes`
 
 ## Standard Response Envelopes
 
@@ -93,6 +90,6 @@ Allowed `fields`:
 - Success (list):
   - `{ Customers, IsSuccess: true, ErrorMessage: null }`
 - Success (sorted list):
-  - `{ Customers, total, page, limit, search, country, sorting, IsSuccess: true, ErrorMessage: null }`
+  - `{ Customers, total, page, limit, search, sorting, IsSuccess: true, ErrorMessage: null }`
 - Failure:
   - `{ IsSuccess: false, ErrorMessage }`
