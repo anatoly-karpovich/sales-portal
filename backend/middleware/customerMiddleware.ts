@@ -1,5 +1,5 @@
 import { isValidInput } from "../utils/validations.js";
-import { VALIDATION_ERROR_MESSAGES, COUNTRIES } from "../data/enums.js";
+import { VALIDATION_ERROR_MESSAGES } from "../data/enums.js";
 import CustomerService from "../services/customer.service.js";
 import Customer from "../models/customer.model.js";
 import Order from "../models/order.model.js";
@@ -96,12 +96,6 @@ export async function customerValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
-    if (
-      !Object.values(COUNTRIES).includes(req.body.country) ||
-      (req.body.country && req.body.country.trim().length !== req.body.country.length)
-    ) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
-    }
     if (
       req.body.notes &&
       (!isValidInput("Notes", req.body.notes) ||

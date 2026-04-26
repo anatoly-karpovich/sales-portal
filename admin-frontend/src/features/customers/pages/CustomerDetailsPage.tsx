@@ -229,7 +229,6 @@ export function CustomerDetailsPage() {
                 {customersUiText.detailsPage.addressTitle}
               </Typography>
               <Stack spacing={0.35}>
-                <InlineDetailsField label={customersUiText.detailsPage.fields.country} value={customer.country} />
                 <InlineDetailsField label={customersUiText.detailsPage.fields.city} value={customer.city} />
                 <InlineDetailsField label={customersUiText.detailsPage.fields.street} value={customer.street} />
                 <InlineDetailsField label={customersUiText.detailsPage.fields.house} value={String(customer.house)} />

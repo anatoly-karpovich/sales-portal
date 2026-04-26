@@ -1,12 +1,10 @@
 import type { Customer, CustomerUpsertPayload } from '@/api/modules/customers.api'
 import type { CustomerFormState, CustomerFormTouchedState } from '@/features/customers/forms/customerForm.types'
-import { getDefaultCountry } from '@/features/customers/options/countryOptions'
 
 export function toCustomerFormTouchedState(value = false): CustomerFormTouchedState {
   return {
     email: value,
     name: value,
-    country: value,
     city: value,
     street: value,
     house: value,
@@ -17,13 +15,10 @@ export function toCustomerFormTouchedState(value = false): CustomerFormTouchedSt
 }
 
 export function toCustomerFormInitialState(customer: Customer | null): CustomerFormState {
-  const defaultCountry = getDefaultCountry()
-
   if (!customer) {
     return {
       email: '',
       name: '',
-      country: defaultCountry,
       city: '',
       street: '',
       house: '',
@@ -36,7 +31,6 @@ export function toCustomerFormInitialState(customer: Customer | null): CustomerF
   return {
     email: customer.email ?? '',
     name: customer.name ?? '',
-    country: customer.country ?? defaultCountry,
     city: customer.city ?? '',
     street: customer.street ?? '',
     house: String(customer.house ?? ''),
@@ -50,7 +44,6 @@ export function toCustomerUpsertPayload(state: CustomerFormState): CustomerUpser
   return {
     email: state.email.trim(),
     name: state.name.trim(),
-    country: state.country,
     city: state.city.trim(),
     street: state.street.trim(),
     house: Number(state.house),

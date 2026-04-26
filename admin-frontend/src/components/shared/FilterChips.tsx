@@ -2,12 +2,25 @@ import { Stack, Chip } from '@mui/material'
 
 type Props = {
   search?: string
+  searchPrefix?: string
   filters: string[]
+  filterPrefix?: string
   onRemoveSearch: () => void
   onRemoveFilter: (value: string) => void
 }
 
-export function FilterChips({ search, filters, onRemoveSearch, onRemoveFilter }: Props) {
+function withPrefix(prefix: string | undefined, value: string) {
+  return prefix ? `${prefix}: ${value}` : value
+}
+
+export function FilterChips({
+  search,
+  searchPrefix,
+  filters,
+  filterPrefix,
+  onRemoveSearch,
+  onRemoveFilter,
+}: Props) {
   if (!search && filters.length === 0) {
     return null
   }
@@ -15,13 +28,20 @@ export function FilterChips({ search, filters, onRemoveSearch, onRemoveFilter }:
 
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap data-testid="filter-chips">
-      {search ? <Chip color="primary" label={search} onDelete={onRemoveSearch} data-testid="filter-chips-search-chip" /> : null}
+      {search ? (
+        <Chip
+          color="primary"
+          label={withPrefix(searchPrefix, search)}
+          onDelete={onRemoveSearch}
+          data-testid="filter-chips-search-chip"
+        />
+      ) : null}
       {filters.map((value) => (
         <Chip
           key={value}
           color="primary"
           variant="outlined"
-          label={value}
+          label={withPrefix(filterPrefix, value)}
           onDelete={() => onRemoveFilter(value)}
           data-testid={`filter-chips-filter-${toFilterTestId(value)}-chip`}
         />

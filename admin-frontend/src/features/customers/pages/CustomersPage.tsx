@@ -1,8 +1,8 @@
 import { Button, Paper, Stack, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
-import { FilterDialog } from '@/components/shared/FilterDialog'
 import { FilterChips } from '@/components/shared/FilterChips'
+import { FilterDialog } from '@/components/shared/FilterDialog'
 import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
@@ -18,7 +18,7 @@ import { customersUiText, getDeleteCustomerMessage } from '@/features/customers/
 
 export function CustomersPage() {
   const state = useCustomersPageState()
-  const hasActiveCriteria = Boolean(state.search) || state.country.length > 0
+  const hasActiveCriteria = Boolean(state.search) || state.selectedFilters.length > 0
   const emptyText = hasActiveCriteria
     ? sharedUiText.table.emptyFiltered
     : customersUiText.listPage.emptyStateNoCustomers
@@ -59,15 +59,18 @@ export function CustomersPage() {
             onSearchDraftChange={state.setSearchDraft}
             isSearching={state.isTableUpdating}
             onSearchApply={state.onSearchApply}
-            onOpenFilters={() => state.setFiltersOpen(true)}
+            onOpenFilters={() => state.setFilterOpen(true)}
             onOpenExport={() => state.setExportOpen(true)}
+            disableFilterButton={state.isFilterButtonDisabled}
           />
 
           <FilterChips
             search={state.search}
-            filters={state.country}
+            searchPrefix={customersUiText.listPage.chips.searchPrefix}
+            filters={state.selectedFilters}
+            filterPrefix={customersUiText.listPage.chips.cityPrefix}
             onRemoveSearch={state.onRemoveSearch}
-            onRemoveFilter={state.onRemoveCountryFilter}
+            onRemoveFilter={state.onRemoveFilter}
           />
 
           <DataTable
@@ -92,21 +95,21 @@ export function CustomersPage() {
         </Stack>
       </Paper>
 
-      <FilterDialog
-        open={state.filtersOpen}
-        title={customersUiText.listPage.filtersTitle}
-        values={state.countryOptions}
-        selected={state.country}
-        onClose={() => state.setFiltersOpen(false)}
-        onApply={state.applyCountryFilters}
-      />
-
       <ExportDialog
         open={state.exportOpen}
         availableFields={CUSTOMERS_EXPORT_AVAILABLE_FIELDS}
         defaultFields={CUSTOMERS_EXPORT_DEFAULT_FIELDS}
         onClose={() => state.setExportOpen(false)}
         onSubmit={state.onExportSubmit}
+      />
+
+      <FilterDialog
+        open={state.filterOpen}
+        title={customersUiText.listPage.filtersTitle}
+        values={state.filterValues}
+        selected={state.selectedFilters}
+        onClose={() => state.setFilterOpen(false)}
+        onApply={state.onFilterApply}
       />
 
       <ConfirmDialog

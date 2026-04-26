@@ -6,6 +6,10 @@ export const productsUiText = {
     addButton: '+ Add Product',
     filtersTitle: 'Filters',
     emptyStateNoProducts: 'No products created yet.',
+    chips: {
+      searchPrefix: 'Search',
+      manufacturerPrefix: 'Manufacturer',
+    },
   },
   form: {
     backToProducts: 'Products',

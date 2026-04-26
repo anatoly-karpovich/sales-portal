@@ -161,11 +161,6 @@ function buildDeliveryChanges(
       updated: resolveDeliveryFieldValue(current.delivery, 'finalDate'),
     },
     {
-      label: 'Country',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'country'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'country'),
-    },
-    {
       label: 'City',
       previous: resolveDeliveryFieldValue(previous?.delivery, 'city'),
       updated: resolveDeliveryFieldValue(current.delivery, 'city'),

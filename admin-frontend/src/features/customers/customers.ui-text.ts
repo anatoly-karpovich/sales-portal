@@ -6,6 +6,10 @@ export const customersUiText = {
     addButton: '+ Add Customer',
     filtersTitle: 'Filters',
     emptyStateNoCustomers: 'No customers created yet.',
+    chips: {
+      searchPrefix: 'Search',
+      cityPrefix: 'City',
+    },
   },
   form: {
     backToCustomers: 'Customers',
@@ -14,8 +18,8 @@ export const customersUiText = {
     fields: {
       email: 'Email*',
       name: 'Name*',
-      country: 'Country*',
       city: 'City*',
+      customCity: 'Custom City*',
       street: 'Street*',
       house: 'House*',
       flat: 'Flat*',
@@ -26,6 +30,7 @@ export const customersUiText = {
       email: "Enter customer's email",
       name: "Enter customer's name",
       city: "Enter customer's city",
+      customCity: "Enter customer's city",
       street: "Enter customer's street",
       house: "Enter customer's house",
       flat: "Enter customer's flat",
@@ -72,7 +77,6 @@ export const customersUiText = {
       email: 'Email',
       name: 'Name',
       phone: 'Phone',
-      country: 'Country',
       city: 'City',
       street: 'Street',
       house: 'House',
@@ -82,13 +86,17 @@ export const customersUiText = {
   errors: {
     missingCustomerId: 'Customer id is missing.',
     customerNotFound: 'Customer was not found.',
+    settingsNotFound: 'Settings were not found.',
+  },
+  citySelector: {
+    otherOption: 'Other',
+    noOptions: 'No cities found.',
   },
   validation: {
     emailRequired: 'Email is required',
     emailInvalid: 'Email must be a valid email address',
     nameRequired: 'Name is required',
     nameInvalid: 'Name must be 1-40 alphabetic characters with single spaces',
-    countryRequired: 'Country is required',
     cityRequired: 'City is required',
     cityInvalid: 'City must be 1-20 alphabetic characters',
     streetRequired: 'Street is required',

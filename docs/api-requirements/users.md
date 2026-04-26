@@ -1,31 +1,31 @@
 # Users (Managers) Module - API Requirements
 
-> Purpose: define user management contracts used by managers/admin flows.
+> Purpose: define manager-management contracts used by admin and profile flows.
 
 ## Quick Facts
 
 | Aspect | Details |
 | --- | --- |
-| Base path | `/api/users` |
+| Base path | `/api/managers` |
 | Auth | Required for all endpoints |
 | Roles | Stored in `roles` array (`USER`, `ADMIN`) |
 | Delete response | `204 No Content` on success |
-| Password endpoint | `PATCH /api/users/password/:userId` |
+| Password endpoint | `PATCH /api/managers/password/:managerId` |
 
 ## Endpoints
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| GET | `/api/users` | Get all users. |
-| GET | `/api/users/me` | Get current authenticated user profile. |
-| GET | `/api/users/:userId` | Get user plus assigned orders. |
-| POST | `/api/users` | Create/register user. |
-| DELETE | `/api/users/:userId` | Delete user with permission checks. |
-| PATCH | `/api/users/password/:userId` | Change user password with permission checks. |
+| GET | `/api/managers` | Get all managers. |
+| GET | `/api/managers/me` | Get current authenticated manager profile. |
+| GET | `/api/managers/:managerId` | Get manager plus assigned orders. |
+| POST | `/api/managers` | Create/register manager. |
+| DELETE | `/api/managers/:managerId` | Delete manager with permission checks. |
+| PATCH | `/api/managers/password/:managerId` | Change manager password with permission checks. |
 
 ## Data Contracts
 
-### User object
+### Manager object
 
 | Field | Type |
 | --- | --- |
@@ -36,7 +36,7 @@
 | `roles` | string[] |
 | `createdOn` | datetime string |
 
-### Create user payload (`POST /api/users`)
+### Create manager payload (`POST /api/managers`)
 
 ```json
 {
@@ -48,11 +48,11 @@
 ```
 
 Validation:
-- `username` required
-- `password` min length `8`
-- JSON schema validation via `userSchema`
+- `username` required.
+- `password` min length `8` (`express-validator`).
+- JSON schema validation via `managerSchema` requires `username`, `password`, `firstName`, `lastName`.
 
-### Change password payload (`PATCH /api/users/password/:userId`)
+### Change password payload (`PATCH /api/managers/password/:managerId`)
 
 ```json
 {
@@ -62,23 +62,23 @@ Validation:
 ```
 
 Validation and guards:
-- target user must exist
-- allowed for self or admin
-- not allowed for admin accounts
-- `oldPassword` must match
-- `newPassword.length >= 8`
+- target manager must exist;
+- allowed for self or admin;
+- changing password for admin accounts is blocked;
+- `oldPassword` must match;
+- `newPassword.length >= 8`.
 
 ## Permission Rules
 
-### Delete user (`DELETE /api/users/:userId`)
+### Delete manager (`DELETE /api/managers/:managerId`)
 
-- Target user must exist.
+- Target manager must exist.
 - Deleting admin is forbidden.
-- Non-admin user can delete only themselves.
-- Admin can delete non-admin users.
-- On successful delete, backend also removes all tokens for that user.
+- Non-admin can delete only themselves.
+- Admin can delete non-admin managers.
+- On successful delete, backend also removes all tokens for that manager.
 
-### Change password (`PATCH /api/users/password/:userId`)
+### Change password (`PATCH /api/managers/password/:managerId`)
 
 - Self or admin can initiate request.
 - Password change for admin accounts is blocked by middleware.
@@ -86,13 +86,13 @@ Validation and guards:
 ## Response Envelopes
 
 - Success examples:
-  - `{ Users, IsSuccess: true, ErrorMessage: null }`
-  - `{ User, IsSuccess: true, ErrorMessage: null }`
-  - `{ User, Orders, IsSuccess: true, ErrorMessage: null }` for `GET /users/:userId`
+  - `{ Managers, IsSuccess: true, ErrorMessage: null }`
+  - `{ Manager, IsSuccess: true, ErrorMessage: null }`
+  - `{ Manager, Orders, IsSuccess: true, ErrorMessage: null }` for `GET /api/managers/:managerId`
 - Failure:
   - `{ IsSuccess: false, ErrorMessage, reason? }`
 
-## Managers Integration Note
+## Manager Assignment Integration Note
 
-Order assignment APIs (`PUT /api/orders/:orderId/assign-manager/:managerId`) use this module's users.
-The chosen `managerId` must belong to a user whose roles include `USER` or `ADMIN`.
+Order assignment API (`PUT /api/orders/:orderId/assign-manager/:managerId`) depends on this module.
+The chosen `managerId` must belong to an account whose roles include `USER` or `ADMIN`.

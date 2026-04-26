@@ -104,7 +104,6 @@ Payload:
   "finalDate": "2026-05-01T12:00:00.000Z",
   "condition": "Delivery",
   "address": {
-    "country": "USA",
     "city": "New York",
     "street": "Broadway",
     "house": 1,
@@ -188,8 +187,8 @@ Rules:
 ## Manager Assignment Contract
 
 ### `PUT /api/orders/:orderId/assign-manager/:managerId`
-- `managerId` user must exist.
-- User must have role `USER` or `ADMIN`.
+- `managerId` manager must exist.
+- Manager account must have role `USER` or `ADMIN`.
 
 ### `PUT /api/orders/:orderId/unassign-manager`
 - Clears `assignedManager`.

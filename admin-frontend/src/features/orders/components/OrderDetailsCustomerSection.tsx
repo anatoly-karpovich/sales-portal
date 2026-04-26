@@ -56,13 +56,6 @@ export function OrderDetailsCustomerSection({
             {normalizeValue(order.customer.name)}
           </Typography>
 
-          <Typography fontWeight={700}>
-            {ordersUiText.detailsPage.fields.customer.country}
-          </Typography>
-          <Typography data-testid="order-details-customer-country-value">
-            {normalizeValue(order.customer.country)}
-          </Typography>
-
           <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.city}</Typography>
           <Typography data-testid="order-details-customer-city-value">
             {normalizeValue(order.customer.city)}

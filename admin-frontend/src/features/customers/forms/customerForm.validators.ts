@@ -1,6 +1,5 @@
 import type { CustomerFormState, CustomerFormValidation } from '@/features/customers/forms/customerForm.types'
 import { customersUiText } from '@/features/customers/customers.ui-text'
-import { isCountryOption } from '@/features/customers/options/countryOptions'
 
 export function validateCustomerForm(state: CustomerFormState): CustomerFormValidation {
   const email = state.email.trim()
@@ -28,8 +27,6 @@ export function validateCustomerForm(state: CustomerFormState): CustomerFormVali
   const notes = state.notes.trim()
   const notesIsValid = /^[^<>]{0,250}$/.test(notes)
 
-  const countryIsValid = isCountryOption(state.country)
-
   return {
     emailError:
       email.length === 0
@@ -43,7 +40,6 @@ export function validateCustomerForm(state: CustomerFormState): CustomerFormVali
         : nameIsValid
           ? null
           : customersUiText.validation.nameInvalid,
-    countryError: countryIsValid ? null : customersUiText.validation.countryRequired,
     cityError:
       city.length === 0
         ? customersUiText.validation.cityRequired

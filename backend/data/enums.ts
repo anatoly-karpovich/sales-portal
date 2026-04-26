@@ -1,14 +1,3 @@
-export enum COUNTRIES {
-  USA = "USA",
-  Canada = "Canada",
-  Belarus = "Belarus",
-  Ukraine = "Ukraine",
-  Germany = "Germany",
-  France = "France",
-  Great_Britain = "Great Britain",
-  Russia = "Russia",
-}
-
 export enum DELIVERY {
   DELIVERY = "Delivery",
   PICK_UP = "Pickup",
@@ -57,7 +46,6 @@ export enum VALIDATION_ERROR_MESSAGES {
   PRODUCTS_NAME = "Products's name should contain only 3-40 alphanumerical characters and one space between",
   AMOUNT = "Amount should be in range 0-999",
   PRICE = "Price should be in range 1-99999",
-  COUNTRY = "No such country is defined",
   MANUFACTURER = "No such manufacturer is defined",
   CUSTOMER = "Incorrect Customer",
   PRODUCT = "Incorrect Customer",

@@ -7,7 +7,6 @@ import { CustomersTableActionsCell } from '@/features/customers/components/Custo
 export const CUSTOMERS_EXPORT_AVAILABLE_FIELDS = [
   'email',
   'name',
-  'country',
   'city',
   'street',
   'house',
@@ -16,9 +15,9 @@ export const CUSTOMERS_EXPORT_AVAILABLE_FIELDS = [
   'createdOn',
   'notes',
 ]
-export const CUSTOMERS_EXPORT_DEFAULT_FIELDS = ['email', 'name', 'country', 'createdOn']
+export const CUSTOMERS_EXPORT_DEFAULT_FIELDS = ['email', 'name', 'createdOn']
 
-export const CUSTOMERS_SORT_FIELDS = ['email', 'name', 'country', 'createdOn'] as const
+export const CUSTOMERS_SORT_FIELDS = ['email', 'name', 'createdOn'] as const
 export type CustomersSortField = (typeof CUSTOMERS_SORT_FIELDS)[number]
 export type CustomersSortOrder = 'asc' | 'desc'
 
@@ -42,7 +41,7 @@ export function getCustomersTableColumns({
       key: 'email',
       label: 'Email',
       sortable: true,
-      width: '34%',
+      width: '40%',
       minWidth: 280,
       render: (row) => row.email,
     },
@@ -50,24 +49,23 @@ export function getCustomersTableColumns({
       key: 'name',
       label: 'Name',
       sortable: true,
-      width: '22%',
-      minWidth: 220,
+      width: '24%',
+      minWidth: 200,
       render: (row) => row.name,
     },
     {
-      key: 'country',
-      label: 'Country',
-      sortable: true,
-      width: '16%',
-      minWidth: 150,
-      render: (row) => row.country,
+      key: 'city',
+      label: 'City',
+      width: '18%',
+      minWidth: 180,
+      render: (row) => row.city || '-',
     },
     {
       key: 'createdOn',
       label: 'Created On',
       sortable: true,
-      width: '20%',
-      minWidth: 220,
+      width: '18%',
+      minWidth: 200,
       render: (row) => formatDateTime(row.createdOn),
     },
     {

@@ -5,7 +5,6 @@ export type Customer = {
   _id: string
   email: string
   name: string
-  country: string
   city: string
   street: string
   house: number
@@ -18,7 +17,6 @@ export type Customer = {
 export type CustomerUpsertPayload = {
   email: string
   name: string
-  country: string
   city: string
   street: string
   house: number
@@ -33,9 +31,10 @@ export type CustomersListResponse = {
   page: number
   limit: number
   search: string
-  country: string[]
+  city: string[]
+  includeOtherCities: boolean
   sorting: {
-    sortField: 'email' | 'name' | 'country' | 'createdOn'
+    sortField: 'email' | 'name' | 'createdOn'
     sortOrder: 'asc' | 'desc'
   }
   IsSuccess: boolean
@@ -89,10 +88,11 @@ export type CustomerExportPayload = {
   format: 'csv' | 'json'
   filters: {
     search: string
-    country: string[]
+    city: string[]
+    includeOtherCities: boolean
     page: number
     limit: number
-    sortField: 'email' | 'name' | 'country' | 'createdOn'
+    sortField: 'email' | 'name' | 'createdOn'
     sortOrder: 'asc' | 'desc'
   } | null
   fields: string[]
@@ -100,8 +100,9 @@ export type CustomerExportPayload = {
 
 export type CustomersQuery = {
   search: string
-  country: string[]
-  sortField: 'email' | 'name' | 'country' | 'createdOn'
+  city: string[]
+  includeOtherCities: boolean
+  sortField: 'email' | 'name' | 'createdOn'
   sortOrder: 'asc' | 'desc'
   page: number
   limit: number
@@ -109,10 +110,7 @@ export type CustomersQuery = {
 
 export async function getCustomers(query: CustomersQuery) {
   const response = await apiClient.get<CustomersListResponse>('/customers', {
-    params: {
-      ...query,
-      country: query.country,
-    },
+    params: query,
   })
   return response.data
 }

@@ -293,7 +293,6 @@ export function OrderDetailsPage() {
       _id: order.customer._id,
       email: order.customer.email,
       name: order.customer.name,
-      country: order.customer.country,
       city: order.customer.city,
       street: order.customer.street,
       house: order.customer.house,

@@ -72,6 +72,9 @@ export const ordersUiText = {
       noDeliveryScheduled: 'Delivery is not scheduled yet',
       noDelivery: 'Not Scheduled',
       selectManager: 'Click to select manager',
+      deliveryCityOtherOption: 'Other',
+      deliveryCityNoOptions: 'No cities found.',
+      pickupCityNoOptions: 'No pickup cities available.',
       deliveryAddressSourceCustomer: 'Customer address',
       deliveryAddressSourceStore: 'Store pickup address',
       deliveryAddressSourceCustom: 'Custom address',
@@ -86,7 +89,6 @@ export const ordersUiText = {
         email: 'Email',
         name: 'Name',
         phone: 'Phone',
-        country: 'Country',
         city: 'City',
         street: 'Street',
         house: 'House',
@@ -98,7 +100,6 @@ export const ordersUiText = {
         condition: 'Delivery Type',
         location: 'Location',
         finalDate: 'Delivery Date',
-        country: 'Country',
         city: 'City',
         street: 'Street',
         house: 'House',
@@ -193,6 +194,7 @@ export const ordersUiText = {
     updateProductsFailed: 'Failed to update products. Please try again later.',
     orderNoLongerDraft: 'Order is no longer in Draft status. Page data was refreshed.',
     orderStateChanged: 'Order state has changed. Page data was refreshed.',
+    settingsNotFound: 'Settings were not found.',
     deliverySaveFailed: 'Failed to save delivery. Please try again later.',
     receiveProductsFailed: 'Failed to receive products. Please try again later.',
     assignManagerFailed: 'Unable to assign manager. Please try again later.',
@@ -203,7 +205,6 @@ export const ordersUiText = {
   validation: {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',
     deliveryDateInvalid: 'Delivery date is required',
-    deliveryCountryInvalid: 'Select a valid country',
     deliveryCityInvalid:
       "City's name should contain only 1-20 alphabetical characters and one space between",
     deliveryStreetInvalid:

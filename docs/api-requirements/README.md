@@ -13,6 +13,7 @@ This folder mirrors `docs/ui-requirements` but from backend/API perspective.
 - `products.md`
 - `orders.md`
 - `orders-flow.md`
+- `settings.md`
 
 ## Source of Truth
 

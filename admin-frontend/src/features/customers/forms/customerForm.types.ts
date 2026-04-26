@@ -1,7 +1,6 @@
 export type CustomerFormState = {
   email: string
   name: string
-  country: string
   city: string
   street: string
   house: string
@@ -13,7 +12,6 @@ export type CustomerFormState = {
 export type CustomerFormTouchedState = {
   email: boolean
   name: boolean
-  country: boolean
   city: boolean
   street: boolean
   house: boolean
@@ -25,7 +23,6 @@ export type CustomerFormTouchedState = {
 export type CustomerFormValidation = {
   emailError: string | null
   nameError: string | null
-  countryError: string | null
   cityError: string | null
   streetError: string | null
   houseError: string | null

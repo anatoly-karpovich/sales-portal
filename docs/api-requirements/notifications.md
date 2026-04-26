@@ -56,7 +56,7 @@
 | Field | Type | Notes |
 | --- | --- | --- |
 | `_id` | string | Notification id |
-| `userId` | string | Owner user id |
+| `managerId` | string | Owner manager id |
 | `type` | string | Notification type key |
 | `orderId` | string | Linked order id |
 | `message` | string | User-facing message |

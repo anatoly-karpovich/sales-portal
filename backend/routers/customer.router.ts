@@ -60,7 +60,6 @@ customerRouter.delete(
  *       required:
  *         - email
  *         - name
- *         - country
  *         - city
  *         - street
  *         - house
@@ -77,18 +76,6 @@ customerRouter.delete(
  *         name:
  *           type: string
  *           description: The customer's name
- *         country:
- *           type: string
- *           enum:
- *             - USA
- *             - Canada
- *             - Belarus
- *             - Ukraine
- *             - Germany
- *             - France
- *             - Great Britain
- *             - Russia
- *           description: The customer's country
  *         city:
  *           type: string
  *           description: The customer's city
@@ -115,7 +102,6 @@ customerRouter.delete(
  *         "_id": "6396593e54206d313b2a50b7"
  *         "email": "customer1@example.com"
  *         "name": "John Doe"
- *         "country": "USA"
  *         "city": "New York"
  *         "street": "5th Avenue"
  *         "house": 123
@@ -129,7 +115,6 @@ customerRouter.delete(
  *       required:
  *         - email
  *         - name
- *         - country
  *         - city
  *         - street
  *         - house
@@ -142,18 +127,6 @@ customerRouter.delete(
  *         name:
  *           type: string
  *           description: The customer's name
- *         country:
- *           type: string
- *           enum:
- *             - USA
- *             - Canada
- *             - Belarus
- *             - Ukraine
- *             - Germany
- *             - France
- *             - Great Britain
- *             - Russia
- *           description: The customer's country
  *         city:
  *           type: string
  *           description: The customer's city
@@ -175,7 +148,6 @@ customerRouter.delete(
  *       example:
  *         "email": "customer1@example.com"
  *         "name": "John Doe"
- *         "country": "USA"
  *         "city": "New York"
  *         "street": "5th Avenue"
  *         "house": 123
@@ -220,16 +192,18 @@ customerRouter.delete(
  *               type: number
  *             search:
  *               type: string
- *             country:
+ *             city:
  *               type: array
  *               items:
  *                 type: string
+ *             includeOtherCities:
+ *               type: boolean
  *             sorting:
  *               type: object
  *               properties:
  *                 sortField:
  *                   type: string
- *                   enum: [email, name, country, createdOn]
+ *                   enum: [email, name, createdOn]
  *                 sortOrder:
  *                   type: string
  *                   enum: [asc, desc]
@@ -249,17 +223,19 @@ customerRouter.delete(
  *           properties:
  *             search:
  *               type: string
- *             country:
+ *             city:
  *               type: array
  *               items:
  *                 type: string
+ *             includeOtherCities:
+ *               type: boolean
  *             page:
  *               type: number
  *             limit:
  *               type: number
  *             sortField:
  *               type: string
- *               enum: [email, name, country, createdOn]
+ *               enum: [email, name, createdOn]
  *             sortOrder:
  *               type: string
  *               enum: [asc, desc]
@@ -267,7 +243,7 @@ customerRouter.delete(
  *           type: array
  *           items:
  *             type: string
- *             enum: [_id, email, name, country, city, street, house, flat, phone, createdOn, notes]
+ *             enum: [_id, email, name, city, street, house, flat, phone, createdOn, notes]
  */
 
 /**
@@ -320,20 +296,25 @@ customerRouter.delete(
  *         name: search
  *         schema:
  *           type: string
- *         description: Search term for filtering customers by email, name, or country
+ *         description: Search term for filtering customers by email or name
  *       - in: query
- *         name: country
+ *         name: city
  *         schema:
  *           type: array
  *           items:
  *             type: string
- *           example: ["USA", "Canada"]
- *         description: Filter customers by country
+ *         description: Filter customers by specific city values
+ *       - in: query
+ *         name: includeOtherCities
+ *         schema:
+ *           type: boolean
+ *           example: true
+ *         description: Include customers from cities outside settings.delivery.defaultCities
  *       - in: query
  *         name: sortField
  *         schema:
  *           type: string
- *           enum: [email, name, country, createdOn]
+ *           enum: [email, name, createdOn]
  *           example: name
  *         description: Field to sort by
  *       - in: query

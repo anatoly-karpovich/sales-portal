@@ -16,6 +16,19 @@ import {
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
+const TRUE_VALUES = new Set(["true", "1", "yes"]);
+
+function normalizeCities(value?: string | string[]): string[] {
+  const rawCities = Array.isArray(value) ? value : value ? [value] : [];
+  return [...new Set(rawCities.map((city) => city.trim()).filter((city) => city.length > 0))];
+}
+
+function parseBooleanFlag(value?: string | string[]): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => TRUE_VALUES.has(item.toLowerCase()));
+  }
+  return typeof value === "string" ? TRUE_VALUES.has(value.toLowerCase()) : false;
+}
 
 class CustomerController {
   async create(req: CreateCustomerRequestDTO, res: Response<CustomerResponseDTO | BaseResponseDTO>) {
@@ -36,12 +49,13 @@ class CustomerController {
         search = "",
         sortField = "createdOn",
         sortOrder = "desc",
-        country,
+        city,
+        includeOtherCities,
         page = "1",
         limit = MIN_LIMIT,
       } = req.query;
-
-      const countries = (Array.isArray(country) ? country : country ? [country] : []) as string[];
+      const cities = normalizeCities(city);
+      const shouldIncludeOtherCities = parseBooleanFlag(includeOtherCities);
 
       const pageNumber = Math.max(parseInt(page), 1);
 
@@ -49,7 +63,7 @@ class CustomerController {
       const skip = (pageNumber - 1) * limitNumber;
 
       const { customers, total } = await CustomerService.getSorted(
-        { search, country: countries },
+        { search, city: cities, includeOtherCities: shouldIncludeOtherCities },
         { sortField, sortOrder },
         { skip, limit: limitNumber }
       );
@@ -60,7 +74,8 @@ class CustomerController {
         page: pageNumber,
         limit: limitNumber,
         search,
-        country: countries,
+        city: cities,
+        includeOtherCities: shouldIncludeOtherCities,
         sorting: { sortField, sortOrder },
         IsSuccess: true,
         ErrorMessage: null,
@@ -119,8 +134,9 @@ class CustomerController {
         fields: (fields ?? []) as string[],
         filters: filters
           ? {
-              country: filters.country,
               search: filters.search,
+              city: filters.city,
+              includeOtherCities: filters.includeOtherCities,
               page: filters.page,
               limit: filters.limit,
               sortField: filters.sortField,

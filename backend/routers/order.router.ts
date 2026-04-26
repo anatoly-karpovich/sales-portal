@@ -66,7 +66,7 @@ orderRouter.put(
  *           type: string
  *     OrderCustomerFull:
  *       type: object
- *       required: [_id, email, name, country, city, street, house, flat, phone, createdOn]
+ *       required: [_id, email, name, city, street, house, flat, phone, createdOn]
  *       properties:
  *         _id:
  *           type: string
@@ -74,9 +74,6 @@ orderRouter.put(
  *           type: string
  *         name:
  *           type: string
- *         country:
- *           type: string
- *           enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
  *         city:
  *           type: string
  *         street:
@@ -134,11 +131,8 @@ orderRouter.put(
  *           type: boolean
  *     DeliveryAddress:
  *       type: object
- *       required: [country, city, street, house, flat]
+ *       required: [city, street, house, flat]
  *       properties:
- *         country:
- *           type: string
- *           enum: [USA, Canada, Belarus, Ukraine, Germany, France, Great Britain, Russia]
  *         city:
  *           type: string
  *         street:
