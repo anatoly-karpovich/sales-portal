@@ -9,7 +9,7 @@
 | Base path | `/api/customers` |
 | Auth | Required |
 | Pagination limits | `limit` clamped to `10..100` |
-| Sorted list response | Includes `total`, `page`, `limit`, `search`, `sorting` |
+| Sorted list response | Includes `total`, `page`, `limit`, `search`, `city`, `includeOtherCities`, `sorting` |
 | Delete guard | Customer cannot be deleted if referenced by any order |
 
 ## Endpoints
@@ -30,10 +30,17 @@
 | Query param | Type | Notes |
 | --- | --- | --- |
 | `search` | string | Matches customer fields (`email`, `name`). |
+| `city` | string or string[] | Filter by specific city names. |
+| `includeOtherCities` | boolean | Include customers from cities outside `settings.delivery.defaultCities`. |
 | `sortField` | `email \| name \| createdOn` | Defaults to `createdOn`. |
 | `sortOrder` | `asc \| desc` | Defaults to `desc`. |
 | `page` | string number | Minimum effective page is `1`. |
 | `limit` | string number | Clamped to `10..100`. |
+
+City filtering behavior:
+- `city` only -> `city IN selected cities`
+- `includeOtherCities=true` only -> `city NOT IN settings.delivery.defaultCities`
+- both together -> union of both sets
 
 ## Create/Update Payload
 
@@ -68,6 +75,8 @@ Payload:
   "fields": ["_id", "email", "name"],
   "filters": {
     "search": "",
+    "city": ["Boston"],
+    "includeOtherCities": true,
     "page": 1,
     "limit": 20,
     "sortField": "createdOn",
@@ -90,6 +99,6 @@ Allowed `fields`:
 - Success (list):
   - `{ Customers, IsSuccess: true, ErrorMessage: null }`
 - Success (sorted list):
-  - `{ Customers, total, page, limit, search, sorting, IsSuccess: true, ErrorMessage: null }`
+  - `{ Customers, total, page, limit, search, city, includeOtherCities, sorting, IsSuccess: true, ErrorMessage: null }`
 - Failure:
   - `{ IsSuccess: false, ErrorMessage }`

@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import type { ICustomer } from "../data/types";
 import Customer from "../models/customer.model";
 import Order from "../models/order.model";
+import SettingsModel from "../models/settings.model";
 import { getTodaysDate } from "../utils/utils";
 import { CustomerExportFormatDTO } from "../data/types/dto/customers.dto";
 import ExportService from "./export.service";
@@ -34,12 +35,12 @@ class CustomerService {
   }
 
   async getSorted(
-    filters: { search: string },
+    filters: { search: string; city?: string[]; includeOtherCities?: boolean },
     sortOptions: { sortField: CustomerSortField; sortOrder: CustomerSortOrder },
     pagination: { skip: number; limit: number }
   ): Promise<{ customers: ICustomer[]; total: number }> {
     const { skip, limit } = pagination;
-    const filter = this.buildFilter(filters);
+    const filter = await this.buildFilter(filters);
     const sort = this.buildSort(sortOptions);
 
     const [customers, total] = await Promise.all([
@@ -58,6 +59,8 @@ class CustomerService {
   async getForExport(
     filters: {
       search?: string;
+      city?: string[];
+      includeOtherCities?: boolean;
       page?: number;
       limit?: number;
       sortField?: CustomerSortField;
@@ -65,7 +68,11 @@ class CustomerService {
     } = {},
     fields: string[] = []
   ): Promise<ICustomer[]> {
-    const filter = this.buildFilter({ search: filters.search ?? "" });
+    const filter = await this.buildFilter({
+      search: filters.search ?? "",
+      city: filters.city ?? [],
+      includeOtherCities: filters.includeOtherCities ?? false,
+    });
     const sort = this.buildSort({
       sortField: filters.sortField ?? "createdOn",
       sortOrder: filters.sortOrder ?? "desc",
@@ -89,6 +96,8 @@ class CustomerService {
     fields: string[];
     filters?: {
       search?: string;
+      city?: string[];
+      includeOtherCities?: boolean;
       page?: number;
       limit?: number;
       sortField?: CustomerSortField;
@@ -106,6 +115,8 @@ class CustomerService {
     const customers = await this.getForExport(
       {
         search: filters?.search ?? "",
+        city: filters?.city ?? [],
+        includeOtherCities: filters?.includeOtherCities ?? false,
         page: filters?.page,
         limit: filters?.limit,
         sortField: filters?.sortField ?? "createdOn",
@@ -133,19 +144,58 @@ class CustomerService {
     };
   }
 
-  private buildFilter(filters: { search: string }): Record<string, any> {
-    const { search } = filters;
-    const filter: Record<string, any> = {};
+  private async buildFilter(filters: {
+    search: string;
+    city?: string[];
+    includeOtherCities?: boolean;
+  }): Promise<Record<string, any>> {
+    const { search, city = [], includeOtherCities = false } = filters;
+    const andFilters: Record<string, unknown>[] = [];
+
+    const normalizedCities = [...new Set(city.map((cityName) => cityName.trim()).filter((cityName) => cityName.length > 0))];
+
+    if (normalizedCities.length > 0 || includeOtherCities) {
+      const defaultCities = await this.getDefaultDeliveryCities();
+
+      if (normalizedCities.length > 0 && includeOtherCities) {
+        andFilters.push({
+          $or: [
+            { city: { $in: normalizedCities } },
+            { city: { $nin: defaultCities } },
+          ],
+        });
+      } else if (normalizedCities.length > 0) {
+        andFilters.push({ city: { $in: normalizedCities } });
+      } else {
+        andFilters.push({ city: { $nin: defaultCities } });
+      }
+    }
 
     if (search && search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
-      filter.$or = [
+      andFilters.push({
+        $or: [
         { email: { $regex: searchRegex } },
         { name: { $regex: searchRegex } },
-      ];
+        ],
+      });
     }
 
-    return filter;
+    if (andFilters.length === 0) {
+      return {};
+    }
+
+    if (andFilters.length === 1) {
+      return andFilters[0] as Record<string, any>;
+    }
+
+    return { $and: andFilters };
+  }
+
+  private async getDefaultDeliveryCities(): Promise<string[]> {
+    const settings = await SettingsModel.findOne().select({ "delivery.defaultCities": 1, _id: 0 }).lean().exec();
+    const defaultCities = settings?.delivery?.defaultCities;
+    return Array.isArray(defaultCities) ? defaultCities : [];
   }
 
   private buildSort(sortOptions: { sortField: CustomerSortField; sortOrder: CustomerSortOrder }): Record<string, 1 | -1> {

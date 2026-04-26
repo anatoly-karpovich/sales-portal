@@ -192,6 +192,12 @@ customerRouter.delete(
  *               type: number
  *             search:
  *               type: string
+ *             city:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             includeOtherCities:
+ *               type: boolean
  *             sorting:
  *               type: object
  *               properties:
@@ -217,6 +223,12 @@ customerRouter.delete(
  *           properties:
  *             search:
  *               type: string
+ *             city:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             includeOtherCities:
+ *               type: boolean
  *             page:
  *               type: number
  *             limit:
@@ -285,6 +297,19 @@ customerRouter.delete(
  *         schema:
  *           type: string
  *         description: Search term for filtering customers by email or name
+ *       - in: query
+ *         name: city
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *         description: Filter customers by specific city values
+ *       - in: query
+ *         name: includeOtherCities
+ *         schema:
+ *           type: boolean
+ *           example: true
+ *         description: Include customers from cities outside settings.delivery.defaultCities
  *       - in: query
  *         name: sortField
  *         schema:
