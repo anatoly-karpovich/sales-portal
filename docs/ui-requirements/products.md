@@ -17,7 +17,7 @@
 | Block | Description | Notes |
 | --- | --- | --- |
 | Header strip | Title plus `+ Add Product` button linking to the add page | Button stays primary-styled down to mobile widths |
-| Utility row | Search bar, Filter button, chip container | Search limited to 40 chars; filter opens manufacturer list (Apple...Tesla) |
+| Utility row | Search bar, Filter button, prefixed chip container | Search limited to 40 chars; filter opens manufacturer list (Apple...Tesla) |
 | Data table | Columns Name, Price, Manufacturer, Created On | All columns sortable via shared table state |
 | Row actions | Details, Edit, Delete | Icon buttons with tooltips; Delete always opens confirmation modal |
 | Pagination | Standard controls under the table | If a page empties (after delete), step back and refetch |
@@ -25,8 +25,8 @@
 ## Key Interactions
 
 ### Searching and Filtering
-- Search button stays disabled until the input has text. Submitting stores the query in `state.search.products`, renders a removable chip, clears the input, and calls `getSortedProducts`.
-- Filter modal toggles manufacturer checkboxes. Applied filters show as chips and translate to repeated `manufacturer` query params.
+- Search button stays disabled until the input has text. Submitting stores the query in `state.search.products`, renders chip `Search: <value>`, clears the input, and calls `getSortedProducts`.
+- Filter modal toggles manufacturer checkboxes. Applied filters show as chips `Manufacturer: <value>` and translate to repeated `manufacturer` query params.
 - Chips can be removed without immediate network calls; the UI keeps state in sync and fetches only when the active filters change.
 
 ### Table Actions

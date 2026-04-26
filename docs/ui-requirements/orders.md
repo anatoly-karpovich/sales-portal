@@ -7,7 +7,7 @@
 | Aspect | Details |
 | --- | --- |
 | Entry points | `#/orders`, `#/orders/{id}`, `#/orders/{id}/schedule-delivery`, `#/orders/{id}/edit-delivery` |
-| APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}` |
+| APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/settings` |
 | Statuses | Draft, In Process, Partially Received, Received, Canceled |
 | Success copy | "Order was successfully created/updated/canceled/in process/reopened", "Delivery was successfully saved", "Products were successfully received", "Manager was successfully assigned/unassigned", "Comment was successfully posted/deleted" |
 | Error copy | "Unable to create an order. Please try again later.", "No products found. Please add one before creating an order.", "Unable to assign manager. Please try again later.", etc. |
@@ -51,7 +51,12 @@
 | Tabs | Delivery, Order History, Comments. |
 
 ### Delivery Management
-- Schedule view includes Delivery vs Pickup toggle, location select (Home vs Other), date picker, and address inputs (prefilled in Home mode).
+- Schedule view includes Delivery vs Pickup toggle, location select (Home vs Other), date picker, and address inputs.
+- Delivery cities are driven by `settings.delivery.defaultCities`.
+- `Delivery + Other` supports city choice from defaults + `Other` custom city input.
+- `Delivery + Home` keeps full customer address read-only.
+- Pickup city options are driven by `settings.delivery.defaultCities` and resolved through `settings.delivery.pickupAddresses`.
+- In Pickup mode, `street/house/flat` are locked and auto-filled from selected pickup city.
 - Save button stays disabled until `validateScheduleDeliveryForm` passes.
 - Editing reuses the same layout with prefilled values; Cancel returns to details.
 - Saving hits `/api/orders/{id}/delivery` and surfaces "Delivery was successfully saved".

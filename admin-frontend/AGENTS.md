@@ -84,7 +84,7 @@ Top-level source layout:
     - emits API error event unless request has `skipErrorToast: true`.
 - `api/events.ts` - internal event bus for `error` and `unauthorized`.
 - `api/types.ts` - `ApiRequestConfig` extension with `skipErrorToast`.
-- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`, `users`).
+- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
   - order model uses split state axes:
@@ -126,8 +126,11 @@ Top-level source layout:
   - `mappers/homeMetrics.mapper.ts` - normalize unknown backend payload into stable view model
   - `pages/HomePage.tsx`
   - `widgets/*` - hero, actions, metrics, charts, tables, skeleton
+- `features/settings`
+  - `hooks/useSettingsQuery.ts`, `hooks/settingsQueryKeys.ts` - global settings query/mutation layer used by customers and orders flows.
 - `features/products` (most complete module)
   - `pages/ProductsPage.tsx` - list, filters, export, pagination, dialogs
+    - shared chips are prefixed (`Search:`, `Manufacturer:`).
   - `pages/ProductUpsertPage.tsx`, `ProductCreatePage.tsx`, `ProductEditPage.tsx`
   - `hooks/useProductsPageState.ts` - UI orchestration + query params
   - `hooks/useProductsQuery.ts` - query/mutation layer
@@ -137,12 +140,16 @@ Top-level source layout:
   - `products.ui-text.ts` - labels, validation text, toast text
 - `features/customers` (implemented in iteration 5)
   - `pages/CustomersPage.tsx` - list, filters, export, pagination, delete flow
+    - list table columns: `Email`, `Name`, `City`, `Created On`, `Actions`.
+    - city filters come from `settings.delivery.pickupAddresses` keys plus `Other`.
+    - shared chips are prefixed (`Search:`, `City:`).
   - `pages/CustomerUpsertPage.tsx`, `CustomerCreatePage.tsx`, `CustomerEditPage.tsx`
   - `pages/CustomerDetailsPage.tsx` - customer summary and orders table
   - `hooks/useCustomersPageState.ts` - UI orchestration + query params
   - `hooks/useCustomersQuery.ts` - query/mutation layer
   - `config/customersTableColumns.ts` - table schema, sort fields, export fields
   - `components/CustomerForm.tsx`, `CustomersTableActionsCell.tsx`
+    - customer upsert city uses `Autocomplete` with `settings.delivery.defaultCities + Other`; custom city input is enabled only for `Other`.
   - `forms/*` - form mappers, touched state, validation
   - `customers.ui-text.ts` - labels, validation text, toast text
 - `features/orders` (iteration 6 in active implementation)
@@ -157,6 +164,7 @@ Top-level source layout:
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows.
     - query and export (`filtered`) include both filter arrays: `status[]` and `deliveryStatus[]`.
     - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
+    - customer precheck requests must pass customers-city filter defaults (`city: []`, `includeOtherCities: false`) to satisfy customers API contract.
   - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
     - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `deliveryStatus`.
@@ -192,7 +200,10 @@ Top-level source layout:
       - `Draft + Scheduled` -> edit pencil;
       - any other state combination -> no delivery edit actions;
     - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules;
-    - pickup address autofill by country;
+    - `settings`-driven city options:
+      - delivery cities from `settings.delivery.defaultCities` + `Other` for custom city;
+      - pickup city options from `settings.delivery.defaultCities`, with address hydration from `settings.delivery.pickupAddresses`;
+    - pickup `street/house/flat` remain read-only and are auto-filled by selected pickup city;
     - date picker-only input with allowed range from config (`+3`..`+10` days);
     - save/cancel controls and delivery payload normalization.
   - `components/OrderHistoryTimeline.tsx` - order history tab timeline:
@@ -264,6 +275,7 @@ Top-level source layout:
     - search apply button is enabled only when search input contains a non-empty value
   - `FilterDialog` (generic modal, still used by products/customers pages)
   - `FilterChips` (generic chips, still used by products/customers pages)
+    - supports optional label prefixes for search/filter values (for example `Search: foo`, `City: Boston`).
   - `ExportDialog`
   - `PaginationControls`
   - `ConfirmDialog`
