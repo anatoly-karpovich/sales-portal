@@ -1,5 +1,7 @@
+import { Types } from "mongoose";
 import Order from "../models/order.model";
 import Customer from "../models/customer.model";
+import Product from "../models/product.model";
 import customerService from "./customer.service";
 
 class MetricsService {
@@ -66,7 +68,7 @@ class MetricsService {
         recentOrders.map(async (o) => {
           const customer = await customerService.getCustomer(o.customer._id);
           return { ...o._doc, ...{ customer: customer } };
-        })
+        }),
       ),
       topCustomers,
     };
@@ -90,30 +92,32 @@ class MetricsService {
   }
 
   async getTopSoldProductsData() {
-    const orders = await Order.find(); // Получаем все ордеры
-    const productCountMap = {};
+    const orders = await Order.find();
+    const productSalesById: Record<string, number> = {};
 
-    // Проходим по каждому ордеру
     orders.forEach((order) => {
-      order.products.forEach((product) => {
-        const productName = product.name.toString(); // Преобразуем ObjectId в строку
-
-        // Увеличиваем счетчик для продукта
-        if (productCountMap[productName]) {
-          productCountMap[productName]++;
-        } else {
-          productCountMap[productName] = 1;
-        }
+      order.products.forEach((item) => {
+        const productId = item?.product?._id?.toString();
+        if (!productId) return;
+        const sold = typeof item.quantity === "number" ? item.quantity : 1;
+        productSalesById[productId] = (productSalesById[productId] || 0) + sold;
       });
     });
 
-    // Преобразуем в массив для сортировки
-    const topProductsArray = Object.entries(productCountMap)
-      .map(([name, sales]) => ({ name, sales }))
-      .sort((a, b) => (b.sales as number) - (a.sales as number)) // Сортировка по количеству
-      .slice(0, 5); // Берем топ-5 продуктов
+    const productIds = Object.keys(productSalesById);
+    if (productIds.length === 0) {
+      return [];
+    }
 
-    return topProductsArray;
+    const products = await Product.find({ _id: { $in: productIds.map((id) => new Types.ObjectId(id)) } })
+      .select("_id name")
+      .lean();
+    const nameById = new Map<string, string>(products.map((p) => [p._id.toString(), p.name]));
+
+    return Object.entries(productSalesById)
+      .map(([id, sales]) => ({ name: nameById.get(id) ?? "", sales }))
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5);
   }
 
   async getCustomerGrowth(days: number) {

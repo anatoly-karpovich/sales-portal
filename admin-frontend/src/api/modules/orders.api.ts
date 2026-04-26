@@ -36,13 +36,16 @@ export type OrderAssignedManager = {
   roles?: string[]
 }
 
-export type OrderProduct = {
+export type OrderProductSnapshot = {
   _id: string
   name: string
-  amount: number
-  price: number
   manufacturer: string
-  notes?: string
+}
+
+export type OrderProduct = {
+  product: OrderProductSnapshot
+  unitPrice: number
+  quantity: number
   received: boolean
 }
 
@@ -149,17 +152,22 @@ export type OrdersExportPayload = {
 
 export type CreateOrderPayload = {
   customer: string
-  products: string[]
+  products: OrderProductRequestItem[]
+}
+
+export type OrderProductRequestItem = {
+  id: string
+  quantity: number
 }
 
 export type UpdateOrderPayload =
   | {
       customer: string
-      products?: string[]
+      products?: OrderProductRequestItem[]
     }
   | {
       customer?: string
-      products: string[]
+      products: OrderProductRequestItem[]
     }
 
 export type OrderStatusUpdatePayload = {

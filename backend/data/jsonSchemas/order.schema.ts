@@ -1,6 +1,5 @@
 import { AllowedSchema } from "express-json-validator-middleware";
 import { DELIVERY, ORDER_STATUSES } from "../enums";
-import { MAXIMUM_REQUESTED_PRODUCTS, MINIMUN_REQUESTED_PRODUCTS } from "../constants";
 
 export const orderCreateSchema: AllowedSchema = {
   type: "object",
@@ -8,9 +7,16 @@ export const orderCreateSchema: AllowedSchema = {
     customer: { type: "string" },
     products: {
       type: "array",
-      items: { type: "string" },
-      maxItems: MAXIMUM_REQUESTED_PRODUCTS,
-      minItems: MINIMUN_REQUESTED_PRODUCTS,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          quantity: { type: "integer", minimum: 1 },
+        },
+        required: ["id", "quantity"],
+        additionalProperties: false,
+      },
+      minItems: 1,
     },
   },
   required: ["customer", "products"],
@@ -22,9 +28,16 @@ export const orderUpdateSchema: AllowedSchema = {
     customer: { type: "string" },
     products: {
       type: "array",
-      items: { type: "string" },
-      maxItems: MAXIMUM_REQUESTED_PRODUCTS,
-      minItems: MINIMUN_REQUESTED_PRODUCTS,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          quantity: { type: "integer", minimum: 1 },
+        },
+        required: ["id", "quantity"],
+        additionalProperties: false,
+      },
+      minItems: 1,
     },
   },
   additionalProperties: false,
@@ -37,8 +50,7 @@ export const orderReceiveSchema: AllowedSchema = {
     products: {
       type: "array",
       items: { type: "string" },
-      maxItems: MAXIMUM_REQUESTED_PRODUCTS,
-      minItems: MINIMUN_REQUESTED_PRODUCTS,
+      minItems: 1,
     },
   },
   required: ["products"],

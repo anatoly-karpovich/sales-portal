@@ -24,7 +24,10 @@ class OrderController {
   private mapCreateOrderRequestBody(body: CreateOrderRequestDTO["body"]): IOrderRequest {
     return {
       customer: new Types.ObjectId(body.customer),
-      products: body.products.map((id) => new Types.ObjectId(id)),
+      products: body.products.map((item) => ({
+        id: new Types.ObjectId(item.id),
+        quantity: item.quantity,
+      })),
     };
   }
 
@@ -36,7 +39,10 @@ class OrderController {
     }
 
     if (Array.isArray(body.products)) {
-      updatePayload.products = body.products.map((id) => new Types.ObjectId(id));
+      updatePayload.products = body.products.map((item) => ({
+        id: new Types.ObjectId(item.id),
+        quantity: item.quantity,
+      }));
     }
 
     return updatePayload;

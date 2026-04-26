@@ -43,6 +43,17 @@
 }
 ```
 
+## Field Semantics
+
+### `order.maxProductQuantityInOrder`
+- Enforced by the backend on `POST /api/orders` and `PUT /api/orders/:orderId`.
+- Each product position in the order must have `quantity` in the inclusive range `1..maxProductQuantityInOrder`.
+- Out-of-range values produce `400` with the offending product id.
+
+### `order.maxProductsInOrder`
+- Currently **not enforced** by the backend. The Order endpoints accept any number of unique product positions ≥ 1.
+- UI is expected to use this value to cap the product picker (default product line count).
+
 ## Validation Rules
 
 ### Create (`POST /api/settings`)

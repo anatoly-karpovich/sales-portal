@@ -1,11 +1,11 @@
 import Order from "../models/order.model";
 import OrderService from "./order.service";
-import type { IOrder, ICustomer } from "../data/types";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
+import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
 
 class OrderStatusService {
   private notificationService = new NotificationService();
@@ -13,13 +13,13 @@ class OrderStatusService {
     orderId: Types.ObjectId,
     status: ORDER_STATUSES,
     performerId: string,
-    currentOrder: IOrder<ICustomer>,
-  ): Promise<IOrder<ICustomer>> {
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
     const manager = await managersService.getManager(performerId);
-    const newOrder: IOrder<ICustomer> = {
+    const newOrder: OrderDetailsDTO = {
       ...currentOrder,
       status: status as ORDER_STATUSES,
     };

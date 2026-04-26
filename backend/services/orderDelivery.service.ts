@@ -1,11 +1,12 @@
 import Order from "../models/order.model";
-import type { IOrder, ICustomer, IDelivery } from "../data/types";
+import type { IDelivery } from "../data/types";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS } from "../data/enums";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
+import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
 
 class OrderDeliveryService {
   private notificationService = new NotificationService();
@@ -14,8 +15,8 @@ class OrderDeliveryService {
     orderId: Types.ObjectId,
     delivery: IDelivery,
     performerId: string,
-    currentOrder: IOrder<ICustomer>,
-  ): Promise<IOrder<ICustomer>> {
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
@@ -24,7 +25,7 @@ class OrderDeliveryService {
     let action = currentOrder.delivery
       ? ORDER_HISTORY_ACTIONS.DELIVERY_EDITED
       : ORDER_HISTORY_ACTIONS.DELIVERY_SCHEDULED;
-    const newOrder: IOrder<ICustomer> = {
+    const newOrder: OrderDetailsDTO = {
       ...currentOrder,
       delivery: delivery,
       deliveryStatus: DELIVERY_STATUSES.SCHEDULED,

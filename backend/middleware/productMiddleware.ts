@@ -98,7 +98,7 @@ export async function productById(req: GetProductByIdRequestDTO, res: Response<B
 export async function deleteProduct(req: DeleteProductRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
     const productId = new Types.ObjectId(req.params.productId);
-    const isAssignedToOrder = await Order.exists({ "products._id": productId });
+    const isAssignedToOrder = await Order.exists({ "products.product._id": productId });
     if (isAssignedToOrder) {
       return res
         .status(409)

@@ -1,7 +1,7 @@
-import { DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
+import { DELIVERY_STATUSES, MANUFACTURERS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
 import type { Document } from "mongoose";
 import { Types } from "mongoose";
-import type { ICustomer, IProduct, IDelivery, DocumentResult, IComment } from ".";
+import type { ICustomer, IDelivery, DocumentResult, IComment } from ".";
 import { IManagerWithRoles } from "./manager.types";
 
 export type IOrderCustomerSnapshot = {
@@ -10,12 +10,32 @@ export type IOrderCustomerSnapshot = {
   name: string;
 };
 
-export interface IOrder<CustomerType = IOrderCustomerSnapshot> {
+export interface IProductInOrderRef {
+  _id: Types.ObjectId;
+}
+
+export interface IProductInOrder {
+  product: IProductInOrderRef;
+  unitPrice: number;
+  quantity: number;
+  received: boolean;
+}
+
+export interface IProductInOrderResponseRef extends IProductInOrderRef {
+  name: string;
+  manufacturer: MANUFACTURERS;
+}
+
+export interface IProductInOrderResponse extends Omit<IProductInOrder, "product"> {
+  product: IProductInOrderResponseRef;
+}
+
+export interface IOrder<CustomerType = IOrderCustomerSnapshot, ProductsType = IProductInOrder> {
   readonly _id?: Types.ObjectId;
   status: ORDER_STATUSES;
   deliveryStatus: DELIVERY_STATUSES;
   customer: CustomerType;
-  products: IProductInOrder[];
+  products: ProductsType[];
   delivery: IDelivery | null;
   total_price: number;
   createdOn: string;
@@ -24,13 +44,14 @@ export interface IOrder<CustomerType = IOrderCustomerSnapshot> {
   assignedManager: IManagerWithRoles | null;
 }
 
-export interface IProductInOrder extends IProduct {
-  received: boolean;
+export interface IOrderProductRequestItem {
+  id: Types.ObjectId;
+  quantity: number;
 }
 
 export interface IOrderUpdateRequest {
   customer?: Types.ObjectId;
-  products?: Types.ObjectId[];
+  products?: IOrderProductRequestItem[];
 }
 
 export type IOrderRequest = Required<IOrderUpdateRequest>;
@@ -44,7 +65,7 @@ export interface IHistory {
   readonly status: ORDER_STATUSES;
   readonly deliveryStatus: DELIVERY_STATUSES;
   readonly customer: Types.ObjectId;
-  readonly products: IProduct[];
+  readonly products: IProductInOrderResponse[];
   readonly delivery: IDelivery | null;
   readonly total_price: number;
   readonly changedOn: string;

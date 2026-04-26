@@ -1,48 +1,42 @@
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
-import type { IOrder, ICustomer } from "../data/types";
+import type { IProductInOrder } from "../data/types";
 import Order from "../models/order.model";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
+import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
 
 class OrderReceiveService {
   private notificationService = new NotificationService();
-
-  private extractProductId(product: any): string | undefined {
-    if (!product || typeof product !== "object") return undefined;
-    if (typeof product._id === "string") return product._id;
-    if (product._id?.toString) return product._id.toString();
-    return undefined;
-  }
 
   async receiveProducts(
     orderId: Types.ObjectId,
     products: string[],
     performerId: string,
-    currentOrder: IOrder<ICustomer>,
-  ): Promise<IOrder<ICustomer>> {
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
-    const orderFromDB: IOrder<ICustomer> = {
-      ...currentOrder,
-      products: currentOrder.products.map((product) => ({ ...product })),
-      history: [...currentOrder.history],
-      comments: [...currentOrder.comments],
-    };
+
+    const dbProducts: IProductInOrder[] = currentOrder.products.map((item) => ({
+      product: { _id: new Types.ObjectId(item.product._id) },
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      received: item.received,
+    }));
+
     const manager = await managersService.getManager(performerId);
     const requestedProductIds = products.map((productId) => productId.toString());
     let receivedChanged = false;
     for (const requestedProductId of requestedProductIds) {
-      const productIndex = orderFromDB.products.findIndex((product) => {
-        const productId = this.extractProductId(product);
-        return productId === requestedProductId && !product.received;
-      });
-
-      if (productIndex !== -1) {
-        orderFromDB.products[productIndex] = { ...orderFromDB.products[productIndex], received: true };
+      const positionIndex = dbProducts.findIndex(
+        (item) => item.product._id.toString() === requestedProductId && !item.received,
+      );
+      if (positionIndex !== -1) {
+        dbProducts[positionIndex] = { ...dbProducts[positionIndex], received: true };
         receivedChanged = true;
       }
     }
@@ -51,24 +45,34 @@ class OrderReceiveService {
       return OrderService.getOrder(orderId);
     }
 
-    const numberOfReceived = orderFromDB.products.filter((el) => el.received).length;
+    const orderForUpdate = {
+      ...currentOrder,
+      products: dbProducts,
+      history: [...currentOrder.history],
+      comments: [...currentOrder.comments],
+    };
+
+    const numberOfReceived = dbProducts.filter((el) => el.received).length;
     let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.RECEIVED;
-    if (numberOfReceived > 0 && numberOfReceived < orderFromDB.products.length) {
-      orderFromDB.status = ORDER_STATUSES.IN_PROCESS;
-      orderFromDB.deliveryStatus = DELIVERY_STATUSES.PARTIALLY_DELIVERED;
+    if (numberOfReceived > 0 && numberOfReceived < dbProducts.length) {
+      orderForUpdate.status = ORDER_STATUSES.IN_PROCESS;
+      orderForUpdate.deliveryStatus = DELIVERY_STATUSES.PARTIALLY_DELIVERED;
       action = ORDER_HISTORY_ACTIONS.RECEIVED;
     }
-    if (numberOfReceived === orderFromDB.products.length) {
-      orderFromDB.status = ORDER_STATUSES.COMPLETED;
-      orderFromDB.deliveryStatus = DELIVERY_STATUSES.DELIVERED;
+    if (numberOfReceived === dbProducts.length) {
+      orderForUpdate.status = ORDER_STATUSES.COMPLETED;
+      orderForUpdate.deliveryStatus = DELIVERY_STATUSES.DELIVERED;
       action = ORDER_HISTORY_ACTIONS.RECEIVED_ALL;
     }
 
-    orderFromDB.history.unshift(
-      // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
-      createHistoryEntry(orderFromDB as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
+    orderForUpdate.history.unshift(
+      createHistoryEntry(
+        orderForUpdate as unknown as Parameters<typeof createHistoryEntry>[0],
+        action,
+        manager,
+      ),
     );
-    const updatedOrder = await Order.findByIdAndUpdate(orderId, orderFromDB, { new: true });
+    const updatedOrder = await Order.findByIdAndUpdate(orderId, orderForUpdate, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");
     }
