@@ -20,7 +20,7 @@ export const CORE_US_DEFAULT_CITIES: string[] = [
   "San Francisco",
   "Seattle",
   "Denver",
-  "Washington, DC",
+  "Washington DC",
   "Boston",
   "Miami",
   "Atlanta",

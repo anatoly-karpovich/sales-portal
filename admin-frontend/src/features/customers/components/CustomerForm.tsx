@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
@@ -18,27 +18,111 @@ type Mode = 'create' | 'edit'
 type Props = {
   mode: Mode
   customer: Customer | null
+  defaultCities: string[]
   isSubmitting: boolean
   isDeleting?: boolean
   onSubmit: (payload: CustomerUpsertPayload) => Promise<void>
   onDelete?: () => Promise<void>
 }
 
+const OTHER_CITY_OPTION_VALUE = '__other__'
+
+type CityOption = {
+  value: string
+  label: string
+}
+
+function normalizeCityForMatch(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function toCityOptionTestId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function resolveInitialCitySelection(
+  mode: Mode,
+  city: string,
+  defaultCities: string[],
+): { selectedCityValue: string; customCity: string } {
+  if (mode === 'create') {
+    return {
+      selectedCityValue: defaultCities[0] ?? OTHER_CITY_OPTION_VALUE,
+      customCity: '',
+    }
+  }
+
+  const normalizedCity = normalizeCityForMatch(city)
+  const matchedDefaultCity = defaultCities.find(
+    (defaultCity) => normalizeCityForMatch(defaultCity) === normalizedCity,
+  )
+
+  if (matchedDefaultCity) {
+    return {
+      selectedCityValue: matchedDefaultCity,
+      customCity: '',
+    }
+  }
+
+  return {
+    selectedCityValue: OTHER_CITY_OPTION_VALUE,
+    customCity: city,
+  }
+}
+
 export function CustomerForm({
   mode,
   customer,
+  defaultCities,
   isSubmitting,
   isDeleting = false,
   onSubmit,
   onDelete,
 }: Props) {
-  const [formState, setFormState] = useState(() => toCustomerFormInitialState(customer))
+  const initialState = useMemo(() => {
+    const initialFormState = toCustomerFormInitialState(customer)
+    const initialCitySelection = resolveInitialCitySelection(mode, initialFormState.city, defaultCities)
+
+    return {
+      formState: {
+        ...initialFormState,
+        city:
+          initialCitySelection.selectedCityValue === OTHER_CITY_OPTION_VALUE
+            ? initialCitySelection.customCity
+            : initialCitySelection.selectedCityValue,
+      },
+      citySelection: initialCitySelection,
+    }
+  }, [customer, defaultCities, mode])
+
+  const cityOptions = useMemo<CityOption[]>(
+    () => [
+      ...defaultCities.map((city) => ({ value: city, label: city })),
+      {
+        value: OTHER_CITY_OPTION_VALUE,
+        label: customersUiText.citySelector.otherOption,
+      },
+    ],
+    [defaultCities],
+  )
+
+  const [formState, setFormState] = useState(() => initialState.formState)
+  const [selectedCityValue, setSelectedCityValue] = useState(() => initialState.citySelection.selectedCityValue)
+  const [customCity, setCustomCity] = useState(() => initialState.citySelection.customCity)
   const [touched, setTouched] = useState<CustomerFormTouchedState>(toCustomerFormTouchedState())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isSubmitLocked, setIsSubmitLocked] = useState(false)
 
-  const initialState = useMemo(() => toCustomerFormInitialState(customer), [customer])
-  const initialPayload = useMemo(() => toCustomerUpsertPayload(initialState), [initialState])
+  const initialPayload = useMemo(() => toCustomerUpsertPayload(initialState.formState), [initialState.formState])
   const validation = useMemo(() => validateCustomerForm(formState), [formState])
+  const selectedCityOption = useMemo(
+    () =>
+      cityOptions.find((option) => option.value === selectedCityValue) ??
+      cityOptions[cityOptions.length - 1] ??
+      null,
+    [cityOptions, selectedCityValue],
+  )
+  const isOtherCitySelected = selectedCityValue === OTHER_CITY_OPTION_VALUE
 
   const hasAnyChanges = useMemo(() => {
     const currentPayload = toCustomerUpsertPayload(formState)
@@ -55,19 +139,47 @@ export function CustomerForm({
     !validation.phoneError &&
     !validation.notesError &&
     hasAnyChanges &&
-    !isSubmitting
+    !isSubmitting &&
+    !isSubmitLocked
 
   const markTouched = (field: keyof CustomerFormTouchedState) => {
     setTouched((current) => ({ ...current, [field]: true }))
   }
 
   const resetToInitial = () => {
-    setFormState(initialState)
+    setFormState(initialState.formState)
+    setSelectedCityValue(initialState.citySelection.selectedCityValue)
+    setCustomCity(initialState.citySelection.customCity)
     setTouched(toCustomerFormTouchedState())
   }
 
+  const handleCityOptionChange = (nextOption: CityOption | null) => {
+    if (!nextOption) return
+    setSelectedCityValue(nextOption.value)
+
+    if (nextOption.value === OTHER_CITY_OPTION_VALUE) {
+      setFormState((current) => ({ ...current, city: customCity }))
+      return
+    }
+
+    setFormState((current) => ({ ...current, city: nextOption.value }))
+  }
+
+  const handleCustomCityChange = (value: string) => {
+    setCustomCity(value)
+    if (!isOtherCitySelected) return
+    setFormState((current) => ({ ...current, city: value }))
+  }
+
   const submit = async () => {
-    await onSubmit(toCustomerUpsertPayload(formState))
+    if (isSubmitting || isSubmitLocked) return
+
+    setIsSubmitLocked(true)
+    try {
+      await onSubmit(toCustomerUpsertPayload(formState))
+    } finally {
+      setIsSubmitLocked(false)
+    }
   }
 
   const confirmDelete = async () => {
@@ -125,16 +237,60 @@ export function CustomerForm({
             inputProps={{ 'data-testid': 'customers-upsert-name-input-field' }}
           />
 
+          <Autocomplete
+            options={cityOptions}
+            value={selectedCityOption}
+            disableClearable
+            openOnFocus
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.value === value.value}
+            onChange={(_, value) => {
+              markTouched('city')
+              handleCityOptionChange(value)
+            }}
+            noOptionsText={customersUiText.citySelector.noOptions}
+            data-testid="customers-upsert-city-autocomplete"
+            renderOption={(props, option) => {
+              const { key, ...optionProps } = props
+              const optionTestId =
+                option.value === OTHER_CITY_OPTION_VALUE
+                  ? 'customers-upsert-city-option-other'
+                  : `customers-upsert-city-option-${toCityOptionTestId(option.value)}`
+
+              return (
+                <li key={key} {...optionProps} data-testid={optionTestId}>
+                  {option.label}
+                </li>
+              )
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={customersUiText.form.fields.city}
+                placeholder={customersUiText.form.placeholders.city}
+                onBlur={() => markTouched('city')}
+                error={touched.city && Boolean(validation.cityError)}
+                helperText={touched.city ? (validation.cityError ?? ' ') : ' '}
+                data-testid="customers-upsert-city-input"
+                inputProps={{
+                  ...params.inputProps,
+                  'data-testid': 'customers-upsert-city-input-field',
+                }}
+              />
+            )}
+          />
+
           <TextField
-            label={customersUiText.form.fields.city}
-            placeholder={customersUiText.form.placeholders.city}
-            value={formState.city}
-            onChange={(event) => setFormState((current) => ({ ...current, city: event.target.value }))}
+            label={customersUiText.form.fields.customCity}
+            placeholder={customersUiText.form.placeholders.customCity}
+            value={customCity}
+            onChange={(event) => handleCustomCityChange(event.target.value)}
             onBlur={() => markTouched('city')}
-            error={touched.city && Boolean(validation.cityError)}
-            helperText={touched.city ? (validation.cityError ?? ' ') : ' '}
-            data-testid="customers-upsert-city-input"
-            inputProps={{ 'data-testid': 'customers-upsert-city-input-field' }}
+            disabled={!isOtherCitySelected}
+            error={isOtherCitySelected && touched.city && Boolean(validation.cityError)}
+            helperText={isOtherCitySelected && touched.city ? (validation.cityError ?? ' ') : ' '}
+            data-testid="customers-upsert-city-other-input"
+            inputProps={{ 'data-testid': 'customers-upsert-city-other-input-field' }}
           />
 
           <TextField

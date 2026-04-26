@@ -15,6 +15,7 @@ export const customersUiText = {
       email: 'Email*',
       name: 'Name*',
       city: 'City*',
+      customCity: 'Custom City*',
       street: 'Street*',
       house: 'House*',
       flat: 'Flat*',
@@ -25,6 +26,7 @@ export const customersUiText = {
       email: "Enter customer's email",
       name: "Enter customer's name",
       city: "Enter customer's city",
+      customCity: "Enter customer's city",
       street: "Enter customer's street",
       house: "Enter customer's house",
       flat: "Enter customer's flat",
@@ -80,6 +82,11 @@ export const customersUiText = {
   errors: {
     missingCustomerId: 'Customer id is missing.',
     customerNotFound: 'Customer was not found.',
+    settingsNotFound: 'Settings were not found.',
+  },
+  citySelector: {
+    otherOption: 'Other',
+    noOptions: 'No cities found.',
   },
   validation: {
     emailRequired: 'Email is required',

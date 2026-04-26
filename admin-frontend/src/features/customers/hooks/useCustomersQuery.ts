@@ -47,6 +47,7 @@ export function useCreateCustomerMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (payload: CustomerUpsertPayload) => createCustomer(payload),
+    retry: false,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: customersQueryKeys.all })
     },
@@ -58,6 +59,7 @@ export function useUpdateCustomerMutation() {
   return useMutation({
     mutationFn: ({ customerId, payload }: { customerId: string; payload: CustomerUpsertPayload }) =>
       updateCustomer(customerId, payload),
+    retry: false,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: customersQueryKeys.all })
     },
@@ -68,6 +70,7 @@ export function useDeleteCustomerMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (customerId: string) => deleteCustomer(customerId),
+    retry: false,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: customersQueryKeys.all })
     },
