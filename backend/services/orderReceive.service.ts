@@ -30,6 +30,7 @@ class OrderReceiveService {
 
     const manager = await managersService.getManager(performerId);
     const requestedProductIds = products.map((productId) => productId.toString());
+    const requestedProductIdsSet = new Set(requestedProductIds);
     let receivedChanged = false;
     for (const requestedProductId of requestedProductIds) {
       const positionIndex = dbProducts.findIndex(
@@ -44,6 +45,16 @@ class OrderReceiveService {
     if (!receivedChanged) {
       return OrderService.getOrder(orderId);
     }
+
+    const receivedByProductId = new Map<string, boolean>(
+      dbProducts.map((item) => [item.product._id.toString(), item.received]),
+    );
+    const historyProducts = currentOrder.products.map((item) => ({
+      ...item,
+      received: requestedProductIdsSet.has(item.product._id.toString())
+        ? true
+        : (receivedByProductId.get(item.product._id.toString()) ?? item.received),
+    }));
 
     const orderForUpdate = {
       ...currentOrder,
@@ -65,9 +76,19 @@ class OrderReceiveService {
       action = ORDER_HISTORY_ACTIONS.RECEIVED_ALL;
     }
 
+    const historyEntrySource = {
+      status: orderForUpdate.status,
+      deliveryStatus: orderForUpdate.deliveryStatus,
+      customer: currentOrder.customer._id as Types.ObjectId | string,
+      products: historyProducts,
+      delivery: orderForUpdate.delivery,
+      total_price: orderForUpdate.total_price,
+      assignedManager: orderForUpdate.assignedManager,
+    };
+
     orderForUpdate.history.unshift(
       createHistoryEntry(
-        orderForUpdate as unknown as Parameters<typeof createHistoryEntry>[0],
+        historyEntrySource,
         action,
         manager,
       ),
