@@ -6,6 +6,10 @@ export const customersUiText = {
     addButton: '+ Add Customer',
     filtersTitle: 'Filters',
     emptyStateNoCustomers: 'No customers created yet.',
+    chips: {
+      searchPrefix: 'Search',
+      cityPrefix: 'City',
+    },
   },
   form: {
     backToCustomers: 'Customers',

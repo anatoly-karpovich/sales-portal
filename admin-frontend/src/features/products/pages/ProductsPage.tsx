@@ -55,7 +55,9 @@ export function ProductsPage() {
 
           <FilterChips
             search={state.search}
+            searchPrefix={productsUiText.listPage.chips.searchPrefix}
             filters={state.manufacturer}
+            filterPrefix={productsUiText.listPage.chips.manufacturerPrefix}
             onRemoveSearch={state.onRemoveSearch}
             onRemoveFilter={state.onRemoveManufacturerFilter}
           />

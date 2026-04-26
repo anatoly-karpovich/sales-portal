@@ -31,6 +31,8 @@ export type CustomersListResponse = {
   page: number
   limit: number
   search: string
+  city: string[]
+  includeOtherCities: boolean
   sorting: {
     sortField: 'email' | 'name' | 'createdOn'
     sortOrder: 'asc' | 'desc'
@@ -86,6 +88,8 @@ export type CustomerExportPayload = {
   format: 'csv' | 'json'
   filters: {
     search: string
+    city: string[]
+    includeOtherCities: boolean
     page: number
     limit: number
     sortField: 'email' | 'name' | 'createdOn'
@@ -96,6 +100,8 @@ export type CustomerExportPayload = {
 
 export type CustomersQuery = {
   search: string
+  city: string[]
+  includeOtherCities: boolean
   sortField: 'email' | 'name' | 'createdOn'
   sortOrder: 'asc' | 'desc'
   page: number
