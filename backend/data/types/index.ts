@@ -3,8 +3,13 @@ import type {
   IOrder,
   IOrderCustomerSnapshot,
   IOrderDocument,
+  IOrderProductRequestItem,
   IOrderRequest,
   IOrderUpdateRequest,
+  IProductInOrder,
+  IProductInOrderRef,
+  IProductInOrderResponse,
+  IProductInOrderResponseRef,
 } from "./order.type";
 import type { ICustomer, ICustomerDocument } from "./customer.type";
 import type { IProduct, IProductDocument } from "./product.type";
@@ -17,8 +22,13 @@ export {
   IOrder,
   IOrderCustomerSnapshot,
   IOrderDocument,
+  IOrderProductRequestItem,
   IOrderRequest,
   IOrderUpdateRequest,
+  IProductInOrder,
+  IProductInOrderRef,
+  IProductInOrderResponse,
+  IProductInOrderResponseRef,
   ICustomer,
   IProduct,
   IDelivery,

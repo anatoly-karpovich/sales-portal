@@ -135,6 +135,15 @@ export function OrderDetailsProductsSection({
                   checked={isSelectAllChecked}
                   indeterminate={isSelectAllIndeterminate}
                   disabled={!hasPendingProductsToReceive || isReceiveSavePending}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                  }}
+                  onMouseDown={(event) => {
+                    event.stopPropagation()
+                  }}
+                  onPointerDown={(event) => {
+                    event.stopPropagation()
+                  }}
                   onChange={onToggleSelectAllReceive}
                   data-testid="order-details-products-receive-select-all-checkbox"
                 />
@@ -148,7 +157,7 @@ export function OrderDetailsProductsSection({
           {order.products.length ? (
             order.products.map((product, index) => (
               <Accordion
-                key={`${product._id}-${index}`}
+                key={`${product.product._id}-${index}`}
                 disableGutters
                 elevation={0}
                 data-testid={`order-details-products-row-${index}`}
@@ -165,7 +174,7 @@ export function OrderDetailsProductsSection({
                     }}
                   >
                     <Typography data-testid={`order-details-products-row-${index}-name`}>
-                      {normalizeValue(product.name)}
+                      {normalizeValue(product.product.name)}
                     </Typography>
 
                     {isReceiveModeVisible ? (
@@ -180,6 +189,15 @@ export function OrderDetailsProductsSection({
                               product.received || selectedReceivePendingRowIndices.includes(index)
                             }
                             disabled={product.received || isReceiveSavePending}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                            }}
+                            onMouseDown={(event) => {
+                              event.stopPropagation()
+                            }}
+                            onPointerDown={(event) => {
+                              event.stopPropagation()
+                            }}
                             onChange={() => onToggleReceiveProduct(index)}
                             data-testid={`order-details-products-row-${index}-receive-checkbox`}
                           />
@@ -211,27 +229,27 @@ export function OrderDetailsProductsSection({
                       >
                         Manufacturer:
                       </Typography>{' '}
-                      {normalizeValue(product.manufacturer)}
+                      {normalizeValue(product.product.manufacturer)}
                     </Typography>
-                    <Typography data-testid={`order-details-products-row-${index}-amount`}>
+                    <Box data-testid={`order-details-products-row-${index}-amount`}>
                       <Typography
                         component="span"
                         variant="subtitle2"
                         sx={{ color: 'text.primary', fontWeight: 700 }}
                       >
-                        Amount:
+                        Quantity:
                       </Typography>{' '}
-                      {normalizeValue(product.amount)}
-                    </Typography>
+                      {normalizeValue(product.quantity)}
+                    </Box>
                     <Typography data-testid={`order-details-products-row-${index}-price`}>
                       <Typography
                         component="span"
                         variant="subtitle2"
                         sx={{ color: 'text.primary', fontWeight: 700 }}
                       >
-                        Price:
+                        Unit Price:
                       </Typography>{' '}
-                      {formatPrice(product.price)}
+                      {formatPrice(product.unitPrice)}
                     </Typography>
                   </Stack>
                 </AccordionDetails>

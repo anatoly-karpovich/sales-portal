@@ -1,14 +1,24 @@
 import Order from "../models/order.model";
+import Product from "../models/product.model";
 import CustomerService from "./customer.service";
-import { IOrder, IOrderRequest, IOrderUpdateRequest, ICustomer, IHistory, IOrderCustomerSnapshot } from "../data/types";
+import {
+  IOrder,
+  IOrderRequest,
+  IOrderUpdateRequest,
+  ICustomer,
+  IHistory,
+  IOrderCustomerSnapshot,
+  IProductInOrder,
+  IProductInOrderResponse,
+} from "../data/types";
 import { Types } from "mongoose";
 import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
-import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, MANUFACTURERS } from "../data/enums";
 import _ from "lodash";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import ExportService from "./export.service";
-import { OrderExportFormatDTO } from "../data/types/dto/orders.dto";
+import { OrderDetailsDTO, OrderExportFormatDTO, OrderListItemDTO } from "../data/types/dto/orders.dto";
 import { ICommentAuthor } from "../data/types/comments.type";
 
 class OrderService {
@@ -32,7 +42,89 @@ class OrderService {
     };
   }
 
-  async create(order: IOrderRequest, performerdId: string): Promise<IOrder<ICustomer>> {
+  private async mergeProductsForUpdate(
+    currentProducts: IProductInOrder[],
+    requestedProducts: IOrderRequest["products"] | undefined,
+  ): Promise<IProductInOrder[]> {
+    if (!requestedProducts) {
+      return currentProducts;
+    }
+
+    const currentById = new Map<string, IProductInOrder>(
+      currentProducts.map((item) => [item.product._id.toString(), item]),
+    );
+
+    const newIds = requestedProducts.map((item) => item.id.toString()).filter((id) => !currentById.has(id));
+
+    const freshSnapshots = newIds.length
+      ? await productsMapping({
+          products: requestedProducts.filter((item) => !currentById.has(item.id.toString())),
+        })
+      : [];
+    const freshById = new Map<string, IProductInOrder>(
+      freshSnapshots.map((item) => [item.product._id.toString(), item]),
+    );
+
+    return requestedProducts.map((item) => {
+      const idStr = item.id.toString();
+      const existing = currentById.get(idStr);
+      if (existing) {
+        return {
+          product: { _id: new Types.ObjectId(existing.product._id) },
+          unitPrice: existing.unitPrice,
+          quantity: item.quantity,
+          received: existing.received,
+        };
+      }
+      const fresh = freshById.get(idStr);
+      return {
+        product: { _id: new Types.ObjectId(idStr) },
+        unitPrice: fresh?.unitPrice ?? 0,
+        quantity: item.quantity,
+        received: false,
+      };
+    });
+  }
+
+  private async enrichProducts(products: IProductInOrder[]): Promise<IProductInOrderResponse[]> {
+    if (!products || products.length === 0) {
+      return [];
+    }
+    const uniqueIds = [
+      ...new Set(
+        products.map((item) => item?.product?._id?.toString()).filter((value): value is string => Boolean(value)),
+      ),
+    ];
+
+    const productDocs = await Product.find({ _id: { $in: uniqueIds.map((id) => new Types.ObjectId(id)) } })
+      .select("_id name manufacturer")
+      .lean()
+      .exec();
+
+    const productById = new Map<string, { name: string; manufacturer: MANUFACTURERS }>(
+      productDocs.map((doc) => [
+        doc._id.toString(),
+        { name: doc.name, manufacturer: doc.manufacturer as MANUFACTURERS },
+      ]),
+    );
+
+    return products.map((item) => {
+      const productId = item.product._id;
+      const lookup = productById.get(productId.toString());
+      return {
+        product: {
+          _id: new Types.ObjectId(productId),
+          name: lookup?.name ?? "",
+          manufacturer: (lookup?.manufacturer ?? ("" as MANUFACTURERS)) as MANUFACTURERS,
+        },
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        received: item.received,
+      };
+    });
+  }
+
+  async create(order: IOrderRequest, performerdId: string): Promise<OrderDetailsDTO> {
     const products = await productsMapping(order);
     const performer = await managersService.getManager(performerdId);
     const customer = await CustomerService.getCustomer(order.customer);
@@ -51,16 +143,24 @@ class OrderService {
       assignedManager: null,
     };
 
-    newOrder.history.unshift(createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer));
+    const historyProducts = await this.enrichProducts(products);
+    newOrder.history.unshift(
+      createHistoryEntry({ ...newOrder, products: historyProducts }, ORDER_HISTORY_ACTIONS.CREATED, performer),
+    );
     const createdOrder = await Order.create(newOrder);
 
     return this.getOrder(createdOrder._id);
   }
 
-  async getAll(): Promise<IOrder<IOrderCustomerSnapshot>[]> {
+  async getAll(): Promise<OrderListItemDTO[]> {
     const orders = await Order.find().lean().exec();
-    // TODO(types): replace cast with explicit OrderDb -> OrderListDTO mapper once DB/DTO date/id types are aligned.
-    return orders.reverse() as unknown as IOrder<IOrderCustomerSnapshot>[];
+    const reversed = orders.reverse() as unknown as IOrder<IOrderCustomerSnapshot>[];
+    return Promise.all(
+      reversed.map(async (o) => ({
+        ...o,
+        products: await this.enrichProducts(o.products as IProductInOrder[]),
+      })),
+    );
   }
 
   async getSorted(
@@ -68,7 +168,7 @@ class OrderService {
     sortOptions: { sortField: string; sortOrder: string },
     pagination: { skip: number; limit: number },
     projectionFields?: string[],
-  ): Promise<{ orders: IOrder<IOrderCustomerSnapshot>[]; total: number }> {
+  ): Promise<{ orders: OrderListItemDTO[]; total: number }> {
     const { search = "", status = [], deliveryStatus = [] } = filters;
     const { skip, limit } = pagination;
 
@@ -125,8 +225,24 @@ class OrderService {
 
     const [orders, total] = await Promise.all([listQuery.exec(), Order.countDocuments(filter).exec()]);
 
-    // TODO(types): remove cast by introducing typed lean result + mapper for list payload.
-    return { orders: orders as unknown as IOrder<IOrderCustomerSnapshot>[], total };
+    const dbOrders = orders as unknown as IOrder<IOrderCustomerSnapshot>[];
+    const enriched = await this.enrichOrdersList(dbOrders);
+    return { orders: enriched, total };
+  }
+
+  private async enrichOrdersList(orders: IOrder<IOrderCustomerSnapshot>[]): Promise<OrderListItemDTO[]> {
+    if (orders.length === 0) {
+      return [];
+    }
+    const allProducts = orders.flatMap((order) => (order.products ?? []) as IProductInOrder[]);
+    const enrichedFlat = await this.enrichProducts(allProducts);
+    let cursor = 0;
+    return orders.map((order) => {
+      const len = (order.products ?? []).length;
+      const slice = enrichedFlat.slice(cursor, cursor + len);
+      cursor += len;
+      return { ...order, products: slice };
+    });
   }
 
   async exportOrders(params: {
@@ -187,7 +303,7 @@ class OrderService {
     };
   }
 
-  private flattenOrderForExport(order: IOrder<IOrderCustomerSnapshot>, fields: string[]): Record<string, unknown> {
+  private flattenOrderForExport(order: OrderListItemDTO, fields: string[]): Record<string, unknown> {
     const row: Record<string, unknown> = {};
 
     fields.forEach((field) => {
@@ -200,15 +316,14 @@ class OrderService {
 
       if (field === "products") {
         const products = Array.isArray(order.products) ? order.products : [];
-        products.forEach((product, index) => {
+        products.forEach((item, index) => {
           const base = `products[${index + 1}]`;
-          row[`${base}._id`] = product?._id?.toString?.() ?? "";
-          row[`${base}.name`] = product?.name ?? "";
-          row[`${base}.amount`] = product?.amount ?? "";
-          row[`${base}.price`] = product?.price ?? "";
-          row[`${base}.manufacturer`] = product?.manufacturer ?? "";
-          row[`${base}.notes`] = product?.notes ?? "";
-          row[`${base}.received`] = typeof product?.received === "boolean" ? product.received : "";
+          row[`${base}.product._id`] = item?.product?._id?.toString?.() ?? "";
+          row[`${base}.product.name`] = item?.product?.name ?? "";
+          row[`${base}.product.manufacturer`] = item?.product?.manufacturer ?? "";
+          row[`${base}.unitPrice`] = typeof item?.unitPrice === "number" ? item.unitPrice : "";
+          row[`${base}.quantity`] = typeof item?.quantity === "number" ? item.quantity : "";
+          row[`${base}.received`] = typeof item?.received === "boolean" ? item.received : "";
         });
         return;
       }
@@ -276,7 +391,7 @@ class OrderService {
     return [...projection];
   }
 
-  async getOrder(id: Types.ObjectId): Promise<IOrder<ICustomer>> {
+  async getOrder(id: Types.ObjectId): Promise<OrderDetailsDTO> {
     if (!id) {
       throw new Error("Id was not provided");
     }
@@ -324,22 +439,35 @@ class OrderService {
       return { ...comment, createdBy: resolvedAuthor };
     });
 
-    // TODO(types): replace cast with dedicated getOrderById response mapper (snapshot customer -> full customer).
-    return { ...orderFromDB, customer, comments: commentsWithResolvedAuthors } as unknown as IOrder<ICustomer>;
+    const enrichedProducts = await this.enrichProducts(orderFromDB.products as unknown as IProductInOrder[]);
+
+    return {
+      ...(orderFromDB as unknown as IOrder<IOrderCustomerSnapshot>),
+      customer,
+      products: enrichedProducts,
+      comments: commentsWithResolvedAuthors,
+    } as unknown as OrderDetailsDTO;
   }
 
   async update(
     orderId: Types.ObjectId,
     order: IOrderUpdateRequest,
     performerId: string,
-    currentOrder: IOrder<ICustomer>,
-  ): Promise<IOrder<ICustomer>> {
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
     const nextCustomer = order.customer
       ? await CustomerService.getCustomer(order.customer)
       : (currentOrder.customer as ICustomer);
-    const nextProducts = order.products
-      ? await productsMapping({ products: order.products })
-      : [...currentOrder.products];
+
+    const currentProducts: IProductInOrder[] = currentOrder.products.map((item) => ({
+      product: { _id: new Types.ObjectId(item.product._id) },
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      received: item.received,
+    }));
+
+    const nextProducts: IProductInOrder[] = await this.mergeProductsForUpdate(currentProducts, order.products);
+
     const manager = await managersService.getManager(performerId);
     const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
 
@@ -358,21 +486,38 @@ class OrderService {
 
     const changed = { products: false, customer: false };
 
-    const requestedProductIds = order.products?.map((productId) => productId.toString());
-    const currentProductIds = currentOrder.products.map((product) => product._id.toString());
+    const nextHistoryProducts = await this.enrichProducts(nextProducts);
+    const currentHistoryProducts = currentOrder.products.map((item) => ({ ...item }));
 
-    if (requestedProductIds && !_.isEqual(requestedProductIds, currentProductIds)) {
-      changed.products = true;
-      const o = _.cloneDeep(newOrder);
-      o.customer = this.buildCustomerSnapshot(currentOrder.customer as ICustomer);
-      newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager));
+    if (order.products) {
+      const requested = order.products.map((item) => ({
+        id: item.id.toString(),
+        quantity: item.quantity,
+      }));
+      const currentTuples = currentProducts.map((item) => ({
+        id: item.product._id.toString(),
+        quantity: item.quantity,
+      }));
+      if (!_.isEqual(requested, currentTuples)) {
+        changed.products = true;
+        const historyEntrySource = {
+          ..._.cloneDeep(newOrder),
+          products: nextHistoryProducts,
+          customer: this.buildCustomerSnapshot(currentOrder.customer as ICustomer),
+        };
+        newOrder.history.unshift(
+          createHistoryEntry(historyEntrySource, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager),
+        );
+      }
     }
 
     if (order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
       changed.customer = true;
-      const o = _.cloneDeep(newOrder);
-      o.products = [...currentOrder.products];
-      newOrder.history.unshift(createHistoryEntry(o, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
+      const historyEntrySource = {
+        ..._.cloneDeep(newOrder),
+        products: currentHistoryProducts,
+      };
+      newOrder.history.unshift(createHistoryEntry(historyEntrySource, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
     }
 
     const updatedOrder = await Order.findByIdAndUpdate(orderId, newOrder, { new: true });
@@ -402,7 +547,7 @@ class OrderService {
     return this.getOrder(updatedOrder._id);
   }
 
-  async delete(id: Types.ObjectId): Promise<IOrder<ICustomer>> {
+  async delete(id: Types.ObjectId): Promise<OrderDetailsDTO> {
     console.log(id);
     if (!id) {
       throw new Error("Id was not provided");
@@ -412,8 +557,12 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(order.customer._id);
-    // TODO(types): replace cast with dedicated delete response mapper.
-    return { ...order, customer } as unknown as IOrder<ICustomer>;
+    const enrichedProducts = await this.enrichProducts(order.products as unknown as IProductInOrder[]);
+    return {
+      ...(order as unknown as IOrder<IOrderCustomerSnapshot>),
+      customer,
+      products: enrichedProducts,
+    } as unknown as OrderDetailsDTO;
   }
 
   async getOrdersByCustomer(customerId: string) {
@@ -439,10 +588,10 @@ class OrderService {
       .exec();
   }
 
-  async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
+  async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: OrderDetailsDTO) {
     const manager = await managersService.getManager(managerId);
     const performer = await managersService.getManager(performerId);
-    const newOrder: IOrder<ICustomer> = {
+    const newOrder: OrderDetailsDTO = {
       ...currentOrder,
       assignedManager: manager,
     };
@@ -469,10 +618,10 @@ class OrderService {
     return this.getOrder(updatedOrder._id);
   }
 
-  async unassignManager(orderId: string, performerId: string, currentOrder: IOrder<ICustomer>) {
+  async unassignManager(orderId: string, performerId: string, currentOrder: OrderDetailsDTO) {
     const previousAssignee = currentOrder.assignedManager;
     const performer = await managersService.getManager(performerId);
-    const newOrder: IOrder<ICustomer> = {
+    const newOrder: OrderDetailsDTO = {
       ...currentOrder,
       assignedManager: null,
     };

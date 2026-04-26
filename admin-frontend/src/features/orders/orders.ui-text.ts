@@ -162,8 +162,11 @@ export const ordersUiText = {
       editProductsDiscardCancel: 'Keep Editing',
       editProductsDisabledReasonNoChanges: 'No changes to save.',
       editProductsDisabledReasonEmptyRows: 'Select a product for each row.',
+      editProductsDisabledReasonDuplicates: 'Duplicate products are not allowed.',
       editProductsDisabledReasonUnavailable: 'Remove or replace unavailable products.',
       editProductsDisabledReasonCheckingAvailability: 'Checking product availability...',
+      editProductsSettingsLoading: 'Loading settings...',
+      editProductsRetry: 'Retry',
     },
   },
   toasts: {

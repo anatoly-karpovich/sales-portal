@@ -1,4 +1,5 @@
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -20,16 +21,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Customer } from '@/api/modules/customers.api'
 import type { Product } from '@/api/modules/products.api'
 import type { CreateOrderPayload } from '@/api/modules/orders.api'
-import {
-  ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS,
-  ORDER_DETAILS_SEARCH_DEBOUNCE_MS,
-} from '@/features/orders/config/orderDetails.config'
+import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import {
   useOrderCustomerOptionsQuery,
   useOrderProductOptionsQuery,
   useOrderProductsAvailability,
 } from '@/features/orders/hooks/useOrdersQuery'
+import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
+import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatPrice } from '@/utils/number'
 
 type CustomerSummary = {
@@ -48,6 +48,7 @@ type ProductSummary = {
 type ProductRow = {
   id: number
   productId: string
+  quantity: number
   summary: ProductSummary | null
 }
 
@@ -79,18 +80,34 @@ function formatCustomerSummary(customer: CustomerSummary) {
   return `${customer.name} | ${customer.email}`
 }
 
+function clampQuantity(value: number, max: number) {
+  return Math.min(Math.max(value, 1), max)
+}
+
 export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Props) {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null)
   const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState('')
   const [productRows, setProductRows] = useState<ProductRow[]>([
-    { id: 1, productId: '', summary: null },
+    { id: 1, productId: '', quantity: 1, summary: null },
   ])
   const [editingRowId, setEditingRowId] = useState<number | null>(null)
   const [productSearch, setProductSearch] = useState('')
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('')
   const nextRowId = useRef(2)
+
+  const {
+    data: settings,
+    isLoading: isSettingsLoading,
+    isFetching: isSettingsFetching,
+    refetch: refetchSettings,
+  } = useSettingsQuery(open)
+  const maxProductQuantityInOrder = settings?.order.maxProductQuantityInOrder
+  const hasQuantityLimit =
+    typeof maxProductQuantityInOrder === 'number' && maxProductQuantityInOrder >= 1
+  const isSettingsPending = isSettingsLoading || (!settings && isSettingsFetching)
+  const isSettingsUnavailable = !isSettingsPending && !hasQuantityLimit
 
   useEffect(() => {
     if (!open) return
@@ -124,19 +141,45 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
   )
 
   const activeRow = editingRowId ? productRows.find((row) => row.id === editingRowId) : null
+  const selectedProductIdsOutsideActive = useMemo(() => {
+    return new Set(
+      productRows
+        .filter((row) => row.id !== editingRowId)
+        .map((row) => row.productId)
+        .filter(Boolean),
+    )
+  }, [editingRowId, productRows])
+
   const productOptionsQuery = useOrderProductOptionsQuery(
     debouncedProductSearch,
-    open && editingRowId !== null,
+    open && editingRowId !== null && hasQuantityLimit,
   )
   const productOptions = useMemo(
-    () => (productOptionsQuery.data?.Products ?? []).map(toProductSummary),
-    [productOptionsQuery.data?.Products],
+    () =>
+      (productOptionsQuery.data?.Products ?? [])
+        .map(toProductSummary)
+        .filter((product) => !selectedProductIdsOutsideActive.has(product._id)),
+    [productOptionsQuery.data?.Products, selectedProductIdsOutsideActive],
   )
 
-  const selectedProductIds = useMemo(
-    () => productRows.map((row) => row.productId).filter(Boolean),
-    [productRows],
+  const selectedProducts = useMemo(
+    () =>
+      productRows
+        .filter((row) => row.productId)
+        .map((row) => ({
+          id: row.productId,
+          quantity:
+            hasQuantityLimit && maxProductQuantityInOrder
+              ? clampQuantity(row.quantity, maxProductQuantityInOrder)
+              : row.quantity,
+        })),
+    [hasQuantityLimit, maxProductQuantityInOrder, productRows],
   )
+  const selectedProductIds = useMemo(
+    () => selectedProducts.map((item) => item.id),
+    [selectedProducts],
+  )
+  const hasDuplicateRows = new Set(selectedProductIds).size !== selectedProductIds.length
   const { unavailableIds, isLoading: isAvailabilityLoading } = useOrderProductsAvailability(
     selectedProductIds,
     open && selectedProductIds.length > 0,
@@ -147,11 +190,13 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
   const hasUnavailableRows = productRows.some(
     (row) => row.productId && unavailableIds.has(row.productId),
   )
-  const canRemoveRow = productRows.length > 1
-  const canAddRow = productRows.length < ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS && !isSubmitting
+  const canRemoveRow = productRows.length > 1 && hasQuantityLimit
+  const canAddRow = !isSubmitting && hasQuantityLimit
   const canSubmit =
     hasValidCustomer &&
+    hasQuantityLimit &&
     !hasEmptyRows &&
+    !hasDuplicateRows &&
     !hasUnavailableRows &&
     !isAvailabilityLoading &&
     !isSubmitting
@@ -159,7 +204,7 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
   const totalPrice = useMemo(() => {
     return productRows.reduce((sum, row) => {
       if (!row.summary) return sum
-      return sum + row.summary.price
+      return sum + row.summary.price * row.quantity
     }, 0)
   }, [productRows])
 
@@ -186,7 +231,10 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
     if (!canAddRow) return
     const nextId = nextRowId.current
     nextRowId.current += 1
-    setProductRows((current) => [...current, { id: nextId, productId: '', summary: null }])
+    setProductRows((current) => [
+      ...current,
+      { id: nextId, productId: '', quantity: 1, summary: null },
+    ])
     setEditingRowId(nextId)
     setProductSearch('')
     setDebouncedProductSearch('')
@@ -202,7 +250,7 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
   }
 
   const handleActivateProductRow = (rowId: number) => {
-    if (isSubmitting) return
+    if (isSubmitting || !hasQuantityLimit) return
     setEditingRowId((current) => (current === rowId ? null : rowId))
     setProductSearch('')
     setDebouncedProductSearch('')
@@ -216,12 +264,24 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
 
   const handleSelectProduct = (product: ProductSummary | null) => {
     if (!editingRowId || isSubmitting || !product) return
+    if (productRows.some((row) => row.id !== editingRowId && row.productId === product._id)) return
     setProductRows((current) =>
       current.map((row) =>
         row.id === editingRowId ? { ...row, productId: product._id, summary: product } : row,
       ),
     )
     handleCloseProductPicker()
+  }
+
+  const handleRowQuantityChange = (rowId: number, quantity: number) => {
+    if (!hasQuantityLimit || !maxProductQuantityInOrder) return
+    setProductRows((current) =>
+      current.map((row) =>
+        row.id === rowId
+          ? { ...row, quantity: clampQuantity(quantity, maxProductQuantityInOrder) }
+          : row,
+      ),
+    )
   }
 
   const resolveProductRowSummary = (row: ProductRow) => {
@@ -236,7 +296,7 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
     if (!canSubmit || !selectedCustomer) return
     await onSubmit({
       customer: selectedCustomer._id,
-      products: selectedProductIds,
+      products: selectedProducts,
     })
   }
 
@@ -264,7 +324,9 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
       <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
         <Stack spacing={2.25}>
           <Stack spacing={1.25} data-testid="orders-create-customer-section">
-            <Typography variant="subtitle2">{ordersUiText.dialogs.createOrderCustomerLabel}</Typography>
+            <Typography variant="subtitle2">
+              {ordersUiText.dialogs.createOrderCustomerLabel}
+            </Typography>
 
             <Autocomplete
               options={customerOptions}
@@ -304,7 +366,11 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
               renderOption={(props, option, state) => {
                 const { key, ...optionProps } = props
                 return (
-                  <li key={key} {...optionProps} data-testid={`orders-create-customer-item-${state.index}`}>
+                  <li
+                    key={key}
+                    {...optionProps}
+                    data-testid={`orders-create-customer-item-${state.index}`}
+                  >
                     <Stack spacing={0.25}>
                       <Typography
                         sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
@@ -346,9 +412,46 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
               {ordersUiText.dialogs.createOrderProductsTitle}
             </Typography>
 
+            {isSettingsPending ? (
+              <Alert severity="info" data-testid="orders-create-settings-loading-alert">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">
+                    {ordersUiText.dialogs.details.editProductsSettingsLoading}
+                  </Typography>
+                </Stack>
+              </Alert>
+            ) : null}
+
+            {isSettingsUnavailable ? (
+              <Alert
+                severity="warning"
+                action={
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      void refetchSettings()
+                    }}
+                    data-testid="orders-create-settings-retry-button"
+                  >
+                    {ordersUiText.dialogs.details.editProductsRetry}
+                  </Button>
+                }
+                data-testid="orders-create-settings-error-alert"
+              >
+                {ordersUiText.errors.settingsNotFound}
+              </Alert>
+            ) : null}
+
             {productRows.map((row, index) => {
               const isActive = editingRowId === row.id
               const isUnavailable = Boolean(row.productId) && unavailableIds.has(row.productId)
+              const quantityMax =
+                hasQuantityLimit && maxProductQuantityInOrder ? maxProductQuantityInOrder : 1
+              const quantityValue =
+                hasQuantityLimit && maxProductQuantityInOrder
+                  ? clampQuantity(row.quantity, maxProductQuantityInOrder)
+                  : row.quantity
 
               return (
                 <Paper
@@ -357,7 +460,7 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
                   onClick={() => handleActivateProductRow(row.id)}
                   sx={{
                     p: 1.25,
-                    cursor: isSubmitting ? 'default' : 'pointer',
+                    cursor: isSubmitting || !hasQuantityLimit ? 'default' : 'pointer',
                     transition: (theme) =>
                       theme.transitions.create('border-color', {
                         duration: theme.transitions.duration.shortest,
@@ -377,7 +480,7 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
                   }}
                   data-testid={`orders-create-product-row-${index}`}
                 >
-                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                  <Stack direction="row" spacing={1} alignItems="center">
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography
                         sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
@@ -391,11 +494,23 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
                         <Typography
                           variant="body2"
                           color="error.main"
+                          sx={{ mt: 0.75 }}
                           data-testid={`orders-create-product-row-${index}-unavailable`}
                         >
                           {ordersUiText.dialogs.details.editProductsUnavailable}
                         </Typography>
                       ) : null}
+                    </Box>
+
+                    <Box sx={{ flexShrink: 0 }}>
+                      <OrderProductQuantityControl
+                        value={quantityValue}
+                        min={1}
+                        max={quantityMax}
+                        disabled={isSubmitting || !row.productId || !hasQuantityLimit}
+                        onChange={(nextValue) => handleRowQuantityChange(row.id, nextValue)}
+                        testIdPrefix={`orders-create-product-row-${index}`}
+                      />
                     </Box>
 
                     <IconButton
@@ -415,21 +530,19 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
               )
             })}
 
-            {canAddRow ? (
-              <Button
-                variant="outlined"
-                startIcon={<AddRoundedIcon />}
-                onClick={handleAddProductRow}
-                disabled={isSubmitting}
-                sx={{ alignSelf: 'flex-start' }}
-                data-testid="orders-create-add-product-button"
-              >
-                {ordersUiText.dialogs.createOrderAddProductButton}
-              </Button>
-            ) : null}
+            <Button
+              variant="outlined"
+              startIcon={<AddRoundedIcon />}
+              onClick={handleAddProductRow}
+              disabled={!canAddRow}
+              sx={{ alignSelf: 'flex-start' }}
+              data-testid="orders-create-add-product-button"
+            >
+              {ordersUiText.dialogs.createOrderAddProductButton}
+            </Button>
           </Stack>
 
-          {activeRow ? (
+          {activeRow && hasQuantityLimit ? (
             <Stack spacing={1.25} data-testid="orders-create-product-search-section">
               <Autocomplete
                 options={productOptions}
@@ -459,7 +572,11 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
                 renderOption={(props, option, state) => {
                   const { key, ...optionProps } = props
                   return (
-                    <li key={key} {...optionProps} data-testid={`orders-create-product-search-item-${state.index}`}>
+                    <li
+                      key={key}
+                      {...optionProps}
+                      data-testid={`orders-create-product-search-item-${state.index}`}
+                    >
                       <Stack spacing={0.25}>
                         <Typography
                           sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}

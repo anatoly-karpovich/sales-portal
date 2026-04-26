@@ -1,4 +1,5 @@
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -18,11 +19,8 @@ import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Product } from '@/api/modules/products.api'
-import type { OrderProduct } from '@/api/modules/orders.api'
-import {
-  ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS,
-  ORDER_DETAILS_SEARCH_DEBOUNCE_MS,
-} from '@/features/orders/config/orderDetails.config'
+import type { OrderProduct, OrderProductRequestItem } from '@/api/modules/orders.api'
+import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import {
   useOrderProductOptionsQuery,
   useOrderProductsAvailability,
@@ -30,10 +28,13 @@ import {
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatPrice } from '@/utils/number'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
+import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 
 type ProductRow = {
   id: number
   productId: string
+  quantity: number
 }
 
 type ProductSummary = {
@@ -48,22 +49,33 @@ type Props = {
   initialProducts: OrderProduct[]
   isSubmitting: boolean
   onClose: () => void
-  onSave: (payload: { products: string[] }) => Promise<void> | void
+  onSave: (payload: { products: OrderProductRequestItem[] }) => Promise<void> | void
 }
 
-function areEqualProductMultiset(a: string[], b: string[]) {
+function normalizeRequestedProducts(items: OrderProductRequestItem[]) {
+  return [...items].sort((left, right) => left.id.localeCompare(right.id))
+}
+
+function areEqualRequestedProducts(a: OrderProductRequestItem[], b: OrderProductRequestItem[]) {
   if (a.length !== b.length) return false
-  const sortedA = [...a].sort()
-  const sortedB = [...b].sort()
-  return sortedA.every((value, index) => value === sortedB[index])
+  const normalizedA = normalizeRequestedProducts(a)
+  const normalizedB = normalizeRequestedProducts(b)
+  return normalizedA.every(
+    (item, index) =>
+      item.id === normalizedB[index].id && item.quantity === normalizedB[index].quantity,
+  )
+}
+
+function clampQuantity(value: number, max: number) {
+  return Math.min(Math.max(value, 1), max)
 }
 
 function buildSummaryFromOrderProduct(product: OrderProduct): ProductSummary {
   return {
-    _id: product._id,
-    name: product.name,
-    manufacturer: product.manufacturer,
-    price: product.price,
+    _id: product.product._id,
+    name: product.product.name,
+    manufacturer: product.product.manufacturer,
+    price: product.unitPrice,
   }
 }
 
@@ -87,9 +99,10 @@ export function EditOrderProductsDialog({
     initialProducts.length
       ? initialProducts.map((product, index) => ({
           id: index + 1,
-          productId: product._id,
+          productId: product.product._id,
+          quantity: product.quantity,
         }))
-      : [{ id: 1, productId: '' }],
+      : [{ id: 1, productId: '', quantity: 1 }],
   )
   const [editingRowId, setEditingRowId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
@@ -98,15 +111,27 @@ export function EditOrderProductsDialog({
   const [knownProductsById, setKnownProductsById] = useState<Map<string, ProductSummary>>(
     () =>
       new Map(
-        initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)]),
+        initialProducts.map((product) => [product.product._id, buildSummaryFromOrderProduct(product)]),
       ),
   )
   const nextRowId = useRef(initialProducts.length > 0 ? initialProducts.length + 1 : 2)
 
+  const {
+    data: settings,
+    isLoading: isSettingsLoading,
+    isFetching: isSettingsFetching,
+    refetch: refetchSettings,
+  } = useSettingsQuery(open)
+  const maxProductQuantityInOrder = settings?.order.maxProductQuantityInOrder
+  const hasQuantityLimit =
+    typeof maxProductQuantityInOrder === 'number' && maxProductQuantityInOrder >= 1
+  const isSettingsPending = isSettingsLoading || (!settings && isSettingsFetching)
+  const isSettingsUnavailable = !isSettingsPending && !hasQuantityLimit
+
   const initialProductsById = useMemo(
     () =>
       new Map(
-        initialProducts.map((product) => [product._id, buildSummaryFromOrderProduct(product)]),
+        initialProducts.map((product) => [product.product._id, buildSummaryFromOrderProduct(product)]),
       ),
     [initialProducts],
   )
@@ -121,47 +146,88 @@ export function EditOrderProductsDialog({
     }
   }, [open, search])
 
-  const currentProductIds = useMemo(
-    () => rows.map((row) => row.productId).filter(Boolean),
-    [rows],
+  const currentProducts = useMemo(
+    () =>
+      rows
+        .filter((row) => row.productId)
+        .map((row) => ({
+          id: row.productId,
+          quantity:
+            hasQuantityLimit && maxProductQuantityInOrder
+              ? clampQuantity(row.quantity, maxProductQuantityInOrder)
+              : row.quantity,
+        })),
+    [hasQuantityLimit, maxProductQuantityInOrder, rows],
   )
-  const initialProductIds = useMemo(
-    () => initialProducts.map((product) => product._id),
+  const currentProductIds = useMemo(() => currentProducts.map((product) => product.id), [currentProducts])
+  const initialRequestedProducts = useMemo(
+    () => initialProducts.map((product) => ({ id: product.product._id, quantity: product.quantity })),
     [initialProducts],
   )
+  const hasDuplicateRows = new Set(currentProductIds).size !== currentProductIds.length
 
-  const optionsQuery = useOrderProductOptionsQuery(debouncedSearch, editingRowId !== null)
-  const options = optionsQuery.data?.Products ?? []
+  const selectedProductIdsOutsideActive = useMemo(() => {
+    return new Set(
+      rows
+        .filter((row) => row.id !== editingRowId)
+        .map((row) => row.productId)
+        .filter(Boolean),
+    )
+  }, [editingRowId, rows])
+  const optionsQuery = useOrderProductOptionsQuery(
+    debouncedSearch,
+    editingRowId !== null && hasQuantityLimit,
+  )
+  const options = useMemo(
+    () =>
+      (optionsQuery.data?.Products ?? []).filter(
+        (option) => !selectedProductIdsOutsideActive.has(option._id),
+      ),
+    [optionsQuery.data?.Products, selectedProductIdsOutsideActive],
+  )
 
   const { unavailableIds, isLoading: isAvailabilityLoading } = useOrderProductsAvailability(
     currentProductIds,
     true,
   )
 
-  const canRemoveRow = rows.length > 1
+  const canRemoveRow = rows.length > 1 && hasQuantityLimit
   const hasEmptyRows = rows.some((row) => !row.productId)
   const hasUnavailableRows = rows.some((row) => row.productId && unavailableIds.has(row.productId))
-  const hasChanges = !areEqualProductMultiset(initialProductIds, currentProductIds)
-  const canAddRow = rows.length < ORDER_DETAILS_EDIT_PRODUCTS_MAX_ROWS && !hasEmptyRows
+  const hasChanges = !areEqualRequestedProducts(initialRequestedProducts, currentProducts)
+  const canAddRow = hasQuantityLimit && !isSubmitting
   const isSaveDisabled =
-    isSubmitting || isAvailabilityLoading || hasEmptyRows || hasUnavailableRows || !hasChanges
+    isSubmitting ||
+    isSettingsPending ||
+    !hasQuantityLimit ||
+    isAvailabilityLoading ||
+    hasEmptyRows ||
+    hasDuplicateRows ||
+    hasUnavailableRows ||
+    !hasChanges
   const saveDisabledReason = isSubmitting
     ? null
-    : isAvailabilityLoading
-      ? ordersUiText.dialogs.details.editProductsDisabledReasonCheckingAvailability
-      : hasUnavailableRows
-        ? ordersUiText.dialogs.details.editProductsDisabledReasonUnavailable
-        : hasEmptyRows
-          ? ordersUiText.dialogs.details.editProductsDisabledReasonEmptyRows
-          : !hasChanges
-            ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
-            : null
+    : isSettingsPending
+      ? ordersUiText.dialogs.details.editProductsSettingsLoading
+      : !hasQuantityLimit
+        ? ordersUiText.errors.settingsNotFound
+        : isAvailabilityLoading
+          ? ordersUiText.dialogs.details.editProductsDisabledReasonCheckingAvailability
+          : hasDuplicateRows
+            ? ordersUiText.dialogs.details.editProductsDisabledReasonDuplicates
+            : hasUnavailableRows
+              ? ordersUiText.dialogs.details.editProductsDisabledReasonUnavailable
+              : hasEmptyRows
+                ? ordersUiText.dialogs.details.editProductsDisabledReasonEmptyRows
+                : !hasChanges
+                  ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
+                  : null
 
   const totalPrice = useMemo(() => {
     return rows.reduce((sum, row) => {
       if (!row.productId) return sum
       const known = knownProductsById.get(row.productId) ?? initialProductsById.get(row.productId)
-      return known ? sum + known.price : sum
+      return known ? sum + known.price * row.quantity : sum
     }, 0)
   }, [initialProductsById, knownProductsById, rows])
 
@@ -170,7 +236,7 @@ export function EditOrderProductsDialog({
     const nextId = nextRowId.current
     nextRowId.current += 1
 
-    setRows((current) => [...current, { id: nextId, productId: '' }])
+    setRows((current) => [...current, { id: nextId, productId: '', quantity: 1 }])
     setEditingRowId(nextId)
     setSearch('')
     setDebouncedSearch('')
@@ -189,7 +255,7 @@ export function EditOrderProductsDialog({
   }
 
   const handleActivateRow = (rowId: number) => {
-    if (isSubmitting) return
+    if (isSubmitting || !hasQuantityLimit) return
     setEditingRowId((current) => (current === rowId ? null : rowId))
     setSearch('')
     setDebouncedSearch('')
@@ -203,6 +269,7 @@ export function EditOrderProductsDialog({
 
   const handleSelectProduct = (product: Product | null) => {
     if (!editingRowId || isSubmitting || !product) return
+    if (rows.some((row) => row.id !== editingRowId && row.productId === product._id)) return
     setRows((current) =>
       current.map((row) => (row.id === editingRowId ? { ...row, productId: product._id } : row)),
     )
@@ -212,6 +279,15 @@ export function EditOrderProductsDialog({
       return next
     })
     handleClosePicker()
+  }
+
+  const handleRowQuantityChange = (rowId: number, quantity: number) => {
+    if (!hasQuantityLimit || !maxProductQuantityInOrder) return
+    setRows((current) =>
+      current.map((row) =>
+        row.id === rowId ? { ...row, quantity: clampQuantity(quantity, maxProductQuantityInOrder) } : row,
+      ),
+    )
   }
 
   const resolveRowSummary = (row: ProductRow) => {
@@ -279,6 +355,37 @@ export function EditOrderProductsDialog({
 
         <DialogContent dividers>
           <Stack spacing={2.25}>
+            {isSettingsPending ? (
+              <Alert severity="info" data-testid="order-details-products-edit-settings-loading-alert">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">
+                    {ordersUiText.dialogs.details.editProductsSettingsLoading}
+                  </Typography>
+                </Stack>
+              </Alert>
+            ) : null}
+
+            {isSettingsUnavailable ? (
+              <Alert
+                severity="warning"
+                action={
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      void refetchSettings()
+                    }}
+                    data-testid="order-details-products-edit-settings-retry-button"
+                  >
+                    {ordersUiText.dialogs.details.editProductsRetry}
+                  </Button>
+                }
+                data-testid="order-details-products-edit-settings-error-alert"
+              >
+                {ordersUiText.errors.settingsNotFound}
+              </Alert>
+            ) : null}
+
             <Stack spacing={1.25} data-testid="order-details-products-edit-selected-rows-section">
               <Typography variant="subtitle2">
                 {ordersUiText.dialogs.details.editProductsLabel}
@@ -287,6 +394,11 @@ export function EditOrderProductsDialog({
               {rows.map((row, index) => {
                 const isActive = editingRowId === row.id
                 const isUnavailable = Boolean(row.productId) && unavailableIds.has(row.productId)
+                const quantityMax = hasQuantityLimit && maxProductQuantityInOrder ? maxProductQuantityInOrder : 1
+                const quantityValue =
+                  hasQuantityLimit && maxProductQuantityInOrder
+                    ? clampQuantity(row.quantity, maxProductQuantityInOrder)
+                    : row.quantity
                 return (
                   <Paper
                     key={row.id}
@@ -294,7 +406,7 @@ export function EditOrderProductsDialog({
                     onClick={() => handleActivateRow(row.id)}
                     sx={{
                       p: 1.25,
-                      cursor: isSubmitting ? 'default' : 'pointer',
+                      cursor: isSubmitting || !hasQuantityLimit ? 'default' : 'pointer',
                       transition: (theme) =>
                         theme.transitions.create('border-color', {
                           duration: theme.transitions.duration.shortest,
@@ -314,7 +426,7 @@ export function EditOrderProductsDialog({
                     }}
                     data-testid={`order-details-products-edit-row-${index}`}
                   >
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <Stack direction="row" spacing={1} alignItems="center">
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography
                           sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
@@ -323,15 +435,28 @@ export function EditOrderProductsDialog({
                         >
                           {resolveRowSummary(row)}
                         </Typography>
+
                         {isUnavailable ? (
                           <Typography
                             variant="body2"
                             color="error.main"
+                            sx={{ mt: 0.75 }}
                             data-testid={`order-details-products-edit-row-${index}-unavailable`}
                           >
                             {ordersUiText.dialogs.details.editProductsUnavailable}
                           </Typography>
                         ) : null}
+                      </Box>
+
+                      <Box sx={{ flexShrink: 0 }}>
+                        <OrderProductQuantityControl
+                          value={quantityValue}
+                          min={1}
+                          max={quantityMax}
+                          disabled={isSubmitting || !row.productId || !hasQuantityLimit}
+                          onChange={(nextValue) => handleRowQuantityChange(row.id, nextValue)}
+                          testIdPrefix={`order-details-products-edit-row-${index}`}
+                        />
                       </Box>
 
                       <IconButton
@@ -351,22 +476,20 @@ export function EditOrderProductsDialog({
                 )
               })}
 
-              {canAddRow ? (
-                <Button
-                  variant="outlined"
-                  startIcon={<AddRoundedIcon />}
-                  onClick={handleAddRow}
-                  disabled={isSubmitting}
-                  sx={{ alignSelf: 'flex-start' }}
-                  data-testid="order-details-products-edit-add-product-button"
-                >
-                  {ordersUiText.dialogs.details.editProductsAdd}
-                </Button>
-              ) : null}
+              <Button
+                variant="outlined"
+                startIcon={<AddRoundedIcon />}
+                onClick={handleAddRow}
+                disabled={!canAddRow}
+                sx={{ alignSelf: 'flex-start' }}
+                data-testid="order-details-products-edit-add-product-button"
+              >
+                {ordersUiText.dialogs.details.editProductsAdd}
+              </Button>
             </Stack>
 
             <Stack spacing={1.25}>
-              {activeRow ? (
+              {activeRow && hasQuantityLimit ? (
                 <Autocomplete
                   options={options}
                   value={null}
@@ -482,7 +605,7 @@ export function EditOrderProductsDialog({
           <Stack direction="row" spacing={1}>
             <Button
               variant="contained"
-              onClick={() => void onSave({ products: currentProductIds })}
+              onClick={() => void onSave({ products: currentProducts })}
               disabled={isSaveDisabled}
               data-testid="order-details-products-edit-save-button"
             >

@@ -2,18 +2,15 @@ import moment from "moment";
 import { DATE_AND_TIME_FORMAT, DATE_FORMAT } from "../data/constants";
 import { ORDER_HISTORY_ACTIONS, ROLES } from "../data/enums";
 import type { ICustomer, IHistory, IOrder, IOrderCustomerSnapshot, IOrderRequest, IProduct } from "../data/types";
-import { IProductInOrder } from "../data/types/order.type";
+import { IProductInOrder, IProductInOrderResponse } from "../data/types/order.type";
 import ProductsService from "../services/products.service";
 import { Request } from "express";
 import jsonwebtoken from "jsonwebtoken";
 import { IManagerWithRoles } from "../data/types/manager.types";
 import { Types } from "mongoose";
 
-export const getTotalPrice = (products: IProduct[]) => {
-  return products.reduce((a, b) => {
-    a += b.price;
-    return a;
-  }, 0);
+export const getTotalPrice = (products: IProductInOrder[]) => {
+  return products.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 };
 
 export const getTodaysDate = (withTime: boolean) => {
@@ -24,7 +21,7 @@ type HistorySource = {
   status: IHistory["status"];
   deliveryStatus: IHistory["deliveryStatus"];
   customer: Types.ObjectId | string | { _id: Types.ObjectId | string };
-  products: IHistory["products"];
+  products: IProductInOrderResponse[];
   delivery: IHistory["delivery"];
   total_price: number;
   assignedManager: IHistory["assignedManager"];
@@ -72,16 +69,12 @@ export function createHistoryEntry(
 
 export async function productsMapping<T extends Pick<IOrderRequest, "products">>(order: T): Promise<IProductInOrder[]> {
   const products = await Promise.all(
-    order.products.map(async (id) => {
-      const product = await ProductsService.getProduct(id);
+    order.products.map(async (item) => {
+      const product = await ProductsService.getProduct(item.id);
       return {
-        _id: new Types.ObjectId(product._id),
-        name: product.name,
-        amount: product.amount,
-        price: product.price,
-        manufacturer: product.manufacturer,
-        createdOn: product.createdOn,
-        notes: product.notes,
+        product: { _id: new Types.ObjectId(product._id) },
+        unitPrice: product.price,
+        quantity: item.quantity,
         received: false,
       };
     }),

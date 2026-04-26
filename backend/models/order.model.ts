@@ -14,14 +14,27 @@ const manager = new mongoose.Schema(
   { _id: false, versionKey: false }
 );
 
-const product = new mongoose.Schema(
+const productInOrder = new mongoose.Schema(
   {
-    _id: { type: mongoose.SchemaTypes.ObjectId },
-    name: { type: String, required: true },
-    amount: { type: Number, required: true },
-    price: { type: Number, required: true },
-    manufacturer: { type: String, required: true },
-    notes: { type: String, required: false },
+    product: {
+      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    },
+    unitPrice: { type: Number, required: true },
+    quantity: { type: Number, required: true, min: 1 },
+    received: { type: Boolean, required: true },
+  },
+  { _id: false }
+);
+
+const productInHistorySnapshot = new mongoose.Schema(
+  {
+    product: {
+      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
+      name: { type: String, required: true },
+      manufacturer: { type: String, required: true },
+    },
+    unitPrice: { type: Number, required: true },
+    quantity: { type: Number, required: true, min: 1 },
     received: { type: Boolean, required: true },
   },
   { _id: false }
@@ -52,7 +65,7 @@ const history = new mongoose.Schema(
     status: { type: String, enum: ORDER_STATUSES, required: true },
     deliveryStatus: { type: String, enum: DELIVERY_STATUSES, required: true },
     customer: { type: mongoose.SchemaTypes.ObjectId, required: true },
-    products: [{ type: product, required: true }],
+    products: [{ type: productInHistorySnapshot, required: true }],
     total_price: { type: Number, require: true },
     delivery: { type: delivery, required: false },
     changedOn: { type: Date, required: true },
@@ -77,7 +90,7 @@ const Order = new mongoose.Schema(
     status: { type: String, enum: ORDER_STATUSES, required: true },
     deliveryStatus: { type: String, enum: DELIVERY_STATUSES, required: true },
     customer: { type: customerSnapshot, required: true },
-    products: [{ type: product, required: true }],
+    products: [{ type: productInOrder, required: true }],
     delivery: { type: delivery, required: false },
     total_price: { type: Number, require: true },
     createdOn: { type: Date, required: true },

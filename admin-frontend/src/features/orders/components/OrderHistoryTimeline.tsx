@@ -100,6 +100,41 @@ function resolveReceivedLabel(received: boolean | undefined) {
   return received ? 'Received' : ordersUiText.detailsPage.history.notReceived
 }
 
+function resolveOrderProductId(product: OrderProduct | undefined) {
+  const id = product?.product?._id
+  return typeof id === 'string' && id.trim().length > 0 ? id : null
+}
+
+function resolveOrderProductName(product: OrderProduct | undefined) {
+  return normalizeText(product?.product?.name)
+}
+
+function resolveOrderProductLabel(product: OrderProduct | undefined) {
+  const name = resolveOrderProductName(product)
+  if (name === '-') {
+    return ordersUiText.detailsPage.history.productLabel
+  }
+  return name
+}
+
+function resolveOrderProductDescriptor(product: OrderProduct | undefined) {
+  if (!product) return '-'
+  const name = resolveOrderProductName(product)
+  const quantity = typeof product.quantity === 'number' ? product.quantity : '-'
+  return `${name} (${quantity})`
+}
+
+function buildProductsById(products: OrderProduct[]) {
+  const byId = new Map<string, OrderProduct>()
+  products.forEach((product) => {
+    const productId = resolveOrderProductId(product)
+    if (productId) {
+      byId.set(productId, product)
+    }
+  })
+  return byId
+}
+
 function resolveDeliveryFieldValue(
   delivery: OrderDelivery | null | undefined,
   field: keyof OrderDelivery['address'] | 'condition' | 'finalDate',
@@ -203,13 +238,35 @@ function buildRequestedProductsChanges(
 ): HistoryChange[] {
   const previousProducts = previous?.products ?? []
   const updatedProducts = current.products ?? []
-  const maxLength = Math.max(previousProducts.length, updatedProducts.length)
+  const previousProductsById = buildProductsById(previousProducts)
+  const updatedProductsById = buildProductsById(updatedProducts)
+  const productIds = [...new Set([...previousProductsById.keys(), ...updatedProductsById.keys()])]
 
-  return Array.from({ length: maxLength }).map((_, productIndex) => ({
-    label: `${ordersUiText.detailsPage.history.productLabel} ${productIndex + 1}`,
-    previous: normalizeText(previousProducts[productIndex]?.name),
-    updated: normalizeText(updatedProducts[productIndex]?.name),
-  }))
+  const changes = productIds
+    .map((productId) => {
+      const previousProduct = previousProductsById.get(productId)
+      const updatedProduct = updatedProductsById.get(productId)
+      return {
+        label: updatedProduct
+          ? resolveOrderProductLabel(updatedProduct)
+          : previousProduct
+            ? resolveOrderProductLabel(previousProduct)
+            : `${ordersUiText.detailsPage.history.productLabel} ${productId}`,
+        previous: resolveOrderProductDescriptor(previousProduct),
+        updated: resolveOrderProductDescriptor(updatedProduct),
+      }
+    })
+    .filter((change) => change.previous !== change.updated)
+
+  if (changes.length) return changes
+
+  return [
+    {
+      label: ordersUiText.detailsPage.history.fallbackChangeLabel,
+      previous: '-',
+      updated: '-',
+    },
+  ]
 }
 
 function buildReceivedChanges(
@@ -218,12 +275,39 @@ function buildReceivedChanges(
 ): HistoryChange[] {
   const updatedProducts = current.products ?? []
   const previousProducts = previous?.products ?? []
+  const previousProductsById = buildProductsById(previousProducts)
+  const updatedProductsById = buildProductsById(updatedProducts)
+  const productIds = [...new Set([...previousProductsById.keys(), ...updatedProductsById.keys()])]
 
-  return updatedProducts.map((updatedProduct, productIndex) => ({
-    label: normalizeText(updatedProduct.name),
-    previous: resolveReceivedLabel(previousProducts[productIndex]?.received),
-    updated: resolveReceivedLabel(updatedProduct.received),
-  }))
+  const changes = productIds
+    .map((productId) => {
+      const previousProduct = previousProductsById.get(productId)
+      const updatedProduct = updatedProductsById.get(productId)
+      const previousReceived = previousProduct?.received
+      const updatedReceived = updatedProduct?.received
+      if (previousReceived === updatedReceived) return null
+
+      return {
+        label: resolveOrderProductLabel(updatedProduct ?? previousProduct),
+        previous: resolveReceivedLabel(previousReceived),
+        updated: resolveReceivedLabel(updatedReceived),
+      }
+    })
+    .filter((change): change is HistoryChange => Boolean(change))
+
+  if (changes.length) return changes
+
+  return updatedProducts.map((updatedProduct) => {
+    const productId = resolveOrderProductId(updatedProduct)
+    const previousReceived = productId
+      ? previousProductsById.get(productId)?.received
+      : undefined
+    return {
+      label: resolveOrderProductLabel(updatedProduct),
+      previous: resolveReceivedLabel(previousReceived),
+      updated: resolveReceivedLabel(updatedProduct.received),
+    }
+  })
 }
 
 function buildManagerChanges(
@@ -323,7 +407,13 @@ function buildHistoryCustomerIds(history: OrderHistoryEntry[]) {
   return [...ids]
 }
 
-function HistoryProducts({ products, index }: { products: OrderProduct[]; index: number }) {
+function HistoryProducts({
+  products,
+  index,
+}: {
+  products: OrderProduct[]
+  index: number
+}) {
   if (!products.length) {
     return <Typography color="text.secondary">-</Typography>
   }
@@ -335,7 +425,7 @@ function HistoryProducts({ products, index }: { products: OrderProduct[]; index:
     >
       {products.map((product, productIndex) => (
         <Box
-          key={`${product._id}-${productIndex}`}
+          key={`${product.product._id}-${productIndex}`}
           component="span"
           sx={{
             px: 1,
@@ -351,11 +441,13 @@ function HistoryProducts({ products, index }: { products: OrderProduct[]; index:
             fontSize: '0.8125rem',
             lineHeight: 1.35,
             fontWeight: 600,
+            maxWidth: '100%',
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
           }}
           data-testid={`order-details-history-item-${index}-products-item-${productIndex}`}
         >
-          {product.name}
-          {product.received ? ' \u2713' : ''}
+          {resolveOrderProductDescriptor(product)}
         </Box>
       ))}
     </Box>
@@ -729,7 +821,10 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                         >
                           {ordersUiText.detailsPage.history.productsAfterEvent}
                         </Typography>
-                        <HistoryProducts products={entry.products ?? []} index={index} />
+                        <HistoryProducts
+                          products={entry.products ?? []}
+                          index={index}
+                        />
                       </Stack>
                     </Paper>
                   </Stack>

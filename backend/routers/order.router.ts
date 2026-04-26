@@ -111,22 +111,24 @@ orderRouter.put(
  *           format: date-time
  *     ProductInOrder:
  *       type: object
- *       required: [_id, name, amount, price, manufacturer, received]
+ *       required: [product, unitPrice, quantity, received]
  *       properties:
- *         _id:
- *           type: string
- *         name:
- *           type: string
- *         amount:
+ *         product:
+ *           type: object
+ *           required: [_id, name, manufacturer]
+ *           properties:
+ *             _id:
+ *               type: string
+ *             name:
+ *               type: string
+ *             manufacturer:
+ *               type: string
+ *               enum: [Apple, Samsung, Google, Microsoft, Sony, Xiaomi, Amazon, Tesla]
+ *         unitPrice:
  *           type: number
- *         price:
- *           type: number
- *         manufacturer:
- *           type: string
- *           enum: [Apple, Samsung, Google, Microsoft, Sony, Xiaomi, Amazon, Tesla]
- *         notes:
- *           type: string
- *           nullable: true
+ *         quantity:
+ *           type: integer
+ *           minimum: 1
  *         received:
  *           type: boolean
  *     DeliveryAddress:
@@ -318,6 +320,17 @@ orderRouter.put(
  *         ErrorMessage:
  *           type: string
  *           nullable: true
+ *     OrderProductRequestItem:
+ *       type: object
+ *       required: [id, quantity]
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: Product id
+ *         quantity:
+ *           type: integer
+ *           minimum: 1
+ *           description: Quantity of the product in the order
  *     CreateOrderPayload:
  *       type: object
  *       required: [customer, products]
@@ -327,9 +340,10 @@ orderRouter.put(
  *           description: Customer id
  *         products:
  *           type: array
+ *           minItems: 1
  *           items:
- *             type: string
- *           description: Array of product ids
+ *             $ref: '#/components/schemas/OrderProductRequestItem'
+ *           description: Array of order products with quantities
  *     UpdateOrderPatchPayload:
  *       type: object
  *       minProperties: 1
@@ -340,10 +354,9 @@ orderRouter.put(
  *         products:
  *           type: array
  *           minItems: 1
- *           maxItems: 5
  *           items:
- *             type: string
- *           description: Array of product ids
+ *             $ref: '#/components/schemas/OrderProductRequestItem'
+ *           description: Array of order products with quantities
  *     OrderExportPayload:
  *       type: object
  *       required: [format, fields]
@@ -398,6 +411,7 @@ orderRouter.put(
  *           minItems: 1
  *           items:
  *             type: string
+ *           description: Array of product ids to mark as received
  *     OrderCommentPayload:
  *       type: object
  *       required: [comment]

@@ -1,10 +1,11 @@
 import Order from "../models/order.model";
 import OrderService from "./order.service";
-import type { IOrder, ICustomer, IComment } from "../data/types";
+import type { IComment } from "../data/types";
 import { getTodaysDate } from "../utils/utils";
 import { Types } from "mongoose";
 import { NOTIFICATIONS } from "../data/enums";
 import { NotificationService } from "./notification.service";
+import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
 
 class OrderCommentsService {
   private notificationService = new NotificationService();
@@ -18,8 +19,8 @@ class OrderCommentsService {
     orderId: Types.ObjectId;
     commentText: string;
     performerId: string;
-    currentOrder: IOrder<ICustomer>;
-  }): Promise<IOrder<ICustomer>> {
+    currentOrder: OrderDetailsDTO;
+  }): Promise<OrderDetailsDTO> {
     if (!orderId) {
       throw new Error("Id was not provided");
     }
@@ -28,7 +29,7 @@ class OrderCommentsService {
       createdOn: getTodaysDate(true),
       createdBy: new Types.ObjectId(performerId),
     };
-    const newOrder: IOrder<ICustomer> = {
+    const newOrder: OrderDetailsDTO = {
       ...currentOrder,
       comments: [...currentOrder.comments, comment],
     };
@@ -65,4 +66,3 @@ class OrderCommentsService {
 }
 
 export default new OrderCommentsService();
-

@@ -11,7 +11,7 @@
 | Core status field | `status` |
 | Delivery status field | `deliveryStatus` |
 | Pagination limits | `limit` clamped to `10..100` on list endpoints |
-| Create/update product count | `1..5` required product ids |
+| Create/update product count | At least `1` unique product. Per-product `quantity` is `1..settings.order.maxProductQuantityInOrder`. Duplicate product ids are rejected. |
 
 ## Status Enums (exact values)
 
@@ -86,14 +86,43 @@ Payload:
 ```json
 {
   "customer": "<customerId>",
-  "products": ["<productId1>", "<productId2>"]
+  "products": [
+    { "id": "<productId1>", "quantity": 3 },
+    { "id": "<productId2>", "quantity": 1 }
+  ]
 }
 ```
 
 Rules:
-- `products.length` must be `1..5`.
-- `customer` and each `product` must exist.
+- `products` must contain at least `1` item.
+- `id` values must be unique inside `products` (duplicates are rejected with `400`).
+- Each `quantity` is an integer in `1..settings.order.maxProductQuantityInOrder` (current default `10`). Out of range returns `400` with the offending product id.
+- `customer` and each `product` must exist (404 with the missing id otherwise).
 - Update route is allowed only while order is `Draft`.
+- On update, `unitPrice` is preserved for products that were already in the order (snapshot at first add). For products newly added during update, `unitPrice` is taken from the current `Product.price` at update time. `quantity` is always taken from the request payload. `received` is preserved for already-present positions and defaults to `false` for newly added ones.
+
+### Response product structure
+
+In API responses, every entry in `Order.products` has the shape:
+
+```json
+{
+  "product": {
+    "_id": "<productId>",
+    "name": "<productName>",
+    "manufacturer": "<manufacturerEnum>"
+  },
+  "unitPrice": 9.99,
+  "quantity": 3,
+  "received": false
+}
+```
+
+`name` and `manufacturer` are joined from the live `Product` collection on every read. `unitPrice` is the price snapshot taken at the moment the position was first added to the order (kept stable across updates).
+
+### Total price
+
+`total_price` is computed as `Σ unitPrice × quantity` across all `products` entries.
 
 ## Delivery Contract (`POST /api/orders/:orderId/delivery`)
 
@@ -150,17 +179,20 @@ Payload:
 ```
 
 Rules:
-- Request product ids must belong to the order.
-- `products.length` must be between `1` and `5` by schema.
+- `products` is an array of product `_id` values to mark as received.
+- Each id must reference a product position in the order, and that position must currently have `received = false`. Otherwise `400`.
+- Duplicate ids in the payload are rejected with `400`.
+- `products.length` must be between `1` and the number of product positions in the order.
 - Route allowed only when:
   - `status = In Process`
   - `deliveryStatus` in `Scheduled | Partially Delivered`
+- Partial receive of a single product position is **not** supported. A position is either fully received (`received = true`) or not at all — `quantity` does not affect the receive operation.
 
 Results:
-- Partial receive:
+- Partial receive (some positions still `received = false`):
   - `status = In Process`
   - `deliveryStatus = Partially Delivered`
-- Full receive (all products received):
+- Full receive (every position is `received = true`):
   - `status = Completed`
   - `deliveryStatus = Delivered`
 
@@ -216,6 +248,15 @@ Payload:
 Allowed `fields`:
 - `status`, `deliveryStatus`, `total_price`, `delivery`, `customer`, `products`, `assignedManager`, `createdOn`
 
+When `products` is selected, each position is flattened into the following columns (one set per index `i`, starting from `1`):
+
+- `products[i].product._id`
+- `products[i].product.name`
+- `products[i].product.manufacturer`
+- `products[i].unitPrice`
+- `products[i].quantity`
+- `products[i].received`
+
 ## Common Response Envelope
 
 - Success:
@@ -224,8 +265,45 @@ Allowed `fields`:
 - Failure:
   - `{ IsSuccess: false, ErrorMessage }`
 
+## History entries
+
+Each `history[]` entry stores a snapshot of the order at the moment the change was made:
+
+```json
+{
+  "status": "Draft",
+  "deliveryStatus": "Not Scheduled",
+  "products": [
+    {
+      "product": {
+        "_id": "<productId>",
+        "name": "<productName>",
+        "manufacturer": "<manufacturerEnum>"
+      },
+      "unitPrice": 9.99,
+      "quantity": 3,
+      "received": false
+    }
+  ],
+  "customer": "<customerId>",
+  "delivery": null,
+  "total_price": 29.97,
+  "changedOn": "2026-04-26T10:00:00.000Z",
+  "action": "<one of ORDER_HISTORY_ACTIONS>",
+  "performer": { "...managerSnapshot" },
+  "assignedManager": null
+}
+```
+
+Notes:
+- `history[].products` carries the **enriched** snapshot (`name`, `manufacturer` are persisted at write-time). The frontend does not need to re-resolve product details from the `Product` collection when rendering history.
+- `history[].customer` is an id reference (not a full snapshot).
+- `history` is ordered newest-first.
+
 ## Important Frontend Notes
 
 - Use both `status` and `deliveryStatus` in UI logic.
 - Do not expect `Partially Received` or `Received` as order status values anymore.
-- History entries include snapshots of both statuses (`status`, `deliveryStatus`).
+- History entries include snapshots of both statuses (`status`, `deliveryStatus`) and the enriched product snapshot.
+- A product can appear at most once per order. UI must collapse same-product additions into a single row with editable `quantity`.
+- `quantity` UI control should default to `1` and clamp at `settings.order.maxProductQuantityInOrder` from `GET /api/settings`.

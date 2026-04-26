@@ -197,13 +197,72 @@ When changing request contracts:
 
 Current important constraints:
 
-- Order create/update and receive: requested products count must be `1..5`.
-- `PUT /orders/:orderId/status` accepts only: `Draft`, `In Process`, `Canceled` (`Completed` is set automatically).
+- Order create/update: `products` is a non-empty array of `{ id: string, quantity: integer }` objects.
+  - Duplicate product `id` values are rejected (`400`).
+  - Each `quantity` must be in `1..settings.order.maxProductQuantityInOrder`. Settings are read on every create/update via `SettingsService.get()`.
+  - `maxProductsInOrder` from Settings is currently NOT enforced on the backend (UI cap only).
+  - Backend rejects unknown product `id` (`404`) and missing customer (`404`).
+- Order receive: `products` is an array of unique product `_id` values to mark as received.
+  - Each id must reference an existing position in the order with `received = false` (otherwise `400`).
+  - Partial receive of a single position by `quantity` is NOT supported — the entire position flips to `received = true`.
+  - `products.length` allowed range is `1..order.products.length`.
+- `PUT /orders/:orderId/status` accepts only: `Draft`, `In Process`, `Canceled` (`Completed` is set automatically by the receive flow).
 - `GET /orders` and `POST /orders/export` support filters by both `status` and `deliveryStatus`.
 - Product uniqueness: case-insensitive by trimmed `name`.
 - Customer uniqueness: case-insensitive by trimmed/lowercased `email`.
 - `POST /settings` and `PATCH /settings`: delivery cities and pickup addresses must stay synchronized by keys (`delivery.defaultCities` == `Object.keys(delivery.pickupAddresses)`), validated in dedicated settings middleware.
 - Notes/comment textual limits rely on validation helpers and middleware checks.
+
+## 8.1) Order products structure
+
+DB shape (`Order.products[i]`):
+
+```
+{
+  product: { _id: ObjectId },
+  unitPrice: Number,
+  quantity: Number (>= 1),
+  received: Boolean
+}
+```
+
+API response shape (`getOrder`, `getSorted`, etc.):
+
+```
+{
+  product: { _id: string, name: string, manufacturer: enum },
+  unitPrice: number,
+  quantity: number,
+  received: boolean
+}
+```
+
+- `name` and `manufacturer` are joined from the live `Product` collection on every read (see `OrderService.enrichProducts`).
+- `unitPrice` is a snapshot of `Product.price` taken at the moment a position is added to the order. On `PUT /orders/:orderId`:
+  - positions that already existed in the order keep their previous `unitPrice` and `received`,
+  - newly added positions get a fresh `unitPrice` from the current `Product.price`,
+  - `quantity` is always taken from the request payload.
+- `total_price = Σ unitPrice × quantity` over all positions.
+
+History snapshot (`Order.history[].products[i]`) uses a richer schema (see `productInHistorySnapshot` in `models/order.model.ts`):
+
+```
+{
+  product: { _id: ObjectId, name: string, manufacturer: string },
+  unitPrice: number,
+  quantity: number,
+  received: boolean
+}
+```
+
+`name` and `manufacturer` are persisted at history-write time so historical entries remain self-contained even if the source `Product` is later renamed or its manufacturer changes. Frontend does not need to re-resolve product details when rendering history.
+
+Settings-driven limits (read each request via `SettingsService.get()`):
+- `settings.order.maxProductQuantityInOrder` — per-position quantity cap, enforced by middleware.
+- `settings.order.maxProductsInOrder` — informational; not enforced by backend.
+
+Indexes used for product-deletion guard:
+- Search path is `products.product._id` (when checking `Order.exists(...)` to prevent deletion of a referenced product).
 
 ## 9) Core business invariants
 
@@ -230,7 +289,7 @@ Order side effects:
 
 Deletion guards:
 
-- product cannot be deleted if referenced in any order;
+- product cannot be deleted if referenced in any order (check is `Order.exists({ "products.product._id": productId })`);
 - customer cannot be deleted if referenced in any order;
 - admin user cannot be deleted; non-admin cannot delete other users.
 

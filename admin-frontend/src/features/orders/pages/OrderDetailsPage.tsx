@@ -18,6 +18,7 @@ import type {
   OrderAssignedManager,
   OrderDelivery,
   OrderDeliveryStatus,
+  OrderProductRequestItem,
   OrderStatus,
 } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
@@ -442,7 +443,7 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleSaveEditedProducts = async (payload: { products: string[] }) => {
+  const handleSaveEditedProducts = async (payload: { products: OrderProductRequestItem[] }) => {
     if (!order || !orderId) return
 
     try {
@@ -578,7 +579,7 @@ export function OrderDetailsPage() {
     if (!order || !orderId || !isReceiveSaveEnabled) return
 
     const products = selectedReceivePendingRowIndices
-      .map((index) => order.products[index]?._id)
+      .map((index) => order.products[index]?.product._id)
       .filter((productId): productId is string => Boolean(productId))
 
     if (!products.length) return
