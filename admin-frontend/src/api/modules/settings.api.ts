@@ -13,6 +13,14 @@ export type Settings = {
     defaultCities: string[]
     basePricePerItem: number
     extraPriceForOtherCity: number
+    pickupAddresses: Record<
+      string,
+      {
+        street: string
+        house: number
+        flat: number
+      }
+    >
   }
 }
 

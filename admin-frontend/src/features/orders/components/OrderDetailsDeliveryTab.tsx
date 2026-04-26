@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -14,12 +15,18 @@ import {
   Typography,
 } from '@mui/material'
 import type { OrderDelivery, OrderDetails } from '@/api/modules/orders.api'
-import { getDefaultUsPickupLocation } from '@/features/orders/config/pickupLocations.config'
+import {
+  buildPickupLocationsMap,
+  normalizeCityForMatch,
+  resolvePickupAddressByCity,
+  resolvePickupCityOptions,
+} from '@/features/orders/config/pickupLocations.config'
 import {
   ORDER_DETAILS_DELIVERY_MAX_DATE_OFFSET_DAYS,
   ORDER_DETAILS_DELIVERY_MIN_DATE_OFFSET_DAYS,
 } from '@/features/orders/config/orderDetails.config'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
+import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatDate } from '@/utils/date'
 
 type DeliveryConditionOption = 'Delivery' | 'Pickup'
@@ -55,6 +62,11 @@ type DeliveryTouchedState = {
   flat: boolean
 }
 
+type CityOption = {
+  value: string
+  label: string
+}
+
 type OrderDetailsDeliveryTabProps = {
   order: OrderDetails
   isDeliveryEditable: boolean
@@ -64,6 +76,7 @@ type OrderDetailsDeliveryTabProps = {
 
 const DELIVERY_CONDITION_OPTIONS: DeliveryConditionOption[] = ['Delivery', 'Pickup']
 const DELIVERY_LOCATION_OPTIONS: DeliveryLocationOption[] = ['Home', 'Other']
+const DELIVERY_OTHER_CITY_OPTION_VALUE = '__other__'
 
 const INITIAL_TOUCHED_STATE: DeliveryTouchedState = {
   finalDate: false,
@@ -77,6 +90,10 @@ function normalizeTextValue(value: string | number | null | undefined) {
   if (value === null || value === undefined) return '-'
   if (typeof value === 'string' && value.trim().length === 0) return '-'
   return String(value)
+}
+
+function toOptionTestId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
 function toDateInputValue(value: string | null | undefined) {
@@ -140,16 +157,6 @@ function resolveCustomerAddress(order: OrderDetails): DeliveryAddressFormState {
   }
 }
 
-function resolveDefaultPickupAddress(): DeliveryAddressFormState {
-  const defaultAddress = getDefaultUsPickupLocation()
-  return {
-    city: defaultAddress.city,
-    street: defaultAddress.street,
-    house: defaultAddress.house,
-    flat: defaultAddress.flat,
-  }
-}
-
 function areAddressesEqual(left: DeliveryAddressFormState, right: DeliveryAddressFormState) {
   return (
     left.city === right.city &&
@@ -175,7 +182,44 @@ function resolveDeliveryLocation(order: OrderDetails): DeliveryLocationOption {
   return areAddressesEqual(customerAddress, deliveryAddress) ? 'Home' : 'Other'
 }
 
-function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
+function resolveInitialDeliveryCitySelection(city: string, defaultCities: string[]) {
+  const matchedCity = defaultCities.find(
+    (defaultCity) => normalizeCityForMatch(defaultCity) === normalizeCityForMatch(city),
+  )
+
+  if (matchedCity) {
+    return {
+      selectedCityValue: matchedCity,
+      customCityDraft: '',
+    }
+  }
+
+  return {
+    selectedCityValue: DELIVERY_OTHER_CITY_OPTION_VALUE,
+    customCityDraft: city,
+  }
+}
+
+function resolveInitialPickupCity(
+  city: string,
+  pickupCityOptions: string[],
+  fallbackCity = '',
+) {
+  const matchedCity = pickupCityOptions.find(
+    (option) => normalizeCityForMatch(option) === normalizeCityForMatch(city),
+  )
+
+  if (matchedCity) {
+    return matchedCity
+  }
+
+  return pickupCityOptions[0] ?? fallbackCity
+}
+
+function resolveInitialFormState(
+  order: OrderDetails,
+  pickupCityOptions: string[],
+): DeliveryFormState {
   const customerAddress = resolveCustomerAddress(order)
   if (!order.delivery) {
     return {
@@ -189,18 +233,22 @@ function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
   const condition = order.delivery.condition
   const finalDate = toDateInputValue(order.delivery.finalDate)
   if (condition === 'Pickup') {
-    const defaultPickupAddress = resolveDefaultPickupAddress()
-    const addressFromDelivery: DeliveryAddressFormState = {
-      city: order.delivery.address.city || defaultPickupAddress.city,
-      street: order.delivery.address.street || defaultPickupAddress.street,
-      house: String(order.delivery.address.house ?? defaultPickupAddress.house),
-      flat: String(order.delivery.address.flat ?? defaultPickupAddress.flat),
-    }
+    const resolvedPickupCity = resolveInitialPickupCity(
+      order.delivery.address.city,
+      pickupCityOptions,
+      order.delivery.address.city,
+    )
+
     return {
       condition,
       location: 'Home',
       finalDate,
-      address: addressFromDelivery,
+      address: {
+        city: resolvedPickupCity,
+        street: order.delivery.address.street,
+        house: String(order.delivery.address.house),
+        flat: String(order.delivery.address.flat),
+      },
     }
   }
 
@@ -323,16 +371,66 @@ export function OrderDetailsDeliveryTab({
   isDeliverySubmitting,
   onSaveDelivery,
 }: OrderDetailsDeliveryTabProps) {
-  const initialFormState = useMemo(() => resolveInitialFormState(order), [order])
+  const {
+    data: settings,
+    isLoading: isSettingsLoading,
+    isFetching: isSettingsFetching,
+    refetch: refetchSettings,
+  } = useSettingsQuery()
+  const defaultCities = useMemo(
+    () => settings?.delivery.defaultCities ?? [],
+    [settings?.delivery.defaultCities],
+  )
+  const pickupLocationsMap = useMemo(
+    () => buildPickupLocationsMap(settings?.delivery.pickupAddresses),
+    [settings?.delivery.pickupAddresses],
+  )
+  const pickupCityOptions = useMemo(
+    () => resolvePickupCityOptions(defaultCities, pickupLocationsMap),
+    [defaultCities, pickupLocationsMap],
+  )
+  const deliveryCityOptions = useMemo<CityOption[]>(
+    () => [
+      ...defaultCities.map((city) => ({ value: city, label: city })),
+      {
+        value: DELIVERY_OTHER_CITY_OPTION_VALUE,
+        label: ordersUiText.detailsPage.placeholders.deliveryCityOtherOption,
+      },
+    ],
+    [defaultCities],
+  )
+  const initialFormState = useMemo(
+    () => resolveInitialFormState(order, pickupCityOptions),
+    [order, pickupCityOptions],
+  )
   const allowedDeliveryDates = useMemo(() => resolveAllowedDeliveryDates(new Date()), [])
+  const initialDeliveryCitySelection = useMemo(
+    () => resolveInitialDeliveryCitySelection(initialFormState.address.city, defaultCities),
+    [defaultCities, initialFormState.address.city],
+  )
   const dateInputRef = useRef<HTMLInputElement | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [formState, setFormState] = useState(initialFormState)
   const [touched, setTouched] = useState<DeliveryTouchedState>(INITIAL_TOUCHED_STATE)
+  const [selectedDeliveryCityValue, setSelectedDeliveryCityValue] = useState(
+    initialDeliveryCitySelection.selectedCityValue,
+  )
+  const [deliveryCustomCityDraft, setDeliveryCustomCityDraft] = useState(
+    initialDeliveryCitySelection.customCityDraft,
+  )
+  const [selectedPickupCity, setSelectedPickupCity] = useState(
+    resolveInitialPickupCity(initialFormState.address.city, pickupCityOptions),
+  )
+  const isSettingsDataLoading = isSettingsLoading || (!settings && isSettingsFetching)
+  const hasSettingsData = Boolean(settings) && defaultCities.length > 0
   const canScheduleDelivery =
-    isDeliveryEditable && order.status === 'Draft' && order.deliveryStatus === 'Not Scheduled'
+    isDeliveryEditable &&
+    hasSettingsData &&
+    order.status === 'Draft' &&
+    order.deliveryStatus === 'Not Scheduled'
   const canEditDelivery =
     isDeliveryEditable &&
+    hasSettingsData &&
     order.status === 'Draft' &&
     order.deliveryStatus === 'Scheduled' &&
     Boolean(order.delivery)
@@ -353,22 +451,58 @@ export function OrderDetailsDeliveryTab({
       JSON.stringify(toComparableFormState(initialFormState)),
     [formState, initialFormState],
   )
-  const canSave = isDeliveryEditable && isFormValid && hasChanges && !isDeliverySubmitting
-  const isAddressReadonly = formState.condition === 'Pickup' || formState.location === 'Home'
+  const canSave =
+    isDeliveryEditable &&
+    hasSettingsData &&
+    isFormValid &&
+    hasChanges &&
+    !isDeliverySubmitting
+  const areAddressLineFieldsReadonly =
+    formState.condition === 'Pickup' || formState.location === 'Home'
   const shouldShowLocation = formState.condition === 'Delivery'
+  const shouldShowDeliveryOtherCitySelector =
+    formState.condition === 'Delivery' && formState.location === 'Other'
+  const isDeliveryOtherCitySelected =
+    selectedDeliveryCityValue === DELIVERY_OTHER_CITY_OPTION_VALUE
   const deliveryLocation = resolveDeliveryLocation(order)
   const deliveryAddressSourceLabel = order.delivery
     ? resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
     : null
+  const selectedDeliveryCityOption = useMemo(
+    () =>
+      deliveryCityOptions.find((option) => option.value === selectedDeliveryCityValue) ??
+      deliveryCityOptions[deliveryCityOptions.length - 1] ??
+      null,
+    [deliveryCityOptions, selectedDeliveryCityValue],
+  )
 
   const markTouched = (field: keyof DeliveryTouchedState) => {
     setTouched((current) => ({ ...current, [field]: true }))
+  }
+
+  const applyPickupAddressByCity = (nextCity: string) => {
+    const address = resolvePickupAddressByCity(pickupLocationsMap, nextCity)
+    if (!address) return
+
+    setSelectedPickupCity(address.city)
+    setFormState((current) => ({
+      ...current,
+      address: {
+        city: address.city,
+        street: address.street,
+        house: address.house,
+        flat: address.flat,
+      },
+    }))
   }
 
   const handleStartEditing = () => {
     if (!canEnterEditMode) return
     setFormState(initialFormState)
     setTouched(INITIAL_TOUCHED_STATE)
+    setSelectedDeliveryCityValue(initialDeliveryCitySelection.selectedCityValue)
+    setDeliveryCustomCityDraft(initialDeliveryCitySelection.customCityDraft)
+    setSelectedPickupCity(resolveInitialPickupCity(initialFormState.address.city, pickupCityOptions))
     setIsEditing(true)
   }
 
@@ -376,18 +510,37 @@ export function OrderDetailsDeliveryTab({
     if (isDeliverySubmitting) return
     setFormState(initialFormState)
     setTouched(INITIAL_TOUCHED_STATE)
+    setSelectedDeliveryCityValue(initialDeliveryCitySelection.selectedCityValue)
+    setDeliveryCustomCityDraft(initialDeliveryCitySelection.customCityDraft)
+    setSelectedPickupCity(resolveInitialPickupCity(initialFormState.address.city, pickupCityOptions))
     setIsEditing(false)
   }
 
   const handleConditionChange = (nextCondition: DeliveryConditionOption) => {
     const customerAddress = resolveCustomerAddress(order)
     if (nextCondition === 'Pickup') {
-      const pickupAddress = resolveDefaultPickupAddress()
+      const fallbackPickupCity = resolveInitialPickupCity(
+        formState.address.city,
+        pickupCityOptions,
+        selectedPickupCity,
+      )
+      const nextPickupAddress =
+        resolvePickupAddressByCity(pickupLocationsMap, fallbackPickupCity) ??
+        resolvePickupAddressByCity(pickupLocationsMap, pickupCityOptions[0] ?? '') ??
+        null
+
+      setSelectedPickupCity(nextPickupAddress?.city ?? fallbackPickupCity)
       setFormState((current) => ({
         ...current,
         condition: 'Pickup',
         location: 'Home',
-        address: pickupAddress,
+        address:
+          nextPickupAddress ?? {
+            city: fallbackPickupCity,
+            street: '',
+            house: '',
+            flat: '',
+          },
       }))
       return
     }
@@ -411,11 +564,43 @@ export function OrderDetailsDeliveryTab({
       initialFormState.condition === 'Delivery' && initialFormState.location === 'Other'
         ? initialFormState.address
         : resolveCustomerAddress(order)
+    const initialSelection = resolveInitialDeliveryCitySelection(fallbackAddress.city, defaultCities)
+    setSelectedDeliveryCityValue(initialSelection.selectedCityValue)
+    setDeliveryCustomCityDraft(initialSelection.customCityDraft)
 
     setFormState((current) => ({
       ...current,
       location: 'Other',
       address: fallbackAddress,
+    }))
+  }
+
+  const handleDeliveryCityOptionChange = (nextOption: CityOption | null) => {
+    if (!nextOption) return
+
+    setSelectedDeliveryCityValue(nextOption.value)
+
+    if (nextOption.value === DELIVERY_OTHER_CITY_OPTION_VALUE) {
+      setFormState((current) => ({
+        ...current,
+        address: { ...current.address, city: deliveryCustomCityDraft },
+      }))
+      return
+    }
+
+    setFormState((current) => ({
+      ...current,
+      address: { ...current.address, city: nextOption.value },
+    }))
+  }
+
+  const handleDeliveryCustomCityChange = (value: string) => {
+    setDeliveryCustomCityDraft(value)
+    if (!isDeliveryOtherCitySelected) return
+
+    setFormState((current) => ({
+      ...current,
+      address: { ...current.address, city: value },
     }))
   }
 
@@ -492,6 +677,34 @@ export function OrderDetailsDeliveryTab({
       </Stack>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
+
+      {!hasSettingsData ? (
+        <Alert
+          severity={isSettingsDataLoading ? 'info' : 'warning'}
+          variant="outlined"
+          data-testid="order-details-delivery-settings-state"
+        >
+          {isSettingsDataLoading ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CircularProgress size={16} />
+              <Typography>{ordersUiText.detailsPage.placeholders.deliveryCityNoOptions}</Typography>
+            </Stack>
+          ) : (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography>{ordersUiText.errors.settingsNotFound}</Typography>
+              <Button
+                size="small"
+                onClick={() => {
+                  void refetchSettings()
+                }}
+                data-testid="order-details-delivery-settings-retry-button"
+              >
+                Retry
+              </Button>
+            </Stack>
+          )}
+        </Alert>
+      ) : null}
 
       {isEditModeVisible ? (
         <Paper
@@ -600,17 +813,110 @@ export function OrderDetailsDeliveryTab({
                 gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
               }}
             >
-              <TextField
-                label={ordersUiText.detailsPage.fields.delivery.city}
-                value={formState.address.city}
-                onChange={(event) => handleAddressInputChange('city', event.target.value)}
-                onBlur={() => markTouched('city')}
-                error={touched.city && Boolean(validation.city)}
-                helperText={touched.city ? (validation.city ?? ' ') : ' '}
-                InputProps={{ readOnly: isAddressReadonly }}
-                data-testid="order-details-delivery-city-input"
-                inputProps={{ 'data-testid': 'order-details-delivery-city-input-field' }}
-              />
+              {formState.condition === 'Pickup' ? (
+                <TextField
+                  select
+                  label={ordersUiText.detailsPage.fields.delivery.city}
+                  value={selectedPickupCity}
+                  onChange={(event) => {
+                    markTouched('city')
+                    applyPickupAddressByCity(event.target.value)
+                  }}
+                  onBlur={() => markTouched('city')}
+                  error={touched.city && Boolean(validation.city)}
+                  helperText={
+                    pickupCityOptions.length === 0
+                      ? ordersUiText.detailsPage.placeholders.pickupCityNoOptions
+                      : touched.city
+                        ? (validation.city ?? ' ')
+                        : ' '
+                  }
+                  disabled={pickupCityOptions.length === 0}
+                  data-testid="order-details-delivery-pickup-city-select"
+                  SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-pickup-city-select-field' } }}
+                >
+                  {pickupCityOptions.map((city) => (
+                    <MenuItem
+                      key={city}
+                      value={city}
+                      data-testid={`order-details-delivery-pickup-city-option-${toOptionTestId(city)}`}
+                    >
+                      {city}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              ) : shouldShowDeliveryOtherCitySelector ? (
+                <>
+                  <Autocomplete
+                    options={deliveryCityOptions}
+                    value={selectedDeliveryCityOption}
+                    disableClearable
+                    openOnFocus
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, value) => option.value === value.value}
+                    onChange={(_, value) => {
+                      markTouched('city')
+                      handleDeliveryCityOptionChange(value)
+                    }}
+                    noOptionsText={ordersUiText.detailsPage.placeholders.deliveryCityNoOptions}
+                    data-testid="order-details-delivery-city-autocomplete"
+                    renderOption={(props, option) => {
+                      const { key, ...optionProps } = props
+                      const optionTestId =
+                        option.value === DELIVERY_OTHER_CITY_OPTION_VALUE
+                          ? 'order-details-delivery-city-option-other'
+                          : `order-details-delivery-city-option-${toOptionTestId(option.value)}`
+                      return (
+                        <li key={key} {...optionProps} data-testid={optionTestId}>
+                          {option.label}
+                        </li>
+                      )
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={ordersUiText.detailsPage.fields.delivery.city}
+                        onBlur={() => markTouched('city')}
+                        error={touched.city && Boolean(validation.city)}
+                        helperText={touched.city ? (validation.city ?? ' ') : ' '}
+                        data-testid="order-details-delivery-city-input"
+                        inputProps={{
+                          ...params.inputProps,
+                          'data-testid': 'order-details-delivery-city-input-field',
+                        }}
+                      />
+                    )}
+                  />
+
+                  <TextField
+                    label={ordersUiText.detailsPage.fields.delivery.city}
+                    value={deliveryCustomCityDraft}
+                    onChange={(event) => handleDeliveryCustomCityChange(event.target.value)}
+                    onBlur={() => markTouched('city')}
+                    disabled={!isDeliveryOtherCitySelected}
+                    error={isDeliveryOtherCitySelected && touched.city && Boolean(validation.city)}
+                    helperText={
+                      isDeliveryOtherCitySelected && touched.city
+                        ? (validation.city ?? ' ')
+                        : ' '
+                    }
+                    data-testid="order-details-delivery-city-other-input"
+                    inputProps={{ 'data-testid': 'order-details-delivery-city-other-input-field' }}
+                  />
+                </>
+              ) : (
+                <TextField
+                  label={ordersUiText.detailsPage.fields.delivery.city}
+                  value={formState.address.city}
+                  onChange={(event) => handleAddressInputChange('city', event.target.value)}
+                  onBlur={() => markTouched('city')}
+                  error={touched.city && Boolean(validation.city)}
+                  helperText={touched.city ? (validation.city ?? ' ') : ' '}
+                  InputProps={{ readOnly: true }}
+                  data-testid="order-details-delivery-city-input"
+                  inputProps={{ 'data-testid': 'order-details-delivery-city-input-field' }}
+                />
+              )}
 
               <TextField
                 label={ordersUiText.detailsPage.fields.delivery.street}
@@ -619,7 +925,7 @@ export function OrderDetailsDeliveryTab({
                 onBlur={() => markTouched('street')}
                 error={touched.street && Boolean(validation.street)}
                 helperText={touched.street ? (validation.street ?? ' ') : ' '}
-                InputProps={{ readOnly: isAddressReadonly }}
+                InputProps={{ readOnly: areAddressLineFieldsReadonly }}
                 data-testid="order-details-delivery-street-input"
                 inputProps={{ 'data-testid': 'order-details-delivery-street-input-field' }}
               />
@@ -631,7 +937,7 @@ export function OrderDetailsDeliveryTab({
                 onBlur={() => markTouched('house')}
                 error={touched.house && Boolean(validation.house)}
                 helperText={touched.house ? (validation.house ?? ' ') : ' '}
-                InputProps={{ readOnly: isAddressReadonly }}
+                InputProps={{ readOnly: areAddressLineFieldsReadonly }}
                 inputProps={{
                   inputMode: 'numeric',
                   pattern: '[0-9]*',
@@ -647,7 +953,7 @@ export function OrderDetailsDeliveryTab({
                 onBlur={() => markTouched('flat')}
                 error={touched.flat && Boolean(validation.flat)}
                 helperText={touched.flat ? (validation.flat ?? ' ') : ' '}
-                InputProps={{ readOnly: isAddressReadonly }}
+                InputProps={{ readOnly: areAddressLineFieldsReadonly }}
                 inputProps={{
                   inputMode: 'numeric',
                   pattern: '[0-9]*',
