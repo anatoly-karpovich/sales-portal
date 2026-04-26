@@ -11,6 +11,7 @@ import orderStatusRouter from "./orderStatus.router";
 import productsRouter from "./products.router";
 import rebatesRouter from "./rebates.router";
 import managersRouter from "./managers.router";
+import settingsRouter from "./settings.router";
 
 export {
   authRouter,
@@ -26,4 +27,5 @@ export {
   orderStatusRouter,
   productsRouter,
   rebatesRouter,
+  settingsRouter,
 };

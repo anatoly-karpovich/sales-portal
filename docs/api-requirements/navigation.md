@@ -7,17 +7,17 @@
 | Aspect | Details |
 | --- | --- |
 | Dedicated navigation endpoint | None |
-| Profile source | `GET /api/users/me` |
+| Profile source | `GET /api/managers/me` |
 | Sign-out action | `POST /api/logout` |
 | Notification badge source | `GET /api/notifications` |
-| Optional profile details route | `GET /api/users/:userId` |
+| Optional profile details route | `GET /api/managers/:managerId` |
 
 ## Required Endpoints by Navigation Feature
 
 | Feature | Endpoint(s) | Notes |
 | --- | --- | --- |
-| Show current user name/roles | `GET /api/users/me` | Used for profile menu and role-based links. |
-| Open manager profile | `GET /api/users/:userId` | Returns user plus assigned orders. |
+| Show current user name/roles | `GET /api/managers/me` | Used for profile menu and role-based links. |
+| Open manager profile | `GET /api/managers/:managerId` | Returns manager plus assigned orders. |
 | Notification badge and popover entry | `GET /api/notifications` | Count unread from `read === false`. |
 | Sign out | `POST /api/logout` | Removes active token session server-side. |
 
@@ -40,6 +40,6 @@
 ## Frontend Integration Notes
 
 - There is no single "bootstrap navigation" API. Frontend should compose state from:
-  - user identity (`/users/me`)
+  - manager identity (`/managers/me`)
   - notifications (`/notifications`)
-- Role-based UX decisions should use `User.roles` from `/users/me`.
+- Role-based UX decisions should use `Manager.roles` from `/managers/me`.

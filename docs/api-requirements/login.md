@@ -16,7 +16,7 @@
 
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |
-| POST | `/api/login` | No | Validates credentials, returns user payload, and sets token in response headers. |
+| POST | `/api/login` | No | Validates credentials, returns manager payload, and sets token in response headers. |
 | POST | `/api/logout` | Yes | Invalidates the current token in DB (`Token` collection). |
 
 ## Request Contracts
@@ -40,7 +40,7 @@ No body required.
 
 Headers:
 - `Authorization: <jwt>`
-- `X-User-Name: <firstName>`
+- `X-Manager-Name: <firstName>`
 
 Body:
 
@@ -48,7 +48,7 @@ Body:
 {
   "IsSuccess": true,
   "ErrorMessage": null,
-  "User": {
+  "Manager": {
     "_id": "...",
     "username": "...",
     "firstName": "...",
@@ -77,6 +77,6 @@ Body:
 ## Token Lifecycle Notes
 
 - Backend stores active tokens in DB (`Token` collection).
-- If a valid active token already exists for the user, login reuses it and extends expiration.
+- If a valid active token already exists for the manager, login reuses it and extends expiration.
 - Protected requests are validated against both JWT and DB token presence.
 - Token TTL is extended on every authorized request by auth middleware.

@@ -188,8 +188,8 @@ Rules:
 ## Manager Assignment Contract
 
 ### `PUT /api/orders/:orderId/assign-manager/:managerId`
-- `managerId` user must exist.
-- User must have role `USER` or `ADMIN`.
+- `managerId` manager must exist.
+- Manager account must have role `USER` or `ADMIN`.
 
 ### `PUT /api/orders/:orderId/unassign-manager`
 - Clears `assignedManager`.

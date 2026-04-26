@@ -5,35 +5,48 @@ import pkg from "../package.json";
 
 const { version } = pkg;
 
-const url = ``;
+function getSwaggerServerUrl() {
+  const envUrl = process.env.SWAGGER_SERVER_URL?.trim();
+  if (envUrl) {
+    return envUrl;
+  }
 
-const options = {
-  definition: {
-    openapi: "3.0.0",
-    info: {
-      title: "Sales Portal API",
-      version: version,
-      description: "AQA course project API",
-    },
-    servers: [
-      {
-        url: `https://aqa-course-project.app/`,
+  const environment = process.env.ENVIRONMENT;
+  if (environment === "local") {
+    const port = process.env.PORT || "5000";
+    return `http://localhost:${port}`;
+  }
+
+  return "https://aqa-course-project.app";
+}
+
+function swaggerDocs(app: Express) {
+  const options = {
+    definition: {
+      openapi: "3.0.0",
+      info: {
+        title: "Sales Portal API",
+        version: version,
+        description: "AQA course project API",
       },
-    ],
-    components: {
-      securitySchemes: {
-        BearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT", // Modify this based on your token format
+      servers: [
+        {
+          url: getSwaggerServerUrl(),
+        },
+      ],
+      components: {
+        securitySchemes: {
+          BearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT", // Modify this based on your token format
+          },
         },
       },
     },
-  },
-  apis: ["./dist/routers/*.router.js"],
-};
+    apis: ["./dist/routers/*.router.js"],
+  };
 
-function swaggerDocs(app: Express) {
   const swaggerSpec = swaggerjJsdoc(options);
   //Swagger Page
   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
