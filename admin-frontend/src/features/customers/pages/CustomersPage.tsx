@@ -1,7 +1,6 @@
 import { Button, Paper, Stack, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
-import { FilterDialog } from '@/components/shared/FilterDialog'
 import { FilterChips } from '@/components/shared/FilterChips'
 import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
@@ -18,7 +17,7 @@ import { customersUiText, getDeleteCustomerMessage } from '@/features/customers/
 
 export function CustomersPage() {
   const state = useCustomersPageState()
-  const hasActiveCriteria = Boolean(state.search) || state.country.length > 0
+  const hasActiveCriteria = Boolean(state.search)
   const emptyText = hasActiveCriteria
     ? sharedUiText.table.emptyFiltered
     : customersUiText.listPage.emptyStateNoCustomers
@@ -59,15 +58,16 @@ export function CustomersPage() {
             onSearchDraftChange={state.setSearchDraft}
             isSearching={state.isTableUpdating}
             onSearchApply={state.onSearchApply}
-            onOpenFilters={() => state.setFiltersOpen(true)}
+            onOpenFilters={() => undefined}
             onOpenExport={() => state.setExportOpen(true)}
+            disableFilterButton
           />
 
           <FilterChips
             search={state.search}
-            filters={state.country}
+            filters={[]}
             onRemoveSearch={state.onRemoveSearch}
-            onRemoveFilter={state.onRemoveCountryFilter}
+            onRemoveFilter={() => undefined}
           />
 
           <DataTable
@@ -91,15 +91,6 @@ export function CustomersPage() {
           ) : null}
         </Stack>
       </Paper>
-
-      <FilterDialog
-        open={state.filtersOpen}
-        title={customersUiText.listPage.filtersTitle}
-        values={state.countryOptions}
-        selected={state.country}
-        onClose={() => state.setFiltersOpen(false)}
-        onApply={state.applyCountryFilters}
-      />
 
       <ExportDialog
         open={state.exportOpen}

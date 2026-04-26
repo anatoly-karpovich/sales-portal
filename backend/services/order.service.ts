@@ -216,7 +216,6 @@ class OrderService {
       if (field === "delivery") {
         row["delivery.finalDate"] = order.delivery?.finalDate ?? "";
         row["delivery.condition"] = order.delivery?.condition ?? "";
-        row["delivery.address.country"] = order.delivery?.address?.country ?? "";
         row["delivery.address.city"] = order.delivery?.address?.city ?? "";
         row["delivery.address.street"] = order.delivery?.address?.street ?? "";
         row["delivery.address.house"] = order.delivery?.address?.house ?? "";

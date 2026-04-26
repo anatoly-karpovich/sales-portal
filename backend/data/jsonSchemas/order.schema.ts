@@ -1,5 +1,5 @@
 import { AllowedSchema } from "express-json-validator-middleware";
-import { COUNTRIES, DELIVERY, ORDER_STATUSES } from "../enums";
+import { DELIVERY, ORDER_STATUSES } from "../enums";
 import { MAXIMUM_REQUESTED_PRODUCTS, MINIMUN_REQUESTED_PRODUCTS } from "../constants";
 
 export const orderCreateSchema: AllowedSchema = {
@@ -63,13 +63,12 @@ export const orderDeliverySchema: AllowedSchema = {
     address: {
       type: "object",
       properties: {
-        country: { type: "string", enum: Object.values(COUNTRIES) },
         city: { type: "string" },
         street: { type: "string" },
         house: { type: "integer" },
         flat: { type: "integer" },
       },
-      required: ["country", "city", "street", "house", "flat"],
+      required: ["city", "street", "house", "flat"],
     },
   },
   required: ["finalDate", "condition", "address"],

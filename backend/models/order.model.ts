@@ -32,7 +32,6 @@ const delivery = new mongoose.Schema(
     finalDate: { type: Date, required: true },
     condition: { type: String, enum: DELIVERY, required: true },
     address: {
-      country: { type: String, required: true },
       city: { type: String, required: true },
       street: { type: String, required: true },
       house: { type: Number, required: true },

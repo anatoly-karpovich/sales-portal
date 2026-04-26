@@ -86,7 +86,6 @@ export const ordersUiText = {
         email: 'Email',
         name: 'Name',
         phone: 'Phone',
-        country: 'Country',
         city: 'City',
         street: 'Street',
         house: 'House',
@@ -98,7 +97,6 @@ export const ordersUiText = {
         condition: 'Delivery Type',
         location: 'Location',
         finalDate: 'Delivery Date',
-        country: 'Country',
         city: 'City',
         street: 'Street',
         house: 'House',
@@ -203,7 +201,6 @@ export const ordersUiText = {
   validation: {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',
     deliveryDateInvalid: 'Delivery date is required',
-    deliveryCountryInvalid: 'Select a valid country',
     deliveryCityInvalid:
       "City's name should contain only 1-20 alphabetical characters and one space between",
     deliveryStreetInvalid:

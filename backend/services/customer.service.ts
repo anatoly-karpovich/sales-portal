@@ -6,7 +6,7 @@ import { getTodaysDate } from "../utils/utils";
 import { CustomerExportFormatDTO } from "../data/types/dto/customers.dto";
 import ExportService from "./export.service";
 
-type CustomerSortField = "email" | "name" | "country" | "createdOn";
+type CustomerSortField = "email" | "name" | "createdOn";
 type CustomerSortOrder = "asc" | "desc";
 
 class CustomerService {
@@ -14,7 +14,6 @@ class CustomerService {
     "_id",
     "email",
     "name",
-    "country",
     "city",
     "street",
     "house",
@@ -35,7 +34,7 @@ class CustomerService {
   }
 
   async getSorted(
-    filters: { search: string; country: string[] },
+    filters: { search: string },
     sortOptions: { sortField: CustomerSortField; sortOrder: CustomerSortOrder },
     pagination: { skip: number; limit: number }
   ): Promise<{ customers: ICustomer[]; total: number }> {
@@ -59,16 +58,14 @@ class CustomerService {
   async getForExport(
     filters: {
       search?: string;
-      country?: string[];
       page?: number;
       limit?: number;
       sortField?: CustomerSortField;
       sortOrder?: CustomerSortOrder;
-    } = {}
-    ,
+    } = {},
     fields: string[] = []
   ): Promise<ICustomer[]> {
-    const filter = this.buildFilter({ search: filters.search ?? "", country: filters.country ?? [] });
+    const filter = this.buildFilter({ search: filters.search ?? "" });
     const sort = this.buildSort({
       sortField: filters.sortField ?? "createdOn",
       sortOrder: filters.sortOrder ?? "desc",
@@ -92,7 +89,6 @@ class CustomerService {
     fields: string[];
     filters?: {
       search?: string;
-      country?: string[];
       page?: number;
       limit?: number;
       sortField?: CustomerSortField;
@@ -109,7 +105,6 @@ class CustomerService {
 
     const customers = await this.getForExport(
       {
-        country: filters?.country ?? [],
         search: filters?.search ?? "",
         page: filters?.page,
         limit: filters?.limit,
@@ -138,20 +133,15 @@ class CustomerService {
     };
   }
 
-  private buildFilter(filters: { search: string; country: string[] }): Record<string, any> {
-    const { search, country } = filters;
+  private buildFilter(filters: { search: string }): Record<string, any> {
+    const { search } = filters;
     const filter: Record<string, any> = {};
-
-    if (country.length > 0) {
-      filter.country = { $in: country };
-    }
 
     if (search && search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
       filter.$or = [
         { email: { $regex: searchRegex } },
         { name: { $regex: searchRegex } },
-        { country: { $regex: searchRegex } },
       ];
     }
 
@@ -159,7 +149,7 @@ class CustomerService {
   }
 
   private buildSort(sortOptions: { sortField: CustomerSortField; sortOrder: CustomerSortOrder }): Record<string, 1 | -1> {
-    const allowedSortFields = new Set<CustomerSortField>(["email", "name", "country", "createdOn"]);
+    const allowedSortFields = new Set<CustomerSortField>(["email", "name", "createdOn"]);
     const sortField: CustomerSortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
     const sortOrder: 1 | -1 = sortOptions.sortOrder === "asc" ? 1 : -1;
 

@@ -1,4 +1,3 @@
-import { COUNTRIES } from "../enums";
 import { DocumentResult } from ".";
 import mongoose, { Types } from "mongoose";
 
@@ -6,7 +5,6 @@ export interface ICustomer {
   _id?: Types.ObjectId;
   email: string;
   name: string;
-  country: COUNTRIES;
   city: string;
   street: string;
   house: number;

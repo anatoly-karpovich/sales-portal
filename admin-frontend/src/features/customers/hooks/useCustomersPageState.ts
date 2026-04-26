@@ -13,7 +13,6 @@ import {
   useCustomersQuery,
   useDeleteCustomerMutation,
 } from '@/features/customers/hooks/useCustomersQuery'
-import { useCountryOptions } from '@/features/customers/hooks/useCountryOptions'
 import { customersUiText } from '@/features/customers/customers.ui-text'
 
 type ExportSubmitPayload = {
@@ -25,15 +24,12 @@ type ExportSubmitPayload = {
 export function useCustomersPageState() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
-  const countryOptions = useCountryOptions()
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
-  const [country, setCountry] = useState<string[]>([])
   const [sortField, setSortField] = useState<CustomersSortField>('createdOn')
   const [sortOrder, setSortOrder] = useState<CustomersSortOrder>('desc')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -42,13 +38,12 @@ export function useCustomersPageState() {
   const query = useMemo(
     () => ({
       search,
-      country,
       sortField,
       sortOrder,
       page,
       limit,
     }),
-    [search, country, sortField, sortOrder, page, limit],
+    [search, sortField, sortOrder, page, limit],
   )
 
   const { data, isLoading, isFetching } = useCustomersQuery(query)
@@ -78,11 +73,6 @@ export function useCustomersPageState() {
   const onRemoveSearch = useCallback(() => {
     setSearch('')
     setSearchDraft('')
-    setPage(1)
-  }, [])
-
-  const onRemoveCountryFilter = useCallback((value: string) => {
-    setCountry((current) => current.filter((item) => item !== value))
     setPage(1)
   }, [])
 
@@ -124,7 +114,6 @@ export function useCustomersPageState() {
           ? null
           : {
               search,
-              country,
               page,
               limit,
               sortField,
@@ -139,7 +128,7 @@ export function useCustomersPageState() {
       downloadBlobResponse(response, `customers-export.${payload.format}`)
       enqueueSnackbar(customersUiText.toasts.exportCompleted, { variant: 'success' })
     },
-    [country, enqueueSnackbar, exportMutation, limit, page, search, sortField, sortOrder],
+    [enqueueSnackbar, exportMutation, limit, page, search, sortField, sortOrder],
   )
 
   const onConfirmDelete = useCallback(async () => {
@@ -169,8 +158,6 @@ export function useCustomersPageState() {
   return {
     search,
     searchDraft,
-    country,
-    countryOptions,
     sortField,
     sortOrder,
     page,
@@ -178,30 +165,22 @@ export function useCustomersPageState() {
     rows,
     total,
     selectedCustomer,
-    filtersOpen,
     exportOpen,
     deleteDialogOpen,
     isLoading,
     isTableUpdating,
     isDeletePending: deleteMutation.isPending,
     setSearchDraft,
-    setFiltersOpen,
     setExportOpen,
     onSearchApply,
     onSort,
     onPageChange,
     onLimitChange,
     onRemoveSearch,
-    onRemoveCountryFilter,
     onExportSubmit,
     openDeleteDialog,
     closeDeleteDialog,
     onConfirmDelete,
-    applyCountryFilters: (values: string[]) => {
-      setCountry(values)
-      setPage(1)
-      setFiltersOpen(false)
-    },
     goToCustomerDetails,
     goToCustomerEdit,
   }

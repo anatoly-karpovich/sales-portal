@@ -8,9 +8,8 @@ export type CustomerCreateOrUpdateRequestDTO = Omit<ICustomer, "_id" | "createdO
 
 export type CustomersSortedQueryDTO = {
   search?: string;
-  sortField?: "email" | "name" | "country" | "createdOn";
+  sortField?: "email" | "name" | "createdOn";
   sortOrder?: "asc" | "desc";
-  country?: string | string[];
   page?: string;
   limit?: string;
 };
@@ -19,10 +18,9 @@ export type CustomerExportFormatDTO = "csv" | "json";
 
 export type CustomerExportFiltersDTO = {
   search?: string;
-  country?: string[];
   page?: number;
   limit?: number;
-  sortField?: "email" | "name" | "country" | "createdOn";
+  sortField?: "email" | "name" | "createdOn";
   sortOrder?: "asc" | "desc";
 } | null;
 
@@ -71,6 +69,5 @@ export type CustomersSortedResponseDTO = BaseResponseDTO & {
   page?: number;
   limit?: number;
   search?: string;
-  country?: string[];
-  sorting?: { sortField: "email" | "name" | "country" | "createdOn"; sortOrder: "asc" | "desc" };
+  sorting?: { sortField: "email" | "name" | "createdOn"; sortOrder: "asc" | "desc" };
 };

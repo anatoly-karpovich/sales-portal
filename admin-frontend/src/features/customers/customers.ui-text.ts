@@ -14,7 +14,6 @@ export const customersUiText = {
     fields: {
       email: 'Email*',
       name: 'Name*',
-      country: 'Country*',
       city: 'City*',
       street: 'Street*',
       house: 'House*',
@@ -72,7 +71,6 @@ export const customersUiText = {
       email: 'Email',
       name: 'Name',
       phone: 'Phone',
-      country: 'Country',
       city: 'City',
       street: 'Street',
       house: 'House',
@@ -88,7 +86,6 @@ export const customersUiText = {
     emailInvalid: 'Email must be a valid email address',
     nameRequired: 'Name is required',
     nameInvalid: 'Name must be 1-40 alphabetic characters with single spaces',
-    countryRequired: 'Country is required',
     cityRequired: 'City is required',
     cityInvalid: 'City must be 1-20 alphabetic characters',
     streetRequired: 'Street is required',

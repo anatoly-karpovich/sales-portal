@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import type { OrderDelivery, OrderDetails } from '@/api/modules/orders.api'
-import { COUNTRIES } from '@/constants/dictionaries'
+import { getDefaultUsPickupLocation } from '@/features/orders/config/pickupLocations.config'
 import {
   ORDER_DETAILS_DELIVERY_MAX_DATE_OFFSET_DAYS,
   ORDER_DETAILS_DELIVERY_MIN_DATE_OFFSET_DAYS,
@@ -24,10 +24,8 @@ import { formatDate } from '@/utils/date'
 
 type DeliveryConditionOption = 'Delivery' | 'Pickup'
 type DeliveryLocationOption = 'Home' | 'Other'
-type CountryOption = (typeof COUNTRIES)[number]
 
 type DeliveryAddressFormState = {
-  country: string
   city: string
   street: string
   house: string
@@ -43,7 +41,6 @@ type DeliveryFormState = {
 
 type DeliveryFieldErrors = {
   finalDate: string | null
-  country: string | null
   city: string | null
   street: string | null
   house: string | null
@@ -52,7 +49,6 @@ type DeliveryFieldErrors = {
 
 type DeliveryTouchedState = {
   finalDate: boolean
-  country: boolean
   city: boolean
   street: boolean
   house: boolean
@@ -69,63 +65,8 @@ type OrderDetailsDeliveryTabProps = {
 const DELIVERY_CONDITION_OPTIONS: DeliveryConditionOption[] = ['Delivery', 'Pickup']
 const DELIVERY_LOCATION_OPTIONS: DeliveryLocationOption[] = ['Home', 'Other']
 
-const PICKUP_ADDRESS_BY_COUNTRY: Record<
-  CountryOption,
-  Omit<DeliveryAddressFormState, 'country'>
-> = {
-  USA: {
-    city: 'Jefferson City',
-    street: 'John Daniel Drive',
-    house: '381',
-    flat: '2',
-  },
-  Canada: {
-    city: 'Halifax',
-    street: 'Higginsville Road',
-    house: '563',
-    flat: '24',
-  },
-  Belarus: {
-    city: 'Vitebsk',
-    street: 'Frunze',
-    house: '22',
-    flat: '20',
-  },
-  Ukraine: {
-    city: 'Yalta',
-    street: 'Leningradskaya',
-    house: '55',
-    flat: '1',
-  },
-  Germany: {
-    city: 'Altendorf',
-    street: 'Luebecker Strasse',
-    house: '41',
-    flat: '3',
-  },
-  France: {
-    city: 'Le Bouscat',
-    street: 'boulevard Aristide Briand',
-    house: '99',
-    flat: '56',
-  },
-  'Great Britain': {
-    city: 'Mickletown',
-    street: 'Winchester Rd',
-    house: '20',
-    flat: '44',
-  },
-  Russia: {
-    city: 'Chelyabinsk',
-    street: 'Grazhdanskaya',
-    house: '14',
-    flat: '101',
-  },
-}
-
 const INITIAL_TOUCHED_STATE: DeliveryTouchedState = {
   finalDate: false,
-  country: false,
   city: false,
   street: false,
   house: false,
@@ -136,10 +77,6 @@ function normalizeTextValue(value: string | number | null | undefined) {
   if (value === null || value === undefined) return '-'
   if (typeof value === 'string' && value.trim().length === 0) return '-'
   return String(value)
-}
-
-function isCountryOption(value: string): value is CountryOption {
-  return (COUNTRIES as readonly string[]).includes(value)
 }
 
 function toDateInputValue(value: string | null | undefined) {
@@ -196,7 +133,6 @@ function resolveAllowedDeliveryDates(baseDate: Date) {
 
 function resolveCustomerAddress(order: OrderDetails): DeliveryAddressFormState {
   return {
-    country: order.customer.country,
     city: order.customer.city,
     street: order.customer.street,
     house: String(order.customer.house),
@@ -204,23 +140,18 @@ function resolveCustomerAddress(order: OrderDetails): DeliveryAddressFormState {
   }
 }
 
-function resolvePickupAddressByCountry(country: string, fallbackAddress: DeliveryAddressFormState) {
-  if (!isCountryOption(country)) {
-    return fallbackAddress
-  }
-
+function resolveDefaultPickupAddress(): DeliveryAddressFormState {
+  const defaultAddress = getDefaultUsPickupLocation()
   return {
-    country,
-    city: PICKUP_ADDRESS_BY_COUNTRY[country].city,
-    street: PICKUP_ADDRESS_BY_COUNTRY[country].street,
-    house: PICKUP_ADDRESS_BY_COUNTRY[country].house,
-    flat: PICKUP_ADDRESS_BY_COUNTRY[country].flat,
+    city: defaultAddress.city,
+    street: defaultAddress.street,
+    house: defaultAddress.house,
+    flat: defaultAddress.flat,
   }
 }
 
 function areAddressesEqual(left: DeliveryAddressFormState, right: DeliveryAddressFormState) {
   return (
-    left.country === right.country &&
     left.city === right.city &&
     left.street === right.street &&
     left.house === right.house &&
@@ -235,7 +166,6 @@ function resolveDeliveryLocation(order: OrderDetails): DeliveryLocationOption {
 
   const customerAddress = resolveCustomerAddress(order)
   const deliveryAddress: DeliveryAddressFormState = {
-    country: order.delivery.address.country,
     city: order.delivery.address.city,
     street: order.delivery.address.street,
     house: String(order.delivery.address.house),
@@ -259,19 +189,18 @@ function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
   const condition = order.delivery.condition
   const finalDate = toDateInputValue(order.delivery.finalDate)
   if (condition === 'Pickup') {
+    const defaultPickupAddress = resolveDefaultPickupAddress()
     const addressFromDelivery: DeliveryAddressFormState = {
-      country: order.delivery.address.country,
-      city: order.delivery.address.city,
-      street: order.delivery.address.street,
-      house: String(order.delivery.address.house),
-      flat: String(order.delivery.address.flat),
+      city: order.delivery.address.city || defaultPickupAddress.city,
+      street: order.delivery.address.street || defaultPickupAddress.street,
+      house: String(order.delivery.address.house ?? defaultPickupAddress.house),
+      flat: String(order.delivery.address.flat ?? defaultPickupAddress.flat),
     }
-    const pickupAddress = resolvePickupAddressByCountry(order.delivery.address.country, addressFromDelivery)
     return {
       condition,
       location: 'Home',
       finalDate,
-      address: pickupAddress,
+      address: addressFromDelivery,
     }
   }
 
@@ -284,7 +213,6 @@ function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
       location === 'Home'
         ? customerAddress
         : {
-            country: order.delivery.address.country,
             city: order.delivery.address.city,
             street: order.delivery.address.street,
             house: String(order.delivery.address.house),
@@ -334,7 +262,6 @@ function validateDeliveryForm(
     selectedDate !== null &&
     selectedDate.getTime() >= allowedDates.minDate.getTime() &&
     selectedDate.getTime() <= allowedDates.maxDate.getTime()
-  const hasValidCountry = isCountryOption(state.address.country)
   const hasValidCity = isValidCity(state.address.city)
   const hasValidStreet = isValidStreet(state.address.street)
   const hasValidHouse = isValidHouse(state.address.house)
@@ -342,7 +269,6 @@ function validateDeliveryForm(
 
   return {
     finalDate: hasValidDate ? null : ordersUiText.validation.deliveryDateInvalid,
-    country: hasValidCountry ? null : ordersUiText.validation.deliveryCountryInvalid,
     city: hasValidCity ? null : ordersUiText.validation.deliveryCityInvalid,
     street: hasValidStreet ? null : ordersUiText.validation.deliveryStreetInvalid,
     house: hasValidHouse ? null : ordersUiText.validation.deliveryHouseInvalid,
@@ -355,7 +281,6 @@ function toComparableFormState(state: DeliveryFormState) {
     condition: state.condition,
     finalDate: state.finalDate,
     address: {
-      country: state.address.country.trim(),
       city: state.address.city.trim(),
       street: state.address.street.trim(),
       house: Number(state.address.house),
@@ -374,7 +299,6 @@ function toDeliveryPayload(state: DeliveryFormState): OrderDelivery | null {
     condition: state.condition,
     finalDate: parsedDate.toISOString(),
     address: {
-      country: state.address.country.trim(),
       city: state.address.city.trim(),
       street: state.address.street.trim(),
       house: Number(state.address.house),
@@ -432,7 +356,6 @@ export function OrderDetailsDeliveryTab({
   const canSave = isDeliveryEditable && isFormValid && hasChanges && !isDeliverySubmitting
   const isAddressReadonly = formState.condition === 'Pickup' || formState.location === 'Home'
   const shouldShowLocation = formState.condition === 'Delivery'
-  const shouldCountryBeSelect = formState.condition === 'Pickup' || formState.location === 'Other'
   const deliveryLocation = resolveDeliveryLocation(order)
   const deliveryAddressSourceLabel = order.delivery
     ? resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
@@ -459,7 +382,7 @@ export function OrderDetailsDeliveryTab({
   const handleConditionChange = (nextCondition: DeliveryConditionOption) => {
     const customerAddress = resolveCustomerAddress(order)
     if (nextCondition === 'Pickup') {
-      const pickupAddress = resolvePickupAddressByCountry(formState.address.country, customerAddress)
+      const pickupAddress = resolveDefaultPickupAddress()
       setFormState((current) => ({
         ...current,
         condition: 'Pickup',
@@ -496,24 +419,7 @@ export function OrderDetailsDeliveryTab({
     }))
   }
 
-  const handleCountryChange = (nextCountry: string) => {
-    if (formState.condition === 'Pickup') {
-      const fallbackAddress = resolveCustomerAddress(order)
-      const pickupAddress = resolvePickupAddressByCountry(nextCountry, fallbackAddress)
-      setFormState((current) => ({ ...current, address: pickupAddress }))
-      return
-    }
-
-    setFormState((current) => ({
-      ...current,
-      address: { ...current.address, country: nextCountry },
-    }))
-  }
-
-  const handleAddressInputChange = (
-    field: keyof Omit<DeliveryAddressFormState, 'country'>,
-    value: string,
-  ) => {
+  const handleAddressInputChange = (field: keyof DeliveryAddressFormState, value: string) => {
     setFormState((current) => ({
       ...current,
       address: { ...current.address, [field]: value },
@@ -694,39 +600,6 @@ export function OrderDetailsDeliveryTab({
                 gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
               }}
             >
-              {shouldCountryBeSelect ? (
-                <TextField
-                  select
-                  label={ordersUiText.detailsPage.fields.delivery.country}
-                  value={formState.address.country}
-                  onChange={(event) => handleCountryChange(event.target.value)}
-                  onBlur={() => markTouched('country')}
-                  error={touched.country && Boolean(validation.country)}
-                  helperText={touched.country ? (validation.country ?? ' ') : ' '}
-                  data-testid="order-details-delivery-country-select"
-                  SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-country-select-field' } }}
-                >
-                  {COUNTRIES.map((country) => (
-                    <MenuItem
-                      key={country}
-                      value={country}
-                      data-testid={`order-details-delivery-country-option-${country.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      {country}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              ) : (
-                <TextField
-                  label={ordersUiText.detailsPage.fields.delivery.country}
-                  value={formState.address.country}
-                  InputProps={{ readOnly: true }}
-                  helperText=" "
-                  data-testid="order-details-delivery-country-readonly-input"
-                  inputProps={{ 'data-testid': 'order-details-delivery-country-readonly-input-field' }}
-                />
-              )}
-
               <TextField
                 label={ordersUiText.detailsPage.fields.delivery.city}
                 value={formState.address.city}
@@ -845,11 +718,6 @@ export function OrderDetailsDeliveryTab({
                 </Typography>
               </>
             ) : null}
-
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.country}</Typography>
-            <Typography data-testid="order-details-delivery-country-value">
-              {normalizeTextValue(order.delivery.address.country)}
-            </Typography>
 
             <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.city}</Typography>
             <Typography data-testid="order-details-delivery-city-value">

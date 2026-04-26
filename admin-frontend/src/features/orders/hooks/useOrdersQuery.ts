@@ -61,7 +61,6 @@ export function useOrderCustomerOptionsQuery(search: string, enabled = true) {
     queryFn: () =>
       getCustomers({
         search,
-        country: [],
         sortField: 'name',
         sortOrder: 'asc',
         page: 1,

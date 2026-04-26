@@ -15,7 +15,6 @@ export type OrderCustomerSnapshot = {
 }
 
 export type OrderDeliveryAddress = {
-  country: string
   city: string
   street: string
   house: number
@@ -60,7 +59,6 @@ export type OrderListItem = {
 }
 
 export type OrderCustomerDetails = OrderCustomerSnapshot & {
-  country: string
   city: string
   street: string
   house: number

@@ -36,12 +36,9 @@ class CustomerController {
         search = "",
         sortField = "createdOn",
         sortOrder = "desc",
-        country,
         page = "1",
         limit = MIN_LIMIT,
       } = req.query;
-
-      const countries = (Array.isArray(country) ? country : country ? [country] : []) as string[];
 
       const pageNumber = Math.max(parseInt(page), 1);
 
@@ -49,7 +46,7 @@ class CustomerController {
       const skip = (pageNumber - 1) * limitNumber;
 
       const { customers, total } = await CustomerService.getSorted(
-        { search, country: countries },
+        { search },
         { sortField, sortOrder },
         { skip, limit: limitNumber }
       );
@@ -60,7 +57,6 @@ class CustomerController {
         page: pageNumber,
         limit: limitNumber,
         search,
-        country: countries,
         sorting: { sortField, sortOrder },
         IsSuccess: true,
         ErrorMessage: null,
@@ -119,7 +115,6 @@ class CustomerController {
         fields: (fields ?? []) as string[],
         filters: filters
           ? {
-              country: filters.country,
               search: filters.search,
               page: filters.page,
               limit: filters.limit,

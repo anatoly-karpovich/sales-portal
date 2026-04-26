@@ -1,4 +1,4 @@
-import { Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
@@ -12,7 +12,6 @@ import {
 } from '@/features/customers/forms/customerForm.mappers'
 import type { CustomerFormTouchedState } from '@/features/customers/forms/customerForm.types'
 import { validateCustomerForm } from '@/features/customers/forms/customerForm.validators'
-import { useCountryOptions } from '@/features/customers/hooks/useCountryOptions'
 
 type Mode = 'create' | 'edit'
 
@@ -33,7 +32,6 @@ export function CustomerForm({
   onSubmit,
   onDelete,
 }: Props) {
-  const countryOptions = useCountryOptions()
   const [formState, setFormState] = useState(() => toCustomerFormInitialState(customer))
   const [touched, setTouched] = useState<CustomerFormTouchedState>(toCustomerFormTouchedState())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -50,7 +48,6 @@ export function CustomerForm({
   const canSubmit =
     !validation.emailError &&
     !validation.nameError &&
-    !validation.countryError &&
     !validation.cityError &&
     !validation.streetError &&
     !validation.houseError &&
@@ -127,28 +124,6 @@ export function CustomerForm({
             data-testid="customers-upsert-name-input"
             inputProps={{ 'data-testid': 'customers-upsert-name-input-field' }}
           />
-
-          <TextField
-            label={customersUiText.form.fields.country}
-            select
-            value={formState.country}
-            onChange={(event) => setFormState((current) => ({ ...current, country: event.target.value }))}
-            onBlur={() => markTouched('country')}
-            error={touched.country && Boolean(validation.countryError)}
-            helperText={touched.country ? (validation.countryError ?? ' ') : ' '}
-            data-testid="customers-upsert-country-select"
-            SelectProps={{ inputProps: { 'data-testid': 'customers-upsert-country-select-field' } }}
-          >
-            {countryOptions.map((item) => (
-              <MenuItem
-                key={item}
-                value={item}
-                data-testid={`customers-upsert-country-option-${item.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                {item}
-              </MenuItem>
-            ))}
-          </TextField>
 
           <TextField
             label={customersUiText.form.fields.city}
