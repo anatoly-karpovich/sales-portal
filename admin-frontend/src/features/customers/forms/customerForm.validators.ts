@@ -8,8 +8,12 @@ export function validateCustomerForm(state: CustomerFormState): CustomerFormVali
   const name = state.name.trim()
   const nameIsValid = /^(?!.*\s{2})[A-Za-z ]+$/.test(name) && name.length >= 1 && name.length <= 40
 
+  const stateCode = state.state.trim()
+  const stateIsValid = /^[A-Z]{2}$/.test(stateCode)
+
   const city = state.city.trim()
-  const cityIsValid = /^(?!.*\s{2})[A-Za-z ]+$/.test(city) && city.length >= 1 && city.length <= 20
+  const cityIsValid =
+    /^(?!.*\s{2})[A-Za-z]+(?:[ .'-][A-Za-z]+)*$/.test(city) && city.length >= 1 && city.length <= 20
 
   const street = state.street.trim()
   const streetIsValid =
@@ -18,8 +22,19 @@ export function validateCustomerForm(state: CustomerFormState): CustomerFormVali
   const house = Number(state.house)
   const houseIsIntegerText = /^[0-9]{1,3}$/.test(state.house.trim())
 
-  const flat = Number(state.flat)
-  const flatIsIntegerText = /^[0-9]{1,4}$/.test(state.flat.trim())
+  const apartmentText = state.apartment.trim()
+  const apartment = Number(apartmentText)
+  const apartmentIsIntegerText = /^[0-9]{1,4}$/.test(apartmentText)
+  const apartmentIsValid =
+    apartmentText.length === 0 ||
+    (!Number.isNaN(apartment) &&
+      Number.isFinite(apartment) &&
+      apartmentIsIntegerText &&
+      apartment >= 1 &&
+      apartment <= 9999)
+
+  const zipCode = state.zipCode.trim()
+  const zipCodeIsValid = /^\d{5}(-\d{4})?$/.test(zipCode)
 
   const phone = state.phone.trim()
   const phoneIsValid = /^\+[0-9]{10,20}$/.test(phone)
@@ -40,6 +55,12 @@ export function validateCustomerForm(state: CustomerFormState): CustomerFormVali
         : nameIsValid
           ? null
           : customersUiText.validation.nameInvalid,
+    stateError:
+      stateCode.length === 0
+        ? customersUiText.validation.stateRequired
+        : stateIsValid
+          ? null
+          : customersUiText.validation.stateInvalid,
     cityError:
       city.length === 0
         ? customersUiText.validation.cityRequired
@@ -61,15 +82,13 @@ export function validateCustomerForm(state: CustomerFormState): CustomerFormVali
       house > 999
         ? customersUiText.validation.houseInvalid
         : null,
-    flatError:
-      state.flat.trim().length === 0 ||
-      Number.isNaN(flat) ||
-      !Number.isFinite(flat) ||
-      !flatIsIntegerText ||
-      flat < 1 ||
-      flat > 9999
-        ? customersUiText.validation.flatInvalid
-        : null,
+    apartmentError: apartmentIsValid ? null : customersUiText.validation.apartmentInvalid,
+    zipCodeError:
+      zipCode.length === 0
+        ? customersUiText.validation.zipCodeRequired
+        : zipCodeIsValid
+          ? null
+          : customersUiText.validation.zipCodeInvalid,
     phoneError:
       phone.length === 0
         ? customersUiText.validation.phoneRequired

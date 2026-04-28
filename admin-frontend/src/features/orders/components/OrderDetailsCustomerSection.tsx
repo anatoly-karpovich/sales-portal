@@ -56,6 +56,11 @@ export function OrderDetailsCustomerSection({
             {normalizeValue(order.customer.name)}
           </Typography>
 
+          <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.state}</Typography>
+          <Typography data-testid="order-details-customer-state-value">
+            {normalizeValue(order.customer.state)}
+          </Typography>
+
           <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.city}</Typography>
           <Typography data-testid="order-details-customer-city-value">
             {normalizeValue(order.customer.city)}
@@ -71,9 +76,18 @@ export function OrderDetailsCustomerSection({
             {normalizeValue(order.customer.house)}
           </Typography>
 
-          <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.flat}</Typography>
-          <Typography data-testid="order-details-customer-flat-value">
-            {normalizeValue(order.customer.flat)}
+          {typeof order.customer.apartment === 'number' ? (
+            <>
+              <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.apartment}</Typography>
+              <Typography data-testid="order-details-customer-apartment-value">
+                {normalizeValue(order.customer.apartment)}
+              </Typography>
+            </>
+          ) : null}
+
+          <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.zipCode}</Typography>
+          <Typography data-testid="order-details-customer-zip-code-value">
+            {normalizeValue(order.customer.zipCode)}
           </Typography>
 
           <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.customer.phone}</Typography>

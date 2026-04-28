@@ -5,10 +5,12 @@ export type Customer = {
   _id: string
   email: string
   name: string
+  state: string
   city: string
   street: string
   house: number
-  flat: number
+  apartment?: number
+  zipCode: string
   phone: string
   notes?: string
   createdOn: string
@@ -17,10 +19,12 @@ export type Customer = {
 export type CustomerUpsertPayload = {
   email: string
   name: string
+  state: string
   city: string
   street: string
   house: number
-  flat: number
+  apartment?: number
+  zipCode: string
   phone: string
   notes?: string
 }
@@ -31,8 +35,8 @@ export type CustomersListResponse = {
   page: number
   limit: number
   search: string
-  city: string[]
-  includeOtherCities: boolean
+  state: string[]
+  includeOtherStates?: boolean
   sorting: {
     sortField: 'email' | 'name' | 'createdOn'
     sortOrder: 'asc' | 'desc'
@@ -88,8 +92,8 @@ export type CustomerExportPayload = {
   format: 'csv' | 'json'
   filters: {
     search: string
-    city: string[]
-    includeOtherCities: boolean
+    state: string[]
+    includeOtherStates?: boolean
     page: number
     limit: number
     sortField: 'email' | 'name' | 'createdOn'
@@ -100,8 +104,7 @@ export type CustomerExportPayload = {
 
 export type CustomersQuery = {
   search: string
-  city: string[]
-  includeOtherCities: boolean
+  state: string[]
   sortField: 'email' | 'name' | 'createdOn'
   sortOrder: 'asc' | 'desc'
   page: number

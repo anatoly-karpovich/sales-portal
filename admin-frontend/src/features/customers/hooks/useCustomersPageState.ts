@@ -14,14 +14,18 @@ import {
   useDeleteCustomerMutation,
 } from '@/features/customers/hooks/useCustomersQuery'
 import { customersUiText } from '@/features/customers/customers.ui-text'
-import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
-
-const OTHER_CITY_FILTER_VALUE = customersUiText.citySelector.otherOption
+import { US_STATES, US_STATE_BY_CODE } from '@/constants/usStates'
 
 type ExportSubmitPayload = {
   format: 'csv' | 'json'
   exportFrom: 'all' | 'filtered'
   fields: string[]
+}
+
+const STATE_LABEL_TO_CODE = new Map(US_STATES.map((state) => [state.label, state.code]))
+
+function toStateLabel(code: string) {
+  return US_STATE_BY_CODE.get(code)?.label ?? code
 }
 
 export function useCustomersPageState() {
@@ -31,8 +35,7 @@ export function useCustomersPageState() {
   const [searchDraft, setSearchDraft] = useState('')
   const [sortField, setSortField] = useState<CustomersSortField>('createdOn')
   const [sortOrder, setSortOrder] = useState<CustomersSortOrder>('desc')
-  const [cities, setCities] = useState<string[]>([])
-  const [includeOtherCities, setIncludeOtherCities] = useState(false)
+  const [states, setStates] = useState<string[]>([])
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [exportOpen, setExportOpen] = useState(false)
@@ -40,33 +43,20 @@ export function useCustomersPageState() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isTransitionPending, startTransition] = useTransition()
-  const {
-    data: settings,
-    isLoading: isSettingsLoading,
-    isFetching: isSettingsFetching,
-  } = useSettingsQuery()
 
-  const filterValues = useMemo(() => {
-    const pickupCities = Object.keys(settings?.delivery.pickupAddresses ?? {})
-    return [...pickupCities, OTHER_CITY_FILTER_VALUE]
-  }, [settings?.delivery.pickupAddresses])
-
-  const selectedFilters = useMemo(
-    () => [...cities, ...(includeOtherCities ? [OTHER_CITY_FILTER_VALUE] : [])],
-    [cities, includeOtherCities],
-  )
+  const filterValues = useMemo(() => US_STATES.map((state) => state.label), [])
+  const selectedFilters = useMemo(() => states.map((stateCode) => toStateLabel(stateCode)), [states])
 
   const query = useMemo(
     () => ({
       search,
-      city: cities,
-      includeOtherCities,
+      state: states,
       sortField,
       sortOrder,
       page,
       limit,
     }),
-    [search, cities, includeOtherCities, sortField, sortOrder, page, limit],
+    [search, states, sortField, sortOrder, page, limit],
   )
 
   const { data, isLoading, isFetching } = useCustomersQuery(query)
@@ -76,8 +66,6 @@ export function useCustomersPageState() {
   const rows = data?.Customers ?? []
   const total = data?.total ?? 0
   const isTableUpdating = isFetching || isTransitionPending
-  const isFilterButtonDisabled =
-    isSettingsLoading || (!settings && isSettingsFetching) || filterValues.length === 0
 
   const openDeleteDialog = useCallback((customer: Customer) => {
     setSelectedCustomer(customer)
@@ -102,23 +90,20 @@ export function useCustomersPageState() {
   }, [])
 
   const onFilterApply = useCallback((values: string[]) => {
-    const nextIncludeOtherCities = values.includes(OTHER_CITY_FILTER_VALUE)
-    const nextCities = values.filter((value) => value !== OTHER_CITY_FILTER_VALUE)
+    const nextStates = values
+      .map((label) => STATE_LABEL_TO_CODE.get(label) ?? null)
+      .filter((value): value is string => Boolean(value))
 
-    setCities(nextCities)
-    setIncludeOtherCities(nextIncludeOtherCities)
+    setStates(nextStates)
     setFilterOpen(false)
     setPage(1)
   }, [])
 
   const onRemoveFilter = useCallback((value: string) => {
-    if (value === OTHER_CITY_FILTER_VALUE) {
-      setIncludeOtherCities(false)
-      setPage(1)
-      return
-    }
+    const stateCode = STATE_LABEL_TO_CODE.get(value)
+    if (!stateCode) return
 
-    setCities((current) => current.filter((city) => city !== value))
+    setStates((current) => current.filter((item) => item !== stateCode))
     setPage(1)
   }, [])
 
@@ -160,8 +145,7 @@ export function useCustomersPageState() {
           ? null
           : {
               search,
-              city: cities,
-              includeOtherCities,
+              state: states,
               page,
               limit,
               sortField,
@@ -176,17 +160,7 @@ export function useCustomersPageState() {
       downloadBlobResponse(response, `customers-export.${payload.format}`)
       enqueueSnackbar(customersUiText.toasts.exportCompleted, { variant: 'success' })
     },
-    [
-      enqueueSnackbar,
-      exportMutation,
-      limit,
-      page,
-      search,
-      cities,
-      includeOtherCities,
-      sortField,
-      sortOrder,
-    ],
+    [enqueueSnackbar, exportMutation, limit, page, search, states, sortField, sortOrder],
   )
 
   const onConfirmDelete = useCallback(async () => {
@@ -227,7 +201,7 @@ export function useCustomersPageState() {
     filterOpen,
     filterValues,
     selectedFilters,
-    isFilterButtonDisabled,
+    isFilterButtonDisabled: false,
     deleteDialogOpen,
     isLoading,
     isTableUpdating,

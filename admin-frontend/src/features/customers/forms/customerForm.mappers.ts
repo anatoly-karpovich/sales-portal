@@ -5,10 +5,12 @@ export function toCustomerFormTouchedState(value = false): CustomerFormTouchedSt
   return {
     email: value,
     name: value,
+    state: value,
     city: value,
     street: value,
     house: value,
-    flat: value,
+    apartment: value,
+    zipCode: value,
     phone: value,
     notes: value,
   }
@@ -19,10 +21,12 @@ export function toCustomerFormInitialState(customer: Customer | null): CustomerF
     return {
       email: '',
       name: '',
+      state: '',
       city: '',
       street: '',
       house: '',
-      flat: '',
+      apartment: '',
+      zipCode: '',
       phone: '',
       notes: '',
     }
@@ -31,23 +35,29 @@ export function toCustomerFormInitialState(customer: Customer | null): CustomerF
   return {
     email: customer.email ?? '',
     name: customer.name ?? '',
+    state: customer.state ?? '',
     city: customer.city ?? '',
     street: customer.street ?? '',
     house: String(customer.house ?? ''),
-    flat: String(customer.flat ?? ''),
+    apartment: customer.apartment ? String(customer.apartment) : '',
+    zipCode: customer.zipCode ?? '',
     phone: customer.phone ?? '',
     notes: customer.notes ?? '',
   }
 }
 
 export function toCustomerUpsertPayload(state: CustomerFormState): CustomerUpsertPayload {
+  const apartment = state.apartment.trim()
+
   return {
     email: state.email.trim(),
     name: state.name.trim(),
+    state: state.state.trim(),
     city: state.city.trim(),
     street: state.street.trim(),
     house: Number(state.house),
-    flat: Number(state.flat),
+    ...(apartment.length > 0 ? { apartment: Number(apartment) } : {}),
+    zipCode: state.zipCode.trim(),
     phone: state.phone.trim(),
     notes: state.notes.trim(),
   }

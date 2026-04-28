@@ -196,6 +196,11 @@ function buildDeliveryChanges(
       updated: resolveDeliveryFieldValue(current.delivery, 'finalDate'),
     },
     {
+      label: 'State',
+      previous: resolveDeliveryFieldValue(previous?.delivery, 'state'),
+      updated: resolveDeliveryFieldValue(current.delivery, 'state'),
+    },
+    {
       label: 'City',
       previous: resolveDeliveryFieldValue(previous?.delivery, 'city'),
       updated: resolveDeliveryFieldValue(current.delivery, 'city'),
@@ -211,9 +216,14 @@ function buildDeliveryChanges(
       updated: resolveDeliveryFieldValue(current.delivery, 'house'),
     },
     {
-      label: 'Flat',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'flat'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'flat'),
+      label: 'Apartment',
+      previous: resolveDeliveryFieldValue(previous?.delivery, 'apartment'),
+      updated: resolveDeliveryFieldValue(current.delivery, 'apartment'),
+    },
+    {
+      label: 'Zip Code',
+      previous: resolveDeliveryFieldValue(previous?.delivery, 'zipCode'),
+      updated: resolveDeliveryFieldValue(current.delivery, 'zipCode'),
     },
   ]
 }

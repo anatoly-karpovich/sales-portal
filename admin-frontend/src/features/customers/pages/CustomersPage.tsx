@@ -68,7 +68,7 @@ export function CustomersPage() {
             search={state.search}
             searchPrefix={customersUiText.listPage.chips.searchPrefix}
             filters={state.selectedFilters}
-            filterPrefix={customersUiText.listPage.chips.cityPrefix}
+            filterPrefix={customersUiText.listPage.chips.statePrefix}
             onRemoveSearch={state.onRemoveSearch}
             onRemoveFilter={state.onRemoveFilter}
           />

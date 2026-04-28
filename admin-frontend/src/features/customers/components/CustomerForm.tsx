@@ -4,7 +4,12 @@ import { Link } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import type { Customer, CustomerUpsertPayload } from '@/api/modules/customers.api'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { customersUiText, getCustomerFormTitle, getDeleteCustomerMessage } from '@/features/customers/customers.ui-text'
+import { US_STATES, US_STATE_BY_CODE } from '@/constants/usStates'
+import {
+  customersUiText,
+  getCustomerFormTitle,
+  getDeleteCustomerMessage,
+} from '@/features/customers/customers.ui-text'
 import {
   toCustomerFormInitialState,
   toCustomerFormTouchedState,
@@ -12,117 +17,44 @@ import {
 } from '@/features/customers/forms/customerForm.mappers'
 import type { CustomerFormTouchedState } from '@/features/customers/forms/customerForm.types'
 import { validateCustomerForm } from '@/features/customers/forms/customerForm.validators'
+import { applyZipCodeMask } from '@/utils/zipCode'
 
 type Mode = 'create' | 'edit'
 
 type Props = {
   mode: Mode
   customer: Customer | null
-  defaultCities: string[]
   isSubmitting: boolean
   isDeleting?: boolean
   onSubmit: (payload: CustomerUpsertPayload) => Promise<void>
   onDelete?: () => Promise<void>
 }
 
-const OTHER_CITY_OPTION_VALUE = '__other__'
-
-type CityOption = {
-  value: string
-  label: string
-}
-
-function normalizeCityForMatch(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function toCityOptionTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
-
-function resolveInitialCitySelection(
-  mode: Mode,
-  city: string,
-  defaultCities: string[],
-): { selectedCityValue: string; customCity: string } {
-  if (mode === 'create') {
-    return {
-      selectedCityValue: defaultCities[0] ?? OTHER_CITY_OPTION_VALUE,
-      customCity: '',
-    }
-  }
-
-  const normalizedCity = normalizeCityForMatch(city)
-  const matchedDefaultCity = defaultCities.find(
-    (defaultCity) => normalizeCityForMatch(defaultCity) === normalizedCity,
-  )
-
-  if (matchedDefaultCity) {
-    return {
-      selectedCityValue: matchedDefaultCity,
-      customCity: '',
-    }
-  }
-
-  return {
-    selectedCityValue: OTHER_CITY_OPTION_VALUE,
-    customCity: city,
-  }
+function toStateOptionTestId(code: string) {
+  return code.toLowerCase()
 }
 
 export function CustomerForm({
   mode,
   customer,
-  defaultCities,
   isSubmitting,
   isDeleting = false,
   onSubmit,
   onDelete,
 }: Props) {
-  const initialState = useMemo(() => {
-    const initialFormState = toCustomerFormInitialState(customer)
-    const initialCitySelection = resolveInitialCitySelection(mode, initialFormState.city, defaultCities)
+  const initialState = useMemo(() => toCustomerFormInitialState(customer), [customer])
 
-    return {
-      formState: {
-        ...initialFormState,
-        city:
-          initialCitySelection.selectedCityValue === OTHER_CITY_OPTION_VALUE
-            ? initialCitySelection.customCity
-            : initialCitySelection.selectedCityValue,
-      },
-      citySelection: initialCitySelection,
-    }
-  }, [customer, defaultCities, mode])
-
-  const cityOptions = useMemo<CityOption[]>(
-    () => [
-      ...defaultCities.map((city) => ({ value: city, label: city })),
-      {
-        value: OTHER_CITY_OPTION_VALUE,
-        label: customersUiText.citySelector.otherOption,
-      },
-    ],
-    [defaultCities],
-  )
-
-  const [formState, setFormState] = useState(() => initialState.formState)
-  const [selectedCityValue, setSelectedCityValue] = useState(() => initialState.citySelection.selectedCityValue)
-  const [customCity, setCustomCity] = useState(() => initialState.citySelection.customCity)
+  const [formState, setFormState] = useState(() => initialState)
   const [touched, setTouched] = useState<CustomerFormTouchedState>(toCustomerFormTouchedState())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isSubmitLocked, setIsSubmitLocked] = useState(false)
 
-  const initialPayload = useMemo(() => toCustomerUpsertPayload(initialState.formState), [initialState.formState])
   const validation = useMemo(() => validateCustomerForm(formState), [formState])
-  const selectedCityOption = useMemo(
-    () =>
-      cityOptions.find((option) => option.value === selectedCityValue) ??
-      cityOptions[cityOptions.length - 1] ??
-      null,
-    [cityOptions, selectedCityValue],
+  const initialPayload = useMemo(() => toCustomerUpsertPayload(initialState), [initialState])
+  const selectedState = useMemo(
+    () => US_STATE_BY_CODE.get(formState.state.trim().toUpperCase()) ?? null,
+    [formState.state],
   )
-  const isOtherCitySelected = selectedCityValue === OTHER_CITY_OPTION_VALUE
 
   const hasAnyChanges = useMemo(() => {
     const currentPayload = toCustomerUpsertPayload(formState)
@@ -132,10 +64,12 @@ export function CustomerForm({
   const canSubmit =
     !validation.emailError &&
     !validation.nameError &&
+    !validation.stateError &&
     !validation.cityError &&
     !validation.streetError &&
     !validation.houseError &&
-    !validation.flatError &&
+    !validation.apartmentError &&
+    !validation.zipCodeError &&
     !validation.phoneError &&
     !validation.notesError &&
     hasAnyChanges &&
@@ -147,28 +81,8 @@ export function CustomerForm({
   }
 
   const resetToInitial = () => {
-    setFormState(initialState.formState)
-    setSelectedCityValue(initialState.citySelection.selectedCityValue)
-    setCustomCity(initialState.citySelection.customCity)
+    setFormState(initialState)
     setTouched(toCustomerFormTouchedState())
-  }
-
-  const handleCityOptionChange = (nextOption: CityOption | null) => {
-    if (!nextOption) return
-    setSelectedCityValue(nextOption.value)
-
-    if (nextOption.value === OTHER_CITY_OPTION_VALUE) {
-      setFormState((current) => ({ ...current, city: customCity }))
-      return
-    }
-
-    setFormState((current) => ({ ...current, city: nextOption.value }))
-  }
-
-  const handleCustomCityChange = (value: string) => {
-    setCustomCity(value)
-    if (!isOtherCitySelected) return
-    setFormState((current) => ({ ...current, city: value }))
   }
 
   const submit = async () => {
@@ -238,27 +152,24 @@ export function CustomerForm({
           />
 
           <Autocomplete
-            options={cityOptions}
-            value={selectedCityOption}
-            disableClearable
+            options={US_STATES}
+            value={selectedState}
             openOnFocus
             getOptionLabel={(option) => option.label}
-            isOptionEqualToValue={(option, value) => option.value === value.value}
+            isOptionEqualToValue={(option, value) => option.code === value.code}
             onChange={(_, value) => {
-              markTouched('city')
-              handleCityOptionChange(value)
+              markTouched('state')
+              setFormState((current) => ({ ...current, state: value?.code ?? '' }))
             }}
-            noOptionsText={customersUiText.citySelector.noOptions}
-            data-testid="customers-upsert-city-autocomplete"
+            data-testid="customers-upsert-state-autocomplete"
             renderOption={(props, option) => {
               const { key, ...optionProps } = props
-              const optionTestId =
-                option.value === OTHER_CITY_OPTION_VALUE
-                  ? 'customers-upsert-city-option-other'
-                  : `customers-upsert-city-option-${toCityOptionTestId(option.value)}`
-
               return (
-                <li key={key} {...optionProps} data-testid={optionTestId}>
+                <li
+                  key={key}
+                  {...optionProps}
+                  data-testid={`customers-upsert-state-option-${toStateOptionTestId(option.code)}`}
+                >
                   {option.label}
                 </li>
               )
@@ -266,31 +177,30 @@ export function CustomerForm({
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={customersUiText.form.fields.city}
-                placeholder={customersUiText.form.placeholders.city}
-                onBlur={() => markTouched('city')}
-                error={touched.city && Boolean(validation.cityError)}
-                helperText={touched.city ? (validation.cityError ?? ' ') : ' '}
-                data-testid="customers-upsert-city-input"
+                label={customersUiText.form.fields.state}
+                placeholder={customersUiText.form.placeholders.state}
+                onBlur={() => markTouched('state')}
+                error={touched.state && Boolean(validation.stateError)}
+                helperText={touched.state ? (validation.stateError ?? ' ') : ' '}
+                data-testid="customers-upsert-state-input"
                 inputProps={{
                   ...params.inputProps,
-                  'data-testid': 'customers-upsert-city-input-field',
+                  'data-testid': 'customers-upsert-state-input-field',
                 }}
               />
             )}
           />
 
           <TextField
-            label={customersUiText.form.fields.customCity}
-            placeholder={customersUiText.form.placeholders.customCity}
-            value={customCity}
-            onChange={(event) => handleCustomCityChange(event.target.value)}
+            label={customersUiText.form.fields.city}
+            placeholder={customersUiText.form.placeholders.city}
+            value={formState.city}
+            onChange={(event) => setFormState((current) => ({ ...current, city: event.target.value }))}
             onBlur={() => markTouched('city')}
-            disabled={!isOtherCitySelected}
-            error={isOtherCitySelected && touched.city && Boolean(validation.cityError)}
-            helperText={isOtherCitySelected && touched.city ? (validation.cityError ?? ' ') : ' '}
-            data-testid="customers-upsert-city-other-input"
-            inputProps={{ 'data-testid': 'customers-upsert-city-other-input-field' }}
+            error={touched.city && Boolean(validation.cityError)}
+            helperText={touched.city ? (validation.cityError ?? ' ') : ' '}
+            data-testid="customers-upsert-city-input"
+            inputProps={{ 'data-testid': 'customers-upsert-city-input-field' }}
           />
 
           <TextField
@@ -319,16 +229,33 @@ export function CustomerForm({
           />
 
           <TextField
-            label={customersUiText.form.fields.flat}
-            placeholder={customersUiText.form.placeholders.flat}
+            label={customersUiText.form.fields.apartment}
+            placeholder={customersUiText.form.placeholders.apartment}
             type="number"
-            value={formState.flat}
-            onChange={(event) => setFormState((current) => ({ ...current, flat: event.target.value }))}
-            onBlur={() => markTouched('flat')}
-            error={touched.flat && Boolean(validation.flatError)}
-            helperText={touched.flat ? (validation.flatError ?? ' ') : ' '}
-            data-testid="customers-upsert-flat-input"
-            inputProps={{ 'data-testid': 'customers-upsert-flat-input-field' }}
+            value={formState.apartment}
+            onChange={(event) => setFormState((current) => ({ ...current, apartment: event.target.value }))}
+            onBlur={() => markTouched('apartment')}
+            error={touched.apartment && Boolean(validation.apartmentError)}
+            helperText={touched.apartment ? (validation.apartmentError ?? ' ') : ' '}
+            data-testid="customers-upsert-apartment-input"
+            inputProps={{ 'data-testid': 'customers-upsert-apartment-input-field' }}
+          />
+
+          <TextField
+            label={customersUiText.form.fields.zipCode}
+            placeholder={customersUiText.form.placeholders.zipCode}
+            value={formState.zipCode}
+            onChange={(event) =>
+              setFormState((current) => ({
+                ...current,
+                zipCode: applyZipCodeMask(event.target.value),
+              }))
+            }
+            onBlur={() => markTouched('zipCode')}
+            error={touched.zipCode && Boolean(validation.zipCodeError)}
+            helperText={touched.zipCode ? (validation.zipCodeError ?? ' ') : ' '}
+            data-testid="customers-upsert-zip-code-input"
+            inputProps={{ 'data-testid': 'customers-upsert-zip-code-input-field' }}
           />
 
           <TextField
