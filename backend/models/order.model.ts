@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { DELIVERY, DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { US_STATE_CODES } from "../data/usStates";
 import { IOrderDocument } from "../data/types";
 
 const manager = new mongoose.Schema(
@@ -45,10 +46,12 @@ const delivery = new mongoose.Schema(
     finalDate: { type: Date, required: true },
     condition: { type: String, enum: DELIVERY, required: true },
     address: {
+      state: { type: String, enum: [...US_STATE_CODES], required: true },
       city: { type: String, required: true },
       street: { type: String, required: true },
       house: { type: Number, required: true },
-      flat: { type: Number, required: true },
+      apartment: { type: Number, required: false },
+      zipCode: { type: String, required: true },
     },
   },
   { _id: false }

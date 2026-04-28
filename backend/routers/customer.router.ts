@@ -60,10 +60,11 @@ customerRouter.delete(
  *       required:
  *         - email
  *         - name
+ *         - state
  *         - city
  *         - street
  *         - house
- *         - flat
+ *         - zipCode
  *         - phone
  *         - createdOn
  *       properties:
@@ -76,6 +77,10 @@ customerRouter.delete(
  *         name:
  *           type: string
  *           description: The customer's name
+ *         state:
+ *           type: string
+ *           enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
+ *           description: US state code
  *         city:
  *           type: string
  *           description: The customer's city
@@ -85,9 +90,14 @@ customerRouter.delete(
  *         house:
  *           type: number
  *           description: The customer's house number
- *         flat:
+ *         apartment:
  *           type: number
- *           description: The customer's flat number
+ *           nullable: true
+ *           description: The customer's apartment number
+ *         zipCode:
+ *           type: string
+ *           pattern: ^\\d{5}(-\\d{4})?$
+ *           description: US ZIP code
  *         phone:
  *           type: string
  *           description: The customer's phone number
@@ -102,10 +112,12 @@ customerRouter.delete(
  *         "_id": "6396593e54206d313b2a50b7"
  *         "email": "customer1@example.com"
  *         "name": "John Doe"
+ *         "state": "NY"
  *         "city": "New York"
  *         "street": "5th Avenue"
  *         "house": 123
- *         "flat": 45
+ *         "apartment": 45
+ *         "zipCode": "10001"
  *         "phone": "+155512345678"
  *         "createdOn": "2024-09-28T14:00:00Z"
  *         "notes": "Frequent customer"
@@ -115,10 +127,11 @@ customerRouter.delete(
  *       required:
  *         - email
  *         - name
+ *         - state
  *         - city
  *         - street
  *         - house
- *         - flat
+ *         - zipCode
  *         - phone
  *       properties:
  *         email:
@@ -127,6 +140,10 @@ customerRouter.delete(
  *         name:
  *           type: string
  *           description: The customer's name
+ *         state:
+ *           type: string
+ *           enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
+ *           description: US state code
  *         city:
  *           type: string
  *           description: The customer's city
@@ -136,9 +153,14 @@ customerRouter.delete(
  *         house:
  *           type: number
  *           description: The customer's house number
- *         flat:
+ *         apartment:
  *           type: number
- *           description: The customer's flat number
+ *           nullable: true
+ *           description: The customer's apartment number
+ *         zipCode:
+ *           type: string
+ *           pattern: ^\\d{5}(-\\d{4})?$
+ *           description: US ZIP code
  *         phone:
  *           type: string
  *           description: The customer's phone number
@@ -148,10 +170,12 @@ customerRouter.delete(
  *       example:
  *         "email": "customer1@example.com"
  *         "name": "John Doe"
+ *         "state": "NY"
  *         "city": "New York"
  *         "street": "5th Avenue"
  *         "house": 123
- *         "flat": 45
+ *         "apartment": 45
+ *         "zipCode": "10001"
  *         "phone": "+155512345678"
  *         "notes": "Frequent customer"
  *
@@ -192,11 +216,12 @@ customerRouter.delete(
  *               type: number
  *             search:
  *               type: string
- *             city:
+ *             state:
  *               type: array
  *               items:
  *                 type: string
- *             includeOtherCities:
+ *                 enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
+ *             includeOtherStates:
  *               type: boolean
  *             sorting:
  *               type: object
@@ -223,11 +248,12 @@ customerRouter.delete(
  *           properties:
  *             search:
  *               type: string
- *             city:
+ *             state:
  *               type: array
  *               items:
  *                 type: string
- *             includeOtherCities:
+ *                 enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
+ *             includeOtherStates:
  *               type: boolean
  *             page:
  *               type: number
@@ -243,7 +269,7 @@ customerRouter.delete(
  *           type: array
  *           items:
  *             type: string
- *             enum: [_id, email, name, city, street, house, flat, phone, createdOn, notes]
+ *             enum: [_id, email, name, state, city, street, house, apartment, zipCode, phone, createdOn, notes]
  */
 
 /**
@@ -298,18 +324,19 @@ customerRouter.delete(
  *           type: string
  *         description: Search term for filtering customers by email or name
  *       - in: query
- *         name: city
+ *         name: state
  *         schema:
  *           type: array
  *           items:
  *             type: string
- *         description: Filter customers by specific city values
+ *             enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
+ *         description: Filter customers by specific US state codes
  *       - in: query
- *         name: includeOtherCities
+ *         name: includeOtherStates
  *         schema:
  *           type: boolean
  *           example: true
- *         description: Include customers from cities outside settings.delivery.defaultCities
+ *         description: Include customers from states outside settings.delivery.pickupLocations keys
  *       - in: query
  *         name: sortField
  *         schema:

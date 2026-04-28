@@ -133,10 +133,12 @@ Payload:
   "finalDate": "2026-05-01T12:00:00.000Z",
   "condition": "Delivery",
   "address": {
+    "state": "NY",
     "city": "New York",
     "street": "Broadway",
     "house": 1,
-    "flat": 1
+    "apartment": 1,
+    "zipCode": "10001"
   }
 }
 ```
@@ -144,6 +146,9 @@ Payload:
 Rules:
 - Allowed only when `status = Draft`.
 - Validates date and address fields.
+- `state` must be one of 50 US 2-letter state codes.
+- `zipCode` must match `^\d{5}(-\d{4})?$`.
+- `apartment` is optional, when provided must be integer `>= 1`.
 - On success, backend sets `deliveryStatus = Scheduled`.
 
 ## Status Contract (`PUT /api/orders/:orderId/status`)
@@ -247,6 +252,16 @@ Payload:
 
 Allowed `fields`:
 - `status`, `deliveryStatus`, `total_price`, `delivery`, `customer`, `products`, `assignedManager`, `createdOn`
+
+When `delivery` is selected, export includes:
+- `delivery.finalDate`
+- `delivery.condition`
+- `delivery.address.state`
+- `delivery.address.city`
+- `delivery.address.street`
+- `delivery.address.house`
+- `delivery.address.apartment`
+- `delivery.address.zipCode`
 
 When `products` is selected, each position is flattened into the following columns (one set per index `i`, starting from `1`):
 

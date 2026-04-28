@@ -66,7 +66,7 @@ orderRouter.put(
  *           type: string
  *     OrderCustomerFull:
  *       type: object
- *       required: [_id, email, name, city, street, house, flat, phone, createdOn]
+ *       required: [_id, email, name, state, city, street, house, zipCode, phone, createdOn]
  *       properties:
  *         _id:
  *           type: string
@@ -74,14 +74,21 @@ orderRouter.put(
  *           type: string
  *         name:
  *           type: string
+ *         state:
+ *           type: string
+ *           enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
  *         city:
  *           type: string
  *         street:
  *           type: string
  *         house:
  *           type: number
- *         flat:
+ *         apartment:
  *           type: number
+ *           nullable: true
+ *         zipCode:
+ *           type: string
+ *           pattern: ^\\d{5}(-\\d{4})?$
  *         phone:
  *           type: string
  *         createdOn:
@@ -133,16 +140,23 @@ orderRouter.put(
  *           type: boolean
  *     DeliveryAddress:
  *       type: object
- *       required: [city, street, house, flat]
+ *       required: [state, city, street, house, zipCode]
  *       properties:
+ *         state:
+ *           type: string
+ *           enum: [AL, AK, AZ, AR, CA, CO, CT, DE, FL, GA, HI, ID, IL, IN, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY]
  *         city:
  *           type: string
  *         street:
  *           type: string
  *         house:
  *           type: number
- *         flat:
+ *         apartment:
  *           type: number
+ *           nullable: true
+ *         zipCode:
+ *           type: string
+ *           pattern: ^\\d{5}(-\\d{4})?$
  *     Delivery:
  *       type: object
  *       required: [finalDate, condition, address]

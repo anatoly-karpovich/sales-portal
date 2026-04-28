@@ -1,6 +1,6 @@
 import * as dotenv from "dotenv";
 import mongoose from "mongoose";
-import { CORE_US_DEFAULT_CITIES, DEFAULT_SETTINGS } from "../../data/defaultSettings";
+import { DEFAULT_SETTINGS } from "../../data/defaultSettings";
 import SettingsModel from "../../models/settings.model";
 import { getDbUrl } from "../url";
 
@@ -14,47 +14,48 @@ async function runMigration() {
 
   if (!existingSettings) {
     await SettingsModel.create(DEFAULT_SETTINGS);
-    console.log("Settings were created with default cities and pickup addresses");
+    console.log("Settings were created with default pickup locations");
     return;
   }
 
-  const addCitiesResult = await SettingsModel.updateOne(
-    {},
-    {
-      $addToSet: {
-        "delivery.defaultCities": { $each: CORE_US_DEFAULT_CITIES },
-      },
-    },
-  );
-
-  const existingPickupAddresses = (existingSettings.delivery?.pickupAddresses ?? {}) as Record<
+  const existingPickupLocations = (existingSettings.delivery?.pickupLocations ?? {}) as Record<
     string,
-    { street: string; house: number; flat: number }
+    Array<{ id: string }>
   >;
 
-  const pickupAddressUpdates: Record<string, unknown> = {};
-  for (const city of CORE_US_DEFAULT_CITIES) {
-    if (!existingPickupAddresses[city]) {
-      pickupAddressUpdates[`delivery.pickupAddresses.${city}`] = DEFAULT_SETTINGS.delivery.pickupAddresses[city];
+  const locationUpdates: Record<string, unknown> = {};
+
+  for (const [state, defaultLocations] of Object.entries(DEFAULT_SETTINGS.delivery.pickupLocations)) {
+    const existingLocations = existingPickupLocations[state] ?? [];
+    if (!existingLocations.length) {
+      locationUpdates[`delivery.pickupLocations.${state}`] = defaultLocations;
+      continue;
+    }
+
+    const existingIds = new Set(existingLocations.map((location) => location.id));
+    const missingLocations = defaultLocations.filter((location) => !existingIds.has(location.id));
+
+    if (missingLocations.length > 0) {
+      locationUpdates[`delivery.pickupLocations.${state}`] = [...existingLocations, ...missingLocations];
     }
   }
 
-  let addPickupAddressesResult = { modifiedCount: 0 };
-  if (Object.keys(pickupAddressUpdates).length > 0) {
-    addPickupAddressesResult = await SettingsModel.updateOne({}, { $set: pickupAddressUpdates });
+  let updateResult = { modifiedCount: 0 };
+  if (Object.keys(locationUpdates).length > 0) {
+    updateResult = await SettingsModel.updateOne({}, { $set: locationUpdates });
   }
 
-  if (addCitiesResult.modifiedCount > 0 || addPickupAddressesResult.modifiedCount > 0) {
-    console.log("Settings updated: core US cities and pickup addresses were synchronized");
+  if (updateResult.modifiedCount > 0) {
+    console.log("Settings updated: default pickup locations were synchronized");
     return;
   }
 
-  console.log("Settings migration skipped: core US cities and pickup addresses are already up to date");
+  console.log("Settings migration skipped: pickup locations are already up to date");
 }
 
 runMigration()
   .catch((error) => {
-    console.error("Add core US cities migration failed", error);
+    console.error("Add core pickup locations migration failed", error);
     process.exitCode = 1;
   })
   .finally(async () => {

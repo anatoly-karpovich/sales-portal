@@ -19,6 +19,7 @@ import {
   UpdateOrderDeliveryRequestDTO,
   UpdateOrderRequestDTO,
 } from "../data/types/dto/orders.dto.js";
+import { US_STATE_CODES } from "../data/usStates.js";
 
 const settingsService = new SettingsService();
 
@@ -273,6 +274,13 @@ export async function orderDelivery(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid final date` });
     }
     if (
+      !isValidInput("State", req.body.address.state) ||
+      !US_STATE_CODES.includes(req.body.address.state as (typeof US_STATE_CODES)[number])
+    ) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+    }
+
+    if (
       !isValidInput("City", req.body.address.city) ||
       (req.body.address.city && req.body.address.city.trim().length !== req.body.address.city.length)
     ) {
@@ -290,7 +298,16 @@ export async function orderDelivery(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
     }
 
-    if (!isValidInput("Flat", req.body.address.flat) || req.body.address.flat < 1 || req.body.address.flat > 9999) {
+    if (
+      req.body.address.apartment !== undefined &&
+      (!isValidInput("Apartment", req.body.address.apartment) ||
+        req.body.address.apartment < 1 ||
+        req.body.address.apartment > 9999)
+    ) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+    }
+
+    if (!isValidInput("ZipCode", req.body.address.zipCode)) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
     }
   } catch (e: any) {
