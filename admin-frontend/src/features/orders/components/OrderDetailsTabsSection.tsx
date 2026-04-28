@@ -94,16 +94,20 @@ export function OrderDetailsTabsSection({
               order.status,
               order.deliveryStatus,
               order.customer._id,
+              order.customer.state,
               order.customer.city,
               order.customer.street,
               order.customer.house,
-              order.customer.flat,
+              order.customer.apartment ?? 'none',
+              order.customer.zipCode,
               order.delivery?.condition ?? 'none',
               order.delivery?.finalDate ?? 'none',
+              order.delivery?.address.state ?? 'none',
               order.delivery?.address.city ?? 'none',
               order.delivery?.address.street ?? 'none',
               order.delivery?.address.house ?? 'none',
-              order.delivery?.address.flat ?? 'none',
+              order.delivery?.address.apartment ?? 'none',
+              order.delivery?.address.zipCode ?? 'none',
             ].join('|')}
             order={order}
             isDeliveryEditable={isDeliveryEditable}

@@ -7,10 +7,12 @@ import { CustomersTableActionsCell } from '@/features/customers/components/Custo
 export const CUSTOMERS_EXPORT_AVAILABLE_FIELDS = [
   'email',
   'name',
+  'state',
   'city',
   'street',
   'house',
-  'flat',
+  'apartment',
+  'zipCode',
   'phone',
   'createdOn',
   'notes',
@@ -52,6 +54,13 @@ export function getCustomersTableColumns({
       width: '24%',
       minWidth: 200,
       render: (row) => row.name,
+    },
+    {
+      key: 'state',
+      label: 'State',
+      width: '18%',
+      minWidth: 180,
+      render: (row) => row.state || '-',
     },
     {
       key: 'city',

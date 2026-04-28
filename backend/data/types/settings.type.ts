@@ -1,4 +1,12 @@
 import { IDelivery } from "./delivery.type";
+import type { USStateCode } from "../usStates";
+
+export interface IPickupLocation {
+  id: string;
+  city: string;
+  address: Omit<IDelivery["address"], "state" | "city">;
+  isActive: boolean;
+}
 
 export interface ISettings {
   order: {
@@ -9,9 +17,8 @@ export interface ISettings {
     defaultLowStockThreshold: number;
   };
   delivery: {
-    defaultCities: readonly string[];
     basePricePerItem: number;
     extraPriceForOtherCity: number;
-    pickupAddresses: Record<string, Omit<IDelivery["address"], "city">>;
+    pickupLocations: Partial<Record<USStateCode, IPickupLocation[]>>;
   };
 }

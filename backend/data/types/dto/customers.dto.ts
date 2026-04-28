@@ -10,8 +10,8 @@ export type CustomersSortedQueryDTO = {
   search?: string;
   sortField?: "email" | "name" | "createdOn";
   sortOrder?: "asc" | "desc";
-  city?: string | string[];
-  includeOtherCities?: string;
+  state?: string | string[];
+  includeOtherStates?: string;
   page?: string;
   limit?: string;
 };
@@ -20,8 +20,8 @@ export type CustomerExportFormatDTO = "csv" | "json";
 
 export type CustomerExportFiltersDTO = {
   search?: string;
-  city?: string[];
-  includeOtherCities?: boolean;
+  state?: string[];
+  includeOtherStates?: boolean;
   page?: number;
   limit?: number;
   sortField?: "email" | "name" | "createdOn";
@@ -73,7 +73,7 @@ export type CustomersSortedResponseDTO = BaseResponseDTO & {
   page?: number;
   limit?: number;
   search?: string;
-  city?: string[];
-  includeOtherCities?: boolean;
+  state?: string[];
+  includeOtherStates?: boolean;
   sorting?: { sortField: "email" | "name" | "createdOn"; sortOrder: "asc" | "desc" };
 };

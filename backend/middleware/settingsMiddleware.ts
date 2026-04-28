@@ -2,13 +2,13 @@ import { NextFunction, Response } from "express";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import { CreateSettingsRequestDTO, UpdateSettingsRequestDTO } from "../data/types/dto/settings.dto.js";
 import SettingsModel from "../models/settings.model.js";
+import { US_STATE_CODES } from "../data/usStates.js";
 
 type DeliveryPayload = {
-  defaultCities?: unknown;
-  pickupAddresses?: unknown;
+  pickupLocations?: unknown;
 };
 
-function normalizePickupAddresses(value: unknown): Record<string, unknown> {
+function normalizePickupLocations(value: unknown): Record<string, unknown> {
   if (value instanceof Map) {
     return Object.fromEntries(value.entries());
   }
@@ -18,37 +18,37 @@ function normalizePickupAddresses(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function buildMismatchError(defaultCities: string[], pickupAddressCities: string[]): string | null {
-  const citySet = new Set(defaultCities);
-  const pickupSet = new Set(pickupAddressCities);
-
-  const missingPickupAddresses = defaultCities.filter((city) => !pickupSet.has(city));
-  const extraPickupAddresses = pickupAddressCities.filter((city) => !citySet.has(city));
-
-  if (!missingPickupAddresses.length && !extraPickupAddresses.length) {
-    return null;
+function validatePickupLocationIdsUniqueness(pickupLocations: Record<string, unknown>): string | null {
+  const ids = new Set<string>();
+  for (const [state, locations] of Object.entries(pickupLocations)) {
+    if (!Array.isArray(locations)) {
+      continue;
+    }
+    for (const location of locations) {
+      const id = (location as { id?: unknown })?.id;
+      if (typeof id !== "string") {
+        continue;
+      }
+      if (ids.has(id)) {
+        return `Incorrect delivery settings: duplicate pickup location id '${id}' in state '${state}'`;
+      }
+      ids.add(id);
+    }
   }
-
-  const details: string[] = [];
-  if (missingPickupAddresses.length) {
-    details.push(`missing pickup addresses for cities: ${missingPickupAddresses.join(", ")}`);
-  }
-  if (extraPickupAddresses.length) {
-    details.push(`pickup addresses have unknown cities: ${extraPickupAddresses.join(", ")}`);
-  }
-
-  return `Incorrect delivery settings: ${details.join("; ")}`;
+  return null;
 }
 
 function validateDeliveryConsistency(delivery: DeliveryPayload): string | null {
-  if (!Array.isArray(delivery.defaultCities) || !delivery.defaultCities.every((city) => typeof city === "string")) {
-    return "Incorrect delivery settings: delivery.defaultCities must be an array of strings";
+  const pickupLocations = normalizePickupLocations(delivery.pickupLocations);
+  const unknownStateKeys = Object.keys(pickupLocations).filter(
+    (state) => !US_STATE_CODES.includes(state as (typeof US_STATE_CODES)[number]),
+  );
+
+  if (unknownStateKeys.length > 0) {
+    return `Incorrect delivery settings: unknown states in pickupLocations: ${unknownStateKeys.join(", ")}`;
   }
 
-  const pickupAddresses = normalizePickupAddresses(delivery.pickupAddresses);
-  const pickupAddressCities = Object.keys(pickupAddresses);
-
-  return buildMismatchError(delivery.defaultCities as string[], pickupAddressCities);
+  return validatePickupLocationIdsUniqueness(pickupLocations);
 }
 
 export async function settingsCreateDeliveryConsistency(
@@ -82,14 +82,13 @@ export async function settingsUpdateDeliveryConsistency(
     const payloadDelivery = req.body.delivery as DeliveryPayload;
 
     const nextDelivery: DeliveryPayload = {
-      defaultCities: payloadDelivery.defaultCities ?? existingDelivery.defaultCities,
-      pickupAddresses: payloadDelivery.pickupAddresses ?? existingDelivery.pickupAddresses,
+      pickupLocations: payloadDelivery.pickupLocations ?? existingDelivery.pickupLocations,
     };
 
-    if (nextDelivery.defaultCities === undefined || nextDelivery.pickupAddresses === undefined) {
+    if (nextDelivery.pickupLocations === undefined) {
       return res.status(400).json({
         IsSuccess: false,
-        ErrorMessage: "Incorrect delivery settings: delivery.defaultCities and delivery.pickupAddresses must be defined",
+        ErrorMessage: "Incorrect delivery settings: delivery.pickupLocations must be defined",
       });
     }
 

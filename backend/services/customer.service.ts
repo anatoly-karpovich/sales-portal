@@ -15,10 +15,12 @@ class CustomerService {
     "_id",
     "email",
     "name",
+    "state",
     "city",
     "street",
     "house",
-    "flat",
+    "apartment",
+    "zipCode",
     "phone",
     "createdOn",
     "notes",
@@ -35,7 +37,7 @@ class CustomerService {
   }
 
   async getSorted(
-    filters: { search: string; city?: string[]; includeOtherCities?: boolean },
+    filters: { search: string; state?: string[]; includeOtherStates?: boolean },
     sortOptions: { sortField: CustomerSortField; sortOrder: CustomerSortOrder },
     pagination: { skip: number; limit: number }
   ): Promise<{ customers: ICustomer[]; total: number }> {
@@ -59,8 +61,8 @@ class CustomerService {
   async getForExport(
     filters: {
       search?: string;
-      city?: string[];
-      includeOtherCities?: boolean;
+      state?: string[];
+      includeOtherStates?: boolean;
       page?: number;
       limit?: number;
       sortField?: CustomerSortField;
@@ -70,8 +72,8 @@ class CustomerService {
   ): Promise<ICustomer[]> {
     const filter = await this.buildFilter({
       search: filters.search ?? "",
-      city: filters.city ?? [],
-      includeOtherCities: filters.includeOtherCities ?? false,
+      state: filters.state ?? [],
+      includeOtherStates: filters.includeOtherStates ?? false,
     });
     const sort = this.buildSort({
       sortField: filters.sortField ?? "createdOn",
@@ -96,8 +98,8 @@ class CustomerService {
     fields: string[];
     filters?: {
       search?: string;
-      city?: string[];
-      includeOtherCities?: boolean;
+      state?: string[];
+      includeOtherStates?: boolean;
       page?: number;
       limit?: number;
       sortField?: CustomerSortField;
@@ -115,8 +117,8 @@ class CustomerService {
     const customers = await this.getForExport(
       {
         search: filters?.search ?? "",
-        city: filters?.city ?? [],
-        includeOtherCities: filters?.includeOtherCities ?? false,
+        state: filters?.state ?? [],
+        includeOtherStates: filters?.includeOtherStates ?? false,
         page: filters?.page,
         limit: filters?.limit,
         sortField: filters?.sortField ?? "createdOn",
@@ -146,28 +148,28 @@ class CustomerService {
 
   private async buildFilter(filters: {
     search: string;
-    city?: string[];
-    includeOtherCities?: boolean;
+    state?: string[];
+    includeOtherStates?: boolean;
   }): Promise<Record<string, any>> {
-    const { search, city = [], includeOtherCities = false } = filters;
+    const { search, state = [], includeOtherStates = false } = filters;
     const andFilters: Record<string, unknown>[] = [];
 
-    const normalizedCities = [...new Set(city.map((cityName) => cityName.trim()).filter((cityName) => cityName.length > 0))];
+    const normalizedStates = [...new Set(state.map((stateCode) => stateCode.trim()).filter((stateCode) => stateCode.length > 0))];
 
-    if (normalizedCities.length > 0 || includeOtherCities) {
-      const defaultCities = await this.getDefaultDeliveryCities();
+    if (normalizedStates.length > 0 || includeOtherStates) {
+      const defaultStates = await this.getDefaultDeliveryStates();
 
-      if (normalizedCities.length > 0 && includeOtherCities) {
+      if (normalizedStates.length > 0 && includeOtherStates) {
         andFilters.push({
           $or: [
-            { city: { $in: normalizedCities } },
-            { city: { $nin: defaultCities } },
+            { state: { $in: normalizedStates } },
+            { state: { $nin: defaultStates } },
           ],
         });
-      } else if (normalizedCities.length > 0) {
-        andFilters.push({ city: { $in: normalizedCities } });
+      } else if (normalizedStates.length > 0) {
+        andFilters.push({ state: { $in: normalizedStates } });
       } else {
-        andFilters.push({ city: { $nin: defaultCities } });
+        andFilters.push({ state: { $nin: defaultStates } });
       }
     }
 
@@ -192,10 +194,16 @@ class CustomerService {
     return { $and: andFilters };
   }
 
-  private async getDefaultDeliveryCities(): Promise<string[]> {
-    const settings = await SettingsModel.findOne().select({ "delivery.defaultCities": 1, _id: 0 }).lean().exec();
-    const defaultCities = settings?.delivery?.defaultCities;
-    return Array.isArray(defaultCities) ? defaultCities : [];
+  private async getDefaultDeliveryStates(): Promise<string[]> {
+    const settings = await SettingsModel.findOne().select({ "delivery.pickupLocations": 1, _id: 0 }).lean().exec();
+    const pickupLocations = settings?.delivery?.pickupLocations;
+    if (pickupLocations instanceof Map) {
+      return [...pickupLocations.keys()];
+    }
+    if (!pickupLocations || typeof pickupLocations !== "object") {
+      return [];
+    }
+    return Object.keys(pickupLocations);
   }
 
   private buildSort(sortOptions: { sortField: CustomerSortField; sortOrder: CustomerSortOrder }): Record<string, 1 | -1> {

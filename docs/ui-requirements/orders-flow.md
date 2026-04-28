@@ -1,71 +1,66 @@
-# Order Lifecycle Flow - From Draft to Received
+# Order Lifecycle Flow - Draft to Completed
 
-This guide explains how an order evolves through each business status in the Sales Portal, what conditions must be satisfied at every step, and which transitions are allowed. Use it to understand the expected UI behavior, API calls, and test scenarios when automating regression suites.
+This guide describes allowed order transitions and UI gates using the current two-axis state model:
+- `status`: `Draft | In Process | Completed | Canceled`
+- `deliveryStatus`: `Not Scheduled | Scheduled | Partially Delivered | Delivered`
 
-## Status Glossary
+Use this map for regression and E2E scenarios.
 
-| Status | Description | Key Capabilities |
-| --- | --- | --- |
-| Draft | Newly created order. Customer/products are still editable and no logistics commitment is confirmed. | Edit customer/products, assign or unassign manager, schedule delivery, cancel order, reopen after cancellation. |
-| In Process | Order is locked for fulfillment with delivery scheduled. | Receive products, cancel order, assign/unassign manager, add comments. |
-| Partially Received | Some product lines are received while others are outstanding. | Continue receiving remaining products, add comments. |
-| Received | All product lines are received. Terminal "done" state. | View-only other than comments for audit trail. |
-| Canceled | Fulfillment stopped intentionally. Delivery info is cleared; order can be reopened back to Draft. | Reopen (if allowed) or keep for audit history. |
+## Initial State
+
+On create (`POST /api/orders`):
+- `status = Draft`
+- `deliveryStatus = Not Scheduled`
+- `delivery = null`
 
 ## Transition Matrix
 
 | From | To | Requirements | Trigger |
 | --- | --- | --- | --- |
-| Draft | In Process | Delivery scheduled and operator confirms processing. | "Process Order" button -> `PATCH /api/orders/{id}/status` with `status=In Process`. |
-| Draft | Canceled | No prerequisites. Used to abandon before processing. | "Cancel Order" button -> `PATCH /api/orders/{id}/status` with `status=Canceled`. |
-| Draft | Draft (reopen) | Applies when reopening a canceled order; clears delivery. | "Reopen Order" button on canceled detail view. |
-| Canceled | Draft | Operator confirms reopening; delivery cleared to force reschedule. | Same as above. |
-| In Process | Canceled | Operator cancels during fulfillment. | "Cancel Order" -> status change. |
-| In Process | Partially Received | At least one product checkbox selected but not all. | Receiving flow -> `POST /api/orders/{id}/receive` with subset of product IDs. |
-| In Process | Received | All product lines selected during a single save. | Same endpoint; when all products flagged, status becomes Received. |
-| Partially Received | Received | Remaining product lines selected. | Receiving flow until all items are complete. |
+| `Draft + Not Scheduled` | `Draft + Scheduled` | Delivery payload is valid. | `POST /api/orders/{id}/delivery` |
+| `Draft + Scheduled` | `In Process + Scheduled` | Operator confirms processing. | `PUT /api/orders/{id}/status` with `status=In Process` |
+| `In Process + Scheduled` | `In Process + Partially Delivered` | Subset of pending products selected for receive. | `POST /api/orders/{id}/receive` |
+| `In Process + Scheduled` | `Completed + Delivered` | All pending products received in one save. | `POST /api/orders/{id}/receive` |
+| `In Process + Partially Delivered` | `Completed + Delivered` | Remaining pending products received. | `POST /api/orders/{id}/receive` |
+| `Draft/In Process` + `Not Scheduled/Scheduled` | `Canceled` | No received product positions. | `PUT /api/orders/{id}/status` with `status=Canceled` |
+| `Canceled + any deliveryStatus` | `Draft + Not Scheduled` | Reopen confirmed; delivery cleared by backend. | `PUT /api/orders/{id}/status` with `status=Draft` |
 
-> Once an order reaches `Received`, the status is final. It cannot revert through the UI; corrections require data fixes outside the standard workflow.
+## Explicitly Blocked Cases
 
-## Flow Narrative
+- `Completed` cannot be set manually through status endpoint.
+- Process is blocked unless delivery exists and `deliveryStatus = Scheduled`.
+- Cancel is blocked if:
+  - `deliveryStatus` is `Partially Delivered` or `Delivered`,
+  - or any product already has `received = true`.
+- Delivery edit/schedule route is blocked outside `Draft`.
+- Receive route is blocked unless:
+  - `status = In Process`,
+  - `deliveryStatus in [Scheduled, Partially Delivered]`.
 
-1. **Creation (Draft)**  
-   - `POST /api/orders` via the Create Order modal.  
-   - Order starts in Draft with editable customer/products, optional manager assignment, and ability to cancel.  
-   - "Process Order" CTA remains disabled until a delivery schedule exists (`#/orders/{id}/schedule-delivery`).  
+## UI Gate Expectations
 
-2. **Preparation (Draft with Delivery)**  
-   - Schedule delivery or pickup; success toast reads "Delivery was successfully saved".  
-   - Optional manager assignment triggers notification to the assignee.  
+1. `Process` button:
+- visible for `Draft`,
+- enabled only when `deliveryStatus = Scheduled`.
 
-3. **Processing (In Process)**  
-   - Click "Process Order" -> `PATCH /api/orders/{id}/status { status: "In Process" }`.  
-   - History logs "Order processing started"; notifications alert the assigned manager.  
-   - UI removes customer/product edit pencils and shows the Receive button.  
+2. `Cancel` button:
+- visible only for `Draft | In Process`,
+- enabled only when `deliveryStatus in [Not Scheduled, Scheduled]`.
 
-4. **Receiving**  
-   - Switch to receiving mode, check delivered products, click Save.  
-   - If some items remain, status becomes Partially Received and history logs "Received".  
-   - When all items are checked, status becomes Received and history logs "All products received".  
+3. `Reopen` button:
+- visible only for `Canceled`.
 
-5. **Cancellation or Reopen Paths**  
-   - Draft or In Process orders can be canceled. Status becomes Canceled, history logs "Order canceled", and notifications fire.  
-   - Canceled orders show "Reopen Order". Reopening sets status to Draft, clears delivery, and logs "Order reopened".  
+4. Delivery edit/schedule actions:
+- `Draft + Not Scheduled` -> `Schedule`,
+- `Draft + Scheduled` -> edit pencil,
+- all other combinations -> no delivery edit actions.
 
-## Testing and Automation Tips
+5. Receive mode:
+- visible only for `In Process` with `Scheduled` or `Partially Delivered`,
+- available only when there are pending (not received) product positions.
 
-- **Preconditions:**  
-  - Processing must be blocked until delivery exists. Ensure the Process CTA remains disabled otherwise.  
-  - Receiving is only available in In Process or Partially Received states.  
+## Testing Notes
 
-- **Notifications:**  
-  - Assign/unassign, status updates, delivery saves, and receiving events emit manager-specific notifications; validate badge counts only for the assigned manager.  
-
-- **History Entries:**  
-  - Every transition appends a history record. Validate `ORDER_HISTORY_ACTIONS` values such as "Order processing started", "Order canceled", "Order reopened", "Received", "All products received".  
-
-- **Idempotency:**  
-  - Attempting to re-receive already received products should be ignored.  
-  - Reopening must clear delivery data so users must schedule again before processing.  
-
-Use this lifecycle map to design end-to-end tests that cover every allowed path from creation through delivery scheduling, processing, partial receipts, and final completion.
+- Validate both state axes after each mutation (`status` and `deliveryStatus`).
+- Validate history entries after every transition (`Order created`, `Order processing started`, `Delivery Scheduled`, `Received`, `All products received`, `Order canceled`, `Order reopened`, etc.).
+- Validate reopen always clears delivery and resets `deliveryStatus` to `Not Scheduled`.

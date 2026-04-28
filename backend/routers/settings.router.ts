@@ -48,28 +48,43 @@ settingsRouter.patch(
  *               type: integer
  *         delivery:
  *           type: object
- *           required: [defaultCities, basePricePerItem, extraPriceForOtherCity, pickupAddresses]
+ *           required: [basePricePerItem, extraPriceForOtherCity, pickupLocations]
  *           properties:
- *             defaultCities:
- *               type: array
- *               items:
- *                 type: string
  *             basePricePerItem:
  *               type: integer
  *             extraPriceForOtherCity:
  *               type: integer
- *             pickupAddresses:
+ *             pickupLocations:
  *               type: object
+ *               description: US state keyed object where each key contains an array of pickup locations
  *               additionalProperties:
- *                 type: object
- *                 required: [street, house, flat]
- *                 properties:
- *                   street:
- *                     type: string
- *                   house:
- *                     type: integer
- *                   flat:
- *                     type: integer
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required: [id, city, address, isActive]
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       pattern: ^[a-fA-F0-9]{24}$
+ *                     city:
+ *                       type: string
+ *                     address:
+ *                       type: object
+ *                       required: [street, house, zipCode]
+ *                       properties:
+ *                         street:
+ *                           type: string
+ *                         house:
+ *                           type: integer
+ *                         apartment:
+ *                           type: integer
+ *                           nullable: true
+ *                         zipCode:
+ *                           type: string
+ *                           pattern: ^\\d{5}(-\\d{4})?$
+ *                     isActive:
+ *                       type: boolean
  *     SettingsResponse:
  *       type: object
  *       properties:

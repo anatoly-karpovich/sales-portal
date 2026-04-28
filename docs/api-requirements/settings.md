@@ -32,12 +32,22 @@
     "defaultLowStockThreshold": 5
   },
   "delivery": {
-    "defaultCities": ["New York", "Los Angeles"],
     "basePricePerItem": 0,
     "extraPriceForOtherCity": 0,
-    "pickupAddresses": {
-      "New York": { "street": "5th Avenue", "house": 742, "flat": 12 },
-      "Los Angeles": { "street": "Sunset Boulevard", "house": 1050, "flat": 8 }
+    "pickupLocations": {
+      "NY": [
+        {
+          "id": "64f100000000000000000001",
+          "city": "New York",
+          "address": {
+            "street": "5th Avenue",
+            "house": 742,
+            "apartment": 12,
+            "zipCode": "10001"
+          },
+          "isActive": true
+        }
+      ]
     }
   }
 }
@@ -51,7 +61,7 @@
 - Out-of-range values produce `400` with the offending product id.
 
 ### `order.maxProductsInOrder`
-- Currently **not enforced** by the backend. The Order endpoints accept any number of unique product positions ≥ 1.
+- Currently **not enforced** by the backend. The Order endpoints accept any number of unique product positions >= 1.
 - UI is expected to use this value to cap the product picker (default product line count).
 
 ## Validation Rules
@@ -61,19 +71,27 @@
 - Requires all sections: `order`, `inventory`, `delivery`.
 - `order.maxProductsInOrder` and `order.maxProductQuantityInOrder` must be integers `>= 1`.
 - `inventory.defaultLowStockThreshold` must be integer `>= 0`.
-- `delivery.defaultCities` must be non-empty string array.
 - `delivery.basePricePerItem` and `delivery.extraPriceForOtherCity` must be integers `>= 0`.
-- `delivery.pickupAddresses` is required and must be a non-empty object.
-- Each `pickupAddresses.<city>` value must include `street` (string), `house` (integer `>= 1`), `flat` (integer `>= 1`).
-- `delivery.defaultCities` and `delivery.pickupAddresses` must match by city keys (no missing and no extra pickup city keys).
+- `delivery.pickupLocations` is required and must be a non-empty object keyed by US state code.
+- Only real US state codes are allowed as keys (50 states, 2-letter uppercase).
+- Each `pickupLocations.<state>` value must be a non-empty array.
+- Each pickup location must include:
+  - `id` as Mongo ObjectId string (`^[a-fA-F0-9]{24}$`)
+  - `city` as non-empty string
+  - `address.street` as non-empty string
+  - `address.house` as integer `>= 1`
+  - `address.zipCode` as string matching `^\d{5}(-\d{4})?$`
+  - `isActive` as boolean
+- `address.apartment` is optional; when provided it must be integer `>= 1`.
+- Pickup location `id` values must be unique across all states.
 
 ### Update (`PATCH /api/settings`)
 
 - Partial payload allowed.
 - At least one of `order`, `inventory`, `delivery` must be present.
 - Nested section objects accept only known fields (`additionalProperties: false`).
-- `delivery.pickupAddresses` can be updated as a whole object.
-- If `delivery` is patched, resulting `defaultCities` and `pickupAddresses` must remain consistent by city keys.
+- `delivery.pickupLocations` can be updated as a whole object.
+- If `delivery` is patched, resulting `pickupLocations` must remain valid and contain only real US state codes.
 
 ## Response Envelopes
 
@@ -100,13 +118,10 @@
 ### `PATCH /api/settings`
 
 - `200` updated
-- `400` validation error (including defaultCities/pickupAddresses key mismatch)
+- `400` validation error
 - `401` unauthorized
 
 ## Bootstrap and Migration Notes
 
 - On app startup, `seed()` creates default settings if collection is empty.
-- For existing environments, use migrations:
-  - `npm run mongo:migrate:settings:init`
-  - `npm run mongo:migrate:settings:add-core-us-cities` (synchronizes `delivery.defaultCities` and default `delivery.pickupAddresses`)
 - Default values source of truth is `backend/data/defaultSettings.ts`.

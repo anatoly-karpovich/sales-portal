@@ -61,8 +61,7 @@ export function useOrderCustomerOptionsQuery(search: string, enabled = true) {
     queryFn: () =>
       getCustomers({
         search,
-        city: [],
-        includeOtherCities: false,
+        state: [],
         sortField: 'name',
         sortOrder: 'asc',
         page: 1,

@@ -15,10 +15,12 @@ export type OrderCustomerSnapshot = {
 }
 
 export type OrderDeliveryAddress = {
+  state: string
   city: string
   street: string
   house: number
-  flat: number
+  apartment?: number
+  zipCode: string
 }
 
 export type OrderDelivery = {
@@ -62,10 +64,12 @@ export type OrderListItem = {
 }
 
 export type OrderCustomerDetails = OrderCustomerSnapshot & {
+  state: string
   city: string
   street: string
   house: number
-  flat: number
+  apartment?: number
+  zipCode: string
   phone: string
   createdOn: string
   notes?: string

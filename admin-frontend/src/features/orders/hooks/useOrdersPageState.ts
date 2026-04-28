@@ -204,8 +204,7 @@ export function useOrdersPageState() {
       const [customersResponse, productsResponse] = await Promise.all([
         getCustomers({
           search: '',
-          city: [],
-          includeOtherCities: false,
+          state: [],
           sortField: 'name',
           sortOrder: 'asc',
           page: 1,

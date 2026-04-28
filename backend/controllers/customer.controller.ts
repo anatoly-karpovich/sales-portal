@@ -18,9 +18,9 @@ const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 const TRUE_VALUES = new Set(["true", "1", "yes"]);
 
-function normalizeCities(value?: string | string[]): string[] {
-  const rawCities = Array.isArray(value) ? value : value ? [value] : [];
-  return [...new Set(rawCities.map((city) => city.trim()).filter((city) => city.length > 0))];
+function normalizeValues(value?: string | string[]): string[] {
+  const rawValues = Array.isArray(value) ? value : value ? [value] : [];
+  return [...new Set(rawValues.map((item) => item.trim()).filter((item) => item.length > 0))];
 }
 
 function parseBooleanFlag(value?: string | string[]): boolean {
@@ -45,17 +45,9 @@ class CustomerController {
     res: Response<CustomersSortedResponseDTO | BaseResponseDTO>
   ): Promise<Response> {
     try {
-      const {
-        search = "",
-        sortField = "createdOn",
-        sortOrder = "desc",
-        city,
-        includeOtherCities,
-        page = "1",
-        limit = MIN_LIMIT,
-      } = req.query;
-      const cities = normalizeCities(city);
-      const shouldIncludeOtherCities = parseBooleanFlag(includeOtherCities);
+      const { search = "", sortField = "createdOn", sortOrder = "desc", state, includeOtherStates, page = "1", limit = MIN_LIMIT } = req.query;
+      const states = normalizeValues(state);
+      const shouldIncludeOtherStates = parseBooleanFlag(includeOtherStates);
 
       const pageNumber = Math.max(parseInt(page), 1);
 
@@ -63,9 +55,9 @@ class CustomerController {
       const skip = (pageNumber - 1) * limitNumber;
 
       const { customers, total } = await CustomerService.getSorted(
-        { search, city: cities, includeOtherCities: shouldIncludeOtherCities },
+        { search, state: states, includeOtherStates: shouldIncludeOtherStates },
         { sortField, sortOrder },
-        { skip, limit: limitNumber }
+        { skip, limit: limitNumber },
       );
 
       return res.json({
@@ -74,8 +66,8 @@ class CustomerController {
         page: pageNumber,
         limit: limitNumber,
         search,
-        city: cities,
-        includeOtherCities: shouldIncludeOtherCities,
+        state: states,
+        includeOtherStates: shouldIncludeOtherStates,
         sorting: { sortField, sortOrder },
         IsSuccess: true,
         ErrorMessage: null,
@@ -135,8 +127,8 @@ class CustomerController {
         filters: filters
           ? {
               search: filters.search,
-              city: filters.city,
-              includeOtherCities: filters.includeOtherCities,
+              state: filters.state,
+              includeOtherStates: filters.includeOtherStates,
               page: filters.page,
               limit: filters.limit,
               sortField: filters.sortField,

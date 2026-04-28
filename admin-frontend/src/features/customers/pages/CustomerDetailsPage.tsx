@@ -229,10 +229,17 @@ export function CustomerDetailsPage() {
                 {customersUiText.detailsPage.addressTitle}
               </Typography>
               <Stack spacing={0.35}>
+                <InlineDetailsField label={customersUiText.detailsPage.fields.state} value={customer.state} />
                 <InlineDetailsField label={customersUiText.detailsPage.fields.city} value={customer.city} />
                 <InlineDetailsField label={customersUiText.detailsPage.fields.street} value={customer.street} />
                 <InlineDetailsField label={customersUiText.detailsPage.fields.house} value={String(customer.house)} />
-                <InlineDetailsField label={customersUiText.detailsPage.fields.flat} value={String(customer.flat)} />
+                {typeof customer.apartment === 'number' ? (
+                  <InlineDetailsField
+                    label={customersUiText.detailsPage.fields.apartment}
+                    value={String(customer.apartment)}
+                  />
+                ) : null}
+                <InlineDetailsField label={customersUiText.detailsPage.fields.zipCode} value={customer.zipCode} />
               </Stack>
             </Stack>
           </Box>

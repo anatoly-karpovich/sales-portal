@@ -331,10 +331,12 @@ class OrderService {
       if (field === "delivery") {
         row["delivery.finalDate"] = order.delivery?.finalDate ?? "";
         row["delivery.condition"] = order.delivery?.condition ?? "";
+        row["delivery.address.state"] = order.delivery?.address?.state ?? "";
         row["delivery.address.city"] = order.delivery?.address?.city ?? "";
         row["delivery.address.street"] = order.delivery?.address?.street ?? "";
         row["delivery.address.house"] = order.delivery?.address?.house ?? "";
-        row["delivery.address.flat"] = order.delivery?.address?.flat ?? "";
+        row["delivery.address.apartment"] = order.delivery?.address?.apartment ?? "";
+        row["delivery.address.zipCode"] = order.delivery?.address?.zipCode ?? "";
         return;
       }
 

@@ -1,5 +1,6 @@
 import { AllowedSchema } from "express-json-validator-middleware";
 import { JSONSchema7 } from "json-schema";
+import { US_STATE_CODES } from "../usStates";
 
 const orderSettingsRequiredSchema: JSONSchema7 = {
   type: "object",
@@ -25,31 +26,44 @@ const pickupAddressSchema: JSONSchema7 = {
   properties: {
     street: { type: "string", minLength: 1 },
     house: { type: "integer", minimum: 1 },
-    flat: { type: "integer", minimum: 1 },
+    apartment: { type: "integer", minimum: 1 },
+    zipCode: { type: "string", pattern: "^\\d{5}(-\\d{4})?$" },
   },
-  required: ["street", "house", "flat"],
+  required: ["street", "house", "zipCode"],
   additionalProperties: false,
 };
 
-const pickupAddressesSchema: JSONSchema7 = {
+const pickupLocationSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    id: { type: "string", pattern: "^[a-fA-F0-9]{24}$" },
+    city: { type: "string", minLength: 1 },
+    address: pickupAddressSchema,
+    isActive: { type: "boolean" },
+  },
+  required: ["id", "city", "address", "isActive"],
+  additionalProperties: false,
+};
+
+const pickupLocationsSchema: JSONSchema7 = {
   type: "object",
   minProperties: 1,
-  additionalProperties: pickupAddressSchema,
+  propertyNames: { enum: [...US_STATE_CODES] },
+  additionalProperties: {
+    type: "array",
+    minItems: 1,
+    items: pickupLocationSchema,
+  },
 };
 
 const deliverySettingsRequiredSchema: JSONSchema7 = {
   type: "object",
   properties: {
-    defaultCities: {
-      type: "array",
-      items: { type: "string" },
-      minItems: 1,
-    },
     basePricePerItem: { type: "integer", minimum: 0 },
     extraPriceForOtherCity: { type: "integer", minimum: 0 },
-    pickupAddresses: pickupAddressesSchema,
+    pickupLocations: pickupLocationsSchema,
   },
-  required: ["defaultCities", "basePricePerItem", "extraPriceForOtherCity", "pickupAddresses"],
+  required: ["basePricePerItem", "extraPriceForOtherCity", "pickupLocations"],
   additionalProperties: false,
 };
 
@@ -75,21 +89,15 @@ const inventorySettingsPartialSchema: JSONSchema7 = {
 const deliverySettingsPartialSchema: JSONSchema7 = {
   type: "object",
   properties: {
-    defaultCities: {
-      type: "array",
-      items: { type: "string" },
-      minItems: 1,
-    },
     basePricePerItem: { type: "integer", minimum: 0 },
     extraPriceForOtherCity: { type: "integer", minimum: 0 },
-    pickupAddresses: pickupAddressesSchema,
+    pickupLocations: pickupLocationsSchema,
   },
   additionalProperties: false,
   anyOf: [
-    { required: ["defaultCities"] },
     { required: ["basePricePerItem"] },
     { required: ["extraPriceForOtherCity"] },
-    { required: ["pickupAddresses"] },
+    { required: ["pickupLocations"] },
   ],
 };
 

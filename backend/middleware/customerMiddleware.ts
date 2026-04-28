@@ -12,6 +12,7 @@ import {
   GetCustomerByIdRequestDTO,
   UpdateCustomerRequestDTO,
 } from "../data/types/dto/customers.dto.js";
+import { US_STATE_CODES } from "../data/usStates.js";
 
 export async function uniqueCustomer(
   req: CreateCustomerRequestDTO | UpdateCustomerRequestDTO,
@@ -61,6 +62,13 @@ export async function customerValidations(
     }
 
     if (
+      !isValidInput("State", req.body.state) ||
+      !US_STATE_CODES.includes(req.body.state as (typeof US_STATE_CODES)[number])
+    ) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
+    if (
       !isValidInput("City", req.body.city) ||
       (req.body.city && req.body.city.trim().length !== req.body.city.length)
     ) {
@@ -78,7 +86,11 @@ export async function customerValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 
-    if (!isValidInput("Flat", req.body.flat) || req.body.flat < 1 || req.body.flat > 9999) {
+    if (req.body.apartment !== undefined && (!isValidInput("Apartment", req.body.apartment) || req.body.apartment < 1 || req.body.apartment > 9999)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
+    if (!isValidInput("ZipCode", req.body.zipCode)) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
     }
 

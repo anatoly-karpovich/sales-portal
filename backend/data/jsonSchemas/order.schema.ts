@@ -1,5 +1,6 @@
 import { AllowedSchema } from "express-json-validator-middleware";
 import { DELIVERY, ORDER_STATUSES } from "../enums";
+import { US_STATE_CODES } from "../usStates";
 
 export const orderCreateSchema: AllowedSchema = {
   type: "object",
@@ -75,12 +76,15 @@ export const orderDeliverySchema: AllowedSchema = {
     address: {
       type: "object",
       properties: {
+        state: { type: "string", enum: [...US_STATE_CODES] },
         city: { type: "string" },
         street: { type: "string" },
         house: { type: "integer" },
-        flat: { type: "integer" },
+        apartment: { type: "integer", minimum: 1 },
+        zipCode: { type: "string", pattern: "^\\d{5}(-\\d{4})?$" },
       },
-      required: ["city", "street", "house", "flat"],
+      required: ["state", "city", "street", "house", "zipCode"],
+      additionalProperties: false,
     },
   },
   required: ["finalDate", "condition", "address"],

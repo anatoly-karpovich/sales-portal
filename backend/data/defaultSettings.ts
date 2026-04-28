@@ -1,38 +1,5 @@
 import { ISettings } from "./types/settings.type";
 
-export const CORE_US_DEFAULT_CITIES = [
-  "New York",
-  "Los Angeles",
-  "Chicago",
-  "Houston",
-  "Phoenix",
-  "Philadelphia",
-  "San Antonio",
-  "San Diego",
-  "Dallas",
-  "San Jose",
-  "Austin",
-  "Jacksonville",
-  "Fort Worth",
-  "Columbus",
-  "Charlotte",
-  "Indianapolis",
-  "San Francisco",
-  "Seattle",
-  "Denver",
-  "Washington DC",
-  "Boston",
-  "Miami",
-  "Atlanta",
-  "Detroit",
-  "Nashville",
-  "Portland",
-  "Las Vegas",
-  "Baltimore",
-  "Minneapolis",
-  "Orlando",
-] as const;
-
 export const DEFAULT_SETTINGS: ISettings = {
   order: {
     maxProductsInOrder: 5,
@@ -42,40 +9,185 @@ export const DEFAULT_SETTINGS: ISettings = {
     defaultLowStockThreshold: 5,
   },
   delivery: {
-    defaultCities: CORE_US_DEFAULT_CITIES,
-    basePricePerItem: 0,
-    extraPriceForOtherCity: 0,
-    pickupAddresses: {
-      "New York": { street: "5th Avenue", house: 742, flat: 12 },
-      "Los Angeles": { street: "Sunset Boulevard", house: 1050, flat: 8 },
-      Chicago: { street: "Michigan Avenue", house: 233, flat: 5 },
-      Houston: { street: "Westheimer Road", house: 890, flat: 21 },
-      Phoenix: { street: "Camelback Road", house: 412, flat: 3 },
-      Philadelphia: { street: "Market Street", house: 678, flat: 9 },
-      "San Antonio": { street: "Broadway Street", house: 321, flat: 4 },
-      "San Diego": { street: "La Jolla Village Drive", house: 555, flat: 10 },
-      Dallas: { street: "Elm Street", house: 920, flat: 7 },
-      "San Jose": { street: "Santa Clara Street", house: 845, flat: 6 },
-      Austin: { street: "Congress Avenue", house: 300, flat: 2 },
-      Jacksonville: { street: "Bay Street", house: 610, flat: 11 },
-      "Fort Worth": { street: "Main Street", house: 455, flat: 1 },
-      Columbus: { street: "High Street", house: 777, flat: 14 },
-      Charlotte: { street: "Tryon Street", house: 222, flat: 5 },
-      Indianapolis: { street: "Meridian Street", house: 390, flat: 6 },
-      "San Francisco": { street: "Market Street", house: 1350, flat: 20 },
-      Seattle: { street: "Pine Street", house: 500, flat: 9 },
-      Denver: { street: "Colfax Avenue", house: 815, flat: 13 },
-      "Washington DC": { street: "Pennsylvania Avenue", house: 1600, flat: 1 },
-      Boston: { street: "Boylston Street", house: 700, flat: 16 },
-      Miami: { street: "Ocean Drive", house: 1200, flat: 18 },
-      Atlanta: { street: "Peachtree Street", house: 950, flat: 22 },
-      Detroit: { street: "Woodward Avenue", house: 410, flat: 4 },
-      Nashville: { street: "Broadway", house: 275, flat: 3 },
-      Portland: { street: "Burnside Street", house: 640, flat: 8 },
-      "Las Vegas": { street: "Las Vegas Boulevard", house: 3700, flat: 25 },
-      Baltimore: { street: "Charles Street", house: 500, flat: 6 },
-      Minneapolis: { street: "Hennepin Avenue", house: 300, flat: 12 },
-      Orlando: { street: "Orange Avenue", house: 150, flat: 7 },
+    basePricePerItem: 5,
+    extraPriceForOtherCity: 10,
+    pickupLocations: {
+      NY: [
+        {
+          id: "64f100000000000000000001",
+          city: "New York",
+          address: {
+            street: "5th Avenue",
+            house: 742,
+            apartment: 12,
+            zipCode: "10001",
+          },
+          isActive: true,
+        },
+        {
+          id: "64f100000000000000000002",
+          city: "Buffalo",
+          address: {
+            street: "Lafayette Square",
+            house: 1,
+            zipCode: "14203",
+          },
+          isActive: true,
+        },
+      ],
+      CA: [
+        {
+          id: "64f100000000000000000003",
+          city: "Los Angeles",
+          address: {
+            street: "Sunset Boulevard",
+            house: 1050,
+            zipCode: "90028",
+          },
+          isActive: true,
+        },
+        {
+          id: "64f100000000000000000004",
+          city: "San Francisco",
+          address: {
+            street: "Market Street",
+            house: 1355,
+            apartment: 8,
+            zipCode: "94103",
+          },
+          isActive: true,
+        },
+        {
+          id: "64f100000000000000000005",
+          city: "San Diego",
+          address: {
+            street: "Park Boulevard",
+            house: 330,
+            zipCode: "92101",
+          },
+          isActive: true,
+        },
+      ],
+      TX: [
+        {
+          id: "64f100000000000000000006",
+          city: "Houston",
+          address: {
+            street: "Main Street",
+            house: 901,
+            zipCode: "77002",
+          },
+          isActive: true,
+        },
+        {
+          id: "64f100000000000000000007",
+          city: "Dallas",
+          address: {
+            street: "Elm Street",
+            house: 1201,
+            apartment: 5,
+            zipCode: "75270",
+          },
+          isActive: true,
+        },
+      ],
+      FL: [
+        {
+          id: "64f100000000000000000008",
+          city: "Miami",
+          address: {
+            street: "Biscayne Boulevard",
+            house: 600,
+            zipCode: "33132",
+          },
+          isActive: true,
+        },
+        {
+          id: "64f100000000000000000009",
+          city: "Orlando",
+          address: {
+            street: "Orange Avenue",
+            house: 101,
+            apartment: 3,
+            zipCode: "32801",
+          },
+          isActive: true,
+        },
+      ],
+      IL: [
+        {
+          id: "64f10000000000000000000a",
+          city: "Chicago",
+          address: {
+            street: "South State Street",
+            house: 400,
+            zipCode: "60605",
+          },
+          isActive: true,
+        },
+      ],
+      WA: [
+        {
+          id: "64f10000000000000000000b",
+          city: "Seattle",
+          address: {
+            street: "4th Avenue",
+            house: 1000,
+            apartment: 10,
+            zipCode: "98104",
+          },
+          isActive: true,
+        },
+      ],
+      CO: [
+        {
+          id: "64f10000000000000000000c",
+          city: "Denver",
+          address: {
+            street: "Colfax Avenue",
+            house: 200,
+            zipCode: "80202",
+          },
+          isActive: true,
+        },
+      ],
+      GA: [
+        {
+          id: "64f10000000000000000000d",
+          city: "Atlanta",
+          address: {
+            street: "Peachtree Street",
+            house: 230,
+            zipCode: "30303",
+          },
+          isActive: true,
+        },
+      ],
+      MA: [
+        {
+          id: "64f10000000000000000000e",
+          city: "Boston",
+          address: {
+            street: "Boylston Street",
+            house: 700,
+            apartment: 15,
+            zipCode: "02116",
+          },
+          isActive: true,
+        },
+      ],
+      AZ: [
+        {
+          id: "64f10000000000000000000f",
+          city: "Phoenix",
+          address: {
+            street: "North Central Avenue",
+            house: 100,
+            zipCode: "85004",
+          },
+          isActive: true,
+        },
+      ],
     },
   },
 };

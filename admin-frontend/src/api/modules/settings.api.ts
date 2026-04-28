@@ -10,16 +10,21 @@ export type Settings = {
     defaultLowStockThreshold: number
   }
   delivery: {
-    defaultCities: string[]
     basePricePerItem: number
     extraPriceForOtherCity: number
-    pickupAddresses: Record<
+    pickupLocations: Record<
       string,
-      {
-        street: string
-        house: number
-        flat: number
-      }
+      Array<{
+        id: string
+        city: string
+        address: {
+          street: string
+          house: number
+          apartment?: number
+          zipCode: string
+        }
+        isActive: boolean
+      }>
     >
   }
 }

@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Skeleton, Stack, Typography } from '@mui/material'
+import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material'
 import { useSnackbar } from 'notistack'
 import { useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -11,7 +11,6 @@ import {
   useUpdateCustomerMutation,
 } from '@/features/customers/hooks/useCustomersQuery'
 import { customersUiText } from '@/features/customers/customers.ui-text'
-import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 
 type Mode = 'create' | 'edit'
 
@@ -52,12 +51,6 @@ export function CustomerUpsertPage({ mode }: Props) {
   const createMutation = useCreateCustomerMutation()
   const updateMutation = useUpdateCustomerMutation()
   const deleteMutation = useDeleteCustomerMutation()
-  const {
-    data: settings,
-    isLoading: isSettingsLoading,
-    isFetching: isSettingsFetching,
-    refetch: refetchSettings,
-  } = useSettingsQuery()
   const shouldLoadCustomer = mode === 'edit' && Boolean(customerId)
   const { data: customer, isLoading } = useCustomerQuery(customerId ?? '', shouldLoadCustomer)
 
@@ -89,38 +82,11 @@ export function CustomerUpsertPage({ mode }: Props) {
     navigate('/customers')
   }, [customerId, deleteMutation, enqueueSnackbar, navigate])
 
-  if (isSettingsLoading || (!settings && isSettingsFetching)) {
-    return <CustomerUpsertSkeleton />
-  }
-
-  if (!settings || settings.delivery.defaultCities.length === 0) {
-    return (
-      <Paper sx={{ p: 3 }} data-testid="customers-upsert-settings-not-found">
-        <Stack spacing={2}>
-          <Typography color="error" data-testid="customers-upsert-settings-not-found-error-text">
-            {customersUiText.errors.settingsNotFound}
-          </Typography>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              void refetchSettings()
-            }}
-            sx={{ alignSelf: 'flex-start' }}
-            data-testid="customers-upsert-settings-retry-button"
-          >
-            Retry
-          </Button>
-        </Stack>
-      </Paper>
-    )
-  }
-
   if (mode === 'create') {
     return (
       <CustomerForm
         mode="create"
         customer={null}
-        defaultCities={settings.delivery.defaultCities}
         isSubmitting={isSubmitting}
         onSubmit={handleCreate}
       />
@@ -156,7 +122,6 @@ export function CustomerUpsertPage({ mode }: Props) {
       key={customer._id}
       mode="edit"
       customer={customer}
-      defaultCities={settings.delivery.defaultCities}
       isSubmitting={isSubmitting}
       isDeleting={deleteMutation.isPending}
       onSubmit={handleUpdate}

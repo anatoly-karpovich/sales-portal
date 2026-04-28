@@ -14,7 +14,8 @@ type Props = {
 
 export function FilterDialog({ open, title, values, selected, onClose, onApply }: Props) {
   const [draft, setDraft] = useState<string[]>([])
-  const toOptionTestId = (value: string) => value.toLowerCase().replace(/\s+/g, '-')
+  const toOptionTestId = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 
   const toggleValue = (value: string) => {
     setDraft((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
