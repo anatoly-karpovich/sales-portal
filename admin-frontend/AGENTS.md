@@ -91,7 +91,7 @@ Top-level source layout:
     - `status`: `Draft | In Process | Completed | Canceled`;
     - `deliveryStatus`: `Not Scheduled | Scheduled | Partially Delivered | Delivered`;
   - create order (`POST /orders`);
-  - update order customer/products (`PUT /orders/:orderId`);
+  - update order customer/products (`PATCH /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
   - status update/reopen (`PUT /orders/:orderId/status`);
   - assign/unassign manager (`PUT /orders/:orderId/assign-manager/:managerId`, `PUT /orders/:orderId/unassign-manager`);
@@ -128,6 +128,7 @@ Top-level source layout:
   - `widgets/*` - hero, actions, metrics, charts, tables, skeleton
 - `features/settings`
   - `hooks/useSettingsQuery.ts`, `hooks/settingsQueryKeys.ts` - global settings query/mutation layer used by customers and orders flows.
+  - delivery settings contract is `delivery.pickupLocations` (US state keyed object of pickup locations).
 - `features/products` (most complete module)
   - `pages/ProductsPage.tsx` - list, filters, export, pagination, dialogs
     - shared chips are prefixed (`Search:`, `Manufacturer:`).
@@ -140,16 +141,16 @@ Top-level source layout:
   - `products.ui-text.ts` - labels, validation text, toast text
 - `features/customers` (implemented in iteration 5)
   - `pages/CustomersPage.tsx` - list, filters, export, pagination, delete flow
-    - list table columns: `Email`, `Name`, `City`, `Created On`, `Actions`.
-    - city filters come from `settings.delivery.pickupAddresses` keys plus `Other`.
-    - shared chips are prefixed (`Search:`, `City:`).
+    - list table columns: `Email`, `Name`, `State`, `City`, `Created On`, `Actions`.
+    - state filters use all US states (modal values are state codes: `AL..WY`).
+    - shared chips are prefixed (`Search:`, `State:`).
   - `pages/CustomerUpsertPage.tsx`, `CustomerCreatePage.tsx`, `CustomerEditPage.tsx`
   - `pages/CustomerDetailsPage.tsx` - customer summary and orders table
   - `hooks/useCustomersPageState.ts` - UI orchestration + query params
   - `hooks/useCustomersQuery.ts` - query/mutation layer
   - `config/customersTableColumns.ts` - table schema, sort fields, export fields
   - `components/CustomerForm.tsx`, `CustomersTableActionsCell.tsx`
-    - customer upsert city uses `Autocomplete` with `settings.delivery.defaultCities + Other`; custom city input is enabled only for `Other`.
+    - customer upsert uses `State` autocomplete (`CODE — State Name`), `City` text input, masked `Zip Code` input, optional `Apartment`.
   - `forms/*` - form mappers, touched state, validation
   - `customers.ui-text.ts` - labels, validation text, toast text
 - `features/orders` (iteration 6 in active implementation)
@@ -164,7 +165,7 @@ Top-level source layout:
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows.
     - query and export (`filtered`) include both filter arrays: `status[]` and `deliveryStatus[]`.
     - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
-    - customer precheck requests must pass customers-city filter defaults (`city: []`, `includeOtherCities: false`) to satisfy customers API contract.
+    - customer precheck requests pass customers-state filter defaults (`state: []`) to satisfy customers API contract.
   - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
     - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `deliveryStatus`.
@@ -200,10 +201,11 @@ Top-level source layout:
       - `Draft + Scheduled` -> edit pencil;
       - any other state combination -> no delivery edit actions;
     - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules;
-    - `settings`-driven city options:
-      - delivery cities from `settings.delivery.defaultCities` + `Other` for custom city;
-      - pickup city options from `settings.delivery.defaultCities`, with address hydration from `settings.delivery.pickupAddresses`;
-    - pickup `street/house/flat` remain read-only and are auto-filled by selected pickup city;
+    - `settings`-driven pickup options:
+      - pickup state options from `settings.delivery.pickupLocations` keys;
+      - pickup city options depend on selected state and use only locations with `isActive: true`;
+    - delivery address uses `state/city/street/house/apartment?/zipCode`;
+    - pickup `street/house/apartment/zipCode` remain read-only and are auto-filled by selected pickup location;
     - date picker-only input with allowed range from config (`+3`..`+10` days);
     - save/cancel controls and delivery payload normalization.
   - `components/OrderHistoryTimeline.tsx` - order history tab timeline:
@@ -242,7 +244,7 @@ Top-level source layout:
     - delivery tab integrated with create/edit flow (`POST /orders/:orderId/delivery`) and success/error toasts;
     - order history tab integrated with timeline renderer and history diff visualization;
     - comments tab integrated with API create/delete;
-    - known limitation: comment author uses fallback label (`AQA User`) until backend exposes stable `createdBy`.
+    - known limitation: comment author uses fallback label (`AQA Manager`) until backend exposes stable `createdBy`.
 - `features/users`
   - `pages/ManagersPage.tsx` - managers list page implemented (search/sort/pagination + details navigation).
     - list uses client-side filtering, sorting, and pagination over `/users` result because backend pagination for users is not implemented yet.
@@ -275,7 +277,7 @@ Top-level source layout:
     - search apply button is enabled only when search input contains a non-empty value
   - `FilterDialog` (generic modal, still used by products/customers pages)
   - `FilterChips` (generic chips, still used by products/customers pages)
-    - supports optional label prefixes for search/filter values (for example `Search: foo`, `City: Boston`).
+    - supports optional label prefixes for search/filter values (for example `Search: foo`, `State: NY`).
   - `ExportDialog`
   - `PaginationControls`
   - `ConfirmDialog`
