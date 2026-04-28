@@ -14,18 +14,12 @@ import {
   useDeleteCustomerMutation,
 } from '@/features/customers/hooks/useCustomersQuery'
 import { customersUiText } from '@/features/customers/customers.ui-text'
-import { US_STATES, US_STATE_BY_CODE } from '@/constants/usStates'
+import { US_STATES } from '@/constants/usStates'
 
 type ExportSubmitPayload = {
   format: 'csv' | 'json'
   exportFrom: 'all' | 'filtered'
   fields: string[]
-}
-
-const STATE_LABEL_TO_CODE = new Map(US_STATES.map((state) => [state.label, state.code]))
-
-function toStateLabel(code: string) {
-  return US_STATE_BY_CODE.get(code)?.label ?? code
 }
 
 export function useCustomersPageState() {
@@ -44,8 +38,8 @@ export function useCustomersPageState() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isTransitionPending, startTransition] = useTransition()
 
-  const filterValues = useMemo(() => US_STATES.map((state) => state.label), [])
-  const selectedFilters = useMemo(() => states.map((stateCode) => toStateLabel(stateCode)), [states])
+  const filterValues = useMemo(() => US_STATES.map((state) => state.code), [])
+  const selectedFilters = useMemo(() => states, [states])
 
   const query = useMemo(
     () => ({
@@ -90,20 +84,13 @@ export function useCustomersPageState() {
   }, [])
 
   const onFilterApply = useCallback((values: string[]) => {
-    const nextStates = values
-      .map((label) => STATE_LABEL_TO_CODE.get(label) ?? null)
-      .filter((value): value is string => Boolean(value))
-
-    setStates(nextStates)
+    setStates(values)
     setFilterOpen(false)
     setPage(1)
   }, [])
 
   const onRemoveFilter = useCallback((value: string) => {
-    const stateCode = STATE_LABEL_TO_CODE.get(value)
-    if (!stateCode) return
-
-    setStates((current) => current.filter((item) => item !== stateCode))
+    setStates((current) => current.filter((item) => item !== value))
     setPage(1)
   }, [])
 
