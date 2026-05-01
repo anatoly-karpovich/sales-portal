@@ -7,6 +7,7 @@ import {
   orderStatusSchema,
   orderReceiveSchema,
   orderCommentsCreateSchema,
+  orderPricingSchema,
 } from "./order.schema";
 import { managerSchema } from "./manager.schema";
 import { settingsCreateSchema, settingsUpdateSchema } from "./settings.schema";
@@ -20,6 +21,7 @@ export {
   orderStatusSchema,
   orderReceiveSchema,
   orderCommentsCreateSchema,
+  orderPricingSchema,
   managerSchema,
   settingsCreateSchema,
   settingsUpdateSchema,

@@ -128,9 +128,10 @@ Orders:
 - `GET /orders`
 - `GET /orders/:orderId`
 - `POST /orders`
-- `PUT /orders/:orderId`
+- `PATCH /orders/:orderId`
 - `DELETE /orders/:orderId`
 - `POST /orders/export`
+- `POST /orders/pricing`
 - `PUT /orders/:orderId/status`
 - `POST /orders/:orderId/receive`
 - `POST /orders/:orderId/delivery`
@@ -207,10 +208,17 @@ Current important constraints:
   - Partial receive of a single position by `quantity` is NOT supported — the entire position flips to `received = true`.
   - `products.length` allowed range is `1..order.products.length`.
 - `PUT /orders/:orderId/status` accepts only: `Draft`, `In Process`, `Canceled` (`Completed` is set automatically by the receive flow).
+- `POST /orders/:orderId/delivery` accepts `condition`, `address`, and conditional `express`:
+  - for `Delivery`: `express` is required;
+  - for `Pickup`: `express=true` is rejected.
+- Delivery snapshots in orders/history use `delivery.schedule` union:
+  - `Delivery`: `{ express, estimatedDate }`
+  - `Pickup`: `{ availableFromDate, pickupByDate }`
 - `GET /orders` and `POST /orders/export` support filters by both `status` and `deliveryStatus`.
 - Product uniqueness: case-insensitive by trimmed `name`.
 - Customer uniqueness: case-insensitive by trimmed/lowercased `email`.
-- `POST /settings` and `PATCH /settings`: delivery cities and pickup addresses must stay synchronized by keys (`delivery.defaultCities` == `Object.keys(delivery.pickupAddresses)`), validated in dedicated settings middleware.
+- `POST /settings` and `PATCH /settings` require `shipping.delivery.pricing` and `shipping.pickup.{policy,locations}`.
+- `shipping.pickup.locations` keys must be valid US states; pickup location `id` values must be unique across all states.
 - Notes/comment textual limits rely on validation helpers and middleware checks.
 
 ## 8.1) Order products structure
@@ -242,7 +250,7 @@ API response shape (`getOrder`, `getSorted`, etc.):
   - positions that already existed in the order keep their previous `unitPrice` and `received`,
   - newly added positions get a fresh `unitPrice` from the current `Product.price`,
   - `quantity` is always taken from the request payload.
-- `total_price = Σ unitPrice × quantity` over all positions.
+- `total_price = products subtotal + delivery price` when `delivery` exists; otherwise products subtotal only.
 
 History snapshot (`Order.history[].products[i]`) uses a richer schema (see `productInHistorySnapshot` in `models/order.model.ts`):
 
@@ -298,8 +306,9 @@ Settings invariants:
 - `Settings` collection is treated as singleton (exactly one document expected).
 - `POST /settings` is intended for initial creation and returns conflict when settings already exist.
 - `PATCH /settings` is the normal update path for existing deployments.
-- `settings.delivery.pickupAddresses` is a required city-keyed map; each value contains `street`, `house`, `flat`.
-- `settings.delivery.defaultCities` and `settings.delivery.pickupAddresses` must always represent the same city set.
+- `settings.shipping.delivery.pricing` is required and contains pricing zones: `localCity`, `sameState`, `outOfState`.
+- `settings.shipping.pickup.policy` is required (`readyInDays`, `holdForDays`, optional `remindBeforeDays`).
+- `settings.shipping.pickup.locations` is required and must be a US-state keyed pickup map.
 
 ## 10) Auth, tokens, and permissions
 

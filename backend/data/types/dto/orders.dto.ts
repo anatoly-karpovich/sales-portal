@@ -2,7 +2,7 @@ import { Request } from "express";
 import { ORDER_STATUSES } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
 import { ICustomer } from "../customer.type";
-import { IDelivery } from "../delivery.type";
+import { IDeliveryPayload } from "../delivery.type";
 import { IOrder, IOrderCustomerSnapshot, IProductInOrderResponse } from "../order.type";
 
 export type OrderByIdParamsDTO = { orderId?: string };
@@ -55,6 +55,11 @@ export type OrderUpdateRequestBodyDTO = {
   products?: OrderProductRequestItemDTO[];
 };
 
+export type OrderPricingRequestBodyDTO = {
+  products: OrderProductRequestItemDTO[];
+  delivery?: IDeliveryPayload;
+};
+
 export type OrderStatusRequestDTO = {
   status: ORDER_STATUSES.DRAFT | ORDER_STATUSES.IN_PROCESS | ORDER_STATUSES.CANCELED;
 };
@@ -79,6 +84,7 @@ export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO> & {
 };
 export type GetOrdersSortedRequestDTO = Request<unknown, unknown, unknown, OrderSortedQueryDTO>;
 export type ExportOrdersRequestDTO = Request<unknown, unknown, OrderExportRequestBodyDTO>;
+export type OrderPricingRequestDTO = Request<unknown, unknown, OrderPricingRequestBodyDTO>;
 export type AssignManagerRequestDTO = Request<OrderAssignManagerParamsDTO> & {
   order?: OrderDetailsDTO;
 };
@@ -88,7 +94,7 @@ export type UnassignManagerRequestDTO = Request<OrderPathOrderIdParamsDTO> & {
 export type UpdateOrderStatusRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderStatusRequestDTO> & {
   order?: OrderDetailsDTO;
 };
-export type UpdateOrderDeliveryRequestDTO = Request<OrderPathIdParamsDTO, unknown, IDelivery> & {
+export type UpdateOrderDeliveryRequestDTO = Request<OrderPathIdParamsDTO, unknown, IDeliveryPayload> & {
   order?: OrderDetailsDTO;
 };
 export type ReceiveOrderProductsRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderReceiveRequestDTO> & {
@@ -105,12 +111,7 @@ export type GetOrderByIdRequestDTO = Request<OrderByIdParamsDTO, unknown, unknow
   order?: OrderDetailsDTO;
 };
 
-export type OrderRequestWithEntityDTO<P = OrderByIdParamsDTO, B = unknown, Q = unknown> = Request<
-  P,
-  unknown,
-  B,
-  Q
-> & {
+export type OrderRequestWithEntityDTO<P = OrderByIdParamsDTO, B = unknown, Q = unknown> = Request<P, unknown, B, Q> & {
   order?: OrderDetailsDTO;
 };
 

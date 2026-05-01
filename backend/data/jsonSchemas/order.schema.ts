@@ -71,8 +71,8 @@ export const orderStatusSchema: AllowedSchema = {
 export const orderDeliverySchema: AllowedSchema = {
   type: "object",
   properties: {
-    finalDate: { type: "string" },
     condition: { type: "string", enum: Object.values(DELIVERY) },
+    express: { type: "boolean" },
     address: {
       type: "object",
       properties: {
@@ -87,7 +87,84 @@ export const orderDeliverySchema: AllowedSchema = {
       additionalProperties: false,
     },
   },
-  required: ["finalDate", "condition", "address"],
+  required: ["condition", "address"],
+  allOf: [
+    {
+      if: {
+        properties: {
+          condition: { const: DELIVERY.DELIVERY },
+        },
+      },
+      then: {
+        required: ["express"],
+      },
+      else: {
+        properties: {
+          express: { enum: [false] },
+        },
+      },
+    },
+  ],
+};
+
+export const orderPricingSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    products: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          quantity: { type: "integer", minimum: 1 },
+        },
+        required: ["id", "quantity"],
+        additionalProperties: false,
+      },
+      minItems: 1,
+    },
+    delivery: {
+      type: "object",
+      properties: {
+        condition: { type: "string", enum: Object.values(DELIVERY) },
+        express: { type: "boolean" },
+        address: {
+          type: "object",
+          properties: {
+            state: { type: "string", enum: [...US_STATE_CODES] },
+            city: { type: "string" },
+            street: { type: "string" },
+            house: { type: "integer" },
+            apartment: { type: "integer", minimum: 1 },
+            zipCode: { type: "string", pattern: "^\\d{5}(-\\d{4})?$" },
+          },
+          required: ["state", "city", "street", "house", "zipCode"],
+          additionalProperties: false,
+        },
+      },
+      required: ["condition", "address"],
+      allOf: [
+        {
+          if: {
+            properties: {
+              condition: { const: DELIVERY.DELIVERY },
+            },
+          },
+          then: {
+            required: ["express"],
+          },
+          else: {
+            properties: {
+              express: { enum: [false] },
+            },
+          },
+        },
+      ],
+      additionalProperties: false,
+    },
+  },
+  required: ["products"],
+  additionalProperties: false,
 };
 
 export const orderCommentsCreateSchema: AllowedSchema = {

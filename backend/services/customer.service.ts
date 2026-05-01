@@ -195,8 +195,8 @@ class CustomerService {
   }
 
   private async getDefaultDeliveryStates(): Promise<string[]> {
-    const settings = await SettingsModel.findOne().select({ "delivery.pickupLocations": 1, _id: 0 }).lean().exec();
-    const pickupLocations = settings?.delivery?.pickupLocations;
+    const settings = await SettingsModel.findOne().select({ "shipping.pickup.locations": 1, _id: 0 }).lean().exec();
+    const pickupLocations = settings?.shipping?.pickup?.locations;
     if (pickupLocations instanceof Map) {
       return [...pickupLocations.keys()];
     }

@@ -35,7 +35,17 @@ orderDeliveryRouter.post(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Delivery'
+ *             type: object
+ *             required: [condition, address]
+ *             properties:
+ *               condition:
+ *                 type: string
+ *                 enum: [Delivery, Pickup]
+ *               express:
+ *                 type: boolean
+ *                 description: Required for Delivery, must be false/omitted for Pickup
+ *               address:
+ *                 $ref: '#/components/schemas/DeliveryAddress'
  *     responses:
  *       200:
  *         description: Delivery updated

@@ -10,7 +10,15 @@ type ProductSortField = "name" | "price" | "manufacturer" | "createdOn";
 type ProductSortOrder = "asc" | "desc";
 
 class ProductsService {
-  private readonly exportableFields = new Set<string>(["_id", "name", "amount", "price", "manufacturer", "createdOn", "notes"]);
+  private readonly exportableFields = new Set<string>([
+    "_id",
+    "name",
+    "amount",
+    "price",
+    "manufacturer",
+    "createdOn",
+    "notes",
+  ]);
 
   async create(product: Omit<IProduct, "_id" | "createdOn">): Promise<IProduct> {
     const createdProduct = await Product.create({ ...product, createdOn: getTodaysDate(true) });
@@ -56,7 +64,12 @@ class ProductsService {
       query.select(fields.join(" "));
     }
 
-    if (typeof filters.page === "number" && typeof filters.limit === "number" && filters.page > 0 && filters.limit > 0) {
+    if (
+      typeof filters.page === "number" &&
+      typeof filters.limit === "number" &&
+      filters.page > 0 &&
+      filters.limit > 0
+    ) {
       const skip = (filters.page - 1) * filters.limit;
       query.skip(skip).limit(filters.limit);
     }
@@ -144,7 +157,9 @@ class ProductsService {
 
   private buildSort(sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder }): Record<string, 1 | -1> {
     const allowedSortFields = new Set<ProductSortField>(["name", "price", "manufacturer", "createdOn"]);
-    const sortField: ProductSortField = allowedSortFields.has(sortOptions.sortField) ? sortOptions.sortField : "createdOn";
+    const sortField: ProductSortField = allowedSortFields.has(sortOptions.sortField)
+      ? sortOptions.sortField
+      : "createdOn";
     const sortOrder: 1 | -1 = sortOptions.sortOrder === "asc" ? 1 : -1;
 
     const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
@@ -181,6 +196,10 @@ class ProductsService {
     }
     const product = await Product.findByIdAndDelete(id);
     return product;
+  }
+
+  async getProductsBulk(ids: Array<Types.ObjectId | string>) {
+    return Product.find({ _id: { $in: ids } });
   }
 }
 

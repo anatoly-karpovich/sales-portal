@@ -37,11 +37,41 @@ const pickupLocationSettings = new mongoose.Schema(
   { _id: false, versionKey: false },
 );
 
-const deliverySettings = new mongoose.Schema(
+const deliveryPricingItem = new mongoose.Schema(
   {
-    basePricePerItem: { type: Number, required: true },
-    extraPriceForOtherCity: { type: Number, required: true },
-    pickupLocations: {
+    basePrice: { type: Number, required: true },
+    minDays: { type: Number, required: true },
+    express: {
+      days: { type: Number, required: true },
+      extraPrice: { type: Number, required: true },
+    },
+  },
+  { _id: false, versionKey: false },
+);
+
+const pickupPolicySettings = new mongoose.Schema(
+  {
+    readyInDays: { type: Number, required: true },
+    holdForDays: { type: Number, required: true },
+    remindBeforeDays: { type: Number, required: false },
+  },
+  { _id: false, versionKey: false },
+);
+
+const shippingDeliverySettings = new mongoose.Schema(
+  {
+    pricing: {
+      localCity: { type: deliveryPricingItem, required: true },
+      sameState: { type: deliveryPricingItem, required: true },
+      outOfState: { type: deliveryPricingItem, required: true },
+    },
+  },
+  { _id: false, versionKey: false },
+);
+
+const shippingPickupSettings = new mongoose.Schema(
+  {
+    locations: {
       type: Map,
       of: [pickupLocationSettings],
       required: true,
@@ -50,9 +80,18 @@ const deliverySettings = new mongoose.Schema(
           const keys = [...value.keys()];
           return keys.every((key) => US_STATE_CODES.includes(key as (typeof US_STATE_CODES)[number]));
         },
-        message: "pickupLocations must use valid US 2-letter state codes as keys",
+        message: "locations must use valid US 2-letter state codes as keys",
       },
     },
+    policy: { type: pickupPolicySettings, required: true },
+  },
+  { _id: false, versionKey: false },
+);
+
+const shippingSettings = new mongoose.Schema(
+  {
+    delivery: { type: shippingDeliverySettings, required: true },
+    pickup: { type: shippingPickupSettings, required: true },
   },
   { _id: false, versionKey: false },
 );
@@ -61,7 +100,7 @@ const settingsModel = new mongoose.Schema(
   {
     order: { type: orderSettings, required: true },
     inventory: { type: inventorySettings, required: true },
-    delivery: { type: deliverySettings, required: true },
+    shipping: { type: shippingSettings, required: true },
   },
   { versionKey: false },
 );

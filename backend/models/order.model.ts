@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { DELIVERY, DELIVERY_STATUSES, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { DELIVERY_PRICING_TIER } from "../data/types/settings.type";
 import { US_STATE_CODES } from "../data/usStates";
 import { IOrderDocument } from "../data/types";
 
@@ -12,7 +13,7 @@ const manager = new mongoose.Schema(
     roles: [{ type: String, ref: "Role" }],
     createdOn: { type: String, required: true },
   },
-  { _id: false, versionKey: false }
+  { _id: false, versionKey: false },
 );
 
 const productInOrder = new mongoose.Schema(
@@ -24,7 +25,7 @@ const productInOrder = new mongoose.Schema(
     quantity: { type: Number, required: true, min: 1 },
     received: { type: Boolean, required: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const productInHistorySnapshot = new mongoose.Schema(
@@ -38,13 +39,25 @@ const productInHistorySnapshot = new mongoose.Schema(
     quantity: { type: Number, required: true, min: 1 },
     received: { type: Boolean, required: true },
   },
-  { _id: false }
+  { _id: false },
+);
+
+const deliverySchedule = new mongoose.Schema(
+  {
+    express: { type: Boolean, required: false },
+    estimatedDate: { type: Date, required: false },
+    availableFromDate: { type: Date, required: false },
+    pickupByDate: { type: Date, required: false },
+  },
+  { _id: false, versionKey: false },
 );
 
 const delivery = new mongoose.Schema(
   {
-    finalDate: { type: Date, required: true },
     condition: { type: String, enum: DELIVERY, required: true },
+    price: { type: Number, required: true },
+    pricingTier: { type: String, enum: Object.values(DELIVERY_PRICING_TIER), required: true },
+    schedule: { type: deliverySchedule, required: true },
     address: {
       state: { type: String, enum: [...US_STATE_CODES], required: true },
       city: { type: String, required: true },
@@ -54,7 +67,7 @@ const delivery = new mongoose.Schema(
       zipCode: { type: String, required: true },
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const comment = new mongoose.Schema({
@@ -76,7 +89,7 @@ const history = new mongoose.Schema(
     performer: { type: manager, required: true },
     assignedManager: { type: manager, required: false, default: null },
   },
-  { _id: false, versionKey: false }
+  { _id: false, versionKey: false },
 );
 
 const customerSnapshot = new mongoose.Schema(
@@ -85,7 +98,7 @@ const customerSnapshot = new mongoose.Schema(
     email: { type: String, required: true },
     name: { type: String, required: true },
   },
-  { _id: false, versionKey: false }
+  { _id: false, versionKey: false },
 );
 
 const Order = new mongoose.Schema(
@@ -101,7 +114,7 @@ const Order = new mongoose.Schema(
     history: [{ type: history, required: false }],
     assignedManager: { type: manager, required: false, default: null },
   },
-  { versionKey: false }
+  { versionKey: false },
 );
 
 Order.index({ "customer._id": 1 });

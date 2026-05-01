@@ -1,6 +1,6 @@
 # Settings Module - API Requirements
 
-> Purpose: define singleton application settings contract used for order, inventory, and delivery defaults.
+> Purpose: define singleton application settings contract used for order, inventory, shipping delivery pricing, and pickup policy/locations.
 
 ## Quick Facts
 
@@ -31,23 +31,35 @@
   "inventory": {
     "defaultLowStockThreshold": 5
   },
-  "delivery": {
-    "basePricePerItem": 0,
-    "extraPriceForOtherCity": 0,
-    "pickupLocations": {
-      "NY": [
-        {
-          "id": "64f100000000000000000001",
-          "city": "New York",
-          "address": {
-            "street": "5th Avenue",
-            "house": 742,
-            "apartment": 12,
-            "zipCode": "10001"
-          },
-          "isActive": true
-        }
-      ]
+  "shipping": {
+    "delivery": {
+      "pricing": {
+        "localCity": { "basePrice": 10, "minDays": 1, "express": { "days": 0, "extraPrice": 10 } },
+        "sameState": { "basePrice": 20, "minDays": 3, "express": { "days": 2, "extraPrice": 10 } },
+        "outOfState": { "basePrice": 35, "minDays": 7, "express": { "days": 5, "extraPrice": 20 } }
+      }
+    },
+    "pickup": {
+      "policy": {
+        "readyInDays": 1,
+        "holdForDays": 5,
+        "remindBeforeDays": 1
+      },
+      "locations": {
+        "NY": [
+          {
+            "id": "64f100000000000000000001",
+            "city": "New York",
+            "address": {
+              "street": "5th Avenue",
+              "house": 742,
+              "apartment": 12,
+              "zipCode": "10001"
+            },
+            "isActive": true
+          }
+        ]
+      }
     }
   }
 }
@@ -56,42 +68,56 @@
 ## Field Semantics
 
 ### `order.maxProductQuantityInOrder`
-- Enforced by the backend on `POST /api/orders` and `PUT /api/orders/:orderId`.
-- Each product position in the order must have `quantity` in the inclusive range `1..maxProductQuantityInOrder`.
-- Out-of-range values produce `400` with the offending product id.
+- Enforced by backend on `POST /api/orders` and `PATCH /api/orders/:orderId`.
+- Each order line quantity must be in `1..maxProductQuantityInOrder`.
 
 ### `order.maxProductsInOrder`
-- Currently **not enforced** by the backend. The Order endpoints accept any number of unique product positions >= 1.
-- UI is expected to use this value to cap the product picker (default product line count).
+- Informational for UI.
+- Not enforced by backend (backend enforces at least one unique product line).
+
+### `shipping.delivery.pricing`
+- Three pricing zones: `localCity`, `sameState`, `outOfState`.
+- Zone is selected by delivery address vs active pickup locations.
+- `express` nested object defines express `days` and `extraPrice` per line.
+
+### `shipping.pickup.policy`
+- `readyInDays`: pickup becomes available after this many days.
+- `holdForDays`: pickup window length after availability date.
+- `remindBeforeDays`: optional reminder lead time.
+
+### `shipping.pickup.locations`
+- US-state keyed map (`AL..WY`) of pickup locations.
+- Location object requires `id`, `city`, `address`, `isActive`.
 
 ## Validation Rules
 
 ### Create (`POST /api/settings`)
 
-- Requires all sections: `order`, `inventory`, `delivery`.
-- `order.maxProductsInOrder` and `order.maxProductQuantityInOrder` must be integers `>= 1`.
-- `inventory.defaultLowStockThreshold` must be integer `>= 0`.
-- `delivery.basePricePerItem` and `delivery.extraPriceForOtherCity` must be integers `>= 0`.
-- `delivery.pickupLocations` is required and must be a non-empty object keyed by US state code.
-- Only real US state codes are allowed as keys (50 states, 2-letter uppercase).
-- Each `pickupLocations.<state>` value must be a non-empty array.
-- Each pickup location must include:
-  - `id` as Mongo ObjectId string (`^[a-fA-F0-9]{24}$`)
-  - `city` as non-empty string
-  - `address.street` as non-empty string
-  - `address.house` as integer `>= 1`
-  - `address.zipCode` as string matching `^\d{5}(-\d{4})?$`
-  - `isActive` as boolean
-- `address.apartment` is optional; when provided it must be integer `>= 1`.
+- Requires all top-level sections: `order`, `inventory`, `shipping`.
+- `shipping.delivery.pricing` is required.
+- `shipping.pickup.policy` is required.
+- `shipping.pickup.locations` is required.
+- Numeric constraints:
+  - `order.maxProductsInOrder >= 1`
+  - `order.maxProductQuantityInOrder >= 1`
+  - `inventory.defaultLowStockThreshold >= 0`
+  - all pricing numeric fields (`basePrice`, `minDays`, `days`, `extraPrice`) are integers `>= 0`
+  - `pickup.policy.readyInDays >= 0`
+  - `pickup.policy.holdForDays >= 1`
+  - `pickup.policy.remindBeforeDays >= 0` when provided
+- `shipping.pickup.locations` keys must be valid US state codes.
 - Pickup location `id` values must be unique across all states.
+- `address.zipCode` must match `^\d{5}(-\d{4})?$`.
 
 ### Update (`PATCH /api/settings`)
 
 - Partial payload allowed.
-- At least one of `order`, `inventory`, `delivery` must be present.
-- Nested section objects accept only known fields (`additionalProperties: false`).
-- `delivery.pickupLocations` can be updated as a whole object.
-- If `delivery` is patched, resulting `pickupLocations` must remain valid and contain only real US state codes.
+- At least one of `order`, `inventory`, `shipping` must be present.
+- If `shipping` is patched, merged result must still contain:
+  - `shipping.delivery.pricing`
+  - `shipping.pickup.locations`
+  - `shipping.pickup.policy`
+- Same state-key and pickup-id uniqueness rules are enforced.
 
 ## Response Envelopes
 
@@ -124,4 +150,4 @@
 ## Bootstrap and Migration Notes
 
 - On app startup, `seed()` creates default settings if collection is empty.
-- Default values source of truth is `backend/data/defaultSettings.ts`.
+- Default values source of truth: `backend/data/defaultSettings.ts`.

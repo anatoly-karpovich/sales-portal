@@ -159,14 +159,36 @@ orderRouter.put(
  *           pattern: ^\\d{5}(-\\d{4})?$
  *     Delivery:
  *       type: object
- *       required: [finalDate, condition, address]
+ *       required: [condition, price, pricingTier, schedule, address]
  *       properties:
- *         finalDate:
- *           type: string
- *           format: date-time
  *         condition:
  *           type: string
  *           enum: [Delivery, Pickup]
+ *         price:
+ *           type: number
+ *         pricingTier:
+ *           type: string
+ *           enum: [pickup, local_city, same_state, out_of_state]
+ *         schedule:
+ *           type: object
+ *           oneOf:
+ *             - type: object
+ *               required: [express, estimatedDate]
+ *               properties:
+ *                 express:
+ *                   type: boolean
+ *                 estimatedDate:
+ *                   type: string
+ *                   format: date-time
+ *             - type: object
+ *               required: [availableFromDate, pickupByDate]
+ *               properties:
+ *                 availableFromDate:
+ *                   type: string
+ *                   format: date-time
+ *                 pickupByDate:
+ *                   type: string
+ *                   format: date-time
  *         address:
  *           $ref: '#/components/schemas/DeliveryAddress'
  *     OrderComment:

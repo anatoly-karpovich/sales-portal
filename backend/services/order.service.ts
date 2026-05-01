@@ -20,6 +20,9 @@ import { NotificationService } from "./notification.service";
 import ExportService from "./export.service";
 import { OrderDetailsDTO, OrderExportFormatDTO, OrderListItemDTO } from "../data/types/dto/orders.dto";
 import { ICommentAuthor } from "../data/types/comments.type";
+import { PricingService } from "./pricing.service";
+
+const pricingService = new PricingService();
 
 class OrderService {
   private notificationService = new NotificationService();
@@ -329,8 +332,19 @@ class OrderService {
       }
 
       if (field === "delivery") {
-        row["delivery.finalDate"] = order.delivery?.finalDate ?? "";
         row["delivery.condition"] = order.delivery?.condition ?? "";
+        row["delivery.schedule.estimatedDate"] =
+          order.delivery?.schedule && "estimatedDate" in order.delivery.schedule ? order.delivery.schedule.estimatedDate : "";
+        row["delivery.schedule.availableFromDate"] =
+          order.delivery?.schedule && "availableFromDate" in order.delivery.schedule
+            ? order.delivery.schedule.availableFromDate
+            : "";
+        row["delivery.schedule.pickupByDate"] =
+          order.delivery?.schedule && "pickupByDate" in order.delivery.schedule ? order.delivery.schedule.pickupByDate : "";
+        row["delivery.schedule.express"] =
+          order.delivery?.schedule && "express" in order.delivery.schedule ? order.delivery.schedule.express : "";
+        row["delivery.pricingTier"] = order.delivery?.pricingTier ?? "";
+        row["delivery.price"] = typeof order.delivery?.price === "number" ? order.delivery.price : "";
         row["delivery.address.state"] = order.delivery?.address?.state ?? "";
         row["delivery.address.city"] = order.delivery?.address?.city ?? "";
         row["delivery.address.street"] = order.delivery?.address?.street ?? "";
@@ -472,14 +486,34 @@ class OrderService {
 
     const manager = await managersService.getManager(performerId);
     const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
+    const prices = await pricingService.calculateOrderTotals({ products: nextProducts });
+
+    let nextDelivery = currentOrder.delivery;
+    if (currentOrder.delivery) {
+      const currentLinesCount = currentProducts.length;
+      const nextLinesCount = nextProducts.length;
+
+      if (currentLinesCount !== nextLinesCount) {
+        const recalculatedDeliveryPrice = pricingService.recalculateDeliveryPriceByLines({
+          currentDelivery: currentOrder.delivery,
+          currentLinesCount,
+          nextLinesCount,
+        });
+
+        nextDelivery = {
+          ...currentOrder.delivery,
+          price: recalculatedDeliveryPrice,
+        };
+      }
+    }
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
       deliveryStatus: currentOrder.deliveryStatus,
       customer: customerSnapshot,
       products: nextProducts,
-      delivery: currentOrder.delivery,
-      total_price: getTotalPrice(nextProducts),
+      delivery: nextDelivery,
+      total_price: prices.productsSubtotal + (nextDelivery?.price ?? 0),
       history: currentOrder.history,
       createdOn: currentOrder.createdOn,
       comments: currentOrder.comments,

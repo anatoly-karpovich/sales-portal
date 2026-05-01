@@ -56,14 +56,53 @@ const pickupLocationsSchema: JSONSchema7 = {
   },
 };
 
-const deliverySettingsRequiredSchema: JSONSchema7 = {
+const pricingLevelSchema: JSONSchema7 = {
   type: "object",
   properties: {
-    basePricePerItem: { type: "integer", minimum: 0 },
-    extraPriceForOtherCity: { type: "integer", minimum: 0 },
-    pickupLocations: pickupLocationsSchema,
+    basePrice: { type: "integer", minimum: 0 },
+    minDays: { type: "integer", minimum: 0 },
+    express: {
+      type: "object",
+      properties: {
+        days: { type: "integer", minimum: 0 },
+        extraPrice: { type: "integer", minimum: 0 },
+      },
+      required: ["days", "extraPrice"],
+      additionalProperties: false,
+    },
   },
-  required: ["basePricePerItem", "extraPriceForOtherCity", "pickupLocations"],
+  required: ["basePrice", "minDays", "express"],
+  additionalProperties: false,
+};
+
+const deliveryPricingSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    localCity: pricingLevelSchema,
+    sameState: pricingLevelSchema,
+    outOfState: pricingLevelSchema,
+  },
+  required: ["localCity", "sameState", "outOfState"],
+  additionalProperties: false,
+};
+
+const pickupPolicySchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    readyInDays: { type: "integer", minimum: 0 },
+    holdForDays: { type: "integer", minimum: 1 },
+    remindBeforeDays: { type: "integer", minimum: 0 },
+  },
+  required: ["readyInDays", "holdForDays"],
+  additionalProperties: false,
+};
+
+const shippingDeliveryRequiredSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    pricing: deliveryPricingSchema,
+  },
+  required: ["pricing"],
   additionalProperties: false,
 };
 
@@ -86,19 +125,53 @@ const inventorySettingsPartialSchema: JSONSchema7 = {
   required: ["defaultLowStockThreshold"],
 };
 
-const deliverySettingsPartialSchema: JSONSchema7 = {
+const shippingDeliveryPartialSchema: JSONSchema7 = {
   type: "object",
   properties: {
-    basePricePerItem: { type: "integer", minimum: 0 },
-    extraPriceForOtherCity: { type: "integer", minimum: 0 },
-    pickupLocations: pickupLocationsSchema,
+    pricing: deliveryPricingSchema,
   },
   additionalProperties: false,
-  anyOf: [
-    { required: ["basePricePerItem"] },
-    { required: ["extraPriceForOtherCity"] },
-    { required: ["pickupLocations"] },
-  ],
+  required: ["pricing"],
+};
+
+const shippingPickupRequiredSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    policy: pickupPolicySchema,
+    locations: pickupLocationsSchema,
+  },
+  required: ["policy", "locations"],
+  additionalProperties: false,
+};
+
+const shippingPickupPartialSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    policy: pickupPolicySchema,
+    locations: pickupLocationsSchema,
+  },
+  additionalProperties: false,
+  anyOf: [{ required: ["policy"] }, { required: ["locations"] }],
+};
+
+const shippingSettingsRequiredSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    delivery: shippingDeliveryRequiredSchema,
+    pickup: shippingPickupRequiredSchema,
+  },
+  required: ["delivery", "pickup"],
+  additionalProperties: false,
+};
+
+const shippingSettingsPartialSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    delivery: shippingDeliveryPartialSchema,
+    pickup: shippingPickupPartialSchema,
+  },
+  additionalProperties: false,
+  anyOf: [{ required: ["delivery"] }, { required: ["pickup"] }],
 };
 
 export const settingsCreateSchema: AllowedSchema = {
@@ -106,9 +179,9 @@ export const settingsCreateSchema: AllowedSchema = {
   properties: {
     order: orderSettingsRequiredSchema,
     inventory: inventorySettingsRequiredSchema,
-    delivery: deliverySettingsRequiredSchema,
+    shipping: shippingSettingsRequiredSchema,
   },
-  required: ["order", "inventory", "delivery"],
+  required: ["order", "inventory", "shipping"],
   additionalProperties: false,
 };
 
@@ -117,8 +190,8 @@ export const settingsUpdateSchema: AllowedSchema = {
   properties: {
     order: orderSettingsPartialSchema,
     inventory: inventorySettingsPartialSchema,
-    delivery: deliverySettingsPartialSchema,
+    shipping: shippingSettingsPartialSchema,
   },
   additionalProperties: false,
-  anyOf: [{ required: ["order"] }, { required: ["inventory"] }, { required: ["delivery"] }],
+  anyOf: [{ required: ["order"] }, { required: ["inventory"] }, { required: ["shipping"] }],
 };

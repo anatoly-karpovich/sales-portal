@@ -7,13 +7,17 @@ import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS } from "../data
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
+import { PricingService } from "./pricing.service";
+import { IDeliveryPayload } from "../data/types/delivery.type";
+
+const pricingService = new PricingService();
 
 class OrderDeliveryService {
   private notificationService = new NotificationService();
 
   async updateDelivery(
     orderId: Types.ObjectId,
-    delivery: IDelivery,
+    delivery: IDeliveryPayload,
     performerId: string,
     currentOrder: OrderDetailsDTO,
   ): Promise<OrderDetailsDTO> {
@@ -21,14 +25,21 @@ class OrderDeliveryService {
       throw new Error("Id was not provided");
     }
     const manager = await managersService.getManager(performerId);
-
+    const prices = await pricingService.calculateOrderTotals({
+      products: currentOrder.products,
+      delivery: delivery,
+    });
+    const newDelivery: IDelivery = {
+      ...prices.deliverySnapshot,
+    };
     let action = currentOrder.delivery
       ? ORDER_HISTORY_ACTIONS.DELIVERY_EDITED
       : ORDER_HISTORY_ACTIONS.DELIVERY_SCHEDULED;
     const newOrder: OrderDetailsDTO = {
       ...currentOrder,
-      delivery: delivery,
+      delivery: newDelivery,
       deliveryStatus: DELIVERY_STATUSES.SCHEDULED,
+      total_price: prices.totalPrice,
     };
     // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
     newOrder.history.unshift(
