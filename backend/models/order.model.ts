@@ -54,6 +54,7 @@ const deliverySchedule = new mongoose.Schema(
 
 const delivery = new mongoose.Schema(
   {
+    status: { type: String, enum: DELIVERY_STATUSES, required: true },
     condition: { type: String, enum: DELIVERY, required: true },
     price: { type: Number, required: true },
     pricingTier: { type: String, enum: Object.values(DELIVERY_PRICING_TIER), required: true },
@@ -79,11 +80,10 @@ const comment = new mongoose.Schema({
 const history = new mongoose.Schema(
   {
     status: { type: String, enum: ORDER_STATUSES, required: true },
-    deliveryStatus: { type: String, enum: DELIVERY_STATUSES, required: true },
     customer: { type: mongoose.SchemaTypes.ObjectId, required: true },
     products: [{ type: productInHistorySnapshot, required: true }],
     total_price: { type: Number, require: true },
-    delivery: { type: delivery, required: false },
+    delivery: { type: delivery, required: true },
     changedOn: { type: Date, required: true },
     action: { type: String, enum: ORDER_HISTORY_ACTIONS, required: true },
     performer: { type: manager, required: true },
@@ -104,10 +104,9 @@ const customerSnapshot = new mongoose.Schema(
 const Order = new mongoose.Schema(
   {
     status: { type: String, enum: ORDER_STATUSES, required: true },
-    deliveryStatus: { type: String, enum: DELIVERY_STATUSES, required: true },
     customer: { type: customerSnapshot, required: true },
     products: [{ type: productInOrder, required: true }],
-    delivery: { type: delivery, required: false },
+    delivery: { type: delivery, required: true },
     total_price: { type: Number, require: true },
     createdOn: { type: Date, required: true },
     comments: [{ type: comment, required: false }],

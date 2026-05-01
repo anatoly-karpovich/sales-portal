@@ -12,8 +12,8 @@ import {
   IProductInOrderResponse,
 } from "../data/types";
 import { Types } from "mongoose";
-import { getTotalPrice, createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
-import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, MANUFACTURERS } from "../data/enums";
+import { createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
+import { DELIVERY, DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, MANUFACTURERS } from "../data/enums";
 import _ from "lodash";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
@@ -21,6 +21,7 @@ import ExportService from "./export.service";
 import { OrderDetailsDTO, OrderExportFormatDTO, OrderListItemDTO } from "../data/types/dto/orders.dto";
 import { ICommentAuthor } from "../data/types/comments.type";
 import { PricingService } from "./pricing.service";
+import { IDeliveryPayload } from "../data/types/delivery.type";
 
 const pricingService = new PricingService();
 
@@ -89,6 +90,21 @@ class OrderService {
     });
   }
 
+  private buildDefaultDraftDeliveryPayload(customer: Pick<ICustomer, "state" | "city" | "street" | "house" | "apartment" | "zipCode">): IDeliveryPayload {
+    return {
+      condition: DELIVERY.DELIVERY,
+      express: false,
+      address: {
+        state: customer.state,
+        city: customer.city,
+        street: customer.street,
+        house: customer.house,
+        apartment: customer.apartment,
+        zipCode: customer.zipCode,
+      },
+    };
+  }
+
   private async enrichProducts(products: IProductInOrder[]): Promise<IProductInOrderResponse[]> {
     if (!products || products.length === 0) {
       return [];
@@ -132,14 +148,22 @@ class OrderService {
     const performer = await managersService.getManager(performerdId);
     const customer = await CustomerService.getCustomer(order.customer);
     const customerSnapshot = this.buildCustomerSnapshot(customer);
+    const defaultDelivery = this.buildDefaultDraftDeliveryPayload(customer);
+    const prices = await pricingService.calculateOrderTotals({ products, delivery: defaultDelivery });
+
+    if (!prices.deliverySnapshot) {
+      throw new Error("Failed to build default delivery snapshot");
+    }
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
-      deliveryStatus: DELIVERY_STATUSES.NOT_SCHEDULED,
       customer: customerSnapshot,
       products,
-      delivery: null,
-      total_price: getTotalPrice(products),
+      delivery: {
+        ...prices.deliverySnapshot,
+        status: DELIVERY_STATUSES.DRAFT,
+      },
+      total_price: prices.totalPrice,
       createdOn: getTodaysDate(true),
       history: [],
       comments: [],
@@ -181,7 +205,7 @@ class OrderService {
       filter.status = { $in: status };
     }
     if (deliveryStatus.length > 0) {
-      filter.deliveryStatus = { $in: deliveryStatus };
+      filter["delivery.status"] = { $in: deliveryStatus };
     }
 
     if (search.trim() !== "") {
@@ -191,7 +215,7 @@ class OrderService {
         { "customer.name": { $regex: searchRegex } },
         { "customer.email": { $regex: searchRegex } },
         { status: { $regex: searchRegex } },
-        { deliveryStatus: { $regex: searchRegex } },
+        { "delivery.status": { $regex: searchRegex } },
       ];
 
       if (Types.ObjectId.isValid(search.trim())) {
@@ -354,6 +378,11 @@ class OrderService {
         return;
       }
 
+      if (field === "deliveryStatus") {
+        row.deliveryStatus = order.delivery?.status ?? "";
+        return;
+      }
+
       if (field === "assignedManager") {
         row["assignedManager._id"] = order.assignedManager?._id?.toString?.() ?? "";
         row["assignedManager.firstName"] = order.assignedManager?.firstName ?? "";
@@ -397,6 +426,8 @@ class OrderService {
           break;
         case "status":
         case "deliveryStatus":
+          projection.add("delivery.status");
+          break;
         case "total_price":
         case "createdOn":
           projection.add(field);
@@ -486,10 +517,28 @@ class OrderService {
 
     const manager = await managersService.getManager(performerId);
     const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
-    const prices = await pricingService.calculateOrderTotals({ products: nextProducts });
+    const isCustomerChanged = Boolean(order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString()));
 
     let nextDelivery = currentOrder.delivery;
-    if (currentOrder.delivery) {
+    let totalPrice = 0;
+
+    if (isCustomerChanged) {
+      const defaultDeliveryPayload = this.buildDefaultDraftDeliveryPayload(nextCustomer);
+      const pricesWithDraftDelivery = await pricingService.calculateOrderTotals({
+        products: nextProducts,
+        delivery: defaultDeliveryPayload,
+      });
+
+      if (!pricesWithDraftDelivery.deliverySnapshot) {
+        throw new Error("Failed to build default delivery snapshot");
+      }
+
+      nextDelivery = {
+        ...pricesWithDraftDelivery.deliverySnapshot,
+        status: DELIVERY_STATUSES.DRAFT,
+      };
+      totalPrice = pricesWithDraftDelivery.totalPrice;
+    } else {
       const currentLinesCount = currentProducts.length;
       const nextLinesCount = nextProducts.length;
 
@@ -505,15 +554,17 @@ class OrderService {
           price: recalculatedDeliveryPrice,
         };
       }
+
+      const pricesWithoutDelivery = await pricingService.calculateOrderTotals({ products: nextProducts });
+      totalPrice = pricesWithoutDelivery.productsSubtotal + nextDelivery.price;
     }
 
     const newOrder: IOrder<IOrderCustomerSnapshot> = {
       status: ORDER_STATUSES.DRAFT,
-      deliveryStatus: currentOrder.deliveryStatus,
       customer: customerSnapshot,
       products: nextProducts,
       delivery: nextDelivery,
-      total_price: prices.productsSubtotal + (nextDelivery?.price ?? 0),
+      total_price: totalPrice,
       history: currentOrder.history,
       createdOn: currentOrder.createdOn,
       comments: currentOrder.comments,
@@ -547,7 +598,7 @@ class OrderService {
       }
     }
 
-    if (order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString())) {
+    if (isCustomerChanged) {
       changed.customer = true;
       const historyEntrySource = {
         ..._.cloneDeep(newOrder),

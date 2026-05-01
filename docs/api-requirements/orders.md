@@ -1,4 +1,4 @@
-# Orders Module - API Requirements
+﻿# Orders Module - API Requirements
 
 > Purpose: define all order-related REST contracts including lifecycle, delivery, pricing, receive, manager assignment, and comments.
 
@@ -9,7 +9,7 @@
 | Base path | `/api/orders` |
 | Auth | Required |
 | Core status field | `status` |
-| Delivery status field | `deliveryStatus` |
+| Delivery status field | `delivery.status` (filter key remains `deliveryStatus`) |
 | Pagination limits | `limit` clamped to `10..100` on list endpoints |
 | Create/update product count | At least `1` unique product. Per-line `quantity` is `1..settings.order.maxProductQuantityInOrder`. Duplicate product ids are rejected. |
 
@@ -21,9 +21,10 @@
 - `Completed`
 - `Canceled`
 
-`deliveryStatus`:
-- `Not Scheduled`
-- `Scheduled`
+`delivery.status`:
+- `Draft`
+- `Delivery Scheduled`
+- `Pickup Scheduled`
 - `Partially Delivered`
 - `Delivered`
 
@@ -52,9 +53,9 @@
 
 | Param | Type | Notes |
 | --- | --- | --- |
-| `search` | string | Matches order id, customer name/email, `status`, `deliveryStatus`, total price. |
+| `search` | string | Matches order id, customer name/email, `status`, `delivery.status`, total price. |
 | `status` | string or string[] | Filter by order status values. |
-| `deliveryStatus` | string or string[] | Filter by delivery status values. |
+| `deliveryStatus` | string or string[] | Filter by `delivery.status` values. |
 | `sortField` | `createdOn \| total_price \| status` | Defaults to `createdOn`. |
 | `sortOrder` | `asc \| desc` | Defaults to `asc` in controller. |
 | `page` | string number | Minimum effective page is `1`. |
@@ -100,31 +101,18 @@ Rules:
 - Each `quantity` is an integer in `1..settings.order.maxProductQuantityInOrder`.
 - `customer` and each `product` must exist (404 with the missing id otherwise).
 - Update route is allowed only while order is `Draft`.
+- On create backend immediately builds default delivery:
+  - `condition=Delivery`, `express=false`, customer address, `delivery.status=Draft`.
+- On update when customer changes backend resets delivery to new customer address and `delivery.status=Draft`.
 - On update:
   - existing lines keep original `unitPrice` snapshot and `received`,
   - newly added lines get current `Product.price`,
   - `quantity` always comes from request payload.
 
-### Response product structure
-
-```json
-{
-  "product": {
-    "_id": "<productId>",
-    "name": "<productName>",
-    "manufacturer": "<manufacturerEnum>"
-  },
-  "unitPrice": 9.99,
-  "quantity": 3,
-  "received": false
-}
-```
-
 ## `total_price` semantics
 
-- products subtotal: `Σ unitPrice × quantity`
-- if `delivery` exists: `total_price = products subtotal + delivery.price`
-- if no delivery: `total_price = products subtotal`
+- products subtotal: `sum(unitPrice * quantity)`
+- `total_price = products subtotal + delivery.price` (delivery is always present)
 
 ## Delivery Contract (`POST /api/orders/:orderId/delivery`)
 
@@ -153,73 +141,19 @@ Rules:
 - `condition = Delivery` -> `express` is required.
 - `condition = Pickup` -> `express=true` is rejected.
 - Backend computes and stores delivery snapshot:
+  - `status`
   - `price`
   - `pricingTier` (`pickup | local_city | same_state | out_of_state`)
   - `schedule`:
     - Delivery: `{ express, estimatedDate }`
     - Pickup: `{ availableFromDate, pickupByDate }`
-- On success backend sets `deliveryStatus = Scheduled`.
+- On success backend sets `delivery.status`:
+  - `Delivery Scheduled` for `condition=Delivery`
+  - `Pickup Scheduled` for `condition=Pickup`
 
 ## Pricing Contract (`POST /api/orders/pricing`)
 
-Payload:
-
-```json
-{
-  "products": [
-    { "id": "<productId1>", "quantity": 2 },
-    { "id": "<productId2>", "quantity": 1 }
-  ],
-  "delivery": {
-    "condition": "Delivery",
-    "express": false,
-    "address": {
-      "state": "CA",
-      "city": "Los Angeles",
-      "street": "Main St",
-      "house": 10,
-      "zipCode": "90028"
-    }
-  }
-}
-```
-
-Rules:
-- Uses same product validations as order create/update:
-  - unique ids
-  - existing products
-  - quantity limits from settings
-- `delivery` is optional.
-
-Success shape:
-
-```json
-{
-  "Pricing": {
-    "totalPrice": 100,
-    "products": { "subtotal": 70, "linesCount": 2, "unitsCount": 3 },
-    "delivery": {
-      "price": 30,
-      "pricingTier": "same_state",
-      "isExpress": false,
-      "lineCount": 2,
-      "estimatedDays": 3,
-      "estimatedDate": "2026-05-04T10:00:00.000Z",
-      "availableFromDate": null,
-      "pickupByDate": null,
-      "breakdown": { "basePerLine": 15, "expressExtraPerLine": 0 }
-    }
-  },
-  "IsSuccess": true,
-  "ErrorMessage": null
-}
-```
-
-For pickup delivery response:
-- `price = 0`
-- `pricingTier = "pickup"`
-- `isExpress = false`
-- `availableFromDate` and `pickupByDate` are filled from `settings.shipping.pickup.policy`.
+`delivery` payload is optional and uses the same shape as delivery update.
 
 ## Status Contract (`PUT /api/orders/:orderId/status`)
 
@@ -234,79 +168,34 @@ Payload (allowed values only):
 Rules:
 - `In Process` requires:
   - current order status in `Draft | In Process`
-  - non-null `delivery`
-  - `deliveryStatus = Scheduled`
+  - `delivery.status in Delivery Scheduled | Pickup Scheduled`
 - `Canceled` requires:
   - current order status in `Draft | In Process`
-  - `deliveryStatus` in `Not Scheduled | Scheduled`
+  - `delivery.status in Draft | Delivery Scheduled | Pickup Scheduled`
   - no product with `received = true`
-- `Draft` (reopen) allowed only from `Canceled`; backend clears `delivery` and sets `deliveryStatus = Not Scheduled`.
+- `Draft` (reopen) allowed only from `Canceled`; backend resets delivery to default customer address and `delivery.status = Draft`.
 - `Completed` cannot be set by this endpoint.
 
 ## Receive Contract (`POST /api/orders/:orderId/receive`)
 
-Payload:
-
-```json
-{
-  "products": ["<productId1>", "<productId2>"]
-}
-```
-
 Rules:
-- `products` is an array of product `_id` values to mark as received.
-- Each id must reference a non-received line in the order.
-- Duplicate ids are rejected (`400`).
-- `products.length` must be between `1` and number of order lines.
 - Route allowed only when:
   - `status = In Process`
-  - `deliveryStatus` in `Scheduled | Partially Delivered`
-- Partial receive by quantity is not supported (line-level receive only).
-
-Results:
-- Partial receive:
+  - `delivery.status in Delivery Scheduled | Pickup Scheduled | Partially Delivered`
+- Partial receive result:
   - `status = In Process`
-  - `deliveryStatus = Partially Delivered`
-- Full receive:
+  - `delivery.status = Partially Delivered`
+- Full receive result:
   - `status = Completed`
-  - `deliveryStatus = Delivered`
+  - `delivery.status = Delivered`
 
 ## Export Contract (`POST /api/orders/export`)
 
 Allowed `fields`:
 - `status`, `deliveryStatus`, `total_price`, `delivery`, `customer`, `products`, `assignedManager`, `createdOn`
 
-When `delivery` is selected, export includes:
-- `delivery.condition`
-- `delivery.price`
-- `delivery.pricingTier`
-- `delivery.schedule.estimatedDate`
-- `delivery.schedule.availableFromDate`
-- `delivery.schedule.pickupByDate`
-- `delivery.schedule.express`
-- `delivery.address.state`
-- `delivery.address.city`
-- `delivery.address.street`
-- `delivery.address.house`
-- `delivery.address.apartment`
-- `delivery.address.zipCode`
-
-## Common Response Envelope
-
-- Success:
-  - `{ Order, IsSuccess: true, ErrorMessage: null }`
-  - `{ Pricing, IsSuccess: true, ErrorMessage: null }`
-  - list/export-specific payload
-- Failure:
-  - `{ IsSuccess: false, ErrorMessage }`
+`deliveryStatus` export field value is taken from `delivery.status`.
 
 ## History entries
 
-Each `history[]` entry stores a snapshot of the order at the moment the change was made, including delivery snapshot (`price`, `pricingTier`, `schedule`) when delivery exists.
-
-## Important Frontend Notes
-
-- Use both `status` and `deliveryStatus`.
-- Keep one line per product id in order editor.
-- `quantity` default `1`, clamp by `settings.order.maxProductQuantityInOrder`.
-- Delivery estimate and pickup window come from backend-calculated snapshot, not from UI-computed dates.
+Each `history[]` entry stores a snapshot including `delivery.status`, `price`, `pricingTier`, and `schedule`.

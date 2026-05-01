@@ -1,4 +1,4 @@
-import { DELIVERY } from "../enums";
+import { DELIVERY, DELIVERY_STATUSES } from "../enums";
 import type { USStateCode } from "../usStates";
 import { DELIVERY_PRICING_TIER } from "./settings.type";
 
@@ -35,4 +35,6 @@ export interface IDeliverySnapshotCore {
   schedule: IDeliverySchedule;
 }
 
-export interface IDelivery extends IDeliverySnapshotCore {}
+export interface IDelivery extends IDeliverySnapshotCore {
+  status: DELIVERY_STATUSES;
+}

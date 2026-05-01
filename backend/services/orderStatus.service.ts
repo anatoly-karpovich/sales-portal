@@ -2,13 +2,15 @@ import Order from "../models/order.model";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
 import { Types } from "mongoose";
-import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import { DELIVERY, DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
+import { PricingService } from "./pricing.service";
 
 class OrderStatusService {
   private notificationService = new NotificationService();
+  private pricingService = new PricingService();
   async updateStatus(
     orderId: Types.ObjectId,
     status: ORDER_STATUSES,
@@ -30,8 +32,30 @@ class OrderStatusService {
       action = ORDER_HISTORY_ACTIONS.CANCELED;
     } else if (status === ORDER_STATUSES.DRAFT) {
       action = ORDER_HISTORY_ACTIONS.REOPENED;
-      newOrder.delivery = null;
-      newOrder.deliveryStatus = DELIVERY_STATUSES.NOT_SCHEDULED;
+      const defaultDraftDeliveryPayload = {
+        condition: DELIVERY.DELIVERY,
+        express: false,
+        address: {
+          state: currentOrder.customer.state,
+          city: currentOrder.customer.city,
+          street: currentOrder.customer.street,
+          house: currentOrder.customer.house,
+          apartment: currentOrder.customer.apartment,
+          zipCode: currentOrder.customer.zipCode,
+        },
+      };
+      const pricesWithDraftDelivery = await this.pricingService.calculateOrderTotals({
+        products: currentOrder.products,
+        delivery: defaultDraftDeliveryPayload,
+      });
+      if (!pricesWithDraftDelivery.deliverySnapshot) {
+        throw new Error("Failed to build default delivery snapshot");
+      }
+      newOrder.delivery = {
+        ...pricesWithDraftDelivery.deliverySnapshot,
+        status: DELIVERY_STATUSES.DRAFT,
+      };
+      newOrder.total_price = pricesWithDraftDelivery.totalPrice;
     }
 
     // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.

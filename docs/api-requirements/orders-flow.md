@@ -1,6 +1,6 @@
-# Orders Lifecycle - API Transition Requirements
+﻿# Orders Lifecycle - API Transition Requirements
 
-> Purpose: provide exact backend transition rules for `status` and `deliveryStatus`.
+> Purpose: provide exact backend transition rules for `status` and `delivery.status`.
 
 ## Status Dimensions
 
@@ -10,9 +10,10 @@ Order status (`status`):
 - `Completed`
 - `Canceled`
 
-Delivery status (`deliveryStatus`):
-- `Not Scheduled`
-- `Scheduled`
+Delivery status (`delivery.status`):
+- `Draft`
+- `Delivery Scheduled`
+- `Pickup Scheduled`
 - `Partially Delivered`
 - `Delivered`
 
@@ -20,20 +21,21 @@ Delivery status (`deliveryStatus`):
 
 On `POST /api/orders`:
 - `status = Draft`
-- `deliveryStatus = Not Scheduled`
-- `delivery = null`
+- `delivery.status = Draft`
+- `delivery` is prefilled from customer address with `condition=Delivery`, `express=false`
 
 ## Transition Matrix
 
-| From (status, deliveryStatus) | To | Trigger | Hard requirements |
+| From | To | Trigger | Hard requirements |
 | --- | --- | --- | --- |
-| `Draft`, `Not Scheduled` | `Draft`, `Scheduled` | `POST /api/orders/:orderId/delivery` | Order must be `Draft`. |
-| `Draft`, `Scheduled` | `In Process`, `Scheduled` | `PUT /api/orders/:orderId/status` with `{ status: "In Process" }` | Existing `delivery` + `deliveryStatus = Scheduled`. |
-| `In Process`, `Scheduled` | `In Process`, `Partially Delivered` | `POST /api/orders/:orderId/receive` (subset of product positions) | Receive route allowed only in `In Process` with delivery status `Scheduled` or `Partially Delivered`. Received product positions get `received = true`; partial receive of a single position (by `quantity`) is not supported. |
-| `In Process`, `Scheduled` | `Completed`, `Delivered` | `POST /api/orders/:orderId/receive` (all positions) | Every product position becomes `received = true`. |
-| `In Process`, `Partially Delivered` | `Completed`, `Delivered` | `POST /api/orders/:orderId/receive` (remaining positions) | Same receive endpoint; reaches full completion. |
-| `Draft` or `In Process` + `Not Scheduled` or `Scheduled` | `Canceled` | `PUT /api/orders/:orderId/status` with `{ status: "Canceled" }` | Cancellation is blocked if any product already has `received = true`. |
-| `Canceled`, any | `Draft`, `Not Scheduled` | `PUT /api/orders/:orderId/status` with `{ status: "Draft" }` | Reopen allowed only from `Canceled`; backend clears `delivery`. |
+| `Draft + Draft` | `Draft + Delivery Scheduled` | `POST /api/orders/:orderId/delivery` | payload `condition=Delivery` |
+| `Draft + Draft` | `Draft + Pickup Scheduled` | `POST /api/orders/:orderId/delivery` | payload `condition=Pickup` |
+| `Draft + Delivery Scheduled/Pickup Scheduled` | `In Process + same delivery status` | `PUT /api/orders/:orderId/status` with `{ status: "In Process" }` | existing delivery with scheduled status |
+| `In Process + Delivery Scheduled/Pickup Scheduled` | `In Process + Partially Delivered` | `POST /api/orders/:orderId/receive` (subset) | receive route allowed only for `In Process` with scheduled or partially delivered status |
+| `In Process + Delivery Scheduled/Pickup Scheduled` | `Completed + Delivered` | `POST /api/orders/:orderId/receive` (all positions) | all positions become received |
+| `In Process + Partially Delivered` | `Completed + Delivered` | `POST /api/orders/:orderId/receive` (remaining positions) | same receive endpoint |
+| `Draft/In Process` + `Draft/Delivery Scheduled/Pickup Scheduled` | `Canceled` | `PUT /api/orders/:orderId/status` with `{ status: "Canceled" }` | blocked if any product already received |
+| `Canceled + any delivery status` | `Draft + Draft` | `PUT /api/orders/:orderId/status` with `{ status: "Draft" }` | delivery is reset to default customer-address draft snapshot |
 
 ## Explicitly Forbidden / Blocked Cases
 
@@ -41,16 +43,7 @@ On `POST /api/orders`:
 - `POST /api/orders/:orderId/delivery` is blocked outside `Draft`.
 - `POST /api/orders/:orderId/receive` is blocked unless:
   - `status = In Process`
-  - `deliveryStatus` in `Scheduled | Partially Delivered`
+  - `delivery.status in Delivery Scheduled | Pickup Scheduled | Partially Delivered`
 - Cancel is blocked when:
-  - `deliveryStatus` is `Partially Delivered` or `Delivered`
-  - at least one product position is already received (`received = true`)
-
-## Status Endpoint Payload Scope
-
-`PUT /api/orders/:orderId/status` accepts only:
-- `Draft`
-- `In Process`
-- `Canceled`
-
-`Completed` is system-derived from receive flow only.
+  - `delivery.status` is `Partially Delivered` or `Delivered`
+  - or at least one product position has `received = true`

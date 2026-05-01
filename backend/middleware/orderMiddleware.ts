@@ -202,14 +202,19 @@ export async function orderStatus(
     if (status === ORDER_STATUSES.IN_PROCESS && !order.delivery) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
-    if (status === ORDER_STATUSES.IN_PROCESS && order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED) {
+    if (
+      status === ORDER_STATUSES.IN_PROCESS &&
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED
+    ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
 
     if (
       status === ORDER_STATUSES.CANCELED &&
-      order.deliveryStatus !== DELIVERY_STATUSES.NOT_SCHEDULED &&
-      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED
+      order.delivery.status !== DELIVERY_STATUSES.DRAFT &&
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
@@ -275,8 +280,9 @@ export async function orderReceiveValidations(
     }
 
     if (
-      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED &&
-      order.deliveryStatus !== DELIVERY_STATUSES.PARTIALLY_DELIVERED
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PARTIALLY_DELIVERED
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
