@@ -54,6 +54,10 @@ On create (`POST /api/orders`):
 - `Draft + Not Scheduled` -> `Schedule`,
 - `Draft + Scheduled` -> edit pencil,
 - all other combinations -> no delivery edit actions.
+- Delivery payload and preview:
+  - UI sends `condition + address + express?` (no `finalDate` field),
+  - pricing preview (`total`, `delivery price`, schedule dates) is requested via `POST /api/orders/pricing` with debounce before save,
+  - if preview request fails, show warning and do not block save.
 
 5. Receive mode:
 - visible only for `In Process` with `Scheduled` or `Partially Delivered`,

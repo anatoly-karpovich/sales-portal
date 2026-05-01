@@ -7,7 +7,7 @@
 | Aspect | Details |
 | --- | --- |
 | Entry points | `#/orders`, `#/orders/{id}` |
-| APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/settings` |
+| APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/orders/pricing`, `/api/settings` |
 | Status model | Order status: `Draft / In Process / Completed / Canceled`; Delivery status: `Not Scheduled / Scheduled / Partially Delivered / Delivered` |
 | Success copy | "Order was successfully created/updated/canceled/processed/reopened", "Delivery was successfully saved", "Products were successfully received", "Manager was successfully assigned/unassigned", "Comment was successfully posted/deleted" |
 | Error copy | "Unable to create an order. Please try again later.", "No products found. Please add one before creating an order.", "Unable to assign manager. Please try again later.", etc. |
@@ -18,7 +18,7 @@
 | --- | --- |
 | Header | Title plus `Create Order` button. Clicking loads customers and products in parallel; spinner stays on the button until both succeed. Missing data raises the appropriate toaster copy. |
 | Toolbar | Search, status filters dialog (order + delivery statuses), export dialog (CSV/JSON + fields). |
-| Table | Columns Order Number (`_id`), Customer Email, Price (`$`), Delivery Date, Status, Assigned Manager, Created On. Sortable by configured fields. |
+| Table | Columns Order Number (`_id`), Customer Email, Price (`$`), Delivery Status, Status, Assigned Manager, Created On. Sortable by configured fields. |
 | Row actions | Details navigate to `#/orders/{id}`. `Reopen` appears only for canceled orders. |
 | Empty state | "No records found." when search/filters are active and no rows match; "No orders created yet." when the base dataset is empty. |
 | Pagination | Auto-adjust when page boundaries are exceeded after mutations. |
@@ -39,7 +39,7 @@
 | --- | --- |
 | Customer | Searchable selection list. Required. |
 | Products | Must contain at least one row; duplicates are not allowed by backend contract. |
-| Total price | Calculated automatically whenever selections change. |
+| Total price | Preview is requested from backend pricing endpoint (`POST /api/orders/pricing`) with debounce after product changes. |
 | Buttons | `Create` (disabled until valid) and `Cancel`. |
 
 - Dialog opens only after lightweight prechecks confirm at least one customer and one product exists.
@@ -58,17 +58,21 @@
 ### Delivery Management
 - Schedule/edit is available only for `Draft` orders (`Not Scheduled` -> `Schedule`, `Scheduled` -> edit).
 - `Location: Home/Other` is used for `Delivery` condition.
+- Delivery payload uses `condition + address + express?` (`express` is required for `Delivery`, omitted for `Pickup`).
+- Delivery form includes `Express` switch (`false` by default).
 - **Delivery condition**
   - State: dropdown (US states),
   - City: text input,
   - Street/House/Apartment/Zip Code: editable for `Other`, read-only for `Home` (customer address).
 - **Pickup condition**
-  - State dropdown is built from `settings.delivery.pickupLocations` keys.
+  - State dropdown is built from `settings.shipping.pickup.locations` keys.
   - City dropdown depends on selected state and uses only `isActive: true` locations.
   - `street/house/apartment/zipCode` are read-only and auto-filled from selected pickup location.
   - Save is disabled when selected pickup state has no available active cities.
 - Zip Code is masked and validated as `12345` or `12345-6789`.
 - Apartment is optional.
+- Form shows pricing preview (total, delivery price, and schedule dates) via `POST /api/orders/pricing`.
+- If preview request fails, UI shows warning and still allows save when form is valid.
 - Saving calls `POST /api/orders/{id}/delivery` and shows success toast.
 
 ### Receiving Flow
@@ -85,8 +89,8 @@
 
 | Tab | Behavior |
 | --- | --- |
-| Delivery | Shows scheduled data and edit/schedule actions based on status gates. |
-| Order History | Timeline with per-action diffs, including delivery address fields (`state/city/street/house/apartment/zipCode`). |
+| Delivery | Shows scheduled data and edit/schedule actions based on status gates. For `Delivery`, show `pricing tier`, `express`, and `estimated date`; for `Pickup`, show pickup window (`available from` / `pickup by`). |
+| Order History | Timeline with per-action diffs, including delivery `condition`, `express`, `price`, `schedule dates`, and one-line US-formatted address (`<house> <street>, Apt <apartment>, <city>, <STATE> <ZIP>`). |
 | Comments | Textarea with inline validation (1-250 chars, no `<`/`>`). `Create` stays disabled until valid. Existing comments show text, author fallback, timestamp, and delete icon (`DELETE /api/orders/{id}/comments/{commentId}`). |
 
 ## Backend Summary
@@ -97,6 +101,7 @@
 | Create order | `POST /api/orders` |
 | Get details | `GET /api/orders/:id` |
 | Update customer/products | `PATCH /api/orders/:id` |
+| Pricing preview | `POST /api/orders/pricing` |
 | Change status | `PUT /api/orders/:id/status` |
 | Assign manager | `PUT /api/orders/:id/assign-manager/:managerId` |
 | Unassign manager | `PUT /api/orders/:id/unassign-manager` |
