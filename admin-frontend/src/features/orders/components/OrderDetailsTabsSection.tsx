@@ -11,7 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { OrderComment, OrderDelivery, OrderDetails } from '@/api/modules/orders.api'
+import type { OrderComment, OrderDeliveryPayload, OrderDetails } from '@/api/modules/orders.api'
 import { OrderDetailsDeliveryTab } from '@/features/orders/components/OrderDetailsDeliveryTab'
 import { OrderHistoryTimeline } from '@/features/orders/components/OrderHistoryTimeline'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
@@ -25,7 +25,7 @@ type OrderDetailsTabsSectionProps = {
   onTabChange: (tab: OrderDetailsTab) => void
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
-  onSaveDelivery: (delivery: OrderDelivery) => Promise<boolean>
+  onSaveDelivery: (delivery: OrderDeliveryPayload) => Promise<boolean>
   commentDraft: string
   onCommentDraftChange: (value: string) => void
   isCommentValid: boolean
@@ -45,6 +45,14 @@ function resolveCommentAuthorName(comment: OrderComment) {
 
   const fullName = `${author.firstName ?? ''} ${author.lastName ?? ''}`.trim()
   return fullName || author.username || ordersUiText.detailsPage.placeholders.commentAuthorFallback
+}
+
+function resolveDeliveryScheduleKey(order: OrderDetails) {
+  if (!order.delivery) return 'none'
+  if ('estimatedDate' in order.delivery.schedule) {
+    return `delivery:${order.delivery.schedule.estimatedDate}:${order.delivery.schedule.express}`
+  }
+  return `pickup:${order.delivery.schedule.availableFromDate}:${order.delivery.schedule.pickupByDate}`
 }
 
 export function OrderDetailsTabsSection({
@@ -101,7 +109,9 @@ export function OrderDetailsTabsSection({
               order.customer.apartment ?? 'none',
               order.customer.zipCode,
               order.delivery?.condition ?? 'none',
-              order.delivery?.finalDate ?? 'none',
+              order.delivery?.price ?? 'none',
+              order.delivery?.pricingTier ?? 'none',
+              resolveDeliveryScheduleKey(order),
               order.delivery?.address.state ?? 'none',
               order.delivery?.address.city ?? 'none',
               order.delivery?.address.street ?? 'none',

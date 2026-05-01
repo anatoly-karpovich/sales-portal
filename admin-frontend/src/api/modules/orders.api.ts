@@ -14,6 +14,9 @@ export type OrderCustomerSnapshot = {
   name: string
 }
 
+export type OrderDeliveryCondition = 'Delivery' | 'Pickup'
+export type OrderDeliveryPricingTier = 'pickup' | 'local_city' | 'same_state' | 'out_of_state'
+
 export type OrderDeliveryAddress = {
   state: string
   city: string
@@ -23,10 +26,28 @@ export type OrderDeliveryAddress = {
   zipCode: string
 }
 
+export type OrderDeliverySchedule =
+  | {
+      express: boolean
+      estimatedDate: string
+    }
+  | {
+      availableFromDate: string
+      pickupByDate: string
+    }
+
 export type OrderDelivery = {
-  finalDate: string
-  condition: 'Delivery' | 'Pickup'
+  condition: OrderDeliveryCondition
   address: OrderDeliveryAddress
+  price: number
+  pricingTier: OrderDeliveryPricingTier
+  schedule: OrderDeliverySchedule
+}
+
+export type OrderDeliveryPayload = {
+  condition: OrderDeliveryCondition
+  address: OrderDeliveryAddress
+  express?: boolean
 }
 
 export type OrderAssignedManager = {
@@ -108,6 +129,29 @@ export type OrderDetails = Omit<OrderListItem, 'customer'> & {
   history: OrderHistoryEntry[]
 }
 
+export type OrderPricingResult = {
+  totalPrice: number
+  products: {
+    subtotal: number
+    linesCount: number
+    unitsCount: number
+  }
+  delivery: {
+    price: number
+    pricingTier: OrderDeliveryPricingTier | null
+    isExpress: boolean
+    lineCount: number
+    estimatedDays: number | null
+    estimatedDate: string | null
+    availableFromDate: string | null
+    pickupByDate: string | null
+    breakdown: {
+      basePerLine: number
+      expressExtraPerLine: number
+    }
+  }
+}
+
 export type OrdersListResponse = {
   Orders: OrderListItem[]
   total: number
@@ -126,6 +170,12 @@ export type OrdersListResponse = {
 
 type OrderResponse<TOrder = OrderListItem> = {
   Order: TOrder
+  IsSuccess: boolean
+  ErrorMessage: string | null
+}
+
+type OrderPricingResponse = {
+  Pricing: OrderPricingResult
   IsSuccess: boolean
   ErrorMessage: string | null
 }
@@ -164,6 +214,11 @@ export type OrderProductRequestItem = {
   quantity: number
 }
 
+export type OrderPricingPayload = {
+  products: OrderProductRequestItem[]
+  delivery?: OrderDeliveryPayload
+}
+
 export type UpdateOrderPayload =
   | {
       customer: string
@@ -198,7 +253,7 @@ export type OrderReceivePayload = {
 
 export type OrderDeliveryUpdatePayload = {
   orderId: string
-  delivery: OrderDelivery
+  delivery: OrderDeliveryPayload
 }
 
 export type OrderAssignManagerPayload = {
@@ -224,6 +279,11 @@ export async function getOrders(query: OrdersQuery) {
 export async function createOrder(payload: CreateOrderPayload) {
   const response = await apiClient.post<OrderResponse<OrderDetails>>('/orders', payload)
   return response.data.Order
+}
+
+export async function calculateOrderPricing(payload: OrderPricingPayload, requestConfig?: ApiRequestConfig) {
+  const response = await apiClient.post<OrderPricingResponse>('/orders/pricing', payload, requestConfig)
+  return response.data.Pricing
 }
 
 export async function updateOrder(orderId: string, payload: UpdateOrderPayload, requestConfig?: ApiRequestConfig) {
@@ -278,7 +338,7 @@ export async function receiveOrderProducts(
 
 export async function updateOrderDelivery(
   orderId: string,
-  delivery: OrderDelivery,
+  delivery: OrderDeliveryPayload,
   requestConfig?: ApiRequestConfig,
 ) {
   const response = await apiClient.post<OrderResponse<OrderDetails>>(

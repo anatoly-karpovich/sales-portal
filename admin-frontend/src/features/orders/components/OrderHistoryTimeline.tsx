@@ -135,14 +135,53 @@ function buildProductsById(products: OrderProduct[]) {
   return byId
 }
 
-function resolveDeliveryFieldValue(
-  delivery: OrderDelivery | null | undefined,
-  field: keyof OrderDelivery['address'] | 'condition' | 'finalDate',
-) {
+function resolveDeliveryAddressOneLine(delivery: OrderDelivery | null | undefined) {
   if (!delivery) return '-'
-  if (field === 'condition') return normalizeText(delivery.condition)
-  if (field === 'finalDate') return formatDate(delivery.finalDate)
-  return normalizeText(delivery.address?.[field])
+  const apartmentPart =
+    typeof delivery.address.apartment === 'number' ? `, Apt ${delivery.address.apartment}` : ''
+  return `${delivery.address.house} ${delivery.address.street}${apartmentPart}, ${delivery.address.city}, ${delivery.address.state} ${delivery.address.zipCode}`
+}
+
+function resolveDeliveryConditionValue(delivery: OrderDelivery | null | undefined) {
+  if (!delivery) return '-'
+  return normalizeText(delivery.condition)
+}
+
+function resolveDeliveryExpressValue(delivery: OrderDelivery | null | undefined) {
+  if (!delivery || delivery.condition !== 'Delivery') return '-'
+  if ('express' in delivery.schedule) {
+    return delivery.schedule.express ? 'Yes' : 'No'
+  }
+  return '-'
+}
+
+function resolveDeliveryPriceValue(delivery: OrderDelivery | null | undefined) {
+  if (!delivery) return '-'
+  return formatPrice(delivery.price)
+}
+
+function resolveDeliveryEstimatedDateValue(delivery: OrderDelivery | null | undefined) {
+  if (!delivery || delivery.condition !== 'Delivery') return '-'
+  if ('estimatedDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.estimatedDate)
+  }
+  return '-'
+}
+
+function resolveDeliveryAvailableFromDateValue(delivery: OrderDelivery | null | undefined) {
+  if (!delivery || delivery.condition !== 'Pickup') return '-'
+  if ('availableFromDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.availableFromDate)
+  }
+  return '-'
+}
+
+function resolveDeliveryPickupByDateValue(delivery: OrderDelivery | null | undefined) {
+  if (!delivery || delivery.condition !== 'Pickup') return '-'
+  if ('pickupByDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.pickupByDate)
+  }
+  return '-'
 }
 
 function resolveDeliverySummary(
@@ -150,7 +189,12 @@ function resolveDeliverySummary(
   delivery: OrderDelivery | null | undefined,
 ) {
   const statusLabel = normalizeText(deliveryStatus)
-  const dateLabel = delivery?.finalDate ? formatDate(delivery.finalDate) : '-'
+  const dateLabel =
+    delivery?.condition === 'Delivery'
+      ? resolveDeliveryEstimatedDateValue(delivery)
+      : delivery?.condition === 'Pickup'
+        ? `${resolveDeliveryAvailableFromDateValue(delivery)} - ${resolveDeliveryPickupByDateValue(delivery)}`
+        : '-'
 
   if (statusLabel === '-' && dateLabel === '-') {
     return ordersUiText.detailsPage.placeholders.noDelivery
@@ -187,43 +231,38 @@ function buildDeliveryChanges(
   return [
     {
       label: 'Delivery type',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'condition'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'condition'),
+      previous: resolveDeliveryConditionValue(previous?.delivery),
+      updated: resolveDeliveryConditionValue(current.delivery),
     },
     {
-      label: 'Delivery date',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'finalDate'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'finalDate'),
+      label: 'Express',
+      previous: resolveDeliveryExpressValue(previous?.delivery),
+      updated: resolveDeliveryExpressValue(current.delivery),
     },
     {
-      label: 'State',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'state'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'state'),
+      label: 'Delivery price',
+      previous: resolveDeliveryPriceValue(previous?.delivery),
+      updated: resolveDeliveryPriceValue(current.delivery),
     },
     {
-      label: 'City',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'city'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'city'),
+      label: 'Estimated date',
+      previous: resolveDeliveryEstimatedDateValue(previous?.delivery),
+      updated: resolveDeliveryEstimatedDateValue(current.delivery),
     },
     {
-      label: 'Street',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'street'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'street'),
+      label: 'Available from',
+      previous: resolveDeliveryAvailableFromDateValue(previous?.delivery),
+      updated: resolveDeliveryAvailableFromDateValue(current.delivery),
     },
     {
-      label: 'House',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'house'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'house'),
+      label: 'Pickup by',
+      previous: resolveDeliveryPickupByDateValue(previous?.delivery),
+      updated: resolveDeliveryPickupByDateValue(current.delivery),
     },
     {
-      label: 'Apartment',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'apartment'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'apartment'),
-    },
-    {
-      label: 'Zip Code',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'zipCode'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'zipCode'),
+      label: 'Address',
+      previous: resolveDeliveryAddressOneLine(previous?.delivery),
+      updated: resolveDeliveryAddressOneLine(current.delivery),
     },
   ]
 }

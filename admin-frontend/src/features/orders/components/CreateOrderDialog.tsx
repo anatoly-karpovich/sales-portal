@@ -24,6 +24,7 @@ import type { CreateOrderPayload } from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import {
   useOrderCustomerOptionsQuery,
+  useOrderPricingMutation,
   useOrderProductOptionsQuery,
   useOrderProductsAvailability,
 } from '@/features/orders/hooks/useOrdersQuery'
@@ -95,7 +96,11 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
   const [editingRowId, setEditingRowId] = useState<number | null>(null)
   const [productSearch, setProductSearch] = useState('')
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('')
+  const [pricingPreviewTotal, setPricingPreviewTotal] = useState<number | null>(null)
+  const [isPricingPreviewUnavailable, setIsPricingPreviewUnavailable] = useState(false)
+  const [isPricingPreviewLoading, setIsPricingPreviewLoading] = useState(false)
   const nextRowId = useRef(2)
+  const pricingRequestIdRef = useRef(0)
 
   const {
     data: settings,
@@ -161,6 +166,7 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
         .filter((product) => !selectedProductIdsOutsideActive.has(product._id)),
     [productOptionsQuery.data?.Products, selectedProductIdsOutsideActive],
   )
+  const { mutateAsync: calculatePricingAsync } = useOrderPricingMutation()
 
   const selectedProducts = useMemo(
     () =>
@@ -200,13 +206,53 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
     !hasUnavailableRows &&
     !isAvailabilityLoading &&
     !isSubmitting
+  const canRequestPricingPreview =
+    open && hasQuantityLimit && !hasEmptyRows && !hasDuplicateRows && selectedProducts.length > 0
 
-  const totalPrice = useMemo(() => {
-    return productRows.reduce((sum, row) => {
-      if (!row.summary) return sum
-      return sum + row.summary.price * row.quantity
-    }, 0)
-  }, [productRows])
+  useEffect(() => {
+    if (!canRequestPricingPreview) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const requestId = pricingRequestIdRef.current + 1
+      pricingRequestIdRef.current = requestId
+      setIsPricingPreviewLoading(true)
+
+      void calculatePricingAsync({
+          payload: {
+            products: selectedProducts,
+          },
+          requestConfig: { skipErrorToast: true },
+        })
+        .then((pricing) => {
+          if (pricingRequestIdRef.current !== requestId) return
+          setPricingPreviewTotal(pricing.totalPrice)
+          setIsPricingPreviewUnavailable(false)
+        })
+        .catch(() => {
+          if (pricingRequestIdRef.current !== requestId) return
+          setIsPricingPreviewUnavailable(true)
+          setPricingPreviewTotal(null)
+        })
+        .finally(() => {
+          if (pricingRequestIdRef.current !== requestId) return
+          setIsPricingPreviewLoading(false)
+        })
+    }, ORDER_DETAILS_SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    canRequestPricingPreview,
+    hasDuplicateRows,
+    hasEmptyRows,
+    hasQuantityLimit,
+    open,
+    calculatePricingAsync,
+    selectedProducts,
+  ])
 
   const handleOpenCustomerPicker = () => {
     if (isSubmitting) return
@@ -611,6 +657,12 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
               />
             </Stack>
           ) : null}
+
+          {canRequestPricingPreview && isPricingPreviewUnavailable ? (
+            <Alert severity="warning" data-testid="orders-create-pricing-preview-unavailable-alert">
+              {ordersUiText.errors.pricingPreviewUnavailable}
+            </Alert>
+          ) : null}
         </Stack>
       </DialogContent>
 
@@ -628,7 +680,11 @@ export function CreateOrderDialog({ open, isSubmitting, onClose, onSubmit }: Pro
             sx={{ fontWeight: 700, color: 'primary.main' }}
             data-testid="orders-create-total-price-value"
           >
-            {formatPrice(totalPrice)}
+            {canRequestPricingPreview && isPricingPreviewLoading ? (
+              <CircularProgress size={16} />
+            ) : (
+              formatPrice(canRequestPricingPreview ? pricingPreviewTotal : null)
+            )}
           </Typography>
         </Stack>
 

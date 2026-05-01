@@ -16,7 +16,7 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { useNavigate, useParams } from 'react-router-dom'
 import type {
   OrderAssignedManager,
-  OrderDelivery,
+  OrderDeliveryPayload,
   OrderDeliveryStatus,
   OrderProductRequestItem,
   OrderStatus,
@@ -615,7 +615,7 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleSaveDelivery = async (delivery: OrderDelivery) => {
+  const handleSaveDelivery = async (delivery: OrderDeliveryPayload) => {
     if (!orderId) return false
 
     try {
@@ -921,6 +921,7 @@ export function OrderDetailsPage() {
         <EditOrderProductsDialog
           open={isProductsEditDialogOpen}
           initialProducts={order.products}
+          currentDelivery={order.delivery}
           isSubmitting={updateOrderMutation.isPending}
           onClose={handleCloseProductsEditDialog}
           onSave={handleSaveEditedProducts}

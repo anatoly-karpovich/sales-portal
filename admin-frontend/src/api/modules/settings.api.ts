@@ -1,6 +1,18 @@
 import { apiClient } from '@/api/client'
 import type { ApiRequestConfig } from '@/api/types'
 
+export type PickupLocation = {
+  id: string
+  city: string
+  address: {
+    street: string
+    house: number
+    apartment?: number
+    zipCode: string
+  }
+  isActive: boolean
+}
+
 export type Settings = {
   order: {
     maxProductsInOrder: number
@@ -9,30 +21,50 @@ export type Settings = {
   inventory: {
     defaultLowStockThreshold: number
   }
-  delivery: {
-    basePricePerItem: number
-    extraPriceForOtherCity: number
-    pickupLocations: Record<
-      string,
-      Array<{
-        id: string
-        city: string
-        address: {
-          street: string
-          house: number
-          apartment?: number
-          zipCode: string
+  shipping: {
+    delivery: {
+      pricing: {
+        localCity: {
+          basePrice: number
+          minDays: number
+          express: {
+            days: number
+            extraPrice: number
+          }
         }
-        isActive: boolean
-      }>
-    >
+        sameState: {
+          basePrice: number
+          minDays: number
+          express: {
+            days: number
+            extraPrice: number
+          }
+        }
+        outOfState: {
+          basePrice: number
+          minDays: number
+          express: {
+            days: number
+            extraPrice: number
+          }
+        }
+      }
+    }
+    pickup: {
+      policy: {
+        readyInDays: number
+        holdForDays: number
+        remindBeforeDays?: number
+      }
+      locations: Record<string, PickupLocation[]>
+    }
   }
 }
 
 export type SettingsUpdatePayload = {
   order?: Partial<Settings['order']>
   inventory?: Partial<Settings['inventory']>
-  delivery?: Partial<Settings['delivery']>
+  shipping?: Partial<Settings['shipping']>
 }
 
 type SettingsResponse = {
