@@ -39,16 +39,21 @@ pricingRouter.post(
  *                   $ref: '#/components/schemas/OrderProductRequestItem'
  *               delivery:
  *                 type: object
- *                 required: [condition, address]
+ *                 required: [express, address]
  *                 properties:
- *                   condition:
- *                     type: string
- *                     enum: [Delivery, Pickup]
  *                   express:
  *                     type: boolean
- *                     description: Required for Delivery, must be false/omitted for Pickup
  *                   address:
  *                     $ref: '#/components/schemas/DeliveryAddress'
+ *               pickup:
+ *                 type: object
+ *                 required: [pickupLocationId]
+ *                 properties:
+ *                   pickupLocationId:
+ *                     type: string
+ *             allOf:
+ *               - not:
+ *                   required: [delivery, pickup]
  *     responses:
  *       200:
  *         description: Pricing calculated
@@ -80,25 +85,45 @@ pricingRouter.post(
  *                           type: string
  *                           nullable: true
  *                           enum: [pickup, local_city, same_state, out_of_state]
- *                         isExpress:
- *                           type: boolean
  *                         lineCount:
  *                           type: integer
- *                         estimatedDays:
- *                           type: integer
- *                           nullable: true
- *                         estimatedDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                         availableFromDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                         pickupByDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
+ *                         schedule:
+ *                           oneOf:
+ *                             - type: object
+ *                               required: [express, estimatedDays, estimatedDate, startsAt, dueDate]
+ *                               properties:
+ *                                 express:
+ *                                   type: boolean
+ *                                 estimatedDays:
+ *                                   type: integer
+ *                                 estimatedDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                 startsAt:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                                 dueDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                             - type: object
+ *                               required: [readyInDays, holdForDays, availableFromDate, pickupByDate, startsAt]
+ *                               properties:
+ *                                 readyInDays:
+ *                                   type: integer
+ *                                 holdForDays:
+ *                                   type: integer
+ *                                 availableFromDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                 pickupByDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                 startsAt:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
  *                         breakdown:
  *                           type: object
  *                           properties:
@@ -116,7 +141,7 @@ pricingRouter.post(
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Referenced product was not found
+ *         description: Referenced product or pickup location was not found
  */
 
 export default pricingRouter;

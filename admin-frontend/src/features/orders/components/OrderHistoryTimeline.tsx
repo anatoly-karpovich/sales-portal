@@ -38,13 +38,15 @@ type HistoryChange = {
 const STATUS_ACTIONS = new Set([
   'Order created',
   'Order canceled',
-  'Order processing started',
   'Order reopened',
 ])
+const PROCESSING_STARTED_ACTION = 'Order processing started'
 
 const DELIVERY_ACTIONS = new Set([
+  'Delivery Planned',
   'Delivery Scheduled',
   'Delivery Edited',
+  'Pickup Planned',
   'Pickup Scheduled',
   'Pickup Edited',
 ])
@@ -207,6 +209,46 @@ function buildStatusChanges(
       updated: normalizeText(current.status),
     },
   ]
+}
+
+function buildProcessingStartedChanges(
+  current: OrderHistoryEntry,
+  previous: OrderHistoryEntry | undefined,
+): HistoryChange[] {
+  const statusChanges = buildStatusChanges(current, previous)
+  const previousDelivery = previous?.delivery
+  const nextChanges: HistoryChange[] = [...statusChanges]
+  const appendIfChanged = (label: string, previousValue: string, updatedValue: string) => {
+    if (previousValue === updatedValue) return
+    nextChanges.push({
+      label,
+      previous: previousValue,
+      updated: updatedValue,
+    })
+  }
+
+  if (current.delivery.condition === 'Delivery') {
+    appendIfChanged(
+      'Estimated date',
+      previousDelivery ? resolveDeliveryEstimatedDateValue(previousDelivery) : '-',
+      resolveDeliveryEstimatedDateValue(current.delivery),
+    )
+  }
+
+  if (current.delivery.condition === 'Pickup') {
+    appendIfChanged(
+      'Available from',
+      previousDelivery ? resolveDeliveryAvailableFromDateValue(previousDelivery) : '-',
+      resolveDeliveryAvailableFromDateValue(current.delivery),
+    )
+    appendIfChanged(
+      'Pickup by',
+      previousDelivery ? resolveDeliveryPickupByDateValue(previousDelivery) : '-',
+      resolveDeliveryPickupByDateValue(current.delivery),
+    )
+  }
+
+  return nextChanges
 }
 
 function buildDeliveryChanges(
@@ -439,6 +481,9 @@ function buildHistoryChanges(
 ): HistoryChange[] {
   const action = resolveActionLabel(current.action)
 
+  if (action === PROCESSING_STARTED_ACTION) {
+    return buildProcessingStartedChanges(current, previous)
+  }
   if (STATUS_ACTIONS.has(action)) return buildStatusChanges(current, previous)
   if (DELIVERY_ACTIONS.has(action)) return buildDeliveryChanges(current, previous)
   if (CUSTOMER_ACTIONS.has(action)) return buildCustomerChanges(current, previous, customerNames)

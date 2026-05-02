@@ -11,6 +11,15 @@ export type IDeliveryAddress = {
   zipCode: string;
 };
 
+export interface IDeliveryUpdatePayload {
+  express: boolean;
+  address: IDeliveryAddress;
+}
+
+export interface IPickupUpdatePayload {
+  pickupLocationId: string;
+}
+
 export interface IDeliveryPayload {
   condition: DELIVERY;
   express?: boolean;
@@ -20,11 +29,17 @@ export interface IDeliveryPayload {
 export type IDeliverySchedule =
   | {
       express: boolean;
+      estimatedDays: number;
       estimatedDate: string;
+      startsAt: string | null;
+      dueDate: string | null;
     }
   | {
+      readyInDays: number;
+      holdForDays: number;
       availableFromDate: string;
       pickupByDate: string;
+      startsAt: string | null;
     };
 
 export interface IDeliverySnapshotCore {
@@ -37,4 +52,6 @@ export interface IDeliverySnapshotCore {
 
 export interface IDelivery extends IDeliverySnapshotCore {
   status: DELIVERY_STATUSES;
+  isOverdue?: boolean;
+  overdueByDays?: number;
 }

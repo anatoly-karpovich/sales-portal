@@ -4,6 +4,8 @@ import type { ApiRequestConfig } from '@/api/types'
 export type OrderStatus = 'Draft' | 'In Process' | 'Completed' | 'Canceled'
 export type OrderDeliveryStatus =
   | 'Draft'
+  | 'Delivery Planned'
+  | 'Pickup Planned'
   | 'Delivery Scheduled'
   | 'Pickup Scheduled'
   | 'Partially Delivered'
@@ -30,11 +32,17 @@ export type OrderDeliveryAddress = {
 export type OrderDeliverySchedule =
   | {
       express: boolean
-      estimatedDate: string
+      estimatedDays: number | null
+      estimatedDate: string | null
+      startsAt: string | null
+      dueDate: string | null
     }
   | {
-      availableFromDate: string
-      pickupByDate: string
+      readyInDays: number | null
+      holdForDays: number | null
+      availableFromDate: string | null
+      pickupByDate: string | null
+      startsAt: string | null
     }
 
 export type OrderDelivery = {
@@ -44,12 +52,17 @@ export type OrderDelivery = {
   price: number
   pricingTier: OrderDeliveryPricingTier
   schedule: OrderDeliverySchedule
+  isOverdue: boolean
+  overdueByDays: number
 }
 
-export type OrderDeliveryPayload = {
-  condition: OrderDeliveryCondition
+export type OrderDeliveryByAddressPayload = {
+  express: boolean
   address: OrderDeliveryAddress
-  express?: boolean
+}
+
+export type OrderPickupPayload = {
+  pickupLocationId: string
 }
 
 export type OrderAssignedManager = {
@@ -145,6 +158,21 @@ export type OrderPricingResult = {
     estimatedDate: string | null
     availableFromDate: string | null
     pickupByDate: string | null
+    schedule?:
+      | {
+          express: boolean
+          estimatedDays: number | null
+          estimatedDate: string | null
+          startsAt: string | null
+          dueDate: string | null
+        }
+      | {
+          readyInDays: number | null
+          holdForDays: number | null
+          availableFromDate: string | null
+          pickupByDate: string | null
+          startsAt: string | null
+        }
     breakdown: {
       basePerLine: number
       expressExtraPerLine: number
@@ -178,6 +206,26 @@ type OrderPricingResponse = {
   Pricing: OrderPricingResult
   IsSuccess: boolean
   ErrorMessage: string | null
+}
+
+function normalizeOrderPricingResult(pricing: OrderPricingResult): OrderPricingResult {
+  const schedule = pricing.delivery.schedule
+  const estimatedDateFromSchedule =
+    schedule && 'estimatedDate' in schedule ? schedule.estimatedDate : null
+  const availableFromDateFromSchedule =
+    schedule && 'availableFromDate' in schedule ? schedule.availableFromDate : null
+  const pickupByDateFromSchedule =
+    schedule && 'pickupByDate' in schedule ? schedule.pickupByDate : null
+
+  return {
+    ...pricing,
+    delivery: {
+      ...pricing.delivery,
+      estimatedDate: pricing.delivery.estimatedDate ?? estimatedDateFromSchedule,
+      availableFromDate: pricing.delivery.availableFromDate ?? availableFromDateFromSchedule,
+      pickupByDate: pricing.delivery.pickupByDate ?? pickupByDateFromSchedule,
+    },
+  }
 }
 
 export type OrdersQuery = {
@@ -214,10 +262,22 @@ export type OrderProductRequestItem = {
   quantity: number
 }
 
-export type OrderPricingPayload = {
-  products: OrderProductRequestItem[]
-  delivery?: OrderDeliveryPayload
-}
+export type OrderPricingPayload =
+  | {
+      products: OrderProductRequestItem[]
+      delivery: OrderDeliveryByAddressPayload
+      pickup?: never
+    }
+  | {
+      products: OrderProductRequestItem[]
+      pickup: OrderPickupPayload
+      delivery?: never
+    }
+  | {
+      products: OrderProductRequestItem[]
+      delivery?: never
+      pickup?: never
+    }
 
 export type UpdateOrderPayload =
   | {
@@ -253,7 +313,12 @@ export type OrderReceivePayload = {
 
 export type OrderDeliveryUpdatePayload = {
   orderId: string
-  delivery: OrderDeliveryPayload
+  delivery: OrderDeliveryByAddressPayload
+}
+
+export type OrderPickupUpdatePayload = {
+  orderId: string
+  pickup: OrderPickupPayload
 }
 
 export type OrderAssignManagerPayload = {
@@ -283,7 +348,7 @@ export async function createOrder(payload: CreateOrderPayload) {
 
 export async function calculateOrderPricing(payload: OrderPricingPayload, requestConfig?: ApiRequestConfig) {
   const response = await apiClient.post<OrderPricingResponse>('/orders/pricing', payload, requestConfig)
-  return response.data.Pricing
+  return normalizeOrderPricingResult(response.data.Pricing)
 }
 
 export async function updateOrder(orderId: string, payload: UpdateOrderPayload, requestConfig?: ApiRequestConfig) {
@@ -338,12 +403,25 @@ export async function receiveOrderProducts(
 
 export async function updateOrderDelivery(
   orderId: string,
-  delivery: OrderDeliveryPayload,
+  delivery: OrderDeliveryByAddressPayload,
   requestConfig?: ApiRequestConfig,
 ) {
-  const response = await apiClient.post<OrderResponse<OrderDetails>>(
+  const response = await apiClient.patch<OrderResponse<OrderDetails>>(
     `/orders/${orderId}/delivery`,
     delivery,
+    requestConfig,
+  )
+  return response.data.Order
+}
+
+export async function updateOrderPickup(
+  orderId: string,
+  pickup: OrderPickupPayload,
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.patch<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}/pickup`,
+    pickup,
     requestConfig,
   )
   return response.data.Order

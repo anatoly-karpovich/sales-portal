@@ -1,11 +1,13 @@
 import { createElement } from 'react'
-import { Typography } from '@mui/material'
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded'
+import { Box, Tooltip, Typography } from '@mui/material'
 import type { OrderListItem } from '@/api/modules/orders.api'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { getOrderStatusColor } from '@/utils/orderStatus'
 import { OrdersTableActionsCell } from '@/features/orders/components/OrdersTableActionsCell'
+import { getOverdueByDaysLabel } from '@/features/orders/orders.ui-text'
 
 export const ORDERS_EXPORT_AVAILABLE_FIELDS = [
   'status',
@@ -90,7 +92,23 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
       label: 'Delivery',
       width: '16%',
       minWidth: 200,
-      render: (row) => row.delivery.status || '-',
+      render: (row) =>
+        createElement(
+          Box,
+          { sx: { display: 'inline-flex', alignItems: 'center', gap: 0.75 } },
+          createElement('span', null, row.delivery.status || '-'),
+          row.delivery.isOverdue
+            ? createElement(
+                Tooltip,
+                { title: getOverdueByDaysLabel(row.delivery.overdueByDays) },
+                createElement(ErrorOutlineRoundedIcon, {
+                  color: 'error',
+                  fontSize: 'small',
+                  'data-testid': 'orders-table-delivery-overdue-icon',
+                }),
+              )
+            : null,
+        ),
     },
     {
       key: 'assignedManager',

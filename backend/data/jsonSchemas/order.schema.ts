@@ -1,5 +1,6 @@
 import { AllowedSchema } from "express-json-validator-middleware";
-import { DELIVERY, ORDER_STATUSES } from "../enums";
+import { JSONSchema7 } from "json-schema";
+import { ORDER_STATUSES } from "../enums";
 import { US_STATE_CODES } from "../usStates";
 
 export const orderCreateSchema: AllowedSchema = {
@@ -68,43 +69,37 @@ export const orderStatusSchema: AllowedSchema = {
   required: ["status"],
 };
 
-export const orderDeliverySchema: AllowedSchema = {
+const deliveryAddressSchema: JSONSchema7 = {
   type: "object",
   properties: {
-    condition: { type: "string", enum: Object.values(DELIVERY) },
-    express: { type: "boolean" },
-    address: {
-      type: "object",
-      properties: {
-        state: { type: "string", enum: [...US_STATE_CODES] },
-        city: { type: "string" },
-        street: { type: "string" },
-        house: { type: "integer" },
-        apartment: { type: "integer", minimum: 1 },
-        zipCode: { type: "string", pattern: "^\\d{5}(-\\d{4})?$" },
-      },
-      required: ["state", "city", "street", "house", "zipCode"],
-      additionalProperties: false,
-    },
+    state: { type: "string", enum: [...US_STATE_CODES] },
+    city: { type: "string" },
+    street: { type: "string" },
+    house: { type: "integer" },
+    apartment: { type: "integer", minimum: 1 },
+    zipCode: { type: "string", pattern: "^\\d{5}(-\\d{4})?$" },
   },
-  required: ["condition", "address"],
-  allOf: [
-    {
-      if: {
-        properties: {
-          condition: { const: DELIVERY.DELIVERY },
-        },
-      },
-      then: {
-        required: ["express"],
-      },
-      else: {
-        properties: {
-          express: { enum: [false] },
-        },
-      },
-    },
-  ],
+  required: ["state", "city", "street", "house", "zipCode"],
+  additionalProperties: false,
+};
+
+export const orderDeliveryUpdateSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    express: { type: "boolean" },
+    address: deliveryAddressSchema,
+  },
+  required: ["express", "address"],
+  additionalProperties: false,
+};
+
+export const orderPickupUpdateSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    pickupLocationId: { type: "string", minLength: 1 },
+  },
+  required: ["pickupLocationId"],
+  additionalProperties: false,
 };
 
 export const orderPricingSchema: AllowedSchema = {
@@ -126,44 +121,29 @@ export const orderPricingSchema: AllowedSchema = {
     delivery: {
       type: "object",
       properties: {
-        condition: { type: "string", enum: Object.values(DELIVERY) },
         express: { type: "boolean" },
-        address: {
-          type: "object",
-          properties: {
-            state: { type: "string", enum: [...US_STATE_CODES] },
-            city: { type: "string" },
-            street: { type: "string" },
-            house: { type: "integer" },
-            apartment: { type: "integer", minimum: 1 },
-            zipCode: { type: "string", pattern: "^\\d{5}(-\\d{4})?$" },
-          },
-          required: ["state", "city", "street", "house", "zipCode"],
-          additionalProperties: false,
-        },
+        address: deliveryAddressSchema,
       },
-      required: ["condition", "address"],
-      allOf: [
-        {
-          if: {
-            properties: {
-              condition: { const: DELIVERY.DELIVERY },
-            },
-          },
-          then: {
-            required: ["express"],
-          },
-          else: {
-            properties: {
-              express: { enum: [false] },
-            },
-          },
-        },
-      ],
+      required: ["express", "address"],
+      additionalProperties: false,
+    },
+    pickup: {
+      type: "object",
+      properties: {
+        pickupLocationId: { type: "string", minLength: 1 },
+      },
+      required: ["pickupLocationId"],
       additionalProperties: false,
     },
   },
   required: ["products"],
+  allOf: [
+    {
+      not: {
+        required: ["delivery", "pickup"],
+      },
+    },
+  ],
   additionalProperties: false,
 };
 

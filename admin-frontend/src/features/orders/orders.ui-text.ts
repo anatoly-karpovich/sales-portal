@@ -234,3 +234,7 @@ export function getReopenOrderMessage(orderId?: string) {
     ? `Are you sure you want to reopen order "${orderId}"?`
     : 'Are you sure you want to reopen this order?'
 }
+
+export function getOverdueByDaysLabel(overdueByDays: number) {
+  return `Overdue by ${overdueByDays} day${overdueByDays === 1 ? '' : 's'}`
+}

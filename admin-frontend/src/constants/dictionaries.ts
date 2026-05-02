@@ -4,6 +4,8 @@ export const ORDER_STATUSES = ['Draft', 'In Process', 'Completed', 'Canceled'] a
 
 export const DELIVERY_STATUSES = [
   'Draft',
+  'Delivery Planned',
+  'Pickup Planned',
   'Delivery Scheduled',
   'Pickup Scheduled',
   'Partially Delivered',

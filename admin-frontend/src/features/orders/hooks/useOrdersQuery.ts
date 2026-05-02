@@ -15,6 +15,7 @@ import {
   receiveOrderProducts,
   unassignOrderManager,
   updateOrderDelivery,
+  updateOrderPickup,
   updateOrder,
   updateOrderStatus,
   type OrderDetails,
@@ -22,6 +23,7 @@ import {
   type OrderCommentCreatePayload,
   type OrderCommentDeletePayload,
   type OrderDeliveryUpdatePayload,
+  type OrderPickupUpdatePayload,
   type OrderUnassignManagerPayload,
   type OrderReceivePayload,
   type UpdateOrderPayload,
@@ -245,6 +247,25 @@ export function useUpdateOrderDeliveryMutation() {
       requestConfig,
     }: OrderDeliveryUpdatePayload & { requestConfig?: ApiRequestConfig }) =>
       updateOrderDelivery(orderId, delivery, requestConfig),
+    onSuccess: (updatedOrder, variables) => {
+      queryClient.setQueryData<OrderDetails>(
+        ordersQueryKeys.detail(variables.orderId),
+        updatedOrder,
+      )
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+    },
+  })
+}
+
+export function useUpdateOrderPickupMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      pickup,
+      requestConfig,
+    }: OrderPickupUpdatePayload & { requestConfig?: ApiRequestConfig }) =>
+      updateOrderPickup(orderId, pickup, requestConfig),
     onSuccess: (updatedOrder, variables) => {
       queryClient.setQueryData<OrderDetails>(
         ordersQueryKeys.detail(variables.orderId),

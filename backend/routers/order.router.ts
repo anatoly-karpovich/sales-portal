@@ -163,7 +163,7 @@ orderRouter.put(
  *       properties:
  *         status:
  *           type: string
- *           enum: [Draft, Delivery Scheduled, Pickup Scheduled, Partially Delivered, Delivered]
+ *           enum: [Draft, Delivery Planned, Pickup Planned, Delivery Scheduled, Pickup Scheduled, Partially Delivered, Delivered]
  *         condition:
  *           type: string
  *           enum: [Delivery, Pickup]
@@ -172,26 +172,48 @@ orderRouter.put(
  *         pricingTier:
  *           type: string
  *           enum: [pickup, local_city, same_state, out_of_state]
+ *         isOverdue:
+ *           type: boolean
+ *         overdueByDays:
+ *           type: integer
  *         schedule:
  *           type: object
  *           oneOf:
  *             - type: object
- *               required: [express, estimatedDate]
+ *               required: [express, estimatedDays, estimatedDate, startsAt, dueDate]
  *               properties:
  *                 express:
  *                   type: boolean
+ *                 estimatedDays:
+ *                   type: integer
  *                 estimatedDate:
  *                   type: string
- *                   format: date-time
+ *                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                 startsAt:
+ *                   type: string
+ *                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                   nullable: true
+ *                 dueDate:
+ *                   type: string
+ *                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                   nullable: true
  *             - type: object
- *               required: [availableFromDate, pickupByDate]
+ *               required: [readyInDays, holdForDays, availableFromDate, pickupByDate, startsAt]
  *               properties:
+ *                 readyInDays:
+ *                   type: integer
+ *                 holdForDays:
+ *                   type: integer
  *                 availableFromDate:
  *                   type: string
- *                   format: date-time
+ *                   pattern: ^\d{4}-\d{2}-\d{2}$
  *                 pickupByDate:
  *                   type: string
- *                   format: date-time
+ *                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                 startsAt:
+ *                   type: string
+ *                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                   nullable: true
  *         address:
  *           $ref: '#/components/schemas/DeliveryAddress'
  *     OrderComment:
@@ -247,8 +269,10 @@ orderRouter.put(
  *             - Customer changed
  *             - Requested products changed
  *             - Order processing started
+ *             - Delivery Planned
  *             - Delivery Scheduled
  *             - Delivery Edited
+ *             - Pickup Planned
  *             - Pickup Scheduled
  *             - Pickup Edited
  *             - Received
@@ -414,7 +438,7 @@ orderRouter.put(
  *               type: array
  *               items:
  *                 type: string
- *                 enum: [Draft, Delivery Scheduled, Pickup Scheduled, Partially Delivered, Delivered]
+ *                 enum: [Draft, Delivery Planned, Pickup Planned, Delivery Scheduled, Pickup Scheduled, Partially Delivered, Delivered]
  *             page:
  *               type: number
  *             limit:

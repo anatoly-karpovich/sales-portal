@@ -11,13 +11,27 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { OrderComment, OrderDeliveryPayload, OrderDetails } from '@/api/modules/orders.api'
+import type {
+  OrderComment,
+  OrderDeliveryByAddressPayload,
+  OrderDetails,
+  OrderPickupPayload,
+} from '@/api/modules/orders.api'
 import { OrderDetailsDeliveryTab } from '@/features/orders/components/OrderDetailsDeliveryTab'
 import { OrderHistoryTimeline } from '@/features/orders/components/OrderHistoryTimeline'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatDateTime } from '@/utils/date'
 
 export type OrderDetailsTab = 'delivery' | 'history' | 'comments'
+export type OrderDeliverySavePayload =
+  | {
+      mode: 'delivery'
+      payload: OrderDeliveryByAddressPayload
+    }
+  | {
+      mode: 'pickup'
+      payload: OrderPickupPayload
+    }
 
 type OrderDetailsTabsSectionProps = {
   order: OrderDetails
@@ -25,7 +39,7 @@ type OrderDetailsTabsSectionProps = {
   onTabChange: (tab: OrderDetailsTab) => void
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
-  onSaveDelivery: (delivery: OrderDeliveryPayload) => Promise<boolean>
+  onSaveDelivery: (delivery: OrderDeliverySavePayload) => Promise<boolean>
   commentDraft: string
   onCommentDraftChange: (value: string) => void
   isCommentValid: boolean
@@ -49,9 +63,9 @@ function resolveCommentAuthorName(comment: OrderComment) {
 
 function resolveDeliveryScheduleKey(order: OrderDetails) {
   if ('estimatedDate' in order.delivery.schedule) {
-    return `delivery:${order.delivery.schedule.estimatedDate}:${order.delivery.schedule.express}`
+    return `delivery:${order.delivery.schedule.estimatedDate}:${order.delivery.schedule.startsAt}:${order.delivery.schedule.dueDate}:${order.delivery.schedule.express}`
   }
-  return `pickup:${order.delivery.schedule.availableFromDate}:${order.delivery.schedule.pickupByDate}`
+  return `pickup:${order.delivery.schedule.availableFromDate}:${order.delivery.schedule.pickupByDate}:${order.delivery.schedule.startsAt}`
 }
 
 export function OrderDetailsTabsSection({

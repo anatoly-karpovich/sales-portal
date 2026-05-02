@@ -17,6 +17,9 @@ export interface ISettings {
     defaultLowStockThreshold: number;
   };
   shipping: {
+    processing: {
+      cutoffHour: number;
+    };
     delivery: {
       pricing: IDeliveryPricing;
     };

@@ -5,6 +5,7 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   IconButton,
   Paper,
@@ -14,7 +15,7 @@ import {
 } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { OrderDetails } from '@/api/modules/orders.api'
-import { ordersUiText } from '@/features/orders/orders.ui-text'
+import { getOverdueByDaysLabel, ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { getOrderStatusColor } from '@/utils/orderStatus'
@@ -313,11 +314,22 @@ export function OrderDetailsSummarySection({
             </Typography>
             <Typography
               variant="subtitle1"
-              sx={{ fontWeight: 700 }}
+              sx={{ fontWeight: 700, color: order.delivery.isOverdue ? 'error.main' : 'text.primary' }}
               data-testid="order-details-summary-delivery-date-value"
             >
               {order.delivery.status}
             </Typography>
+            {order.delivery.isOverdue ? (
+              <Tooltip title={getOverdueByDaysLabel(order.delivery.overdueByDays)}>
+                <Chip
+                  size="small"
+                  color="error"
+                  label={getOverdueByDaysLabel(order.delivery.overdueByDays)}
+                  data-testid="order-details-summary-delivery-overdue-badge"
+                  sx={{ alignSelf: 'flex-start', fontWeight: 600 }}
+                />
+              </Tooltip>
+            ) : null}
           </Stack>
 
           <Stack
