@@ -89,7 +89,8 @@ Top-level source layout:
   - typed orders list contract (`GET /orders`);
   - order model uses split state axes:
     - `status`: `Draft | In Process | Completed | Canceled`;
-    - `deliveryStatus`: `Not Scheduled | Scheduled | Partially Delivered | Delivered`;
+    - `delivery.status`: `Draft | Delivery Scheduled | Pickup Scheduled | Partially Delivered | Delivered`;
+    - list/filter/export request key for delivery axis remains `deliveryStatus`.
   - create order (`POST /orders`);
   - update order customer/products (`PATCH /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
@@ -168,7 +169,7 @@ Top-level source layout:
     - customer precheck requests pass customers-state filter defaults (`state: []`) to satisfy customers API contract.
   - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment and pricing preview (`POST /orders/pricing`)
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
-    - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `deliveryStatus`.
+    - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `order.delivery.status`.
     - export fields include both `delivery` and `deliveryStatus`.
   - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit)
   - `components/OrdersFiltersDialog.tsx` - orders-only filters modal with two accordions:
@@ -197,8 +198,8 @@ Top-level source layout:
   - `components/OrderDetailsDeliveryTab.tsx` - delivery tab content:
     - view mode with delivery summary and source chip;
     - status-based actions:
-      - `Draft + Not Scheduled` -> `Schedule`;
-      - `Draft + Scheduled` -> edit pencil;
+      - `Draft + Draft` -> `Schedule`;
+      - `Draft + Delivery Scheduled|Pickup Scheduled` -> edit pencil;
       - any other state combination -> no delivery edit actions;
     - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules and `Express` switch for `Delivery` (default `false`);
     - `settings`-driven pickup options:
@@ -207,12 +208,19 @@ Top-level source layout:
     - delivery address uses `state/city/street/house/apartment?/zipCode`;
     - pickup `street/house/apartment/zipCode` remain read-only and are auto-filled by selected pickup location;
     - form payload is `condition + address + express?` (no `finalDate` input in UI);
+    - pricing preview is rendered as compact metric cards (`Total`, `Delivery`, date fields);
     - pricing preview (total, delivery price, schedule dates) is loaded from pricing endpoint before save;
+    - save is enabled after pricing response is received and form is valid;
     - preview failures show warning state but do not block save when form is valid.
   - `components/OrderHistoryTimeline.tsx` - order history tab timeline:
     - timeline + accordion cards grouped by history events;
     - per-action diff blocks (status, delivery fields, customer, requested products, receive, manager assignment);
-    - delivery diff tracks `condition`, `express`, `price`, `schedule` dates, and one-line formatted US address;
+    - delivery diff rules:
+      - always show anchor rows: `Delivery type`, `Delivery price`, `Address`;
+      - show only changed type-specific rows for current delivery type:
+        - `Delivery` -> `Express`, `Estimated date`;
+        - `Pickup` -> `Available from`, `Pickup by`;
+      - supports pickup actions (`Pickup Scheduled`, `Pickup Edited`);
     - fallback diff mode for unknown actions;
     - state snapshot and product chips per event;
     - lazy customer name resolution for historical customer ids;
@@ -221,9 +229,9 @@ Top-level source layout:
   - `pages/OrderDetailsPage.tsx` - implemented details page:
     - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
-    - action visibility/availability is based on both `status` and `deliveryStatus`:
-      - `Process` is shown only for `Draft`; enabled only when `deliveryStatus = Scheduled`;
-      - `Cancel` is shown only for `Draft | In Process` with `deliveryStatus in [Not Scheduled, Scheduled]`;
+    - action visibility/availability is based on `status` and `order.delivery.status`:
+      - `Process` is shown only for `Draft`; enabled only when `delivery.status in [Delivery Scheduled, Pickup Scheduled]`;
+      - `Cancel` is shown only for `Draft | In Process` with `delivery.status in [Draft, Delivery Scheduled, Pickup Scheduled]`;
       - `Reopen` is shown only for `Canceled`;
     - read-only customer/products blocks;
     - manager assignment flow:
@@ -235,7 +243,7 @@ Top-level source layout:
       - unassign uses shared `ConfirmDialog`;
       - assign/unassign success closes modal, shows toast, and refreshes details with skeleton reload;
     - receive mode for products:
-      - available only when `status = In Process` and `deliveryStatus in [Scheduled, Partially Delivered]`;
+      - available only when `status = In Process` and `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`;
       - `Receive` CTA only when there are pending (not received) products;
       - per-product checkboxes in receive mode with `Select All`;
       - already received rows are prechecked and disabled;

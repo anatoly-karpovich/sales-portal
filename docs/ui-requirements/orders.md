@@ -79,6 +79,7 @@
   - state/city options are loaded from `settings.shipping.pickup.locations`
   - only active pickup cities are selectable
   - street/house/apartment/zip are auto-filled and read-only
+- Pricing preview is rendered as compact metric cards (not stretched label/value rows).
 - Save button is enabled after pricing response is received and form remains valid.
 - Pricing preview errors show warning but do not block save.
 
@@ -87,7 +88,7 @@
 | Tab | Behavior |
 | --- | --- |
 | Delivery | Shows delivery snapshot and schedule/edit controls by gates. |
-| Order History | Timeline with diffs, including delivery changes and pickup-specific actions. |
+| Order History | Timeline with diffs, including delivery changes and pickup-specific actions. Delivery diff always includes anchor rows (`Delivery type`, `Delivery price`, `Address`) and adds only changed type-specific rows for the current delivery type (`Delivery`: `Express`, `Estimated date`; `Pickup`: `Available from`, `Pickup by`). |
 | Comments | Create/delete comments with inline validation (`1..250`, no `<`/`>`). |
 
 ## Backend Summary

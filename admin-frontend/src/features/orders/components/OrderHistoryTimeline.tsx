@@ -213,43 +213,62 @@ function buildDeliveryChanges(
   current: OrderHistoryEntry,
   previous: OrderHistoryEntry | undefined,
 ): HistoryChange[] {
-  return [
-    {
-      label: 'Delivery type',
-      previous: previous?.delivery ? resolveDeliveryConditionValue(previous.delivery) : '-',
-      updated: resolveDeliveryConditionValue(current.delivery),
-    },
-    {
-      label: 'Express',
-      previous: previous?.delivery ? resolveDeliveryExpressValue(previous.delivery) : '-',
-      updated: resolveDeliveryExpressValue(current.delivery),
-    },
-    {
-      label: 'Delivery price',
-      previous: previous?.delivery ? resolveDeliveryPriceValue(previous.delivery) : '-',
-      updated: resolveDeliveryPriceValue(current.delivery),
-    },
-    {
-      label: 'Estimated date',
-      previous: previous?.delivery ? resolveDeliveryEstimatedDateValue(previous.delivery) : '-',
-      updated: resolveDeliveryEstimatedDateValue(current.delivery),
-    },
-    {
-      label: 'Available from',
-      previous: previous?.delivery ? resolveDeliveryAvailableFromDateValue(previous.delivery) : '-',
-      updated: resolveDeliveryAvailableFromDateValue(current.delivery),
-    },
-    {
-      label: 'Pickup by',
-      previous: previous?.delivery ? resolveDeliveryPickupByDateValue(previous.delivery) : '-',
-      updated: resolveDeliveryPickupByDateValue(current.delivery),
-    },
-    {
-      label: 'Address',
-      previous: previous?.delivery ? resolveDeliveryAddressOneLine(previous.delivery) : '-',
-      updated: resolveDeliveryAddressOneLine(current.delivery),
-    },
-  ]
+  const previousDelivery = previous?.delivery
+  const changes: HistoryChange[] = []
+
+  const appendIfChanged = (label: string, previousValue: string, updatedValue: string) => {
+    if (previousValue === updatedValue) return
+    changes.push({
+      label,
+      previous: previousValue,
+      updated: updatedValue,
+    })
+  }
+
+  // Anchor rows are always shown for delivery changes.
+  changes.push({
+    label: 'Delivery type',
+    previous: previousDelivery ? resolveDeliveryConditionValue(previousDelivery) : '-',
+    updated: resolveDeliveryConditionValue(current.delivery),
+  })
+  changes.push({
+    label: 'Delivery price',
+    previous: previousDelivery ? resolveDeliveryPriceValue(previousDelivery) : '-',
+    updated: resolveDeliveryPriceValue(current.delivery),
+  })
+  changes.push({
+    label: 'Address',
+    previous: previousDelivery ? resolveDeliveryAddressOneLine(previousDelivery) : '-',
+    updated: resolveDeliveryAddressOneLine(current.delivery),
+  })
+
+  if (current.delivery.condition === 'Delivery') {
+    appendIfChanged(
+      'Express',
+      previousDelivery ? resolveDeliveryExpressValue(previousDelivery) : '-',
+      resolveDeliveryExpressValue(current.delivery),
+    )
+    appendIfChanged(
+      'Estimated date',
+      previousDelivery ? resolveDeliveryEstimatedDateValue(previousDelivery) : '-',
+      resolveDeliveryEstimatedDateValue(current.delivery),
+    )
+  }
+
+  if (current.delivery.condition === 'Pickup') {
+    appendIfChanged(
+      'Available from',
+      previousDelivery ? resolveDeliveryAvailableFromDateValue(previousDelivery) : '-',
+      resolveDeliveryAvailableFromDateValue(current.delivery),
+    )
+    appendIfChanged(
+      'Pickup by',
+      previousDelivery ? resolveDeliveryPickupByDateValue(previousDelivery) : '-',
+      resolveDeliveryPickupByDateValue(current.delivery),
+    )
+  }
+
+  return changes
 }
 
 function buildCustomerChanges(

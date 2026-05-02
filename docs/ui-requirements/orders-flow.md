@@ -59,12 +59,19 @@ On create (`POST /api/orders`):
 5. Delivery form behavior:
 - payload is `condition + address + express?`
 - pricing preview (`total`, `delivery price`, schedule dates) is debounced via `POST /api/orders/pricing`
+- pricing preview is displayed as compact metric cards
 - save becomes available after pricing response is received and form is valid
 - preview failure shows warning, but save stays available
 
 6. Receive mode:
 - visible only for `In Process` with `Delivery Scheduled`, `Pickup Scheduled`, or `Partially Delivered`
 - available only if at least one product is still pending
+
+7. Delivery history diff:
+- always includes anchor rows: `Delivery type`, `Delivery price`, `Address`
+- additionally includes only changed type-specific rows for the current delivery type:
+  - `Delivery`: `Express`, `Estimated date`
+  - `Pickup`: `Available from`, `Pickup by`
 
 ## Testing Notes
 
