@@ -910,49 +910,107 @@ export function OrderDetailsDeliveryTab({
                   </Alert>
                 ) : null}
 
-                <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-                  <Typography>{ordersUiText.detailsPage.labels.totalPrice}</Typography>
-                  <Typography data-testid="order-details-delivery-pricing-preview-total-value">
-                    {canRequestPricingPreview && isPricingPreviewLoading ? (
-                      <CircularProgress size={16} />
-                    ) : (
-                      formatPrice(canRequestPricingPreview ? pricingPreviewTotal : null)
-                    )}
-                  </Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gap: 1,
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: 'repeat(2, minmax(180px, 1fr))',
+                      lg: 'repeat(4, minmax(160px, 1fr))',
+                    },
+                  }}
+                >
+                  <Paper variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        {ordersUiText.detailsPage.labels.totalPrice}
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                        data-testid="order-details-delivery-pricing-preview-total-value"
+                      >
+                        {canRequestPricingPreview && isPricingPreviewLoading ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          formatPrice(canRequestPricingPreview ? pricingPreviewTotal : null)
+                        )}
+                      </Typography>
+                    </Stack>
+                  </Paper>
 
-                  <Typography>{ordersUiText.detailsPage.labels.deliveryPrice}</Typography>
-                  <Typography data-testid="order-details-delivery-pricing-preview-delivery-price-value">
-                    {canRequestPricingPreview && isPricingPreviewLoading ? (
-                      <CircularProgress size={16} />
-                    ) : (
-                      formatPrice(canRequestPricingPreview ? pricingPreviewDeliveryPrice : null)
-                    )}
-                  </Typography>
+                  <Paper variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        {ordersUiText.detailsPage.labels.deliveryPrice}
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                        data-testid="order-details-delivery-pricing-preview-delivery-price-value"
+                      >
+                        {canRequestPricingPreview && isPricingPreviewLoading ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          formatPrice(canRequestPricingPreview ? pricingPreviewDeliveryPrice : null)
+                        )}
+                      </Typography>
+                    </Stack>
+                  </Paper>
 
                   {formState.condition === 'Delivery' ? (
-                    <>
-                      <Typography>{ordersUiText.detailsPage.fields.delivery.estimatedDate}</Typography>
-                      <Typography data-testid="order-details-delivery-pricing-preview-estimated-date-value">
-                        {canRequestPricingPreview && isPricingPreviewLoading
-                          ? '...'
-                          : formatDate(canRequestPricingPreview ? pricingPreviewEstimatedDate : null)}
-                      </Typography>
-                    </>
+                    <Paper variant="outlined" sx={{ p: 1.25 }}>
+                      <Stack spacing={0.5}>
+                        <Typography variant="caption" color="text.secondary">
+                          {ordersUiText.detailsPage.fields.delivery.estimatedDate}
+                        </Typography>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                          data-testid="order-details-delivery-pricing-preview-estimated-date-value"
+                        >
+                          {canRequestPricingPreview && isPricingPreviewLoading
+                            ? '...'
+                            : formatDate(canRequestPricingPreview ? pricingPreviewEstimatedDate : null)}
+                        </Typography>
+                      </Stack>
+                    </Paper>
                   ) : (
                     <>
-                      <Typography>{ordersUiText.detailsPage.fields.delivery.availableFromDate}</Typography>
-                      <Typography data-testid="order-details-delivery-pricing-preview-available-from-date-value">
-                        {canRequestPricingPreview && isPricingPreviewLoading
-                          ? '...'
-                          : formatDate(canRequestPricingPreview ? pricingPreviewAvailableFromDate : null)}
-                      </Typography>
+                      <Paper variant="outlined" sx={{ p: 1.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography variant="caption" color="text.secondary">
+                            {ordersUiText.detailsPage.fields.delivery.availableFromDate}
+                          </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                            data-testid="order-details-delivery-pricing-preview-available-from-date-value"
+                          >
+                            {canRequestPricingPreview && isPricingPreviewLoading
+                              ? '...'
+                              : formatDate(canRequestPricingPreview ? pricingPreviewAvailableFromDate : null)}
+                          </Typography>
+                        </Stack>
+                      </Paper>
 
-                      <Typography>{ordersUiText.detailsPage.fields.delivery.pickupByDate}</Typography>
-                      <Typography data-testid="order-details-delivery-pricing-preview-pickup-by-date-value">
-                        {canRequestPricingPreview && isPricingPreviewLoading
-                          ? '...'
-                          : formatDate(canRequestPricingPreview ? pricingPreviewPickupByDate : null)}
-                      </Typography>
+                      <Paper variant="outlined" sx={{ p: 1.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography variant="caption" color="text.secondary">
+                            {ordersUiText.detailsPage.fields.delivery.pickupByDate}
+                          </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                            data-testid="order-details-delivery-pricing-preview-pickup-by-date-value"
+                          >
+                            {canRequestPricingPreview && isPricingPreviewLoading
+                              ? '...'
+                              : formatDate(canRequestPricingPreview ? pricingPreviewPickupByDate : null)}
+                          </Typography>
+                        </Stack>
+                      </Paper>
                     </>
                   )}
                 </Box>
