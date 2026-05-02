@@ -11,7 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { OrderComment, OrderDelivery, OrderDetails } from '@/api/modules/orders.api'
+import type { OrderComment, OrderDeliveryPayload, OrderDetails } from '@/api/modules/orders.api'
 import { OrderDetailsDeliveryTab } from '@/features/orders/components/OrderDetailsDeliveryTab'
 import { OrderHistoryTimeline } from '@/features/orders/components/OrderHistoryTimeline'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
@@ -25,7 +25,7 @@ type OrderDetailsTabsSectionProps = {
   onTabChange: (tab: OrderDetailsTab) => void
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
-  onSaveDelivery: (delivery: OrderDelivery) => Promise<boolean>
+  onSaveDelivery: (delivery: OrderDeliveryPayload) => Promise<boolean>
   commentDraft: string
   onCommentDraftChange: (value: string) => void
   isCommentValid: boolean
@@ -45,6 +45,13 @@ function resolveCommentAuthorName(comment: OrderComment) {
 
   const fullName = `${author.firstName ?? ''} ${author.lastName ?? ''}`.trim()
   return fullName || author.username || ordersUiText.detailsPage.placeholders.commentAuthorFallback
+}
+
+function resolveDeliveryScheduleKey(order: OrderDetails) {
+  if ('estimatedDate' in order.delivery.schedule) {
+    return `delivery:${order.delivery.schedule.estimatedDate}:${order.delivery.schedule.express}`
+  }
+  return `pickup:${order.delivery.schedule.availableFromDate}:${order.delivery.schedule.pickupByDate}`
 }
 
 export function OrderDetailsTabsSection({
@@ -92,7 +99,7 @@ export function OrderDetailsTabsSection({
           <OrderDetailsDeliveryTab
             key={[
               order.status,
-              order.deliveryStatus,
+              order.delivery.status,
               order.customer._id,
               order.customer.state,
               order.customer.city,
@@ -100,14 +107,17 @@ export function OrderDetailsTabsSection({
               order.customer.house,
               order.customer.apartment ?? 'none',
               order.customer.zipCode,
-              order.delivery?.condition ?? 'none',
-              order.delivery?.finalDate ?? 'none',
-              order.delivery?.address.state ?? 'none',
-              order.delivery?.address.city ?? 'none',
-              order.delivery?.address.street ?? 'none',
-              order.delivery?.address.house ?? 'none',
-              order.delivery?.address.apartment ?? 'none',
-              order.delivery?.address.zipCode ?? 'none',
+              order.delivery.condition,
+              order.delivery.status,
+              order.delivery.price,
+              order.delivery.pricingTier,
+              resolveDeliveryScheduleKey(order),
+              order.delivery.address.state,
+              order.delivery.address.city,
+              order.delivery.address.street,
+              order.delivery.address.house,
+              order.delivery.address.apartment ?? 'none',
+              order.delivery.address.zipCode,
             ].join('|')}
             order={order}
             isDeliveryEditable={isDeliveryEditable}

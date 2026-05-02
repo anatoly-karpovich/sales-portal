@@ -67,18 +67,23 @@ class OrderReceiveService {
     let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.RECEIVED;
     if (numberOfReceived > 0 && numberOfReceived < dbProducts.length) {
       orderForUpdate.status = ORDER_STATUSES.IN_PROCESS;
-      orderForUpdate.deliveryStatus = DELIVERY_STATUSES.PARTIALLY_DELIVERED;
+      orderForUpdate.delivery = {
+        ...orderForUpdate.delivery,
+        status: DELIVERY_STATUSES.PARTIALLY_DELIVERED,
+      };
       action = ORDER_HISTORY_ACTIONS.RECEIVED;
     }
     if (numberOfReceived === dbProducts.length) {
       orderForUpdate.status = ORDER_STATUSES.COMPLETED;
-      orderForUpdate.deliveryStatus = DELIVERY_STATUSES.DELIVERED;
+      orderForUpdate.delivery = {
+        ...orderForUpdate.delivery,
+        status: DELIVERY_STATUSES.DELIVERED,
+      };
       action = ORDER_HISTORY_ACTIONS.RECEIVED_ALL;
     }
 
     const historyEntrySource = {
       status: orderForUpdate.status,
-      deliveryStatus: orderForUpdate.deliveryStatus,
       customer: currentOrder.customer._id as Types.ObjectId | string,
       products: historyProducts,
       delivery: orderForUpdate.delivery,

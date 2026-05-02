@@ -3,8 +3,8 @@ import CustomerService from "../services/customer.service.js";
 import { SettingsService } from "../services/settings.service.js";
 import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
-import { DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
-import { isValidDate, isValidInput } from "../utils/validations.js";
+import { DELIVERY, DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
+import { isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
@@ -12,6 +12,7 @@ import {
   CreateOrderRequestDTO,
   GetOrderByIdRequestDTO,
   OrderCommentParamsDTO,
+  OrderPricingRequestDTO,
   OrderProductRequestItemDTO,
   OrderReceiveRequestDTO,
   OrderRequestWithEntityDTO,
@@ -22,6 +23,60 @@ import {
 import { US_STATE_CODES } from "../data/usStates.js";
 
 const settingsService = new SettingsService();
+
+function validateDeliveryPayload(
+  delivery: UpdateOrderDeliveryRequestDTO["body"],
+  res: Response<BaseResponseDTO>,
+): Response<BaseResponseDTO> | undefined {
+  if (!Object.values(DELIVERY).includes(delivery.condition)) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  if (delivery.condition === DELIVERY.DELIVERY && typeof delivery.express !== "boolean") {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+  if (delivery.condition === DELIVERY.PICK_UP && delivery.express === true) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: "Express option is not available for pickup" });
+  }
+
+  if (
+    !isValidInput("State", delivery.address.state) ||
+    !US_STATE_CODES.includes(delivery.address.state as (typeof US_STATE_CODES)[number])
+  ) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  if (
+    !isValidInput("City", delivery.address.city) ||
+    (delivery.address.city && delivery.address.city.trim().length !== delivery.address.city.length)
+  ) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  if (
+    !isValidInput("Street", delivery.address.street) ||
+    (delivery.address.street && delivery.address.street.trim().length !== delivery.address.street.length)
+  ) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  if (!isValidInput("House", delivery.address.house) || delivery.address.house < 1 || delivery.address.house > 999) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  if (
+    delivery.address.apartment !== undefined &&
+    (!isValidInput("Apartment", delivery.address.apartment) ||
+      delivery.address.apartment < 1 ||
+      delivery.address.apartment > 9999)
+  ) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  if (!isValidInput("ZipCode", delivery.address.zipCode)) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+}
 
 export async function orderById(req: GetOrderByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
@@ -147,14 +202,19 @@ export async function orderStatus(
     if (status === ORDER_STATUSES.IN_PROCESS && !order.delivery) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
-    if (status === ORDER_STATUSES.IN_PROCESS && order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED) {
+    if (
+      status === ORDER_STATUSES.IN_PROCESS &&
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED
+    ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
 
     if (
       status === ORDER_STATUSES.CANCELED &&
-      order.deliveryStatus !== DELIVERY_STATUSES.NOT_SCHEDULED &&
-      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED
+      order.delivery.status !== DELIVERY_STATUSES.DRAFT &&
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
@@ -220,8 +280,9 @@ export async function orderReceiveValidations(
     }
 
     if (
-      order.deliveryStatus !== DELIVERY_STATUSES.SCHEDULED &&
-      order.deliveryStatus !== DELIVERY_STATUSES.PARTIALLY_DELIVERED
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED &&
+      order.delivery.status !== DELIVERY_STATUSES.PARTIALLY_DELIVERED
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
@@ -270,50 +331,42 @@ export async function orderDelivery(
     if (order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
-    if (!isValidDate(req.body.finalDate)) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid final date` });
-    }
-    if (
-      !isValidInput("State", req.body.address.state) ||
-      !US_STATE_CODES.includes(req.body.address.state as (typeof US_STATE_CODES)[number])
-    ) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-    }
-
-    if (
-      !isValidInput("City", req.body.address.city) ||
-      (req.body.address.city && req.body.address.city.trim().length !== req.body.address.city.length)
-    ) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-    }
-
-    if (
-      !isValidInput("Street", req.body.address.street) ||
-      (req.body.address.street && req.body.address.street.trim().length !== req.body.address.street.length)
-    ) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-    }
-
-    if (!isValidInput("House", req.body.address.house) || req.body.address.house < 1 || req.body.address.house > 999) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-    }
-
-    if (
-      req.body.address.apartment !== undefined &&
-      (!isValidInput("Apartment", req.body.address.apartment) ||
-        req.body.address.apartment < 1 ||
-        req.body.address.apartment > 9999)
-    ) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-    }
-
-    if (!isValidInput("ZipCode", req.body.address.zipCode)) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+    const validationError = validateDeliveryPayload(req.body, res);
+    if (validationError) {
+      return validationError;
     }
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
   next();
+}
+
+export async function orderPricingDeliveryValidation(
+  req: Request<unknown, unknown, { delivery?: UpdateOrderDeliveryRequestDTO["body"] }>,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    if (!req.body.delivery) {
+      return next();
+    }
+
+    const validationError = validateDeliveryPayload(req.body.delivery, res);
+    if (validationError) {
+      return validationError;
+    }
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function orderPricingValidations(
+  req: OrderPricingRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  return orderValidations(req as unknown as CreateOrderRequestDTO, res, next);
 }
 
 export async function orderCommentsCreate(

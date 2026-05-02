@@ -31,7 +31,7 @@
 | --- | --- | --- |
 | `search` | string | Matches customer fields (`email`, `name`). |
 | `state` | string or string[] | Filter by US state codes (2-letter, 50 states only). |
-| `includeOtherStates` | boolean | Include customers from states outside `settings.delivery.pickupLocations` keys. |
+| `includeOtherStates` | boolean | Include customers from states outside `settings.shipping.pickup.locations` keys. |
 | `sortField` | `email \| name \| createdOn` | Defaults to `createdOn`. |
 | `sortOrder` | `asc \| desc` | Defaults to `desc`. |
 | `page` | string number | Minimum effective page is `1`. |
@@ -39,7 +39,7 @@
 
 State filtering behavior:
 - `state` only -> `state IN selected states`
-- `includeOtherStates=true` only -> `state NOT IN settings.delivery.pickupLocations keys`
+- `includeOtherStates=true` only -> `state NOT IN settings.shipping.pickup.locations keys`
 - both together -> union of both sets
 
 ## Create/Update Payload

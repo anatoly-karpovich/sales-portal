@@ -5,6 +5,7 @@ import { getProductById, getProducts } from '@/api/modules/products.api'
 import { getManagers } from '@/api/modules/managers.api'
 import {
   assignOrderManager,
+  calculateOrderPricing,
   createOrderComment,
   createOrder,
   deleteOrderComment,
@@ -26,6 +27,7 @@ import {
   type UpdateOrderPayload,
   type CreateOrderPayload,
   type OrderStatusUpdatePayload,
+  type OrderPricingPayload,
   type OrdersExportPayload,
   type OrdersQuery,
 } from '@/api/modules/orders.api'
@@ -134,6 +136,18 @@ export function useCreateOrderMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
     },
+  })
+}
+
+export function useOrderPricingMutation() {
+  return useMutation({
+    mutationFn: ({
+      payload,
+      requestConfig,
+    }: {
+      payload: OrderPricingPayload
+      requestConfig?: ApiRequestConfig
+    }) => calculateOrderPricing(payload, requestConfig),
   })
 }
 

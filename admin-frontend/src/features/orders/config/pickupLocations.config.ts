@@ -25,7 +25,7 @@ export function normalizeCityForMatch(value: string) {
 }
 
 export function buildPickupLocationsByStateMap(
-  pickupLocations: Settings['delivery']['pickupLocations'] | null | undefined,
+  pickupLocations: Settings['shipping']['pickup']['locations'] | null | undefined,
 ): PickupLocationsByStateMap {
   const map: PickupLocationsByStateMap = new Map()
   if (!pickupLocations) {

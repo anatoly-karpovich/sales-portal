@@ -30,7 +30,7 @@ settingsRouter.patch(
  *   schemas:
  *     Settings:
  *       type: object
- *       required: [order, inventory, delivery]
+ *       required: [order, inventory, shipping]
  *       properties:
  *         order:
  *           type: object
@@ -46,45 +46,111 @@ settingsRouter.patch(
  *           properties:
  *             defaultLowStockThreshold:
  *               type: integer
- *         delivery:
+ *         shipping:
  *           type: object
- *           required: [basePricePerItem, extraPriceForOtherCity, pickupLocations]
+ *           required: [delivery, pickup]
  *           properties:
- *             basePricePerItem:
- *               type: integer
- *             extraPriceForOtherCity:
- *               type: integer
- *             pickupLocations:
+ *             delivery:
  *               type: object
- *               description: US state keyed object where each key contains an array of pickup locations
- *               additionalProperties:
- *                 type: array
- *                 minItems: 1
- *                 items:
+ *               required: [pricing]
+ *               properties:
+ *                 pricing:
  *                   type: object
- *                   required: [id, city, address, isActive]
+ *                   required: [localCity, sameState, outOfState]
  *                   properties:
- *                     id:
- *                       type: string
- *                       pattern: ^[a-fA-F0-9]{24}$
- *                     city:
- *                       type: string
- *                     address:
+ *                     localCity:
  *                       type: object
- *                       required: [street, house, zipCode]
+ *                       required: [basePrice, minDays, express]
  *                       properties:
- *                         street:
- *                           type: string
- *                         house:
+ *                         basePrice:
  *                           type: integer
- *                         apartment:
+ *                         minDays:
  *                           type: integer
- *                           nullable: true
- *                         zipCode:
+ *                         express:
+ *                           type: object
+ *                           required: [days, extraPrice]
+ *                           properties:
+ *                             days:
+ *                               type: integer
+ *                             extraPrice:
+ *                               type: integer
+ *                     sameState:
+ *                       type: object
+ *                       required: [basePrice, minDays, express]
+ *                       properties:
+ *                         basePrice:
+ *                           type: integer
+ *                         minDays:
+ *                           type: integer
+ *                         express:
+ *                           type: object
+ *                           required: [days, extraPrice]
+ *                           properties:
+ *                             days:
+ *                               type: integer
+ *                             extraPrice:
+ *                               type: integer
+ *                     outOfState:
+ *                       type: object
+ *                       required: [basePrice, minDays, express]
+ *                       properties:
+ *                         basePrice:
+ *                           type: integer
+ *                         minDays:
+ *                           type: integer
+ *                         express:
+ *                           type: object
+ *                           required: [days, extraPrice]
+ *                           properties:
+ *                             days:
+ *                               type: integer
+ *                             extraPrice:
+ *                               type: integer
+ *             pickup:
+ *               type: object
+ *               required: [policy, locations]
+ *               properties:
+ *                 policy:
+ *                   type: object
+ *                   required: [readyInDays, holdForDays]
+ *                   properties:
+ *                     readyInDays:
+ *                       type: integer
+ *                     holdForDays:
+ *                       type: integer
+ *                     remindBeforeDays:
+ *                       type: integer
+ *                 locations:
+ *                   type: object
+ *                   description: US state keyed object where each key contains an array of pickup locations
+ *                   additionalProperties:
+ *                     type: array
+ *                     minItems: 1
+ *                     items:
+ *                       type: object
+ *                       required: [id, city, address, isActive]
+ *                       properties:
+ *                         id:
  *                           type: string
- *                           pattern: ^\\d{5}(-\\d{4})?$
- *                     isActive:
- *                       type: boolean
+ *                           pattern: ^[a-fA-F0-9]{24}$
+ *                         city:
+ *                           type: string
+ *                         address:
+ *                           type: object
+ *                           required: [street, house, zipCode]
+ *                           properties:
+ *                             street:
+ *                               type: string
+ *                             house:
+ *                               type: integer
+ *                             apartment:
+ *                               type: integer
+ *                               nullable: true
+ *                             zipCode:
+ *                               type: string
+ *                               pattern: ^\\d{5}(-\\d{4})?$
+ *                         isActive:
+ *                           type: boolean
  *     SettingsResponse:
  *       type: object
  *       properties:

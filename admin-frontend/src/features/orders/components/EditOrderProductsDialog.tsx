@@ -19,9 +19,15 @@ import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Product } from '@/api/modules/products.api'
-import type { OrderProduct, OrderProductRequestItem } from '@/api/modules/orders.api'
+import type {
+  OrderDelivery,
+  OrderDeliveryPayload,
+  OrderProduct,
+  OrderProductRequestItem,
+} from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import {
+  useOrderPricingMutation,
   useOrderProductOptionsQuery,
   useOrderProductsAvailability,
 } from '@/features/orders/hooks/useOrdersQuery'
@@ -47,6 +53,7 @@ type ProductSummary = {
 type Props = {
   open: boolean
   initialProducts: OrderProduct[]
+  currentDelivery: OrderDelivery | null
   isSubmitting: boolean
   onClose: () => void
   onSave: (payload: { products: OrderProductRequestItem[] }) => Promise<void> | void
@@ -88,9 +95,27 @@ function buildSummaryFromProduct(product: Product): ProductSummary {
   }
 }
 
+function toOrderDeliveryPayload(delivery: OrderDelivery | null): OrderDeliveryPayload | undefined {
+  if (!delivery) return undefined
+
+  if (delivery.condition === 'Delivery') {
+    return {
+      condition: 'Delivery',
+      express: 'express' in delivery.schedule ? delivery.schedule.express : false,
+      address: delivery.address,
+    }
+  }
+
+  return {
+    condition: 'Pickup',
+    address: delivery.address,
+  }
+}
+
 export function EditOrderProductsDialog({
   open,
   initialProducts,
+  currentDelivery,
   isSubmitting,
   onClose,
   onSave,
@@ -108,6 +133,9 @@ export function EditOrderProductsDialog({
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
+  const [pricingPreviewTotal, setPricingPreviewTotal] = useState<number | null>(null)
+  const [isPricingPreviewUnavailable, setIsPricingPreviewUnavailable] = useState(false)
+  const [isPricingPreviewLoading, setIsPricingPreviewLoading] = useState(false)
   const [knownProductsById, setKnownProductsById] = useState<Map<string, ProductSummary>>(
     () =>
       new Map(
@@ -115,6 +143,7 @@ export function EditOrderProductsDialog({
       ),
   )
   const nextRowId = useRef(initialProducts.length > 0 ? initialProducts.length + 1 : 2)
+  const pricingRequestIdRef = useRef(0)
 
   const {
     data: settings,
@@ -185,6 +214,7 @@ export function EditOrderProductsDialog({
       ),
     [optionsQuery.data?.Products, selectedProductIdsOutsideActive],
   )
+  const { mutateAsync: calculatePricingAsync } = useOrderPricingMutation()
 
   const { unavailableIds, isLoading: isAvailabilityLoading } = useOrderProductsAvailability(
     currentProductIds,
@@ -205,6 +235,8 @@ export function EditOrderProductsDialog({
     hasDuplicateRows ||
     hasUnavailableRows ||
     !hasChanges
+  const canRequestPricingPreview =
+    open && hasQuantityLimit && !hasEmptyRows && !hasDuplicateRows && currentProducts.length > 0
   const saveDisabledReason = isSubmitting
     ? null
     : isSettingsPending
@@ -223,13 +255,52 @@ export function EditOrderProductsDialog({
                   ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
                   : null
 
-  const totalPrice = useMemo(() => {
-    return rows.reduce((sum, row) => {
-      if (!row.productId) return sum
-      const known = knownProductsById.get(row.productId) ?? initialProductsById.get(row.productId)
-      return known ? sum + known.price * row.quantity : sum
-    }, 0)
-  }, [initialProductsById, knownProductsById, rows])
+  useEffect(() => {
+    if (!canRequestPricingPreview) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const requestId = pricingRequestIdRef.current + 1
+      pricingRequestIdRef.current = requestId
+      setIsPricingPreviewLoading(true)
+
+      void calculatePricingAsync({
+          payload: {
+            products: currentProducts,
+            delivery: toOrderDeliveryPayload(currentDelivery),
+          },
+          requestConfig: { skipErrorToast: true },
+        })
+        .then((pricing) => {
+          if (pricingRequestIdRef.current !== requestId) return
+          setPricingPreviewTotal(pricing.totalPrice)
+          setIsPricingPreviewUnavailable(false)
+        })
+        .catch(() => {
+          if (pricingRequestIdRef.current !== requestId) return
+          setPricingPreviewTotal(null)
+          setIsPricingPreviewUnavailable(true)
+        })
+        .finally(() => {
+          if (pricingRequestIdRef.current !== requestId) return
+          setIsPricingPreviewLoading(false)
+        })
+    }, ORDER_DETAILS_SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    canRequestPricingPreview,
+    currentDelivery,
+    currentProducts,
+    hasDuplicateRows,
+    hasEmptyRows,
+    hasQuantityLimit,
+    open,
+    calculatePricingAsync,
+  ])
 
   const handleAddRow = () => {
     if (!canAddRow || isSubmitting) return
@@ -581,6 +652,15 @@ export function EditOrderProductsDialog({
                 </Typography>
               )}
             </Stack>
+
+            {canRequestPricingPreview && isPricingPreviewUnavailable ? (
+              <Alert
+                severity="warning"
+                data-testid="order-details-products-edit-pricing-preview-unavailable-alert"
+              >
+                {ordersUiText.errors.pricingPreviewUnavailable}
+              </Alert>
+            ) : null}
           </Stack>
         </DialogContent>
 
@@ -598,7 +678,11 @@ export function EditOrderProductsDialog({
               sx={{ fontWeight: 700, color: 'primary.main' }}
               data-testid="order-details-products-edit-total-price-value"
             >
-              {formatPrice(totalPrice)}
+              {canRequestPricingPreview && isPricingPreviewLoading ? (
+                <CircularProgress size={16} />
+              ) : (
+                formatPrice(canRequestPricingPreview ? pricingPreviewTotal : null)
+              )}
             </Typography>
           </Stack>
 

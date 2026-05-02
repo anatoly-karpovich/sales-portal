@@ -89,7 +89,8 @@ Top-level source layout:
   - typed orders list contract (`GET /orders`);
   - order model uses split state axes:
     - `status`: `Draft | In Process | Completed | Canceled`;
-    - `deliveryStatus`: `Not Scheduled | Scheduled | Partially Delivered | Delivered`;
+    - `delivery.status`: `Draft | Delivery Scheduled | Pickup Scheduled | Partially Delivered | Delivered`;
+    - list/filter/export request key for delivery axis remains `deliveryStatus`.
   - create order (`POST /orders`);
   - update order customer/products (`PATCH /orders/:orderId`);
   - order details (`GET /orders/:orderId`);
@@ -99,15 +100,15 @@ Top-level source layout:
   - receive requested products (`POST /orders/:orderId/receive`);
   - comments create/delete (`POST /orders/:orderId/comments`, `DELETE /orders/:orderId/comments/:commentId`);
   - export (`POST /orders/export` with blob response).
-- `api/modules/users.api.ts`
-  - users contract includes list, details with orders, create, delete, and password change.
+- `api/modules/managers.api.ts`
+  - managers contract includes list, details with orders, create, delete, and password change.
   - implemented requests:
-    - `getUsers()` (`GET /users`)
-    - `getUserById()` (`GET /users/:userId`) returning `{ User, Orders }`
-    - `createUser()` (`POST /users`)
-    - `deleteUser()` (`DELETE /users/:userId`)
-    - `changeUserPassword()` (`PATCH /users/password/:userId`)
-  - `UserOrder` shape is shared with manager details "Assigned Orders" table rendering.
+    - `getManagers()` (`GET /managers`)
+    - `getManagerById()` (`GET /managers/:managerId`) returning `{ Manager, Orders }`
+    - `createManager()` (`POST /managers`)
+    - `deleteManager()` (`DELETE /managers/:managerId`)
+    - `changeManagerPassword()` (`PATCH /managers/password/:managerId`)
+  - `ManagerOrder` shape is shared with manager details "Assigned Orders" table rendering.
 - `api/modules/products.api.ts`
   - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
   - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
@@ -128,7 +129,7 @@ Top-level source layout:
   - `widgets/*` - hero, actions, metrics, charts, tables, skeleton
 - `features/settings`
   - `hooks/useSettingsQuery.ts`, `hooks/settingsQueryKeys.ts` - global settings query/mutation layer used by customers and orders flows.
-  - delivery settings contract is `delivery.pickupLocations` (US state keyed object of pickup locations).
+  - shipping settings contract is `shipping.delivery.pricing` + `shipping.pickup.{policy,locations}`.
 - `features/products` (most complete module)
   - `pages/ProductsPage.tsx` - list, filters, export, pagination, dialogs
     - shared chips are prefixed (`Search:`, `Manufacturer:`).
@@ -153,7 +154,7 @@ Top-level source layout:
     - customer upsert uses `State` autocomplete (`CODE — State Name`), `City` text input, masked `Zip Code` input, optional `Apartment`.
   - `forms/*` - form mappers, touched state, validation
   - `customers.ui-text.ts` - labels, validation text, toast text
-- `features/orders` (iteration 6 in active implementation)
+- `features/orders` (iteration 6, current implementation)
   - `pages/OrdersPage.tsx` - list with search/filter/sort/pagination/export.
     - list filters are split into two independent groups:
       - `status[]` (order status)
@@ -166,11 +167,11 @@ Top-level source layout:
     - query and export (`filtered`) include both filter arrays: `status[]` and `deliveryStatus[]`.
     - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
     - customer precheck requests pass customers-state filter defaults (`state: []`) to satisfy customers API contract.
-  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment and pricing preview (`POST /orders/pricing`)
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
-    - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `deliveryStatus`.
+    - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `order.delivery.status`.
     - export fields include both `delivery` and `deliveryStatus`.
-  - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit, delivery date offsets)
+  - `config/orderDetails.config.ts` - order details local config (search debounce, product search limit, products rows limit)
   - `components/OrdersFiltersDialog.tsx` - orders-only filters modal with two accordions:
     - sections: `Order Status`, `Delivery Status`;
     - only one accordion can be expanded at a time;
@@ -184,10 +185,10 @@ Top-level source layout:
     - product row click opens editing chooser; delete action is independent and does not trigger edit open;
     - product row outline/hovers are aligned with outlined-input style for consistent visual affordance;
     - unavailable products are detected via availability checks and block create action;
-    - total price is recalculated from selected product summaries.
+    - total price preview is requested from backend pricing endpoint with debounce after product changes.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
   - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
-  - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard
+  - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard, and backend pricing preview (products-only or products+current delivery)
   - `components/AssignManagerDialog.tsx` - assign/edit manager dialog with searchable manager list and save-state guards
   - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order id, assigned manager controls near order number, status actions, metrics cards)
     - when manager is assigned and id is present, assigned manager value is a link to `/managers/:managerId`.
@@ -197,20 +198,29 @@ Top-level source layout:
   - `components/OrderDetailsDeliveryTab.tsx` - delivery tab content:
     - view mode with delivery summary and source chip;
     - status-based actions:
-      - `Draft + Not Scheduled` -> `Schedule`;
-      - `Draft + Scheduled` -> edit pencil;
+      - `Draft + Draft` -> `Schedule`;
+      - `Draft + Delivery Scheduled|Pickup Scheduled` -> edit pencil;
       - any other state combination -> no delivery edit actions;
-    - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules;
+    - schedule/edit form for `Delivery`/`Pickup` with `Home`/`Other` location rules and `Express` switch for `Delivery` (default `false`);
     - `settings`-driven pickup options:
-      - pickup state options from `settings.delivery.pickupLocations` keys;
+      - pickup state options from `settings.shipping.pickup.locations` keys;
       - pickup city options depend on selected state and use only locations with `isActive: true`;
     - delivery address uses `state/city/street/house/apartment?/zipCode`;
     - pickup `street/house/apartment/zipCode` remain read-only and are auto-filled by selected pickup location;
-    - date picker-only input with allowed range from config (`+3`..`+10` days);
-    - save/cancel controls and delivery payload normalization.
+    - form payload is `condition + address + express?` (no `finalDate` input in UI);
+    - pricing preview is rendered as compact metric cards (`Total`, `Delivery`, date fields);
+    - pricing preview (total, delivery price, schedule dates) is loaded from pricing endpoint before save;
+    - save is enabled after pricing response is received and form is valid;
+    - preview failures show warning state but do not block save when form is valid.
   - `components/OrderHistoryTimeline.tsx` - order history tab timeline:
     - timeline + accordion cards grouped by history events;
     - per-action diff blocks (status, delivery fields, customer, requested products, receive, manager assignment);
+    - delivery diff rules:
+      - always show anchor rows: `Delivery type`, `Delivery price`, `Address`;
+      - show only changed type-specific rows for current delivery type:
+        - `Delivery` -> `Express`, `Estimated date`;
+        - `Pickup` -> `Available from`, `Pickup by`;
+      - supports pickup actions (`Pickup Scheduled`, `Pickup Edited`);
     - fallback diff mode for unknown actions;
     - state snapshot and product chips per event;
     - lazy customer name resolution for historical customer ids;
@@ -219,21 +229,21 @@ Top-level source layout:
   - `pages/OrderDetailsPage.tsx` - implemented details page:
     - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
-    - action visibility/availability is based on both `status` and `deliveryStatus`:
-      - `Process` is shown only for `Draft`; enabled only when `deliveryStatus = Scheduled`;
-      - `Cancel` is shown only for `Draft | In Process` with `deliveryStatus in [Not Scheduled, Scheduled]`;
+    - action visibility/availability is based on `status` and `order.delivery.status`:
+      - `Process` is shown only for `Draft`; enabled only when `delivery.status in [Delivery Scheduled, Pickup Scheduled]`;
+      - `Cancel` is shown only for `Draft | In Process` with `delivery.status in [Draft, Delivery Scheduled, Pickup Scheduled]`;
       - `Reopen` is shown only for `Canceled`;
     - read-only customer/products blocks;
     - manager assignment flow:
       - if manager is absent: `Click to select manager` trigger opens assignment dialog;
       - if manager exists: show manager value + edit trigger + unassign trigger;
-      - assign dialog loads users from `/users`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
+      - assign dialog loads managers from `/managers`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
       - list is sorted A-Z by full name (fallback to username);
       - save is disabled for empty selection or unchanged manager;
       - unassign uses shared `ConfirmDialog`;
       - assign/unassign success closes modal, shows toast, and refreshes details with skeleton reload;
     - receive mode for products:
-      - available only when `status = In Process` and `deliveryStatus in [Scheduled, Partially Delivered]`;
+      - available only when `status = In Process` and `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`;
       - `Receive` CTA only when there are pending (not received) products;
       - per-product checkboxes in receive mode with `Select All`;
       - already received rows are prechecked and disabled;
@@ -245,9 +255,9 @@ Top-level source layout:
     - order history tab integrated with timeline renderer and history diff visualization;
     - comments tab integrated with API create/delete;
     - known limitation: comment author uses fallback label (`AQA Manager`) until backend exposes stable `createdBy`.
-- `features/users`
+- `features/managers`
   - `pages/ManagersPage.tsx` - managers list page implemented (search/sort/pagination + details navigation).
-    - list uses client-side filtering, sorting, and pagination over `/users` result because backend pagination for users is not implemented yet.
+    - list uses client-side filtering, sorting, and pagination over `/managers` result because backend pagination for managers is not implemented yet.
     - `+ Add Manager` button is visible only for `ADMIN`.
   - `pages/ManagerCreatePage.tsx` - admin-only manager creation page (`/managers/add`) with redirect+toast guard for non-admin users.
   - `pages/ManagerDetailsPage.tsx` - manager details page (`/managers/:managerId`) with:
@@ -255,7 +265,7 @@ Top-level source layout:
     - assigned orders table aligned with Customer Details table columns;
     - `404` or invalid id redirect to `/managers` with warning toast;
     - self-delete handling: successful delete of current user triggers logout and redirect to `/login`.
-  - `hooks/useUsersQuery.ts`, `hooks/usersQueryKeys.ts` - users query/mutation layer and keys.
+  - `hooks/useManagersQuery.ts`, `hooks/managersQueryKeys.ts` - managers query/mutation layer and keys.
   - `hooks/useManagersPageState.ts` - managers list UI orchestration (client-side search/sort/pagination state).
   - `config/managersTableColumns.ts` - managers list table schema and sortable fields.
   - `components/ManagersTableActionsCell.tsx` - managers list actions cell (`Details`).
@@ -265,7 +275,7 @@ Top-level source layout:
     - confirm password required and must match.
   - `components/ChangePasswordDialog.tsx` - manager password dialog with form submit semantics.
     - password inputs are contained in a `<form>` (dialog paper as form) to avoid browser password-field warnings.
-  - `users.ui-text.ts` - labels, validation text, dialogs, and toasts for managers/users module.
+  - `managers.ui-text.ts` - labels, validation text, dialogs, and toasts for managers module.
   - details page permission rules (legacy parity):
     - `Change Password` and `Delete` are shown only when performer is self or `ADMIN`, and target user is not `ADMIN`;
     - password change payload always requires `oldPassword` + `newPassword` (including admin flow).

@@ -1,93 +1,95 @@
 # Orders Module - UI Requirements
 
-> Scope: handle the entire lifecycle of sales orders, including creation, filtering, export, delivery scheduling, receiving, assignment, commenting, and cancellation/reopen flows.
+> Scope: handle full orders lifecycle in admin UI, including creation, filtering, export, delivery scheduling, receiving, manager assignment, comments, and cancel/reopen flows.
 
 ## Quick Facts
 
 | Aspect | Details |
 | --- | --- |
 | Entry points | `#/orders`, `#/orders/{id}` |
-| APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/settings` |
-| Status model | Order status: `Draft / In Process / Completed / Canceled`; Delivery status: `Not Scheduled / Scheduled / Partially Delivered / Delivered` |
-| Success copy | "Order was successfully created/updated/canceled/processed/reopened", "Delivery was successfully saved", "Products were successfully received", "Manager was successfully assigned/unassigned", "Comment was successfully posted/deleted" |
-| Error copy | "Unable to create an order. Please try again later.", "No products found. Please add one before creating an order.", "Unable to assign manager. Please try again later.", etc. |
+| APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/orders/pricing`, `/api/settings` |
+| Status model | Order status: `Draft / In Process / Completed / Canceled`; delivery status source: `order.delivery.status` |
+| Delivery status values | `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered` |
+| Filter key contract | Request key remains `deliveryStatus`, but values are matched against `delivery.status` |
 
 ## List View
 
 | Element | Description |
 | --- | --- |
-| Header | Title plus `Create Order` button. Clicking loads customers and products in parallel; spinner stays on the button until both succeed. Missing data raises the appropriate toaster copy. |
-| Toolbar | Search, status filters dialog (order + delivery statuses), export dialog (CSV/JSON + fields). |
-| Table | Columns Order Number (`_id`), Customer Email, Price (`$`), Delivery Date, Status, Assigned Manager, Created On. Sortable by configured fields. |
-| Row actions | Details navigate to `#/orders/{id}`. `Reopen` appears only for canceled orders. |
-| Empty state | "No records found." when search/filters are active and no rows match; "No orders created yet." when the base dataset is empty. |
-| Pagination | Auto-adjust when page boundaries are exceeded after mutations. |
+| Header | Title plus `Create Order` button. Clicking performs lightweight customers/products existence checks and then opens create modal. |
+| Toolbar | Search, filters dialog (`status` + `deliveryStatus`), export dialog (CSV/JSON + fields). |
+| Table | Columns: Order Number, Customer Email, Price, Status, Delivery, Assigned Manager, Created On. Delivery column displays `order.delivery.status`. |
+| Row actions | Details opens `#/orders/{id}`. `Reopen` is visible only for canceled orders. |
+| Empty state | "No records found." for active criteria with no rows; "No orders created yet." for empty base dataset. |
+| Pagination | Auto-adjusts when current page becomes out of range after mutations. |
 
 ### Filters and Export
-- Filters are split into two independent groups:
-  - `status[]` (order status),
-  - `deliveryStatus[]` (delivery status).
-- Chips are prefixed:
-  - `Search: ...`,
-  - `Order: ...`,
-  - `Delivery: ...`.
-- Export supports filtered/all and selected fields.
+- Filters are two independent arrays:
+  - `status[]` for order status
+  - `deliveryStatus[]` for delivery status
+- Chips use prefixes:
+  - `Search: ...`
+  - `Order: ...`
+  - `Delivery: ...`
+- Export supports filtered/all modes and selected fields.
+- Export field `deliveryStatus` is populated from `order.delivery.status`.
 
 ## Create Order Modal
 
 | Section | Rules |
 | --- | --- |
-| Customer | Searchable selection list. Required. |
-| Products | Must contain at least one row; duplicates are not allowed by backend contract. |
-| Total price | Calculated automatically whenever selections change. |
-| Buttons | `Create` (disabled until valid) and `Cancel`. |
+| Customer | Searchable selector, required. |
+| Products | At least one row is required by UI and API. |
+| Total price | Debounced preview via `POST /api/orders/pricing` after product changes. |
+| Buttons | `Create` and `Cancel`; submit shows pending state. |
 
-- Dialog opens only after lightweight prechecks confirm at least one customer and one product exists.
-- On submit: disable cancel, show spinner on `Create`, send `POST /api/orders`, show success toast, then refresh list.
+- Dialog opens only after prechecks confirm at least one customer and one product exist.
+- After successful create, list is refreshed and success toast is shown.
+- Backend returns non-null `delivery` snapshot immediately on create.
 
 ## Order Details Layout
 
 | Block | Content |
 | --- | --- |
-| Header | Back link, order number, assigned manager (or "Click to select manager"), summary metrics, and action buttons (Cancel/Process/Refresh/Reopen depending on state). |
-| Manager controls | Pencil opens assignment modal; `X` button opens unassign confirmation. |
-| Customer section | Read-only fields; edit pencil appears while order is Draft. |
-| Product section | Accordion per product. Draft shows edit pencil; In Process + valid delivery states show `Receive` flow. |
+| Header | Back link, order id, assigned manager controls, summary cards, status actions (`Cancel/Process/Reopen/Refresh` by gate). |
+| Customer section | Read-only summary; edit is available only in `Draft`. |
+| Products section | Read-only list; edit in `Draft`; receive mode in allowed in-process delivery statuses. |
 | Tabs | Delivery, Order History, Comments. |
 
-### Delivery Management
-- Schedule/edit is available only for `Draft` orders (`Not Scheduled` -> `Schedule`, `Scheduled` -> edit).
-- `Location: Home/Other` is used for `Delivery` condition.
-- **Delivery condition**
-  - State: dropdown (US states),
-  - City: text input,
-  - Street/House/Apartment/Zip Code: editable for `Other`, read-only for `Home` (customer address).
-- **Pickup condition**
-  - State dropdown is built from `settings.delivery.pickupLocations` keys.
-  - City dropdown depends on selected state and uses only `isActive: true` locations.
-  - `street/house/apartment/zipCode` are read-only and auto-filled from selected pickup location.
-  - Save is disabled when selected pickup state has no available active cities.
-- Zip Code is masked and validated as `12345` or `12345-6789`.
-- Apartment is optional.
-- Saving calls `POST /api/orders/{id}/delivery` and shows success toast.
+### Action Gates
+- `Process` is visible for `Draft`; enabled only when `delivery.status` is `Delivery Scheduled` or `Pickup Scheduled`.
+- `Cancel` is visible for `Draft` and `In Process`; enabled only when `delivery.status` is `Draft`, `Delivery Scheduled`, or `Pickup Scheduled`.
+- `Receive` mode is available only when:
+  - `status = In Process`
+  - `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`
+- `Reopen` is visible only for `Canceled`.
 
-### Receiving Flow
-- Available only when:
-  - `status = In Process`,
-  - `deliveryStatus in [Scheduled, Partially Delivered]`.
-- `Receive` switches products section into checkbox mode (Select All, per-product checkboxes, Save, Cancel).
-- Saving posts selected product IDs to `/api/orders/{id}/receive`.
-- Backend derives next state:
-  - partial receive -> `In Process + Partially Delivered`,
-  - full receive -> `Completed + Delivered`.
+### Delivery Management
+- `delivery` is always present in details payload.
+- Draft delivery gates:
+  - `Draft + delivery.status=Draft` -> show `Schedule`.
+  - `Draft + delivery.status in [Delivery Scheduled, Pickup Scheduled]` -> show edit icon.
+- Form payload remains `condition + address + express?`.
+- `Express` is only for `Delivery`; for `Pickup` it is omitted.
+- `Delivery` condition:
+  - supports `Home/Other` location
+  - `Home` uses customer address as read-only
+  - `Other` allows manual address editing
+- `Pickup` condition:
+  - state/city options are loaded from `settings.shipping.pickup.locations`
+  - only active pickup cities are selectable
+  - street/house/apartment/zip are auto-filled and read-only
+- Pricing preview is rendered as compact metric cards (not stretched label/value rows).
+- Save button is enabled after pricing response is received and form remains valid.
+- Pricing preview errors show warning but do not block save.
 
 ### Tabs
 
 | Tab | Behavior |
 | --- | --- |
-| Delivery | Shows scheduled data and edit/schedule actions based on status gates. |
-| Order History | Timeline with per-action diffs, including delivery address fields (`state/city/street/house/apartment/zipCode`). |
-| Comments | Textarea with inline validation (1-250 chars, no `<`/`>`). `Create` stays disabled until valid. Existing comments show text, author fallback, timestamp, and delete icon (`DELETE /api/orders/{id}/comments/{commentId}`). |
+| Delivery | Shows delivery snapshot and schedule/edit controls by gates. |
+| Order History | Timeline with diffs, including delivery changes and pickup-specific actions. Delivery diff always includes anchor rows (`Delivery type`, `Delivery price`, `Address`) and adds only changed type-specific rows for the current delivery type (`Delivery`: `Express`, `Estimated date`; `Pickup`: `Available from`, `Pickup by`). |
+| Comments | Create/delete comments with inline validation (`1..250`, no `<`/`>`). |
 
 ## Backend Summary
 
@@ -97,6 +99,7 @@
 | Create order | `POST /api/orders` |
 | Get details | `GET /api/orders/:id` |
 | Update customer/products | `PATCH /api/orders/:id` |
+| Pricing preview | `POST /api/orders/pricing` |
 | Change status | `PUT /api/orders/:id/status` |
 | Assign manager | `PUT /api/orders/:id/assign-manager/:managerId` |
 | Unassign manager | `PUT /api/orders/:id/unassign-manager` |
@@ -104,8 +107,7 @@
 | Receive products | `POST /api/orders/:id/receive` |
 | Manage comments | `POST /api/orders/:id/comments`, `DELETE /api/orders/:id/comments/:commentId` |
 
-## Notifications and UX Guardrails
-- Success toasts listed above must appear after each action.
-- Failures should use descriptive copy (e.g., "No customers found. Please add one before creating an order.").
-- If order state becomes stale during mutation, page should refresh details and show warning toast.
-- Refer to `docs/ui-requirements/orders-flow.md` for transition map used in QA planning.
+## UX Guardrails
+- Success toasts must be shown for successful domain actions.
+- State-race errors should trigger details refresh and warning copy.
+- Keep `deliveryStatus` query/export key names unchanged for API compatibility.

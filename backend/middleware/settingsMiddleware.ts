@@ -4,8 +4,14 @@ import { CreateSettingsRequestDTO, UpdateSettingsRequestDTO } from "../data/type
 import SettingsModel from "../models/settings.model.js";
 import { US_STATE_CODES } from "../data/usStates.js";
 
-type DeliveryPayload = {
-  pickupLocations?: unknown;
+type ShippingPayload = {
+  delivery?: {
+    pricing?: unknown;
+  };
+  pickup?: {
+    locations?: unknown;
+    policy?: unknown;
+  };
 };
 
 function normalizePickupLocations(value: unknown): Record<string, unknown> {
@@ -38,14 +44,14 @@ function validatePickupLocationIdsUniqueness(pickupLocations: Record<string, unk
   return null;
 }
 
-function validateDeliveryConsistency(delivery: DeliveryPayload): string | null {
-  const pickupLocations = normalizePickupLocations(delivery.pickupLocations);
+function validateShippingConsistency(shipping: ShippingPayload): string | null {
+  const pickupLocations = normalizePickupLocations(shipping.pickup?.locations);
   const unknownStateKeys = Object.keys(pickupLocations).filter(
     (state) => !US_STATE_CODES.includes(state as (typeof US_STATE_CODES)[number]),
   );
 
   if (unknownStateKeys.length > 0) {
-    return `Incorrect delivery settings: unknown states in pickupLocations: ${unknownStateKeys.join(", ")}`;
+    return `Incorrect shipping settings: unknown states in shipping.pickup.locations: ${unknownStateKeys.join(", ")}`;
   }
 
   return validatePickupLocationIdsUniqueness(pickupLocations);
@@ -57,7 +63,7 @@ export async function settingsCreateDeliveryConsistency(
   next: NextFunction,
 ) {
   try {
-    const error = validateDeliveryConsistency(req.body.delivery ?? {});
+    const error = validateShippingConsistency(req.body.shipping ?? {});
     if (error) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: error });
     }
@@ -73,26 +79,44 @@ export async function settingsUpdateDeliveryConsistency(
   next: NextFunction,
 ) {
   try {
-    if (!req.body?.delivery) {
+    if (!req.body?.shipping) {
       return next();
     }
 
     const existingSettings = await SettingsModel.findOne().lean().exec();
-    const existingDelivery = (existingSettings?.delivery ?? {}) as DeliveryPayload;
-    const payloadDelivery = req.body.delivery as DeliveryPayload;
+    const existingShipping = (existingSettings?.shipping ?? {}) as ShippingPayload;
+    const payloadShipping = req.body.shipping as ShippingPayload;
 
-    const nextDelivery: DeliveryPayload = {
-      pickupLocations: payloadDelivery.pickupLocations ?? existingDelivery.pickupLocations,
+    const nextShipping: ShippingPayload = {
+      delivery: {
+        pricing: payloadShipping.delivery?.pricing ?? existingShipping.delivery?.pricing,
+      },
+      pickup: {
+        locations: payloadShipping.pickup?.locations ?? existingShipping.pickup?.locations,
+        policy: payloadShipping.pickup?.policy ?? existingShipping.pickup?.policy,
+      },
     };
 
-    if (nextDelivery.pickupLocations === undefined) {
+    if (nextShipping.delivery?.pricing === undefined) {
       return res.status(400).json({
         IsSuccess: false,
-        ErrorMessage: "Incorrect delivery settings: delivery.pickupLocations must be defined",
+        ErrorMessage: "Incorrect shipping settings: shipping.delivery.pricing must be defined",
+      });
+    }
+    if (nextShipping.pickup?.locations === undefined) {
+      return res.status(400).json({
+        IsSuccess: false,
+        ErrorMessage: "Incorrect shipping settings: shipping.pickup.locations must be defined",
+      });
+    }
+    if (nextShipping.pickup?.policy === undefined) {
+      return res.status(400).json({
+        IsSuccess: false,
+        ErrorMessage: "Incorrect shipping settings: shipping.pickup.policy must be defined",
       });
     }
 
-    const error = validateDeliveryConsistency(nextDelivery);
+    const error = validateShippingConsistency(nextShipping);
     if (error) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: error });
     }

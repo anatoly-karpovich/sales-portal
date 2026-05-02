@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import {
   Alert,
@@ -6,14 +6,16 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material'
-import type { OrderDelivery, OrderDetails } from '@/api/modules/orders.api'
+import type { OrderDelivery, OrderDeliveryPayload, OrderDetails } from '@/api/modules/orders.api'
 import { US_STATES, US_STATE_BY_CODE } from '@/constants/usStates'
 import {
   buildPickupLocationsByStateMap,
@@ -21,13 +23,12 @@ import {
   resolvePickupLocation,
   resolvePickupStates,
 } from '@/features/orders/config/pickupLocations.config'
-import {
-  ORDER_DETAILS_DELIVERY_MAX_DATE_OFFSET_DAYS,
-  ORDER_DETAILS_DELIVERY_MIN_DATE_OFFSET_DAYS,
-} from '@/features/orders/config/orderDetails.config'
+import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
+import { useOrderPricingMutation } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatDate } from '@/utils/date'
+import { formatPrice } from '@/utils/number'
 import { applyZipCodeMask } from '@/utils/zipCode'
 
 type DeliveryConditionOption = 'Delivery' | 'Pickup'
@@ -45,12 +46,11 @@ type DeliveryAddressFormState = {
 type DeliveryFormState = {
   condition: DeliveryConditionOption
   location: DeliveryLocationOption
-  finalDate: string
+  express: boolean
   address: DeliveryAddressFormState
 }
 
 type DeliveryFieldErrors = {
-  finalDate: string | null
   state: string | null
   city: string | null
   street: string | null
@@ -60,7 +60,6 @@ type DeliveryFieldErrors = {
 }
 
 type DeliveryTouchedState = {
-  finalDate: boolean
   state: boolean
   city: boolean
   street: boolean
@@ -73,14 +72,13 @@ type OrderDetailsDeliveryTabProps = {
   order: OrderDetails
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
-  onSaveDelivery: (delivery: OrderDelivery) => Promise<boolean>
+  onSaveDelivery: (delivery: OrderDeliveryPayload) => Promise<boolean>
 }
 
 const DELIVERY_CONDITION_OPTIONS: DeliveryConditionOption[] = ['Delivery', 'Pickup']
 const DELIVERY_LOCATION_OPTIONS: DeliveryLocationOption[] = ['Home', 'Other']
 
 const INITIAL_TOUCHED_STATE: DeliveryTouchedState = {
-  finalDate: false,
   state: false,
   city: false,
   street: false,
@@ -97,58 +95,6 @@ function normalizeTextValue(value: string | number | null | undefined) {
 
 function toOptionTestId(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
-
-function toDateInputValue(value: string | null | undefined) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-
-  return toDateInputValueFromDate(date)
-}
-
-function toDateInputValueFromDate(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function toDateInputAsLocalDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
-  if (Number.isNaN(date.getTime())) return null
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null
-  }
-  return date
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-function addDays(date: Date, days: number) {
-  const copy = new Date(date)
-  copy.setDate(copy.getDate() + days)
-  return copy
-}
-
-function resolveAllowedDeliveryDates(baseDate: Date) {
-  const dayStart = startOfDay(baseDate)
-  const minDate = addDays(dayStart, ORDER_DETAILS_DELIVERY_MIN_DATE_OFFSET_DAYS)
-  const maxDate = addDays(dayStart, ORDER_DETAILS_DELIVERY_MAX_DATE_OFFSET_DAYS)
-  return {
-    minDate,
-    maxDate,
-    minDateInputValue: toDateInputValueFromDate(minDate),
-    maxDateInputValue: toDateInputValueFromDate(maxDate),
-  }
 }
 
 function resolveCustomerAddress(order: OrderDetails): DeliveryAddressFormState {
@@ -174,7 +120,7 @@ function areAddressesEqual(left: DeliveryAddressFormState, right: DeliveryAddres
 }
 
 function resolveDeliveryLocation(order: OrderDetails): DeliveryLocationOption {
-  if (!order.delivery || order.delivery.condition !== 'Delivery') {
+  if (order.delivery.condition !== 'Delivery') {
     return 'Home'
   }
 
@@ -193,22 +139,11 @@ function resolveDeliveryLocation(order: OrderDetails): DeliveryLocationOption {
 
 function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
   const customerAddress = resolveCustomerAddress(order)
-  if (!order.delivery) {
-    return {
-      condition: 'Delivery',
-      location: 'Home',
-      finalDate: '',
-      address: customerAddress,
-    }
-  }
-
-  const condition = order.delivery.condition
-  const finalDate = toDateInputValue(order.delivery.finalDate)
-  if (condition === 'Pickup') {
+  if (order.delivery.condition === 'Pickup') {
     return {
       condition: 'Pickup',
       location: 'Home',
-      finalDate,
+      express: false,
       address: {
         state: order.delivery.address.state,
         city: order.delivery.address.city,
@@ -221,18 +156,22 @@ function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
   }
 
   const location = resolveDeliveryLocation(order)
+
   return {
-    condition,
+    condition: 'Delivery',
     location,
-    finalDate,
-    address: location === 'Home' ? customerAddress : {
-      state: order.delivery.address.state,
-      city: order.delivery.address.city,
-      street: order.delivery.address.street,
-      house: String(order.delivery.address.house),
-      apartment: order.delivery.address.apartment ? String(order.delivery.address.apartment) : '',
-      zipCode: order.delivery.address.zipCode,
-    },
+    express: 'express' in order.delivery.schedule ? order.delivery.schedule.express : false,
+    address:
+      location === 'Home'
+        ? customerAddress
+        : {
+            state: order.delivery.address.state,
+            city: order.delivery.address.city,
+            street: order.delivery.address.street,
+            house: String(order.delivery.address.house),
+            apartment: order.delivery.address.apartment ? String(order.delivery.address.apartment) : '',
+            zipCode: order.delivery.address.zipCode,
+          },
   }
 }
 
@@ -277,16 +216,7 @@ function isValidZipCode(value: string) {
   return /^\d{5}(-\d{4})?$/.test(value.trim())
 }
 
-function validateDeliveryForm(
-  state: DeliveryFormState,
-  allowedDates: { minDate: Date; maxDate: Date },
-): DeliveryFieldErrors {
-  const selectedDate = toDateInputAsLocalDate(state.finalDate)
-  const hasValidDate =
-    selectedDate !== null &&
-    selectedDate.getTime() >= allowedDates.minDate.getTime() &&
-    selectedDate.getTime() <= allowedDates.maxDate.getTime()
-
+function validateDeliveryForm(state: DeliveryFormState): DeliveryFieldErrors {
   const hasValidState = isValidState(state.address.state)
   const hasValidCity = isValidCity(state.address.city)
   const hasValidStreet = isValidStreet(state.address.street)
@@ -295,7 +225,6 @@ function validateDeliveryForm(
   const hasValidZipCode = isValidZipCode(state.address.zipCode)
 
   return {
-    finalDate: hasValidDate ? null : ordersUiText.validation.deliveryDateInvalid,
     state: hasValidState ? null : ordersUiText.validation.deliveryStateInvalid,
     city: hasValidCity ? null : ordersUiText.validation.deliveryCityInvalid,
     street: hasValidStreet ? null : ordersUiText.validation.deliveryStreetInvalid,
@@ -305,32 +234,10 @@ function validateDeliveryForm(
   }
 }
 
-function toComparableFormState(state: DeliveryFormState) {
-  return {
-    condition: state.condition,
-    finalDate: state.finalDate,
-    location: state.location,
-    address: {
-      state: state.address.state.trim(),
-      city: state.address.city.trim(),
-      street: state.address.street.trim(),
-      house: Number(state.address.house),
-      apartment: state.address.apartment.trim().length > 0 ? Number(state.address.apartment) : null,
-      zipCode: state.address.zipCode.trim(),
-    },
-  }
-}
-
-function toDeliveryPayload(state: DeliveryFormState): OrderDelivery | null {
-  const parsedDate = new Date(`${state.finalDate}T00:00:00.000Z`)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return null
-  }
-
+function toDeliveryPayload(state: DeliveryFormState): OrderDeliveryPayload {
   const apartment = state.address.apartment.trim()
-  return {
+  const payload: OrderDeliveryPayload = {
     condition: state.condition,
-    finalDate: parsedDate.toISOString(),
     address: {
       state: state.address.state.trim(),
       city: state.address.city.trim(),
@@ -340,6 +247,12 @@ function toDeliveryPayload(state: DeliveryFormState): OrderDelivery | null {
       zipCode: state.address.zipCode.trim(),
     },
   }
+
+  if (state.condition === 'Delivery') {
+    payload.express = state.express
+  }
+
+  return payload
 }
 
 function resolveAddressSourceLabel(condition: DeliveryConditionOption, location: DeliveryLocationOption) {
@@ -350,6 +263,50 @@ function resolveAddressSourceLabel(condition: DeliveryConditionOption, location:
     return ordersUiText.detailsPage.placeholders.deliveryAddressSourceCustomer
   }
   return ordersUiText.detailsPage.placeholders.deliveryAddressSourceCustom
+}
+
+function resolvePricingTierLabel(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Delivery') return '-'
+
+  switch (delivery.pricingTier) {
+    case 'local_city':
+      return 'Local City'
+    case 'same_state':
+      return 'Same State'
+    case 'out_of_state':
+      return 'Out Of State'
+    default:
+      return '-'
+  }
+}
+
+function resolveEstimatedDate(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Delivery') return '-'
+  if ('estimatedDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.estimatedDate)
+  }
+  return '-'
+}
+
+function resolvePickupAvailableFrom(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Pickup') return '-'
+  if ('availableFromDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.availableFromDate)
+  }
+  return '-'
+}
+
+function resolvePickupByDate(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Pickup') return '-'
+  if ('pickupByDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.pickupByDate)
+  }
+  return '-'
+}
+
+function resolveAddressOneLine(address: OrderDeliveryPayload['address']) {
+  const apartmentPart = typeof address.apartment === 'number' ? `, Apt ${address.apartment}` : ''
+  return `${address.house} ${address.street}${apartmentPart}, ${address.city}, ${address.state} ${address.zipCode}`
 }
 
 export function OrderDetailsDeliveryTab({
@@ -365,19 +322,26 @@ export function OrderDetailsDeliveryTab({
     refetch: refetchSettings,
   } = useSettingsQuery()
 
+  const { mutateAsync: calculatePricingAsync } = useOrderPricingMutation()
   const pickupLocationsMap = useMemo(
-    () => buildPickupLocationsByStateMap(settings?.delivery.pickupLocations),
-    [settings?.delivery.pickupLocations],
+    () => buildPickupLocationsByStateMap(settings?.shipping.pickup.locations),
+    [settings?.shipping.pickup.locations],
   )
   const pickupStates = useMemo(() => resolvePickupStates(pickupLocationsMap), [pickupLocationsMap])
   const initialFormState = useMemo(() => resolveInitialFormState(order), [order])
-  const allowedDeliveryDates = useMemo(() => resolveAllowedDeliveryDates(new Date()), [])
-  const dateInputRef = useRef<HTMLInputElement | null>(null)
 
   const [isEditing, setIsEditing] = useState(false)
   const [formState, setFormState] = useState(initialFormState)
   const [touched, setTouched] = useState<DeliveryTouchedState>(INITIAL_TOUCHED_STATE)
   const [selectedPickupState, setSelectedPickupState] = useState(initialFormState.address.state)
+  const [pricingPreviewTotal, setPricingPreviewTotal] = useState<number | null>(null)
+  const [pricingPreviewDeliveryPrice, setPricingPreviewDeliveryPrice] = useState<number | null>(null)
+  const [pricingPreviewEstimatedDate, setPricingPreviewEstimatedDate] = useState<string | null>(null)
+  const [pricingPreviewAvailableFromDate, setPricingPreviewAvailableFromDate] = useState<string | null>(null)
+  const [pricingPreviewPickupByDate, setPricingPreviewPickupByDate] = useState<string | null>(null)
+  const [isPricingPreviewLoading, setIsPricingPreviewLoading] = useState(false)
+  const [isPricingPreviewUnavailable, setIsPricingPreviewUnavailable] = useState(false)
+  const [hasPricingPreviewResponse, setHasPricingPreviewResponse] = useState(false)
 
   const isSettingsDataLoading = isSettingsLoading || (!settings && isSettingsFetching)
   const hasSettingsData = Boolean(settings)
@@ -386,13 +350,15 @@ export function OrderDetailsDeliveryTab({
     isDeliveryEditable &&
     hasSettingsData &&
     order.status === 'Draft' &&
-    order.deliveryStatus === 'Not Scheduled'
+    order.delivery.status === 'Draft'
   const canEditDelivery =
     isDeliveryEditable &&
     hasSettingsData &&
     order.status === 'Draft' &&
-    order.deliveryStatus === 'Scheduled' &&
-    Boolean(order.delivery)
+    (
+      order.delivery.status === 'Delivery Scheduled' ||
+      order.delivery.status === 'Pickup Scheduled'
+    )
   const canEnterEditMode = canScheduleDelivery || canEditDelivery
   const isEditModeVisible = isEditing && canEnterEditMode
 
@@ -401,35 +367,83 @@ export function OrderDetailsDeliveryTab({
     [pickupLocationsMap, selectedPickupState],
   )
 
-  const validation = useMemo(
-    () => validateDeliveryForm(formState, allowedDeliveryDates),
-    [allowedDeliveryDates, formState],
-  )
+  const validation = useMemo(() => validateDeliveryForm(formState), [formState])
   const isFormValid = useMemo(
     () => Object.values(validation).every((value) => value === null),
     [validation],
-  )
-  const hasChanges = useMemo(
-    () =>
-      JSON.stringify(toComparableFormState(formState)) !==
-      JSON.stringify(toComparableFormState(initialFormState)),
-    [formState, initialFormState],
   )
   const canSave =
     isDeliveryEditable &&
     hasSettingsData &&
     isFormValid &&
-    hasChanges &&
+    hasPricingPreviewResponse &&
+    !isPricingPreviewLoading &&
     !isDeliverySubmitting &&
+    !(formState.condition === 'Pickup' && pickupCities.length === 0)
+  const canRequestPricingPreview =
+    isEditModeVisible &&
+    hasSettingsData &&
+    isFormValid &&
     !(formState.condition === 'Pickup' && pickupCities.length === 0)
 
   const areAddressLineFieldsReadonly =
     formState.condition === 'Pickup' || formState.location === 'Home'
   const shouldShowLocation = formState.condition === 'Delivery'
   const deliveryLocation = resolveDeliveryLocation(order)
-  const deliveryAddressSourceLabel = order.delivery
-    ? resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
-    : null
+  const deliveryAddressSourceLabel = resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
+
+  useEffect(() => {
+    if (!canRequestPricingPreview) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsPricingPreviewLoading(true)
+      const payload = {
+        products: order.products.map((item) => ({
+          id: item.product._id,
+          quantity: item.quantity,
+        })),
+        delivery: toDeliveryPayload(formState),
+      }
+
+      void calculatePricingAsync({ payload, requestConfig: { skipErrorToast: true } })
+        .then((pricing) => {
+          setPricingPreviewTotal(pricing.totalPrice)
+          setPricingPreviewDeliveryPrice(pricing.delivery.price)
+          setPricingPreviewEstimatedDate(pricing.delivery.estimatedDate)
+          setPricingPreviewAvailableFromDate(pricing.delivery.availableFromDate)
+          setPricingPreviewPickupByDate(pricing.delivery.pickupByDate)
+          setIsPricingPreviewUnavailable(false)
+          setHasPricingPreviewResponse(true)
+        })
+        .catch(() => {
+          setPricingPreviewTotal(null)
+          setPricingPreviewDeliveryPrice(null)
+          setPricingPreviewEstimatedDate(null)
+          setPricingPreviewAvailableFromDate(null)
+          setPricingPreviewPickupByDate(null)
+          setIsPricingPreviewUnavailable(true)
+          setHasPricingPreviewResponse(true)
+        })
+        .finally(() => {
+          setIsPricingPreviewLoading(false)
+        })
+    }, ORDER_DETAILS_SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    canRequestPricingPreview,
+    formState,
+    hasSettingsData,
+    isEditModeVisible,
+    isFormValid,
+    order.products,
+    pickupCities.length,
+    calculatePricingAsync,
+  ])
 
   const markTouched = (field: keyof DeliveryTouchedState) => {
     setTouched((current) => ({ ...current, [field]: true }))
@@ -461,6 +475,13 @@ export function OrderDetailsDeliveryTab({
   const handleStartEditing = () => {
     if (!canEnterEditMode) return
     resetEditState()
+    setPricingPreviewTotal(null)
+    setPricingPreviewDeliveryPrice(null)
+    setPricingPreviewEstimatedDate(null)
+    setPricingPreviewAvailableFromDate(null)
+    setPricingPreviewPickupByDate(null)
+    setIsPricingPreviewUnavailable(false)
+    setHasPricingPreviewResponse(false)
     setIsEditing(true)
   }
 
@@ -484,6 +505,7 @@ export function OrderDetailsDeliveryTab({
         ...current,
         condition: 'Pickup',
         location: 'Home',
+        express: false,
         address: {
           state: fallbackState,
           city: fallbackCity,
@@ -534,38 +556,12 @@ export function OrderDetailsDeliveryTab({
 
   const handleSave = async () => {
     if (!canSave) return
-    const payload = toDeliveryPayload(formState)
-    if (!payload) return
 
-    const isSuccessful = await onSaveDelivery(payload)
+    const isSuccessful = await onSaveDelivery(toDeliveryPayload(formState))
     if (!isSuccessful) return
 
     setTouched(INITIAL_TOUCHED_STATE)
     setIsEditing(false)
-  }
-
-  const openDatePicker = () => {
-    const pickerInput = dateInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null
-    if (!pickerInput) return
-    try {
-      pickerInput.showPicker?.()
-    } catch {
-      // ignore: some browsers block programmatic picker calls in specific focus states
-    }
-  }
-
-  const handleDateInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
-    if (event.key === 'Tab') return
-    event.preventDefault()
-    openDatePicker()
-  }
-
-  const handleDateInputPaste: React.ClipboardEventHandler<HTMLInputElement> = (event) => {
-    event.preventDefault()
-  }
-
-  const handleDateInputDrop: React.DragEventHandler<HTMLInputElement> = (event) => {
-    event.preventDefault()
   }
 
   return (
@@ -667,28 +663,21 @@ export function OrderDetailsDeliveryTab({
                 ))}
               </TextField>
 
-              <TextField
-                label={ordersUiText.detailsPage.fields.delivery.finalDate}
-                type="date"
-                inputRef={dateInputRef}
-                onClick={openDatePicker}
-                onFocus={openDatePicker}
-                value={formState.finalDate}
-                onChange={(event) => setFormState((current) => ({ ...current, finalDate: event.target.value }))}
-                onBlur={() => markTouched('finalDate')}
-                error={touched.finalDate && Boolean(validation.finalDate)}
-                helperText={touched.finalDate ? (validation.finalDate ?? ' ') : ' '}
-                slotProps={{ inputLabel: { shrink: true } }}
-                data-testid="order-details-delivery-date-input"
-                inputProps={{
-                  min: allowedDeliveryDates.minDateInputValue,
-                  max: allowedDeliveryDates.maxDateInputValue,
-                  onKeyDown: handleDateInputKeyDown,
-                  onPaste: handleDateInputPaste,
-                  onDrop: handleDateInputDrop,
-                  'data-testid': 'order-details-delivery-date-input-field',
-                }}
-              />
+              {formState.condition === 'Delivery' ? (
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={formState.express}
+                      onChange={(event) => {
+                        setFormState((current) => ({ ...current, express: event.target.checked }))
+                      }}
+                      data-testid="order-details-delivery-express-switch-field"
+                    />
+                  )}
+                  label={ordersUiText.detailsPage.fields.delivery.express}
+                  data-testid="order-details-delivery-express-switch"
+                />
+              ) : null}
             </Box>
 
             {shouldShowLocation ? (
@@ -909,6 +898,125 @@ export function OrderDetailsDeliveryTab({
               />
             </Box>
 
+            <Paper variant="outlined" sx={{ p: 1.5 }} data-testid="order-details-delivery-pricing-preview-card">
+              <Stack spacing={1}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {ordersUiText.detailsPage.labels.pricingPreview}
+                </Typography>
+
+                {canRequestPricingPreview && isPricingPreviewUnavailable ? (
+                  <Alert severity="warning" data-testid="order-details-delivery-pricing-preview-unavailable-alert">
+                    {ordersUiText.errors.pricingPreviewUnavailable}
+                  </Alert>
+                ) : null}
+
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gap: 1,
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: 'repeat(2, minmax(180px, 1fr))',
+                      lg: 'repeat(4, minmax(160px, 1fr))',
+                    },
+                  }}
+                >
+                  <Paper variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        {ordersUiText.detailsPage.labels.totalPrice}
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                        data-testid="order-details-delivery-pricing-preview-total-value"
+                      >
+                        {canRequestPricingPreview && isPricingPreviewLoading ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          formatPrice(canRequestPricingPreview ? pricingPreviewTotal : null)
+                        )}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        {ordersUiText.detailsPage.labels.deliveryPrice}
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                        data-testid="order-details-delivery-pricing-preview-delivery-price-value"
+                      >
+                        {canRequestPricingPreview && isPricingPreviewLoading ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          formatPrice(canRequestPricingPreview ? pricingPreviewDeliveryPrice : null)
+                        )}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+
+                  {formState.condition === 'Delivery' ? (
+                    <Paper variant="outlined" sx={{ p: 1.25 }}>
+                      <Stack spacing={0.5}>
+                        <Typography variant="caption" color="text.secondary">
+                          {ordersUiText.detailsPage.fields.delivery.estimatedDate}
+                        </Typography>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                          data-testid="order-details-delivery-pricing-preview-estimated-date-value"
+                        >
+                          {canRequestPricingPreview && isPricingPreviewLoading
+                            ? '...'
+                            : formatDate(canRequestPricingPreview ? pricingPreviewEstimatedDate : null)}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  ) : (
+                    <>
+                      <Paper variant="outlined" sx={{ p: 1.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography variant="caption" color="text.secondary">
+                            {ordersUiText.detailsPage.fields.delivery.availableFromDate}
+                          </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                            data-testid="order-details-delivery-pricing-preview-available-from-date-value"
+                          >
+                            {canRequestPricingPreview && isPricingPreviewLoading
+                              ? '...'
+                              : formatDate(canRequestPricingPreview ? pricingPreviewAvailableFromDate : null)}
+                          </Typography>
+                        </Stack>
+                      </Paper>
+
+                      <Paper variant="outlined" sx={{ p: 1.25 }}>
+                        <Stack spacing={0.5}>
+                          <Typography variant="caption" color="text.secondary">
+                            {ordersUiText.detailsPage.fields.delivery.pickupByDate}
+                          </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                            data-testid="order-details-delivery-pricing-preview-pickup-by-date-value"
+                          >
+                            {canRequestPricingPreview && isPricingPreviewLoading
+                              ? '...'
+                              : formatDate(canRequestPricingPreview ? pricingPreviewPickupByDate : null)}
+                          </Typography>
+                        </Stack>
+                      </Paper>
+                    </>
+                  )}
+                </Box>
+              </Stack>
+            </Paper>
+
             <Stack direction="row" spacing={1} justifyContent="flex-start" flexWrap="wrap">
               <Button
                 variant="contained"
@@ -933,23 +1041,21 @@ export function OrderDetailsDeliveryTab({
             </Stack>
           </Stack>
         </Paper>
-      ) : order.delivery ? (
+      ) : (
         <Stack spacing={1.5} data-testid="order-details-delivery-view">
-          {deliveryAddressSourceLabel ? (
-            <Chip
-              size="small"
-              color="primary"
-              variant="outlined"
-              label={deliveryAddressSourceLabel}
-              sx={{ alignSelf: 'flex-start' }}
-              data-testid="order-details-delivery-view-source-chip"
-            />
-          ) : null}
+          <Chip
+            size="small"
+            color="primary"
+            variant="outlined"
+            label={deliveryAddressSourceLabel}
+            sx={{ alignSelf: 'flex-start' }}
+            data-testid="order-details-delivery-view-source-chip"
+          />
           <Box
             sx={{
               display: 'grid',
               gap: 1.25,
-              gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' },
+              gridTemplateColumns: { xs: '1fr', sm: '220px 1fr' },
             }}
           >
             <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.condition}</Typography>
@@ -957,81 +1063,51 @@ export function OrderDetailsDeliveryTab({
               {normalizeTextValue(order.delivery.condition)}
             </Typography>
 
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.finalDate}</Typography>
-            <Typography data-testid="order-details-delivery-date-value">
-              {formatDate(order.delivery.finalDate)}
+            <Typography fontWeight={700}>{ordersUiText.detailsPage.labels.deliveryPrice}</Typography>
+            <Typography data-testid="order-details-delivery-price-value">
+              {formatPrice(order.delivery.price)}
             </Typography>
 
             {order.delivery.condition === 'Delivery' ? (
               <>
                 <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.location}</Typography>
-                <Typography data-testid="order-details-delivery-location-value">
-                  {deliveryLocation}
+                <Typography data-testid="order-details-delivery-location-value">{deliveryLocation}</Typography>
+
+                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.express}</Typography>
+                <Typography data-testid="order-details-delivery-express-value">
+                  {'express' in order.delivery.schedule && order.delivery.schedule.express ? 'Yes' : 'No'}
+                </Typography>
+
+                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.pricingTier}</Typography>
+                <Typography data-testid="order-details-delivery-pricing-tier-value">
+                  {resolvePricingTierLabel(order.delivery)}
+                </Typography>
+
+                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.estimatedDate}</Typography>
+                <Typography data-testid="order-details-delivery-estimated-date-value">
+                  {resolveEstimatedDate(order.delivery)}
                 </Typography>
               </>
-            ) : null}
-
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.state}</Typography>
-            <Typography data-testid="order-details-delivery-state-value">
-              {normalizeTextValue(order.delivery.address.state)}
-            </Typography>
-
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.city}</Typography>
-            <Typography data-testid="order-details-delivery-city-value">
-              {normalizeTextValue(order.delivery.address.city)}
-            </Typography>
-
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.street}</Typography>
-            <Typography data-testid="order-details-delivery-street-value">
-              {normalizeTextValue(order.delivery.address.street)}
-            </Typography>
-
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.house}</Typography>
-            <Typography data-testid="order-details-delivery-house-value">
-              {normalizeTextValue(order.delivery.address.house)}
-            </Typography>
-
-            {typeof order.delivery.address.apartment === 'number' ? (
+            ) : (
               <>
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.apartment}</Typography>
-                <Typography data-testid="order-details-delivery-apartment-value">
-                  {normalizeTextValue(order.delivery.address.apartment)}
+                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.availableFromDate}</Typography>
+                <Typography data-testid="order-details-delivery-available-from-date-value">
+                  {resolvePickupAvailableFrom(order.delivery)}
+                </Typography>
+
+                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.pickupByDate}</Typography>
+                <Typography data-testid="order-details-delivery-pickup-by-date-value">
+                  {resolvePickupByDate(order.delivery)}
                 </Typography>
               </>
-            ) : null}
+            )}
 
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.zipCode}</Typography>
-            <Typography data-testid="order-details-delivery-zip-code-value">
-              {normalizeTextValue(order.delivery.address.zipCode)}
+            <Typography fontWeight={700}>{ordersUiText.detailsPage.labels.deliveryAddress}</Typography>
+            <Typography data-testid="order-details-delivery-address-value">
+              {resolveAddressOneLine(order.delivery.address)}
             </Typography>
           </Box>
         </Stack>
-      ) : (
-        <Alert
-          severity="info"
-          variant="outlined"
-          sx={{
-            alignSelf: 'flex-start',
-            width: 'fit-content',
-            px: 1.25,
-            py: 0.25,
-            '& .MuiAlert-icon': {
-              py: 0,
-              my: 'auto',
-              mr: 1,
-            },
-            '& .MuiAlert-message': {
-              py: 0,
-              pr: 0.5,
-              display: 'flex',
-              alignItems: 'center',
-              minHeight: 24,
-            },
-          }}
-          data-testid="order-details-delivery-empty-state"
-        >
-          {ordersUiText.detailsPage.placeholders.noDeliveryScheduled}
-        </Alert>
       )}
     </Stack>
   )

@@ -159,14 +159,39 @@ orderRouter.put(
  *           pattern: ^\\d{5}(-\\d{4})?$
  *     Delivery:
  *       type: object
- *       required: [finalDate, condition, address]
+ *       required: [status, condition, price, pricingTier, schedule, address]
  *       properties:
- *         finalDate:
+ *         status:
  *           type: string
- *           format: date-time
+ *           enum: [Draft, Delivery Scheduled, Pickup Scheduled, Partially Delivered, Delivered]
  *         condition:
  *           type: string
  *           enum: [Delivery, Pickup]
+ *         price:
+ *           type: number
+ *         pricingTier:
+ *           type: string
+ *           enum: [pickup, local_city, same_state, out_of_state]
+ *         schedule:
+ *           type: object
+ *           oneOf:
+ *             - type: object
+ *               required: [express, estimatedDate]
+ *               properties:
+ *                 express:
+ *                   type: boolean
+ *                 estimatedDate:
+ *                   type: string
+ *                   format: date-time
+ *             - type: object
+ *               required: [availableFromDate, pickupByDate]
+ *               properties:
+ *                 availableFromDate:
+ *                   type: string
+ *                   format: date-time
+ *                 pickupByDate:
+ *                   type: string
+ *                   format: date-time
  *         address:
  *           $ref: '#/components/schemas/DeliveryAddress'
  *     OrderComment:
@@ -181,28 +206,27 @@ orderRouter.put(
  *           type: string
  *           format: date-time
  *         createdBy:
- *           type: object
  *           nullable: true
- *           required: [_id, username, firstName, lastName]
- *           properties:
- *             _id:
- *               type: string
- *             username:
- *               type: string
- *             firstName:
- *               type: string
- *             lastName:
- *               type: string
+ *           oneOf:
+ *             - type: object
+ *               required: [_id, username, firstName, lastName]
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 username:
+ *                   type: string
+ *                 firstName:
+ *                   type: string
+ *                 lastName:
+ *                   type: string
+ *             - type: string
  *     OrderHistoryEntry:
  *       type: object
- *       required: [status, deliveryStatus, customer, products, total_price, changedOn, action, performer]
+ *       required: [status, customer, products, total_price, delivery, changedOn, action, performer]
  *       properties:
  *         status:
  *           type: string
  *           enum: [Draft, In Process, Completed, Canceled]
- *         deliveryStatus:
- *           type: string
- *           enum: [Not Scheduled, Scheduled, Partially Delivered, Delivered]
  *         customer:
  *           type: string
  *         products:
@@ -212,9 +236,7 @@ orderRouter.put(
  *         total_price:
  *           type: number
  *         delivery:
- *           allOf:
- *             - $ref: '#/components/schemas/Delivery'
- *           nullable: true
+ *           $ref: '#/components/schemas/Delivery'
  *         changedOn:
  *           type: string
  *           format: date-time
@@ -227,6 +249,8 @@ orderRouter.put(
  *             - Order processing started
  *             - Delivery Scheduled
  *             - Delivery Edited
+ *             - Pickup Scheduled
+ *             - Pickup Edited
  *             - Received
  *             - All products received
  *             - Order canceled
@@ -236,21 +260,19 @@ orderRouter.put(
  *         performer:
  *           $ref: '#/components/schemas/ManagerSnapshot'
  *         assignedManager:
+ *           type: object
  *           allOf:
  *             - $ref: '#/components/schemas/ManagerSnapshot'
  *           nullable: true
  *     OrderListItem:
  *       type: object
- *       required: [_id, status, deliveryStatus, customer, products, total_price, createdOn]
+ *       required: [_id, status, customer, products, delivery, total_price, createdOn]
  *       properties:
  *         _id:
  *           type: string
  *         status:
  *           type: string
  *           enum: [Draft, In Process, Completed, Canceled]
- *         deliveryStatus:
- *           type: string
- *           enum: [Not Scheduled, Scheduled, Partially Delivered, Delivered]
  *         customer:
  *           $ref: '#/components/schemas/OrderCustomerSnapshot'
  *         products:
@@ -258,15 +280,14 @@ orderRouter.put(
  *           items:
  *             $ref: '#/components/schemas/ProductInOrder'
  *         delivery:
- *           allOf:
- *             - $ref: '#/components/schemas/Delivery'
- *           nullable: true
+ *           $ref: '#/components/schemas/Delivery'
  *         total_price:
  *           type: number
  *         createdOn:
  *           type: string
  *           format: date-time
  *         assignedManager:
+ *           type: object
  *           allOf:
  *             - $ref: '#/components/schemas/ManagerSnapshot'
  *           nullable: true
@@ -393,7 +414,7 @@ orderRouter.put(
  *               type: array
  *               items:
  *                 type: string
- *                 enum: [Not Scheduled, Scheduled, Partially Delivered, Delivered]
+ *                 enum: [Draft, Delivery Scheduled, Pickup Scheduled, Partially Delivered, Delivered]
  *             page:
  *               type: number
  *             limit:
@@ -503,7 +524,7 @@ orderRouter.put(
  *           type: array
  *           items:
  *             type: string
- *           example: ["Scheduled", "Not Scheduled"]
+ *           example: ["Delivery Scheduled", "Draft"]
  *         description: Filter orders by delivery status
  *       - in: query
  *         name: sortField

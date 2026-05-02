@@ -23,6 +23,7 @@ import {
   rebatesRouter,
   metricsRouter,
   settingsRouter,
+  pricingRouter,
 } from "./routers/index.js";
 import { seed } from "./mongo/init";
 import { getDbUrl } from "./mongo/url";
@@ -59,6 +60,7 @@ app.use("/api", metricsRouter);
 app.use("/api", managersRouter);
 app.use("/api", notificationRouter);
 app.use("/api", settingsRouter);
+app.use("/api", pricingRouter);
 app.use(errorHandleMiddleware);
 
 async function startApp() {

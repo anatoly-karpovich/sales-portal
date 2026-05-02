@@ -316,7 +316,7 @@ export function OrderDetailsSummarySection({
               sx={{ fontWeight: 700 }}
               data-testid="order-details-summary-delivery-date-value"
             >
-              {order.deliveryStatus}
+              {order.delivery.status}
             </Typography>
           </Stack>
 

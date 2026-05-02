@@ -42,7 +42,12 @@ const STATUS_ACTIONS = new Set([
   'Order reopened',
 ])
 
-const DELIVERY_ACTIONS = new Set(['Delivery Scheduled', 'Delivery Edited'])
+const DELIVERY_ACTIONS = new Set([
+  'Delivery Scheduled',
+  'Delivery Edited',
+  'Pickup Scheduled',
+  'Pickup Edited',
+])
 const CUSTOMER_ACTIONS = new Set(['Customer changed'])
 const REQUESTED_PRODUCTS_ACTIONS = new Set(['Requested products changed'])
 const RECEIVED_ACTIONS = new Set(['Received', 'All products received'])
@@ -135,34 +140,58 @@ function buildProductsById(products: OrderProduct[]) {
   return byId
 }
 
-function resolveDeliveryFieldValue(
-  delivery: OrderDelivery | null | undefined,
-  field: keyof OrderDelivery['address'] | 'condition' | 'finalDate',
-) {
-  if (!delivery) return '-'
-  if (field === 'condition') return normalizeText(delivery.condition)
-  if (field === 'finalDate') return formatDate(delivery.finalDate)
-  return normalizeText(delivery.address?.[field])
+function resolveDeliveryAddressOneLine(delivery: OrderDelivery) {
+  const apartmentPart =
+    typeof delivery.address.apartment === 'number' ? `, Apt ${delivery.address.apartment}` : ''
+  return `${delivery.address.house} ${delivery.address.street}${apartmentPart}, ${delivery.address.city}, ${delivery.address.state} ${delivery.address.zipCode}`
 }
 
-function resolveDeliverySummary(
-  deliveryStatus: string | undefined,
-  delivery: OrderDelivery | null | undefined,
-) {
-  const statusLabel = normalizeText(deliveryStatus)
-  const dateLabel = delivery?.finalDate ? formatDate(delivery.finalDate) : '-'
+function resolveDeliveryConditionValue(delivery: OrderDelivery) {
+  return normalizeText(delivery.condition)
+}
 
-  if (statusLabel === '-' && dateLabel === '-') {
-    return ordersUiText.detailsPage.placeholders.noDelivery
+function resolveDeliveryExpressValue(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Delivery') return '-'
+  if ('express' in delivery.schedule) {
+    return delivery.schedule.express ? 'Yes' : 'No'
   }
+  return '-'
+}
 
-  if (statusLabel === '-') {
-    return dateLabel
-  }
+function resolveDeliveryPriceValue(delivery: OrderDelivery) {
+  return formatPrice(delivery.price)
+}
 
-  if (dateLabel === '-') {
-    return statusLabel
+function resolveDeliveryEstimatedDateValue(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Delivery') return '-'
+  if ('estimatedDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.estimatedDate)
   }
+  return '-'
+}
+
+function resolveDeliveryAvailableFromDateValue(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Pickup') return '-'
+  if ('availableFromDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.availableFromDate)
+  }
+  return '-'
+}
+
+function resolveDeliveryPickupByDateValue(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Pickup') return '-'
+  if ('pickupByDate' in delivery.schedule) {
+    return formatDate(delivery.schedule.pickupByDate)
+  }
+  return '-'
+}
+
+function resolveDeliverySummary(delivery: OrderDelivery) {
+  const statusLabel = normalizeText(delivery.status)
+  const dateLabel =
+    delivery.condition === 'Delivery'
+      ? resolveDeliveryEstimatedDateValue(delivery)
+      : `${resolveDeliveryAvailableFromDateValue(delivery)} - ${resolveDeliveryPickupByDateValue(delivery)}`
 
   return `${statusLabel}, ${dateLabel}`
 }
@@ -184,48 +213,62 @@ function buildDeliveryChanges(
   current: OrderHistoryEntry,
   previous: OrderHistoryEntry | undefined,
 ): HistoryChange[] {
-  return [
-    {
-      label: 'Delivery type',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'condition'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'condition'),
-    },
-    {
-      label: 'Delivery date',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'finalDate'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'finalDate'),
-    },
-    {
-      label: 'State',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'state'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'state'),
-    },
-    {
-      label: 'City',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'city'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'city'),
-    },
-    {
-      label: 'Street',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'street'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'street'),
-    },
-    {
-      label: 'House',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'house'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'house'),
-    },
-    {
-      label: 'Apartment',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'apartment'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'apartment'),
-    },
-    {
-      label: 'Zip Code',
-      previous: resolveDeliveryFieldValue(previous?.delivery, 'zipCode'),
-      updated: resolveDeliveryFieldValue(current.delivery, 'zipCode'),
-    },
-  ]
+  const previousDelivery = previous?.delivery
+  const changes: HistoryChange[] = []
+
+  const appendIfChanged = (label: string, previousValue: string, updatedValue: string) => {
+    if (previousValue === updatedValue) return
+    changes.push({
+      label,
+      previous: previousValue,
+      updated: updatedValue,
+    })
+  }
+
+  // Anchor rows are always shown for delivery changes.
+  changes.push({
+    label: 'Delivery type',
+    previous: previousDelivery ? resolveDeliveryConditionValue(previousDelivery) : '-',
+    updated: resolveDeliveryConditionValue(current.delivery),
+  })
+  changes.push({
+    label: 'Delivery price',
+    previous: previousDelivery ? resolveDeliveryPriceValue(previousDelivery) : '-',
+    updated: resolveDeliveryPriceValue(current.delivery),
+  })
+  changes.push({
+    label: 'Address',
+    previous: previousDelivery ? resolveDeliveryAddressOneLine(previousDelivery) : '-',
+    updated: resolveDeliveryAddressOneLine(current.delivery),
+  })
+
+  if (current.delivery.condition === 'Delivery') {
+    appendIfChanged(
+      'Express',
+      previousDelivery ? resolveDeliveryExpressValue(previousDelivery) : '-',
+      resolveDeliveryExpressValue(current.delivery),
+    )
+    appendIfChanged(
+      'Estimated date',
+      previousDelivery ? resolveDeliveryEstimatedDateValue(previousDelivery) : '-',
+      resolveDeliveryEstimatedDateValue(current.delivery),
+    )
+  }
+
+  if (current.delivery.condition === 'Pickup') {
+    appendIfChanged(
+      'Available from',
+      previousDelivery ? resolveDeliveryAvailableFromDateValue(previousDelivery) : '-',
+      resolveDeliveryAvailableFromDateValue(current.delivery),
+    )
+    appendIfChanged(
+      'Pickup by',
+      previousDelivery ? resolveDeliveryPickupByDateValue(previousDelivery) : '-',
+      resolveDeliveryPickupByDateValue(current.delivery),
+    )
+  }
+
+  return changes
 }
 
 function buildCustomerChanges(
@@ -358,8 +401,8 @@ function buildFallbackChanges(
     })
   }
 
-  const previousDelivery = resolveDeliverySummary(previous?.deliveryStatus, previous?.delivery)
-  const updatedDelivery = resolveDeliverySummary(current.deliveryStatus, current.delivery)
+  const previousDelivery = previous?.delivery ? resolveDeliverySummary(previous.delivery) : '-'
+  const updatedDelivery = resolveDeliverySummary(current.delivery)
   if (previousDelivery !== updatedDelivery) {
     fallbackChanges.push({
       label: ordersUiText.detailsPage.history.delivery,
@@ -534,7 +577,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
           },
           {
             label: ordersUiText.detailsPage.history.delivery,
-            value: resolveDeliverySummary(entry.deliveryStatus, entry.delivery),
+            value: resolveDeliverySummary(entry.delivery),
           },
           {
             label: ordersUiText.detailsPage.history.assignedManager,

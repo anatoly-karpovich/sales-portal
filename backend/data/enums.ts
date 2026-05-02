@@ -27,8 +27,9 @@ export enum ORDER_STATUSES {
 }
 
 export enum DELIVERY_STATUSES {
-  NOT_SCHEDULED = "Not Scheduled",
-  SCHEDULED = "Scheduled",
+  DRAFT = "Draft",
+  DELIVERY_SCHEDULED = "Delivery Scheduled",
+  PICKUP_SCHEDULED = "Pickup Scheduled",
   PARTIALLY_DELIVERED = "Partially Delivered",
   DELIVERED = "Delivered",
 }
@@ -62,6 +63,8 @@ export enum ORDER_HISTORY_ACTIONS {
   PROCESSED = "Order processing started",
   DELIVERY_SCHEDULED = "Delivery Scheduled",
   DELIVERY_EDITED = "Delivery Edited",
+  PICKUP_SCHEDULED = "Pickup Scheduled",
+  PICKUP_EDITED = "Pickup Edited",
   RECEIVED = "Received",
   RECEIVED_ALL = "All products received",
   CANCELED = "Order canceled",

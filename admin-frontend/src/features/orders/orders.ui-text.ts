@@ -22,6 +22,8 @@ export const ordersUiText = {
       assignedManager: 'Assigned Manager',
       orderStatus: 'Order Status',
       totalPrice: 'Total Price',
+      deliveryPrice: 'Delivery Price',
+      pricingPreview: 'Pricing Preview',
       delivery: 'Delivery',
       createdOn: 'Created On',
       customerDetails: 'Customer Details',
@@ -68,9 +70,9 @@ export const ordersUiText = {
       noHistory: 'History is empty.',
     },
     placeholders: {
-      processNeedsDelivery: 'Schedule delivery before processing order',
-      noDeliveryScheduled: 'Delivery is not scheduled yet',
-      noDelivery: 'Not Scheduled',
+      processNeedsDelivery: 'Schedule delivery or pickup before processing order',
+      noDeliveryScheduled: 'Delivery is in Draft state',
+      noDelivery: 'Draft',
       selectManager: 'Click to select manager',
       deliveryCityOtherOption: 'Other',
       deliveryCityNoOptions: 'No cities found.',
@@ -101,7 +103,11 @@ export const ordersUiText = {
       delivery: {
         condition: 'Delivery Type',
         location: 'Location',
-        finalDate: 'Delivery Date',
+        express: 'Express',
+        pricingTier: 'Pricing Tier',
+        estimatedDate: 'Estimated Date',
+        availableFromDate: 'Available From',
+        pickupByDate: 'Pickup By',
         state: 'State',
         city: 'City',
         street: 'Street',
@@ -202,6 +208,7 @@ export const ordersUiText = {
     orderNoLongerDraft: 'Order is no longer in Draft status. Page data was refreshed.',
     orderStateChanged: 'Order state has changed. Page data was refreshed.',
     settingsNotFound: 'Settings were not found.',
+    pricingPreviewUnavailable: 'Pricing preview is temporarily unavailable.',
     deliverySaveFailed: 'Failed to save delivery. Please try again later.',
     receiveProductsFailed: 'Failed to receive products. Please try again later.',
     assignManagerFailed: 'Unable to assign manager. Please try again later.',
@@ -211,7 +218,6 @@ export const ordersUiText = {
   },
   validation: {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',
-    deliveryDateInvalid: 'Delivery date is required',
     deliveryCityInvalid:
       "City's name should contain only 1-20 alphabetical characters and one space between",
     deliveryStreetInvalid:

@@ -128,9 +128,10 @@ Orders:
 - `GET /orders`
 - `GET /orders/:orderId`
 - `POST /orders`
-- `PUT /orders/:orderId`
+- `PATCH /orders/:orderId`
 - `DELETE /orders/:orderId`
 - `POST /orders/export`
+- `POST /orders/pricing`
 - `PUT /orders/:orderId/status`
 - `POST /orders/:orderId/receive`
 - `POST /orders/:orderId/delivery`
@@ -202,15 +203,27 @@ Current important constraints:
   - Each `quantity` must be in `1..settings.order.maxProductQuantityInOrder`. Settings are read on every create/update via `SettingsService.get()`.
   - `maxProductsInOrder` from Settings is currently NOT enforced on the backend (UI cap only).
   - Backend rejects unknown product `id` (`404`) and missing customer (`404`).
+  - `POST /orders` creates a default delivery snapshot (`condition=Delivery`, `express=false`, customer address) with `delivery.status=Draft`.
+  - On customer change in `PATCH /orders/:orderId`, delivery is reset to the new customer address and `delivery.status=Draft`.
+  - `total_price` always includes delivery price.
 - Order receive: `products` is an array of unique product `_id` values to mark as received.
   - Each id must reference an existing position in the order with `received = false` (otherwise `400`).
   - Partial receive of a single position by `quantity` is NOT supported — the entire position flips to `received = true`.
   - `products.length` allowed range is `1..order.products.length`.
 - `PUT /orders/:orderId/status` accepts only: `Draft`, `In Process`, `Canceled` (`Completed` is set automatically by the receive flow).
-- `GET /orders` and `POST /orders/export` support filters by both `status` and `deliveryStatus`.
+- `POST /orders/:orderId/delivery` accepts `condition`, `address`, and conditional `express`:
+  - for `Delivery`: `express` is required;
+  - for `Pickup`: `express=true` is rejected.
+- Delivery snapshots in orders/history use `delivery` object with required `status` and `schedule` union:
+  - status values: `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
+  - `Delivery`: `{ express, estimatedDate }`
+  - `Pickup`: `{ availableFromDate, pickupByDate }`
+- `GET /orders` and `POST /orders/export` support filters by both `status` and `deliveryStatus` query/body keys;
+  `deliveryStatus` filters are applied to `delivery.status`.
 - Product uniqueness: case-insensitive by trimmed `name`.
 - Customer uniqueness: case-insensitive by trimmed/lowercased `email`.
-- `POST /settings` and `PATCH /settings`: delivery cities and pickup addresses must stay synchronized by keys (`delivery.defaultCities` == `Object.keys(delivery.pickupAddresses)`), validated in dedicated settings middleware.
+- `POST /settings` and `PATCH /settings` require `shipping.delivery.pricing` and `shipping.pickup.{policy,locations}`.
+- `shipping.pickup.locations` keys must be valid US states; pickup location `id` values must be unique across all states.
 - Notes/comment textual limits rely on validation helpers and middleware checks.
 
 ## 8.1) Order products structure
@@ -242,7 +255,7 @@ API response shape (`getOrder`, `getSorted`, etc.):
   - positions that already existed in the order keep their previous `unitPrice` and `received`,
   - newly added positions get a fresh `unitPrice` from the current `Product.price`,
   - `quantity` is always taken from the request payload.
-- `total_price = Σ unitPrice × quantity` over all positions.
+- `total_price = products subtotal + delivery price` (delivery is always present in order snapshot).
 
 History snapshot (`Order.history[].products[i]`) uses a richer schema (see `productInHistorySnapshot` in `models/order.model.ts`):
 
@@ -270,20 +283,22 @@ Order lifecycle:
 
 - order status and delivery status are separated:
   - order statuses: `Draft`, `In Process`, `Completed`, `Canceled`
-  - delivery statuses: `Not Scheduled`, `Scheduled`, `Partially Delivered`, `Delivered`
-- initial state is `Draft` + `Not Scheduled`;
-- only `Draft` orders can be updated (`PUT /orders/:orderId`);
-- delivery can be created/edited only while order is `Draft`, and sets delivery status to `Scheduled`;
-- transition to `In Process` requires `delivery` present and delivery status `Scheduled`;
-- receiving products is allowed only for `In Process` with delivery status `Scheduled` or `Partially Delivered`;
+  - delivery statuses: `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
+- initial state on create is `Draft` + `delivery.status=Draft` with default `Delivery` snapshot based on customer address (`express=false`);
+- only `Draft` orders can be updated (`PATCH /orders/:orderId`);
+- delivery can be created/edited only while order is `Draft`, and sets delivery status to:
+  - `Delivery Scheduled` for `condition=Delivery`
+  - `Pickup Scheduled` for `condition=Pickup`
+- transition to `In Process` requires delivery status `Delivery Scheduled` or `Pickup Scheduled`;
+- receiving products is allowed only for `In Process` with delivery status `Delivery Scheduled`, `Pickup Scheduled`, or `Partially Delivered`;
 - partial receive keeps order `In Process` and sets delivery status to `Partially Delivered`;
 - full receive sets order status to `Completed` and delivery status to `Delivered`;
-- cancel is allowed only when order status is `Draft`/`In Process`, delivery status is `Not Scheduled`/`Scheduled`, and no product has `received=true`;
-- `Reopen` (`status -> Draft`) is allowed only from `Canceled`, clears `delivery`, and resets delivery status to `Not Scheduled`.
+- cancel is allowed only when order status is `Draft`/`In Process`, delivery status is `Draft`/`Delivery Scheduled`/`Pickup Scheduled`, and no product has `received=true`;
+- `Reopen` (`status -> Draft`) is allowed only from `Canceled`, rebuilds default delivery snapshot from current customer address, and sets delivery status to `Draft`.
 
 Order side effects:
 
-- order changes append history entries (`history` array, newest first) with snapshots of both `status` and `deliveryStatus`;
+- order changes append history entries (`history` array, newest first) with snapshots of `status` and full `delivery` (including `delivery.status`);
 - assign/unassign/status/delivery/comment/products updates may create notifications;
 - assigned manager receives realtime and persisted notification updates.
 
@@ -298,8 +313,9 @@ Settings invariants:
 - `Settings` collection is treated as singleton (exactly one document expected).
 - `POST /settings` is intended for initial creation and returns conflict when settings already exist.
 - `PATCH /settings` is the normal update path for existing deployments.
-- `settings.delivery.pickupAddresses` is a required city-keyed map; each value contains `street`, `house`, `flat`.
-- `settings.delivery.defaultCities` and `settings.delivery.pickupAddresses` must always represent the same city set.
+- `settings.shipping.delivery.pricing` is required and contains pricing zones: `localCity`, `sameState`, `outOfState`.
+- `settings.shipping.pickup.policy` is required (`readyInDays`, `holdForDays`, optional `remindBeforeDays`).
+- `settings.shipping.pickup.locations` is required and must be a US-state keyed pickup map.
 
 ## 10) Auth, tokens, and permissions
 

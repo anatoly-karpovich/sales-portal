@@ -19,7 +19,6 @@ export const getTodaysDate = (withTime: boolean) => {
 
 type HistorySource = {
   status: IHistory["status"];
-  deliveryStatus: IHistory["deliveryStatus"];
   customer: Types.ObjectId | string | { _id: Types.ObjectId | string };
   products: IProductInOrderResponse[];
   delivery: IHistory["delivery"];
@@ -37,7 +36,6 @@ export function createHistoryEntry(
     return {
       action,
       status: order.status,
-      deliveryStatus: order.deliveryStatus,
       products: order.products,
       customer: orderCustomer,
       delivery: order.delivery,
@@ -56,7 +54,6 @@ export function createHistoryEntry(
   return {
     action,
     status: order.status,
-    deliveryStatus: order.deliveryStatus,
     products: order.products,
     customer: customerId,
     delivery: order.delivery,

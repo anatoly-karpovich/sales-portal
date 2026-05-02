@@ -336,7 +336,7 @@ customerRouter.delete(
  *         schema:
  *           type: boolean
  *           example: true
- *         description: Include customers from states outside settings.delivery.pickupLocations keys
+ *         description: Include customers from states outside settings.shipping.pickup.locations keys
  *       - in: query
  *         name: sortField
  *         schema:

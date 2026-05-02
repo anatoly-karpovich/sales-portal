@@ -18,17 +18,17 @@ async function runMigration() {
     return;
   }
 
-  const existingPickupLocations = (existingSettings.delivery?.pickupLocations ?? {}) as Record<
+  const existingPickupLocations = (existingSettings.shipping?.pickup?.locations ?? {}) as Record<
     string,
     Array<{ id: string }>
   >;
 
   const locationUpdates: Record<string, unknown> = {};
 
-  for (const [state, defaultLocations] of Object.entries(DEFAULT_SETTINGS.delivery.pickupLocations)) {
+  for (const [state, defaultLocations] of Object.entries(DEFAULT_SETTINGS.shipping.pickup.locations)) {
     const existingLocations = existingPickupLocations[state] ?? [];
     if (!existingLocations.length) {
-      locationUpdates[`delivery.pickupLocations.${state}`] = defaultLocations;
+      locationUpdates[`shipping.pickup.locations.${state}`] = defaultLocations;
       continue;
     }
 
@@ -36,7 +36,7 @@ async function runMigration() {
     const missingLocations = defaultLocations.filter((location) => !existingIds.has(location.id));
 
     if (missingLocations.length > 0) {
-      locationUpdates[`delivery.pickupLocations.${state}`] = [...existingLocations, ...missingLocations];
+      locationUpdates[`shipping.pickup.locations.${state}`] = [...existingLocations, ...missingLocations];
     }
   }
 
