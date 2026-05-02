@@ -189,7 +189,6 @@ orderRouter.put(
  *                 estimatedDate:
  *                   type: string
  *                   pattern: ^\d{4}-\d{2}-\d{2}$
- *                   nullable: true
  *                 startsAt:
  *                   type: string
  *                   pattern: ^\d{4}-\d{2}-\d{2}$
@@ -208,11 +207,9 @@ orderRouter.put(
  *                 availableFromDate:
  *                   type: string
  *                   pattern: ^\d{4}-\d{2}-\d{2}$
- *                   nullable: true
  *                 pickupByDate:
  *                   type: string
  *                   pattern: ^\d{4}-\d{2}-\d{2}$
- *                   nullable: true
  *                 startsAt:
  *                   type: string
  *                   pattern: ^\d{4}-\d{2}-\d{2}$

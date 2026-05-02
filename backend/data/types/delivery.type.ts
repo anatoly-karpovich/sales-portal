@@ -30,15 +30,15 @@ export type IDeliverySchedule =
   | {
       express: boolean;
       estimatedDays: number;
-      estimatedDate: string | null;
+      estimatedDate: string;
       startsAt: string | null;
       dueDate: string | null;
     }
   | {
       readyInDays: number;
       holdForDays: number;
-      availableFromDate: string | null;
-      pickupByDate: string | null;
+      availableFromDate: string;
+      pickupByDate: string;
       startsAt: string | null;
     };
 

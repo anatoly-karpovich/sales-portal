@@ -158,6 +158,21 @@ export type OrderPricingResult = {
     estimatedDate: string | null
     availableFromDate: string | null
     pickupByDate: string | null
+    schedule?:
+      | {
+          express: boolean
+          estimatedDays: number | null
+          estimatedDate: string | null
+          startsAt: string | null
+          dueDate: string | null
+        }
+      | {
+          readyInDays: number | null
+          holdForDays: number | null
+          availableFromDate: string | null
+          pickupByDate: string | null
+          startsAt: string | null
+        }
     breakdown: {
       basePerLine: number
       expressExtraPerLine: number
@@ -191,6 +206,26 @@ type OrderPricingResponse = {
   Pricing: OrderPricingResult
   IsSuccess: boolean
   ErrorMessage: string | null
+}
+
+function normalizeOrderPricingResult(pricing: OrderPricingResult): OrderPricingResult {
+  const schedule = pricing.delivery.schedule
+  const estimatedDateFromSchedule =
+    schedule && 'estimatedDate' in schedule ? schedule.estimatedDate : null
+  const availableFromDateFromSchedule =
+    schedule && 'availableFromDate' in schedule ? schedule.availableFromDate : null
+  const pickupByDateFromSchedule =
+    schedule && 'pickupByDate' in schedule ? schedule.pickupByDate : null
+
+  return {
+    ...pricing,
+    delivery: {
+      ...pricing.delivery,
+      estimatedDate: pricing.delivery.estimatedDate ?? estimatedDateFromSchedule,
+      availableFromDate: pricing.delivery.availableFromDate ?? availableFromDateFromSchedule,
+      pickupByDate: pricing.delivery.pickupByDate ?? pickupByDateFromSchedule,
+    },
+  }
 }
 
 export type OrdersQuery = {
@@ -313,7 +348,7 @@ export async function createOrder(payload: CreateOrderPayload) {
 
 export async function calculateOrderPricing(payload: OrderPricingPayload, requestConfig?: ApiRequestConfig) {
   const response = await apiClient.post<OrderPricingResponse>('/orders/pricing', payload, requestConfig)
-  return response.data.Pricing
+  return normalizeOrderPricingResult(response.data.Pricing)
 }
 
 export async function updateOrder(orderId: string, payload: UpdateOrderPayload, requestConfig?: ApiRequestConfig) {

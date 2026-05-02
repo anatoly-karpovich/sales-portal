@@ -247,6 +247,9 @@ export class PricingService {
     if (delivery.condition === DELIVERY.PICK_UP) {
       const readyInDays = settings.shipping?.pickup?.policy?.readyInDays ?? 0;
       const holdForDays = settings.shipping?.pickup?.policy?.holdForDays ?? 0;
+      const previewStartsAt = this.getCurrentDateOnly();
+      const estimatedAvailableFromDate = this.addDays(previewStartsAt, readyInDays);
+      const estimatedPickupByDate = this.addDays(estimatedAvailableFromDate, holdForDays);
       return {
         price: 0,
         pricingTier: DELIVERY_PRICING_TIER.PICKUP,
@@ -254,8 +257,8 @@ export class PricingService {
         schedule: {
           readyInDays,
           holdForDays,
-          availableFromDate: null,
-          pickupByDate: null,
+          availableFromDate: estimatedAvailableFromDate,
+          pickupByDate: estimatedPickupByDate,
           startsAt: null,
         },
         breakdown: {
@@ -358,8 +361,8 @@ export class PricingService {
       const schedule = pricing.schedule as {
         readyInDays: number;
         holdForDays: number;
-        availableFromDate: string | null;
-        pickupByDate: string | null;
+        availableFromDate: string;
+        pickupByDate: string;
         startsAt: string | null;
       };
       return {
@@ -380,7 +383,7 @@ export class PricingService {
     const schedule = pricing.schedule as {
       express: boolean;
       estimatedDays: number;
-      estimatedDate: string | null;
+      estimatedDate: string;
       startsAt: string | null;
       dueDate: string | null;
     };

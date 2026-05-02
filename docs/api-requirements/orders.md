@@ -169,15 +169,16 @@ Pickup schedule:
 {
   "readyInDays": 1,
   "holdForDays": 5,
-  "availableFromDate": null,
-  "pickupByDate": null,
+  "availableFromDate": "2026-05-05",
+  "pickupByDate": "2026-05-10",
   "startsAt": null
 }
 ```
 
 Notes:
 - date fields use `YYYY-MM-DD`;
-- in Draft these are preview values (`startsAt` and final dates are `null`);
+- in Draft these are preview values (for pickup preview dates are returned in `availableFromDate/pickupByDate`);
+- `startsAt` is `null` until `Draft -> In Process`;
 - final dates are calculated only on `Draft -> In Process`.
 
 ## Pricing Contract (`POST /api/orders/pricing`)

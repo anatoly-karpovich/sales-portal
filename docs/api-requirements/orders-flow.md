@@ -25,7 +25,7 @@ On `POST /api/orders`:
 - `status = Draft`
 - `delivery.status = Draft`
 - `delivery` is prefilled from customer address with `condition=Delivery`, `express=false`
-- delivery schedule is preview-only (`startsAt`/final dates are `null`)
+- delivery schedule is preview-only (`startsAt` is `null`; pickup preview dates may be filled and are not final)
 
 ## Transition Matrix
 
