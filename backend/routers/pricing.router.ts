@@ -39,16 +39,21 @@ pricingRouter.post(
  *                   $ref: '#/components/schemas/OrderProductRequestItem'
  *               delivery:
  *                 type: object
- *                 required: [condition, address]
+ *                 required: [express, address]
  *                 properties:
- *                   condition:
- *                     type: string
- *                     enum: [Delivery, Pickup]
  *                   express:
  *                     type: boolean
- *                     description: Required for Delivery, must be false/omitted for Pickup
  *                   address:
  *                     $ref: '#/components/schemas/DeliveryAddress'
+ *               pickup:
+ *                 type: object
+ *                 required: [pickupLocationId]
+ *                 properties:
+ *                   pickupLocationId:
+ *                     type: string
+ *             allOf:
+ *               - not:
+ *                   required: [delivery, pickup]
  *     responses:
  *       200:
  *         description: Pricing calculated
@@ -116,7 +121,7 @@ pricingRouter.post(
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Referenced product was not found
+ *         description: Referenced product or pickup location was not found
  */
 
 export default pricingRouter;

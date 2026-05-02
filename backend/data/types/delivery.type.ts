@@ -11,6 +11,15 @@ export type IDeliveryAddress = {
   zipCode: string;
 };
 
+export interface IDeliveryUpdatePayload {
+  express: boolean;
+  address: IDeliveryAddress;
+}
+
+export interface IPickupUpdatePayload {
+  pickupLocationId: string;
+}
+
 export interface IDeliveryPayload {
   condition: DELIVERY;
   express?: boolean;

@@ -3,7 +3,7 @@ import CustomerService from "../services/customer.service.js";
 import { SettingsService } from "../services/settings.service.js";
 import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
-import { DELIVERY, DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
+import { DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
@@ -17,10 +17,12 @@ import {
   OrderReceiveRequestDTO,
   OrderRequestWithEntityDTO,
   OrderStatusRequestDTO,
+  UpdateOrderPickupRequestDTO,
   UpdateOrderDeliveryRequestDTO,
   UpdateOrderRequestDTO,
 } from "../data/types/dto/orders.dto.js";
 import { US_STATE_CODES } from "../data/usStates.js";
+import type { IPickupLocation } from "../data/types/settings.type.js";
 
 const settingsService = new SettingsService();
 
@@ -28,15 +30,8 @@ function validateDeliveryPayload(
   delivery: UpdateOrderDeliveryRequestDTO["body"],
   res: Response<BaseResponseDTO>,
 ): Response<BaseResponseDTO> | undefined {
-  if (!Object.values(DELIVERY).includes(delivery.condition)) {
+  if (typeof delivery.express !== "boolean") {
     return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-  }
-
-  if (delivery.condition === DELIVERY.DELIVERY && typeof delivery.express !== "boolean") {
-    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
-  }
-  if (delivery.condition === DELIVERY.PICK_UP && delivery.express === true) {
-    return res.status(400).json({ IsSuccess: false, ErrorMessage: "Express option is not available for pickup" });
   }
 
   if (
@@ -75,6 +70,60 @@ function validateDeliveryPayload(
 
   if (!isValidInput("ZipCode", delivery.address.zipCode)) {
     return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+}
+
+type PickupLocationMatch = {
+  state: (typeof US_STATE_CODES)[number];
+  location: IPickupLocation;
+};
+
+async function findPickupLocationById(pickupLocationId: string): Promise<PickupLocationMatch | null> {
+  const settings = await settingsService.get();
+  const locationsByState = settings?.shipping?.pickup?.locations;
+  if (!locationsByState) {
+    return null;
+  }
+
+  for (const state of US_STATE_CODES) {
+    const locations = locationsByState[state];
+    if (!locations) {
+      continue;
+    }
+
+    const found = locations.find((location) => location.id === pickupLocationId);
+    if (found) {
+      return { state, location: found };
+    }
+  }
+
+  return null;
+}
+
+async function validatePickupPayload(
+  pickup: UpdateOrderPickupRequestDTO["body"],
+  res: Response<BaseResponseDTO>,
+): Promise<Response<BaseResponseDTO> | undefined> {
+  if (!pickup?.pickupLocationId || typeof pickup.pickupLocationId !== "string") {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  const pickupLocationId = pickup.pickupLocationId.trim();
+  if (!pickupLocationId) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+  }
+
+  const match = await findPickupLocationById(pickupLocationId);
+  if (!match) {
+    return res
+      .status(404)
+      .json({ IsSuccess: false, ErrorMessage: `Pickup location with id '${pickupLocationId}' wasn't found` });
+  }
+
+  if (!match.location.isActive) {
+    return res
+      .status(404)
+      .json({ IsSuccess: false, ErrorMessage: `Pickup location with id '${pickupLocationId}' is inactive` });
   }
 }
 
@@ -318,7 +367,7 @@ export async function orderReceiveValidations(
   }
 }
 
-export async function orderDelivery(
+export async function orderDeliveryValidation(
   req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], UpdateOrderDeliveryRequestDTO["body"]>,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
@@ -341,20 +390,59 @@ export async function orderDelivery(
   next();
 }
 
-export async function orderPricingDeliveryValidation(
-  req: Request<unknown, unknown, { delivery?: UpdateOrderDeliveryRequestDTO["body"] }>,
+export async function orderPickupValidation(
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], UpdateOrderPickupRequestDTO["body"]>,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
   try {
-    if (!req.body.delivery) {
-      return next();
+    const order = req.order;
+    if (!order) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+    }
+    if (order.status !== ORDER_STATUSES.DRAFT) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
 
-    const validationError = validateDeliveryPayload(req.body.delivery, res);
+    const validationError = await validatePickupPayload(req.body, res);
     if (validationError) {
       return validationError;
     }
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+  next();
+}
+
+export async function orderPricingDeliveryValidation(
+  req: Request<
+    unknown,
+    unknown,
+    { delivery?: UpdateOrderDeliveryRequestDTO["body"]; pickup?: UpdateOrderPickupRequestDTO["body"] }
+  >,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    if (req.body.delivery && req.body.pickup) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.DELIVERY });
+    }
+
+    if (req.body.delivery) {
+      const validationError = validateDeliveryPayload(req.body.delivery, res);
+      if (validationError) {
+        return validationError;
+      }
+      return next();
+    }
+
+    if (req.body.pickup) {
+      const validationError = await validatePickupPayload(req.body.pickup, res);
+      if (validationError) {
+        return validationError;
+      }
+    }
+
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

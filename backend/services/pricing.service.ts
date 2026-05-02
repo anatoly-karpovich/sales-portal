@@ -1,14 +1,21 @@
 import { Types } from "mongoose";
 import { DELIVERY } from "../data/enums";
 import { IDelivery, IOrderProductRequestItem, IProductInOrder, IProductInOrderResponse } from "../data/types";
-import { IDeliveryPayload, IDeliverySnapshotCore } from "../data/types/delivery.type";
+import {
+  IDeliveryPayload,
+  IDeliverySnapshotCore,
+  IDeliveryUpdatePayload,
+  IPickupUpdatePayload,
+} from "../data/types/delivery.type";
 import { DELIVERY_PRICING_TIER, DELIVERY_PRICING_ZONE, ISettings } from "../data/types/settings.type";
+import type { IPickupLocation } from "../data/types/settings.type";
+import { US_STATE_CODES } from "../data/usStates";
 import productsService from "./products.service";
 import { SettingsService } from "./settings.service";
 
 type PricingProductInput = Pick<IOrderProductRequestItem, "quantity"> & { id: Types.ObjectId | string };
 type PricingProducts = PricingProductInput[] | IProductInOrder[] | IProductInOrderResponse[];
-type Delivery = IDelivery | IDeliveryPayload;
+type DeliveryCalculationInput = IDelivery | IDeliveryPayload;
 
 type DeliveryPricingResponse = {
   price: number;
@@ -25,19 +32,40 @@ type DeliveryPricingResponse = {
   };
 };
 
+type PickupLocationMatch = {
+  state: (typeof US_STATE_CODES)[number];
+  location: IPickupLocation;
+};
+
+function createHttpError(message: string, statusCode: number): Error & { statusCode: number } {
+  const error = new Error(message) as Error & { statusCode: number };
+  error.statusCode = statusCode;
+  return error;
+}
+
 export class PricingService {
   private settingsService = new SettingsService();
 
-  async calculate(params: { products: PricingProducts; delivery?: Delivery }) {
-    const { products, delivery } = params;
+  async calculate(params: {
+    products: PricingProducts;
+    delivery?: IDeliveryUpdatePayload;
+    pickup?: IPickupUpdatePayload;
+  }) {
+    const { products, delivery, pickup } = params;
+    if (delivery && pickup) {
+      throw createHttpError("Incorrect delivery payload", 400);
+    }
+
     const linesCount = products.length;
     let unitsCount = 0;
     for (const item of products) {
       unitsCount += item.quantity;
     }
-    const subtotal = await this.calculateProductsPrice(products);
 
-    if (!delivery) {
+    const subtotal = await this.calculateProductsPrice(products);
+    const deliveryPayload = await this.resolvePricingDeliveryPayload({ delivery, pickup });
+
+    if (!deliveryPayload) {
       return {
         totalPrice: subtotal,
         products: {
@@ -62,7 +90,7 @@ export class PricingService {
       };
     }
 
-    const deliveryResult = await this.calculateDeliveryPricing(delivery, linesCount);
+    const deliveryResult = await this.calculateDeliveryPricing(deliveryPayload, linesCount);
     return {
       totalPrice: subtotal + deliveryResult.price,
       products: {
@@ -74,7 +102,7 @@ export class PricingService {
     };
   }
 
-  async calculateOrderTotals(params: { products: PricingProducts; delivery?: Delivery | null }) {
+  async calculateOrderTotals(params: { products: PricingProducts; delivery?: DeliveryCalculationInput | null }) {
     const { products, delivery } = params;
     const subtotal = await this.calculateProductsPrice(products);
 
@@ -130,7 +158,50 @@ export class PricingService {
     return perLinePrice * nextLinesCount;
   }
 
-  private async calculateDeliveryPricing(delivery: Delivery, orderLinesCount: number): Promise<DeliveryPricingResponse> {
+  private async resolvePricingDeliveryPayload(params: {
+    delivery?: IDeliveryUpdatePayload;
+    pickup?: IPickupUpdatePayload;
+  }): Promise<IDeliveryPayload | null> {
+    const { delivery, pickup } = params;
+
+    if (delivery) {
+      return {
+        condition: DELIVERY.DELIVERY,
+        express: delivery.express,
+        address: delivery.address,
+      };
+    }
+
+    if (!pickup) {
+      return null;
+    }
+
+    const pickupLocationId = pickup.pickupLocationId.trim();
+    const pickupLocation = await this.findPickupLocationById(pickupLocationId);
+    if (!pickupLocation) {
+      throw createHttpError(`Pickup location with id '${pickupLocationId}' wasn't found`, 404);
+    }
+    if (!pickupLocation.location.isActive) {
+      throw createHttpError(`Pickup location with id '${pickupLocationId}' is inactive`, 404);
+    }
+
+    return {
+      condition: DELIVERY.PICK_UP,
+      address: {
+        state: pickupLocation.state,
+        city: pickupLocation.location.city,
+        street: pickupLocation.location.address.street,
+        house: pickupLocation.location.address.house,
+        apartment: pickupLocation.location.address.apartment,
+        zipCode: pickupLocation.location.address.zipCode,
+      },
+    };
+  }
+
+  private async calculateDeliveryPricing(
+    delivery: DeliveryCalculationInput,
+    orderLinesCount: number,
+  ): Promise<DeliveryPricingResponse> {
     const settings = await this.settingsService.get();
 
     if (delivery.condition === DELIVERY.PICK_UP) {
@@ -185,7 +256,7 @@ export class PricingService {
     return true;
   }
 
-  private getDeliveryPricingZone(delivery: Delivery, settings: ISettings): DELIVERY_PRICING_ZONE {
+  private getDeliveryPricingZone(delivery: DeliveryCalculationInput, settings: ISettings): DELIVERY_PRICING_ZONE {
     if (this.isSameCity({ delivery, settings })) {
       return DELIVERY_PRICING_ZONE.LOCAL_CITY;
     } else if (this.isSameState({ delivery, settings })) {
@@ -195,7 +266,7 @@ export class PricingService {
     }
   }
 
-  private isSameCity({ delivery, settings }: { delivery: Delivery; settings: ISettings }): boolean {
+  private isSameCity({ delivery, settings }: { delivery: DeliveryCalculationInput; settings: ISettings }): boolean {
     const deliveryCity = this.normalizeValue(delivery.address.city);
     const deliveryState = this.normalizeState(delivery.address.state);
     const locations = settings.shipping.pickup.locations[deliveryState]?.filter((location) => location.isActive);
@@ -204,7 +275,7 @@ export class PricingService {
     return locations.some((location) => this.normalizeValue(location.city) === deliveryCity);
   }
 
-  private isSameState({ delivery, settings }: { delivery: Delivery; settings: ISettings }): boolean {
+  private isSameState({ delivery, settings }: { delivery: DeliveryCalculationInput; settings: ISettings }): boolean {
     const deliveryState = this.normalizeState(delivery.address.state);
     const locations = settings.shipping.pickup.locations[deliveryState];
     if (!locations) {
@@ -238,14 +309,14 @@ export class PricingService {
     return date.toISOString();
   }
 
-  private getExpressFlag(delivery: Delivery): boolean {
+  private getExpressFlag(delivery: DeliveryCalculationInput): boolean {
     if ("schedule" in delivery) {
       return "express" in delivery.schedule ? delivery.schedule.express : false;
     }
     return delivery.express === true;
   }
 
-  private buildDeliverySnapshot(delivery: Delivery, pricing: DeliveryPricingResponse): IDeliverySnapshotCore {
+  private buildDeliverySnapshot(delivery: DeliveryCalculationInput, pricing: DeliveryPricingResponse): IDeliverySnapshotCore {
     if (delivery.condition === DELIVERY.PICK_UP) {
       return {
         condition: delivery.condition,
@@ -269,5 +340,27 @@ export class PricingService {
         estimatedDate: pricing.estimatedDate,
       },
     };
+  }
+
+  private async findPickupLocationById(pickupLocationId: string): Promise<PickupLocationMatch | null> {
+    const settings = await this.settingsService.get();
+    const locationsByState = settings?.shipping?.pickup?.locations;
+    if (!locationsByState) {
+      return null;
+    }
+
+    for (const state of US_STATE_CODES) {
+      const locations = locationsByState[state];
+      if (!locations) {
+        continue;
+      }
+
+      const found = locations.find((location) => location.id === pickupLocationId);
+      if (found) {
+        return { state, location: found };
+      }
+    }
+
+    return null;
   }
 }

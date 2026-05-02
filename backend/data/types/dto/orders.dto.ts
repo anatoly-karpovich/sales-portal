@@ -2,7 +2,7 @@ import { Request } from "express";
 import { ORDER_STATUSES } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
 import { ICustomer } from "../customer.type";
-import { IDeliveryPayload } from "../delivery.type";
+import { IDeliveryUpdatePayload, IPickupUpdatePayload } from "../delivery.type";
 import { IOrder, IOrderCustomerSnapshot, IProductInOrderResponse } from "../order.type";
 
 export type OrderByIdParamsDTO = { orderId?: string };
@@ -57,7 +57,8 @@ export type OrderUpdateRequestBodyDTO = {
 
 export type OrderPricingRequestBodyDTO = {
   products: OrderProductRequestItemDTO[];
-  delivery?: IDeliveryPayload;
+  delivery?: IDeliveryUpdatePayload;
+  pickup?: IPickupUpdatePayload;
 };
 
 export type OrderStatusRequestDTO = {
@@ -94,7 +95,10 @@ export type UnassignManagerRequestDTO = Request<OrderPathOrderIdParamsDTO> & {
 export type UpdateOrderStatusRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderStatusRequestDTO> & {
   order?: OrderDetailsDTO;
 };
-export type UpdateOrderDeliveryRequestDTO = Request<OrderPathIdParamsDTO, unknown, IDeliveryPayload> & {
+export type UpdateOrderDeliveryRequestDTO = Request<OrderPathIdParamsDTO, unknown, IDeliveryUpdatePayload> & {
+  order?: OrderDetailsDTO;
+};
+export type UpdateOrderPickupRequestDTO = Request<OrderPathIdParamsDTO, unknown, IPickupUpdatePayload> & {
   order?: OrderDetailsDTO;
 };
 export type ReceiveOrderProductsRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderReceiveRequestDTO> & {
