@@ -5,6 +5,9 @@ import SettingsModel from "../models/settings.model.js";
 import { US_STATE_CODES } from "../data/usStates.js";
 
 type ShippingPayload = {
+  processing?: {
+    cutoffHour?: unknown;
+  };
   delivery?: {
     pricing?: unknown;
   };
@@ -88,6 +91,9 @@ export async function settingsUpdateDeliveryConsistency(
     const payloadShipping = req.body.shipping as ShippingPayload;
 
     const nextShipping: ShippingPayload = {
+      processing: {
+        cutoffHour: payloadShipping.processing?.cutoffHour ?? existingShipping.processing?.cutoffHour,
+      },
       delivery: {
         pricing: payloadShipping.delivery?.pricing ?? existingShipping.delivery?.pricing,
       },
@@ -97,6 +103,12 @@ export async function settingsUpdateDeliveryConsistency(
       },
     };
 
+    if (nextShipping.processing?.cutoffHour === undefined) {
+      return res.status(400).json({
+        IsSuccess: false,
+        ErrorMessage: "Incorrect shipping settings: shipping.processing.cutoffHour must be defined",
+      });
+    }
     if (nextShipping.delivery?.pricing === undefined) {
       return res.status(400).json({
         IsSuccess: false,

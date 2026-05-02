@@ -85,25 +85,48 @@ pricingRouter.post(
  *                           type: string
  *                           nullable: true
  *                           enum: [pickup, local_city, same_state, out_of_state]
- *                         isExpress:
- *                           type: boolean
  *                         lineCount:
  *                           type: integer
- *                         estimatedDays:
- *                           type: integer
- *                           nullable: true
- *                         estimatedDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                         availableFromDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
- *                         pickupByDate:
- *                           type: string
- *                           format: date-time
- *                           nullable: true
+ *                         schedule:
+ *                           oneOf:
+ *                             - type: object
+ *                               required: [express, estimatedDays, estimatedDate, startsAt, dueDate]
+ *                               properties:
+ *                                 express:
+ *                                   type: boolean
+ *                                 estimatedDays:
+ *                                   type: integer
+ *                                 estimatedDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                                 startsAt:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                                 dueDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                             - type: object
+ *                               required: [readyInDays, holdForDays, availableFromDate, pickupByDate, startsAt]
+ *                               properties:
+ *                                 readyInDays:
+ *                                   type: integer
+ *                                 holdForDays:
+ *                                   type: integer
+ *                                 availableFromDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                                 pickupByDate:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
+ *                                 startsAt:
+ *                                   type: string
+ *                                   pattern: ^\d{4}-\d{2}-\d{2}$
+ *                                   nullable: true
  *                         breakdown:
  *                           type: object
  *                           properties:

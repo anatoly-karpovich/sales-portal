@@ -9,6 +9,9 @@ export const DEFAULT_SETTINGS: ISettings = {
     defaultLowStockThreshold: 5,
   },
   shipping: {
+    processing: {
+      cutoffHour: 18,
+    },
     delivery: {
       pricing: {
         localCity: {

@@ -46,6 +46,23 @@ class OrderService {
     };
   }
 
+  private withOverdueDelivery<T extends { status: ORDER_STATUSES; delivery: OrderDetailsDTO["delivery"] }>(order: T): T {
+    const overdue = pricingService.isOrderOverdue({
+      orderStatus: order.status,
+      status: order.delivery.status,
+      schedule: order.delivery.schedule,
+    });
+
+    return {
+      ...order,
+      delivery: {
+        ...order.delivery,
+        isOverdue: overdue.isOverdue,
+        overdueByDays: overdue.overdueByDays,
+      },
+    };
+  }
+
   private async mergeProductsForUpdate(
     currentProducts: IProductInOrder[],
     requestedProducts: IOrderRequest["products"] | undefined,
@@ -183,10 +200,12 @@ class OrderService {
     const orders = await Order.find().lean().exec();
     const reversed = orders.reverse() as unknown as IOrder<IOrderCustomerSnapshot>[];
     return Promise.all(
-      reversed.map(async (o) => ({
-        ...o,
-        products: await this.enrichProducts(o.products as IProductInOrder[]),
-      })),
+      reversed.map(async (o) =>
+        this.withOverdueDelivery({
+          ...o,
+          products: await this.enrichProducts(o.products as IProductInOrder[]),
+        }),
+      ),
     );
   }
 
@@ -195,6 +214,7 @@ class OrderService {
     sortOptions: { sortField: string; sortOrder: string },
     pagination: { skip: number; limit: number },
     projectionFields?: string[],
+    includeOverdue: boolean = true,
   ): Promise<{ orders: OrderListItemDTO[]; total: number }> {
     const { search = "", status = [], deliveryStatus = [] } = filters;
     const { skip, limit } = pagination;
@@ -254,7 +274,10 @@ class OrderService {
 
     const dbOrders = orders as unknown as IOrder<IOrderCustomerSnapshot>[];
     const enriched = await this.enrichOrdersList(dbOrders);
-    return { orders: enriched, total };
+    const ordersWithOverdue = includeOverdue
+      ? enriched.map((order) => this.withOverdueDelivery(order))
+      : enriched;
+    return { orders: ordersWithOverdue, total };
   }
 
   private async enrichOrdersList(orders: IOrder<IOrderCustomerSnapshot>[]): Promise<OrderListItemDTO[]> {
@@ -309,6 +332,7 @@ class OrderService {
       { sortField: filters?.sortField ?? "createdOn", sortOrder: filters?.sortOrder ?? "desc" },
       pagination,
       this.buildExportProjection(fields),
+      false,
     );
 
     const rows = orders.map((order) => this.flattenOrderForExport(order, fields));
@@ -359,6 +383,16 @@ class OrderService {
         row["delivery.condition"] = order.delivery?.condition ?? "";
         row["delivery.schedule.estimatedDate"] =
           order.delivery?.schedule && "estimatedDate" in order.delivery.schedule ? order.delivery.schedule.estimatedDate : "";
+        row["delivery.schedule.estimatedDays"] =
+          order.delivery?.schedule && "estimatedDays" in order.delivery.schedule ? order.delivery.schedule.estimatedDays : "";
+        row["delivery.schedule.startsAt"] =
+          order.delivery?.schedule && "startsAt" in order.delivery.schedule ? order.delivery.schedule.startsAt : "";
+        row["delivery.schedule.dueDate"] =
+          order.delivery?.schedule && "dueDate" in order.delivery.schedule ? order.delivery.schedule.dueDate : "";
+        row["delivery.schedule.readyInDays"] =
+          order.delivery?.schedule && "readyInDays" in order.delivery.schedule ? order.delivery.schedule.readyInDays : "";
+        row["delivery.schedule.holdForDays"] =
+          order.delivery?.schedule && "holdForDays" in order.delivery.schedule ? order.delivery.schedule.holdForDays : "";
         row["delivery.schedule.availableFromDate"] =
           order.delivery?.schedule && "availableFromDate" in order.delivery.schedule
             ? order.delivery.schedule.availableFromDate
@@ -488,12 +522,12 @@ class OrderService {
 
     const enrichedProducts = await this.enrichProducts(orderFromDB.products as unknown as IProductInOrder[]);
 
-    return {
+    return this.withOverdueDelivery({
       ...(orderFromDB as unknown as IOrder<IOrderCustomerSnapshot>),
       customer,
       products: enrichedProducts,
       comments: commentsWithResolvedAuthors,
-    } as unknown as OrderDetailsDTO;
+    } as unknown as OrderDetailsDTO);
   }
 
   async update(
@@ -656,9 +690,13 @@ class OrderService {
     if (!customerId) {
       throw new Error("Customer ID was not provided");
     }
-    return Order.find({ "customer._id": new Types.ObjectId(customerId) })
+    const orders = await Order.find({ "customer._id": new Types.ObjectId(customerId) })
       .lean()
       .exec();
+    return orders.map(
+      (order) =>
+        this.withOverdueDelivery(order as unknown as OrderDetailsDTO) as unknown as IOrder<IOrderCustomerSnapshot>,
+    );
   }
 
   async getOrdersByManager(managerId: string) {
@@ -670,9 +708,10 @@ class OrderService {
       throw new Error("Invalid Manager ID format");
     }
 
-    return Order.find({ "assignedManager._id": new Types.ObjectId(managerId) })
+    const orders = await Order.find({ "assignedManager._id": new Types.ObjectId(managerId) })
       .lean()
       .exec();
+    return orders.map((order) => this.withOverdueDelivery(order as unknown as OrderDetailsDTO));
   }
 
   async assignManager(orderId: string, managerId: string, performerId: string, currentOrder: OrderDetailsDTO) {

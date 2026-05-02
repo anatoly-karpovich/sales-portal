@@ -88,8 +88,16 @@ const shippingPickupSettings = new mongoose.Schema(
   { _id: false, versionKey: false },
 );
 
+const shippingProcessingSettings = new mongoose.Schema(
+  {
+    cutoffHour: { type: Number, required: true, min: 0, max: 23 },
+  },
+  { _id: false, versionKey: false },
+);
+
 const shippingSettings = new mongoose.Schema(
   {
+    processing: { type: shippingProcessingSettings, required: true },
     delivery: { type: shippingDeliverySettings, required: true },
     pickup: { type: shippingPickupSettings, required: true },
   },

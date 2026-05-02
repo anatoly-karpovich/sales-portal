@@ -232,11 +232,7 @@ export async function orderStatus(
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
     }
 
-    if (
-      status === ORDER_STATUSES.IN_PROCESS &&
-      order.status !== ORDER_STATUSES.DRAFT &&
-      order.status !== ORDER_STATUSES.IN_PROCESS
-    ) {
+    if (status === ORDER_STATUSES.IN_PROCESS && order.status !== ORDER_STATUSES.DRAFT) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
 
@@ -253,8 +249,8 @@ export async function orderStatus(
     }
     if (
       status === ORDER_STATUSES.IN_PROCESS &&
-      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
-      order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_PLANNED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_PLANNED
     ) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Can't process order. Please, schedule delivery` });
     }
@@ -262,6 +258,8 @@ export async function orderStatus(
     if (
       status === ORDER_STATUSES.CANCELED &&
       order.delivery.status !== DELIVERY_STATUSES.DRAFT &&
+      order.delivery.status !== DELIVERY_STATUSES.DELIVERY_PLANNED &&
+      order.delivery.status !== DELIVERY_STATUSES.PICKUP_PLANNED &&
       order.delivery.status !== DELIVERY_STATUSES.DELIVERY_SCHEDULED &&
       order.delivery.status !== DELIVERY_STATUSES.PICKUP_SCHEDULED
     ) {

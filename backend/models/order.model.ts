@@ -45,9 +45,14 @@ const productInHistorySnapshot = new mongoose.Schema(
 const deliverySchedule = new mongoose.Schema(
   {
     express: { type: Boolean, required: false },
-    estimatedDate: { type: Date, required: false },
-    availableFromDate: { type: Date, required: false },
-    pickupByDate: { type: Date, required: false },
+    estimatedDays: { type: Number, required: false },
+    readyInDays: { type: Number, required: false },
+    holdForDays: { type: Number, required: false },
+    estimatedDate: { type: String, required: false },
+    startsAt: { type: String, required: false },
+    dueDate: { type: String, required: false },
+    availableFromDate: { type: String, required: false },
+    pickupByDate: { type: String, required: false },
   },
   { _id: false, versionKey: false },
 );

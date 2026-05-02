@@ -1,4 +1,4 @@
-﻿# Orders Module - API Requirements
+# Orders Module - API Requirements
 
 > Purpose: define all order-related REST contracts including lifecycle, delivery, pricing, receive, manager assignment, and comments.
 
@@ -23,6 +23,8 @@
 
 `delivery.status`:
 - `Draft`
+- `Delivery Planned`
+- `Pickup Planned`
 - `Delivery Scheduled`
 - `Pickup Scheduled`
 - `Partially Delivered`
@@ -38,9 +40,10 @@
 | PATCH | `/api/orders/:orderId` | Update customer/products (Draft only). |
 | DELETE | `/api/orders/:orderId` | Delete order (`204`). |
 | POST | `/api/orders/export` | Export orders (`csv` or `json`). |
-| POST | `/api/orders/pricing` | Calculate products + delivery pricing without creating/updating an order. |
+| POST | `/api/orders/pricing` | Calculate products + delivery/pickup pricing without creating/updating an order. |
 | PUT | `/api/orders/:orderId/status` | Update order status (restricted payload). |
-| POST | `/api/orders/:orderId/delivery` | Create/edit delivery (Draft only). |
+| PATCH | `/api/orders/:orderId/delivery` | Create/edit delivery by address (Draft only). |
+| PATCH | `/api/orders/:orderId/pickup` | Create/edit pickup by `pickupLocationId` (Draft only). |
 | POST | `/api/orders/:orderId/receive` | Mark products as received. |
 | POST | `/api/orders/:orderId/comments` | Add comment. |
 | DELETE | `/api/orders/:orderId/comments/:commentId` | Delete comment (`204`). |
@@ -61,22 +64,24 @@
 | `page` | string number | Minimum effective page is `1`. |
 | `limit` | string number | Clamped to `10..100`. |
 
-### Success response shape
+### Delivery DTO additions
+
+In all order responses except export, backend returns computed:
 
 ```json
 {
-  "Orders": [],
-  "total": 0,
-  "page": 1,
-  "limit": 10,
-  "search": "",
-  "status": [],
-  "deliveryStatus": [],
-  "sorting": { "sortField": "createdOn", "sortOrder": "asc" },
-  "IsSuccess": true,
-  "ErrorMessage": null
+  "delivery": {
+    "isOverdue": false,
+    "overdueByDays": 0
+  }
 }
 ```
+
+Rules:
+- overdue is calculated only when `order.status = In Process`;
+- for delivery: due date source is `delivery.schedule.dueDate`;
+- for pickup: due date source is `delivery.schedule.pickupByDate`;
+- `overdueByDays` is date-based integer (`today - dueDate` in days, min `0`).
 
 ## Create/Update Contract
 
@@ -101,26 +106,17 @@ Rules:
 - Each `quantity` is an integer in `1..settings.order.maxProductQuantityInOrder`.
 - `customer` and each `product` must exist (404 with the missing id otherwise).
 - Update route is allowed only while order is `Draft`.
-- On create backend immediately builds default delivery:
-  - `condition=Delivery`, `express=false`, customer address, `delivery.status=Draft`.
+- On create backend immediately builds default draft delivery (`condition=Delivery`, `express=false`, customer address, `delivery.status=Draft`).
 - On update when customer changes backend resets delivery to new customer address and `delivery.status=Draft`.
-- On update:
-  - existing lines keep original `unitPrice` snapshot and `received`,
-  - newly added lines get current `Product.price`,
-  - `quantity` always comes from request payload.
 
-## `total_price` semantics
+## Delivery/Pickup Contracts
 
-- products subtotal: `sum(unitPrice * quantity)`
-- `total_price = products subtotal + delivery.price` (delivery is always present)
-
-## Delivery Contract (`POST /api/orders/:orderId/delivery`)
+### `PATCH /api/orders/:orderId/delivery`
 
 Payload:
 
 ```json
 {
-  "condition": "Delivery",
   "express": true,
   "address": {
     "state": "NY",
@@ -133,31 +129,103 @@ Payload:
 }
 ```
 
+### `PATCH /api/orders/:orderId/pickup`
+
+Payload:
+
+```json
+{
+  "pickupLocationId": "64f100000000000000000001"
+}
+```
+
 Rules:
-- Allowed only when `status = Draft`.
-- `state` must be one of 50 US state codes.
-- `zipCode` must match `^\d{5}(-\d{4})?$`.
-- `apartment` is optional, when provided must be integer `>= 1`.
-- `condition = Delivery` -> `express` is required.
-- `condition = Pickup` -> `express=true` is rejected.
-- Backend computes and stores delivery snapshot:
-  - `status`
-  - `price`
-  - `pricingTier` (`pickup | local_city | same_state | out_of_state`)
-  - `schedule`:
-    - Delivery: `{ express, estimatedDate }`
-    - Pickup: `{ availableFromDate, pickupByDate }`
-- On success backend sets `delivery.status`:
-  - `Delivery Scheduled` for `condition=Delivery`
-  - `Pickup Scheduled` for `condition=Pickup`
+- both endpoints are allowed only when `status = Draft`;
+- pickup address is never accepted manually;
+- pickup location is resolved only from `settings.shipping.pickup.locations`;
+- pickup returns `404` when location does not exist or is inactive.
+
+On success:
+- delivery endpoint sets `delivery.status = Delivery Planned`;
+- pickup endpoint sets `delivery.status = Pickup Planned`.
+
+## Schedule Contract
+
+Delivery schedule:
+
+```json
+{
+  "express": true,
+  "estimatedDays": 2,
+  "estimatedDate": "2026-05-06",
+  "startsAt": null,
+  "dueDate": null
+}
+```
+
+Pickup schedule:
+
+```json
+{
+  "readyInDays": 1,
+  "holdForDays": 5,
+  "availableFromDate": null,
+  "pickupByDate": null,
+  "startsAt": null
+}
+```
+
+Notes:
+- date fields use `YYYY-MM-DD`;
+- in Draft these are preview values (`startsAt` and final dates are `null`);
+- final dates are calculated only on `Draft -> In Process`.
 
 ## Pricing Contract (`POST /api/orders/pricing`)
 
-`delivery` payload is optional and uses the same shape as delivery update.
+Payload supports three modes:
+
+1. Delivery pricing:
+
+```json
+{
+  "products": [{ "id": "<productId>", "quantity": 1 }],
+  "delivery": {
+    "express": true,
+    "address": {
+      "state": "NY",
+      "city": "New York",
+      "street": "Broadway",
+      "house": 1,
+      "zipCode": "10001"
+    }
+  }
+}
+```
+
+2. Pickup pricing:
+
+```json
+{
+  "products": [{ "id": "<productId>", "quantity": 1 }],
+  "pickup": { "pickupLocationId": "64f100000000000000000001" }
+}
+```
+
+3. Products only (no delivery component):
+
+```json
+{
+  "products": [{ "id": "<productId>", "quantity": 1 }]
+}
+```
+
+Rules:
+- `delivery` and `pickup` cannot be sent together;
+- if neither is provided, total equals products subtotal.
 
 ## Status Contract (`PUT /api/orders/:orderId/status`)
 
-Payload (allowed values only):
+Payload:
 
 ```json
 {
@@ -166,15 +234,19 @@ Payload (allowed values only):
 ```
 
 Rules:
-- `In Process` requires:
-  - current order status in `Draft | In Process`
-  - `delivery.status in Delivery Scheduled | Pickup Scheduled`
+- `In Process` is allowed only for `Draft` orders;
+- repeated `In Process` for already `In Process` returns `400`;
+- `Draft -> In Process` requires:
+  - `delivery.status in Delivery Planned | Pickup Planned`;
+  - schedule finalization at this moment:
+    - `startsAt` by `settings.shipping.processing.cutoffHour`;
+    - delivery: `dueDate = startsAt + estimatedDays`, `estimatedDate = dueDate`;
+    - pickup: `availableFromDate = startsAt + readyInDays`, `pickupByDate = availableFromDate + holdForDays`;
+  - delivery status switches to `Delivery Scheduled` / `Pickup Scheduled`.
 - `Canceled` requires:
-  - current order status in `Draft | In Process`
-  - `delivery.status in Draft | Delivery Scheduled | Pickup Scheduled`
-  - no product with `received = true`
-- `Draft` (reopen) allowed only from `Canceled`; backend resets delivery to default customer address and `delivery.status = Draft`.
-- `Completed` cannot be set by this endpoint.
+  - current order status in `Draft | In Process`;
+  - `delivery.status in Draft | Delivery Planned | Pickup Planned | Delivery Scheduled | Pickup Scheduled`;
+  - no product with `received = true`.
 
 ## Receive Contract (`POST /api/orders/:orderId/receive`)
 
@@ -196,6 +268,4 @@ Allowed `fields`:
 
 `deliveryStatus` export field value is taken from `delivery.status`.
 
-## History entries
-
-Each `history[]` entry stores a snapshot including `delivery.status`, `price`, `pricingTier`, and `schedule`.
+`isOverdue`/`overdueByDays` are not part of export contract.

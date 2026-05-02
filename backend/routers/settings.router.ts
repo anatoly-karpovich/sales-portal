@@ -48,8 +48,16 @@ settingsRouter.patch(
  *               type: integer
  *         shipping:
  *           type: object
- *           required: [delivery, pickup]
+ *           required: [processing, delivery, pickup]
  *           properties:
+ *             processing:
+ *               type: object
+ *               required: [cutoffHour]
+ *               properties:
+ *                 cutoffHour:
+ *                   type: integer
+ *                   minimum: 0
+ *                   maximum: 23
  *             delivery:
  *               type: object
  *               required: [pricing]

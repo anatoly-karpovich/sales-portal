@@ -27,6 +27,20 @@ class OrderStatusService {
     };
     let action: ORDER_HISTORY_ACTIONS = ORDER_HISTORY_ACTIONS.PROCESSED;
     if (status === ORDER_STATUSES.IN_PROCESS) {
+      if (currentOrder.status === ORDER_STATUSES.IN_PROCESS) {
+        const error = new Error("Order is already in process") as Error & { statusCode: number };
+        error.statusCode = 400;
+        throw error;
+      }
+
+      newOrder.delivery = await this.pricingService.finalizeSchedule(currentOrder.delivery);
+      newOrder.delivery = {
+        ...newOrder.delivery,
+        status:
+          newOrder.delivery.condition === DELIVERY.PICK_UP
+            ? DELIVERY_STATUSES.PICKUP_SCHEDULED
+            : DELIVERY_STATUSES.DELIVERY_SCHEDULED,
+      };
       action = ORDER_HISTORY_ACTIONS.PROCESSED;
     } else if (status === ORDER_STATUSES.CANCELED) {
       action = ORDER_HISTORY_ACTIONS.CANCELED;

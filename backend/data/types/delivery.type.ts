@@ -29,11 +29,17 @@ export interface IDeliveryPayload {
 export type IDeliverySchedule =
   | {
       express: boolean;
-      estimatedDate: string;
+      estimatedDays: number;
+      estimatedDate: string | null;
+      startsAt: string | null;
+      dueDate: string | null;
     }
   | {
-      availableFromDate: string;
-      pickupByDate: string;
+      readyInDays: number;
+      holdForDays: number;
+      availableFromDate: string | null;
+      pickupByDate: string | null;
+      startsAt: string | null;
     };
 
 export interface IDeliverySnapshotCore {
@@ -46,4 +52,6 @@ export interface IDeliverySnapshotCore {
 
 export interface IDelivery extends IDeliverySnapshotCore {
   status: DELIVERY_STATUSES;
+  isOverdue?: boolean;
+  overdueByDays?: number;
 }

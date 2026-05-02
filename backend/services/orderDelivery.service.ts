@@ -102,8 +102,8 @@ class OrderDeliveryService {
 
     const nextDeliveryStatus =
       deliveryPayload.condition === DELIVERY.PICK_UP
-        ? DELIVERY_STATUSES.PICKUP_SCHEDULED
-        : DELIVERY_STATUSES.DELIVERY_SCHEDULED;
+        ? DELIVERY_STATUSES.PICKUP_PLANNED
+        : DELIVERY_STATUSES.DELIVERY_PLANNED;
 
     const newDelivery: IDelivery = {
       ...prices.deliverySnapshot,
@@ -113,8 +113,8 @@ class OrderDeliveryService {
     const action =
       currentOrder.delivery.status === DELIVERY_STATUSES.DRAFT
         ? deliveryPayload.condition === DELIVERY.PICK_UP
-          ? ORDER_HISTORY_ACTIONS.PICKUP_SCHEDULED
-          : ORDER_HISTORY_ACTIONS.DELIVERY_SCHEDULED
+          ? ORDER_HISTORY_ACTIONS.PICKUP_PLANNED
+          : ORDER_HISTORY_ACTIONS.DELIVERY_PLANNED
         : deliveryPayload.condition === DELIVERY.PICK_UP
           ? ORDER_HISTORY_ACTIONS.PICKUP_EDITED
           : ORDER_HISTORY_ACTIONS.DELIVERY_EDITED;

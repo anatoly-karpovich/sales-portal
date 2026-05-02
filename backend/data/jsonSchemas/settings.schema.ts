@@ -106,6 +106,24 @@ const shippingDeliveryRequiredSchema: JSONSchema7 = {
   additionalProperties: false,
 };
 
+const shippingProcessingRequiredSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    cutoffHour: { type: "integer", minimum: 0, maximum: 23 },
+  },
+  required: ["cutoffHour"],
+  additionalProperties: false,
+};
+
+const shippingProcessingPartialSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    cutoffHour: { type: "integer", minimum: 0, maximum: 23 },
+  },
+  required: ["cutoffHour"],
+  additionalProperties: false,
+};
+
 const orderSettingsPartialSchema: JSONSchema7 = {
   type: "object",
   properties: {
@@ -157,21 +175,23 @@ const shippingPickupPartialSchema: JSONSchema7 = {
 const shippingSettingsRequiredSchema: JSONSchema7 = {
   type: "object",
   properties: {
+    processing: shippingProcessingRequiredSchema,
     delivery: shippingDeliveryRequiredSchema,
     pickup: shippingPickupRequiredSchema,
   },
-  required: ["delivery", "pickup"],
+  required: ["processing", "delivery", "pickup"],
   additionalProperties: false,
 };
 
 const shippingSettingsPartialSchema: JSONSchema7 = {
   type: "object",
   properties: {
+    processing: shippingProcessingPartialSchema,
     delivery: shippingDeliveryPartialSchema,
     pickup: shippingPickupPartialSchema,
   },
   additionalProperties: false,
-  anyOf: [{ required: ["delivery"] }, { required: ["pickup"] }],
+  anyOf: [{ required: ["processing"] }, { required: ["delivery"] }, { required: ["pickup"] }],
 };
 
 export const settingsCreateSchema: AllowedSchema = {
