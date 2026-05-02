@@ -22,6 +22,9 @@ export type Settings = {
     defaultLowStockThreshold: number
   }
   shipping: {
+    processing: {
+      cutoffHour: number
+    }
     delivery: {
       pricing: {
         localCity: {

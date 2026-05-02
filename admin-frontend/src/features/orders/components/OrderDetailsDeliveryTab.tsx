@@ -15,7 +15,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { OrderDelivery, OrderDeliveryPayload, OrderDetails } from '@/api/modules/orders.api'
+import type {
+  OrderDelivery,
+  OrderDeliveryByAddressPayload,
+  OrderDetails,
+  OrderPickupPayload,
+} from '@/api/modules/orders.api'
 import { US_STATES, US_STATE_BY_CODE } from '@/constants/usStates'
 import {
   buildPickupLocationsByStateMap,
@@ -72,7 +77,17 @@ type OrderDetailsDeliveryTabProps = {
   order: OrderDetails
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
-  onSaveDelivery: (delivery: OrderDeliveryPayload) => Promise<boolean>
+  onSaveDelivery: (
+    delivery:
+      | {
+          mode: 'delivery'
+          payload: OrderDeliveryByAddressPayload
+        }
+      | {
+          mode: 'pickup'
+          payload: OrderPickupPayload
+        },
+  ) => Promise<boolean>
 }
 
 const DELIVERY_CONDITION_OPTIONS: DeliveryConditionOption[] = ['Delivery', 'Pickup']
@@ -234,10 +249,10 @@ function validateDeliveryForm(state: DeliveryFormState): DeliveryFieldErrors {
   }
 }
 
-function toDeliveryPayload(state: DeliveryFormState): OrderDeliveryPayload {
+function toDeliveryAddressPayload(state: DeliveryFormState): OrderDeliveryByAddressPayload {
   const apartment = state.address.apartment.trim()
-  const payload: OrderDeliveryPayload = {
-    condition: state.condition,
+  return {
+    express: state.express,
     address: {
       state: state.address.state.trim(),
       city: state.address.city.trim(),
@@ -247,12 +262,19 @@ function toDeliveryPayload(state: DeliveryFormState): OrderDeliveryPayload {
       zipCode: state.address.zipCode.trim(),
     },
   }
+}
 
-  if (state.condition === 'Delivery') {
-    payload.express = state.express
-  }
-
-  return payload
+function toPickupPayload(
+  state: DeliveryFormState,
+  pickupLocationsMap: ReturnType<typeof buildPickupLocationsByStateMap>,
+): OrderPickupPayload | null {
+  const location = resolvePickupLocation(
+    pickupLocationsMap,
+    state.address.state.trim(),
+    state.address.city.trim(),
+  )
+  if (!location) return null
+  return { pickupLocationId: location.id }
 }
 
 function resolveAddressSourceLabel(condition: DeliveryConditionOption, location: DeliveryLocationOption) {
@@ -304,7 +326,7 @@ function resolvePickupByDate(delivery: OrderDelivery) {
   return '-'
 }
 
-function resolveAddressOneLine(address: OrderDeliveryPayload['address']) {
+function resolveAddressOneLine(address: OrderDeliveryByAddressPayload['address']) {
   const apartmentPart = typeof address.apartment === 'number' ? `, Apt ${address.apartment}` : ''
   return `${address.house} ${address.street}${apartmentPart}, ${address.city}, ${address.state} ${address.zipCode}`
 }
@@ -356,8 +378,8 @@ export function OrderDetailsDeliveryTab({
     hasSettingsData &&
     order.status === 'Draft' &&
     (
-      order.delivery.status === 'Delivery Scheduled' ||
-      order.delivery.status === 'Pickup Scheduled'
+      order.delivery.status === 'Delivery Planned' ||
+      order.delivery.status === 'Pickup Planned'
     )
   const canEnterEditMode = canScheduleDelivery || canEditDelivery
   const isEditModeVisible = isEditing && canEnterEditMode
@@ -379,12 +401,24 @@ export function OrderDetailsDeliveryTab({
     hasPricingPreviewResponse &&
     !isPricingPreviewLoading &&
     !isDeliverySubmitting &&
-    !(formState.condition === 'Pickup' && pickupCities.length === 0)
+    !(
+      formState.condition === 'Pickup' &&
+      (
+        pickupCities.length === 0 ||
+        !toPickupPayload(formState, pickupLocationsMap)
+      )
+    )
   const canRequestPricingPreview =
     isEditModeVisible &&
     hasSettingsData &&
     isFormValid &&
-    !(formState.condition === 'Pickup' && pickupCities.length === 0)
+    !(
+      formState.condition === 'Pickup' &&
+      (
+        pickupCities.length === 0 ||
+        !toPickupPayload(formState, pickupLocationsMap)
+      )
+    )
 
   const areAddressLineFieldsReadonly =
     formState.condition === 'Pickup' || formState.location === 'Home'
@@ -399,12 +433,28 @@ export function OrderDetailsDeliveryTab({
 
     const timeoutId = window.setTimeout(() => {
       setIsPricingPreviewLoading(true)
-      const payload = {
-        products: order.products.map((item) => ({
-          id: item.product._id,
-          quantity: item.quantity,
-        })),
-        delivery: toDeliveryPayload(formState),
+      const products = order.products.map((item) => ({
+        id: item.product._id,
+        quantity: item.quantity,
+      }))
+      const payload =
+        formState.condition === 'Delivery'
+          ? {
+              products,
+              delivery: toDeliveryAddressPayload(formState),
+            }
+          : (() => {
+              const pickupPayload = toPickupPayload(formState, pickupLocationsMap)
+              if (!pickupPayload) return null
+              return {
+                products,
+                pickup: pickupPayload,
+              }
+            })()
+
+      if (!payload) {
+        setIsPricingPreviewLoading(false)
+        return
       }
 
       void calculatePricingAsync({ payload, requestConfig: { skipErrorToast: true } })
@@ -442,6 +492,7 @@ export function OrderDetailsDeliveryTab({
     isFormValid,
     order.products,
     pickupCities.length,
+    pickupLocationsMap,
     calculatePricingAsync,
   ])
 
@@ -557,7 +608,24 @@ export function OrderDetailsDeliveryTab({
   const handleSave = async () => {
     if (!canSave) return
 
-    const isSuccessful = await onSaveDelivery(toDeliveryPayload(formState))
+    const savePayload =
+      formState.condition === 'Delivery'
+        ? {
+            mode: 'delivery' as const,
+            payload: toDeliveryAddressPayload(formState),
+          }
+        : (() => {
+            const pickupPayload = toPickupPayload(formState, pickupLocationsMap)
+            if (!pickupPayload) return null
+            return {
+              mode: 'pickup' as const,
+              payload: pickupPayload,
+            }
+          })()
+
+    if (!savePayload) return
+
+    const isSuccessful = await onSaveDelivery(savePayload)
     if (!isSuccessful) return
 
     setTouched(INITIAL_TOUCHED_STATE)

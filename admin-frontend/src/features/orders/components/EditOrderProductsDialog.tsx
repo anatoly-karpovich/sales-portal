@@ -21,11 +21,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Product } from '@/api/modules/products.api'
 import type {
   OrderDelivery,
-  OrderDeliveryPayload,
+  OrderDeliveryByAddressPayload,
+  OrderPickupPayload,
   OrderProduct,
   OrderProductRequestItem,
 } from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
+import {
+  buildPickupLocationsByStateMap,
+  resolvePickupLocation,
+} from '@/features/orders/config/pickupLocations.config'
 import {
   useOrderPricingMutation,
   useOrderProductOptionsQuery,
@@ -95,20 +100,41 @@ function buildSummaryFromProduct(product: Product): ProductSummary {
   }
 }
 
-function toOrderDeliveryPayload(delivery: OrderDelivery | null): OrderDeliveryPayload | undefined {
-  if (!delivery) return undefined
+function toOrderPricingContext(
+  delivery: OrderDelivery | null,
+  pickupLocationsMap: ReturnType<typeof buildPickupLocationsByStateMap>,
+):
+  | {
+      delivery: OrderDeliveryByAddressPayload
+      pickup?: never
+    }
+  | {
+      pickup: OrderPickupPayload
+      delivery?: never
+    }
+  | null {
+  if (!delivery) return null
 
   if (delivery.condition === 'Delivery') {
     return {
-      condition: 'Delivery',
-      express: 'express' in delivery.schedule ? delivery.schedule.express : false,
-      address: delivery.address,
+      delivery: {
+        express: 'express' in delivery.schedule ? delivery.schedule.express : false,
+        address: delivery.address,
+      },
     }
   }
 
+  const pickupLocation = resolvePickupLocation(
+    pickupLocationsMap,
+    delivery.address.state,
+    delivery.address.city,
+  )
+  if (!pickupLocation) return null
+
   return {
-    condition: 'Pickup',
-    address: delivery.address,
+    pickup: {
+      pickupLocationId: pickupLocation.id,
+    },
   }
 }
 
@@ -156,6 +182,10 @@ export function EditOrderProductsDialog({
     typeof maxProductQuantityInOrder === 'number' && maxProductQuantityInOrder >= 1
   const isSettingsPending = isSettingsLoading || (!settings && isSettingsFetching)
   const isSettingsUnavailable = !isSettingsPending && !hasQuantityLimit
+  const pickupLocationsMap = useMemo(
+    () => buildPickupLocationsByStateMap(settings?.shipping.pickup.locations),
+    [settings?.shipping.pickup.locations],
+  )
 
   const initialProductsById = useMemo(
     () =>
@@ -264,11 +294,18 @@ export function EditOrderProductsDialog({
       const requestId = pricingRequestIdRef.current + 1
       pricingRequestIdRef.current = requestId
       setIsPricingPreviewLoading(true)
+      const pricingContext = toOrderPricingContext(currentDelivery, pickupLocationsMap)
+      if (currentDelivery?.condition === 'Pickup' && !pricingContext) {
+        setPricingPreviewTotal(null)
+        setIsPricingPreviewUnavailable(true)
+        setIsPricingPreviewLoading(false)
+        return
+      }
 
       void calculatePricingAsync({
           payload: {
             products: currentProducts,
-            delivery: toOrderDeliveryPayload(currentDelivery),
+            ...(pricingContext ?? {}),
           },
           requestConfig: { skipErrorToast: true },
         })
@@ -299,6 +336,7 @@ export function EditOrderProductsDialog({
     hasEmptyRows,
     hasQuantityLimit,
     open,
+    pickupLocationsMap,
     calculatePricingAsync,
   ])
 

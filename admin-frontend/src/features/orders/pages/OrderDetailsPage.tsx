@@ -16,7 +16,6 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import { useNavigate, useParams } from 'react-router-dom'
 import type {
   OrderAssignedManager,
-  OrderDeliveryPayload,
   OrderDeliveryStatus,
   OrderProductRequestItem,
   OrderStatus,
@@ -32,6 +31,7 @@ import { OrderDetailsSummarySection } from '@/features/orders/components/OrderDe
 import {
   OrderDetailsTabsSection,
   type OrderDetailsTab,
+  type OrderDeliverySavePayload,
 } from '@/features/orders/components/OrderDetailsTabsSection'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
@@ -45,6 +45,7 @@ import {
   useReceiveOrderProductsMutation,
   useUnassignOrderManagerMutation,
   useUpdateOrderDeliveryMutation,
+  useUpdateOrderPickupMutation,
   useOrderStatusMutation,
   useUpdateOrderMutation,
 } from '@/features/orders/hooks/useOrdersQuery'
@@ -130,6 +131,8 @@ function canCancelOrder(status: OrderStatus) {
 function canCancelOrderByDeliveryStatus(deliveryStatus: OrderDeliveryStatus) {
   return (
     deliveryStatus === 'Draft' ||
+    deliveryStatus === 'Delivery Planned' ||
+    deliveryStatus === 'Pickup Planned' ||
     deliveryStatus === 'Delivery Scheduled' ||
     deliveryStatus === 'Pickup Scheduled'
   )
@@ -151,7 +154,7 @@ function canReceiveOrderProducts(status: OrderStatus, deliveryStatus: OrderDeliv
 }
 
 function canProcessOrder(deliveryStatus: OrderDeliveryStatus) {
-  return deliveryStatus === 'Delivery Scheduled' || deliveryStatus === 'Pickup Scheduled'
+  return deliveryStatus === 'Delivery Planned' || deliveryStatus === 'Pickup Planned'
 }
 
 function isAssignableManager(user: Manager) {
@@ -201,6 +204,7 @@ export function OrderDetailsPage() {
   const updateOrderMutation = useUpdateOrderMutation()
   const receiveOrderProductsMutation = useReceiveOrderProductsMutation()
   const updateOrderDeliveryMutation = useUpdateOrderDeliveryMutation()
+  const updateOrderPickupMutation = useUpdateOrderPickupMutation()
   const createOrderCommentMutation = useCreateOrderCommentMutation()
   const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
@@ -627,15 +631,23 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleSaveDelivery = async (delivery: OrderDeliveryPayload) => {
+  const handleSaveDelivery = async (delivery: OrderDeliverySavePayload) => {
     if (!orderId) return false
 
     try {
-      await updateOrderDeliveryMutation.mutateAsync({
-        orderId,
-        delivery,
-        requestConfig: { skipErrorToast: true },
-      })
+      if (delivery.mode === 'delivery') {
+        await updateOrderDeliveryMutation.mutateAsync({
+          orderId,
+          delivery: delivery.payload,
+          requestConfig: { skipErrorToast: true },
+        })
+      } else {
+        await updateOrderPickupMutation.mutateAsync({
+          orderId,
+          pickup: delivery.payload,
+          requestConfig: { skipErrorToast: true },
+        })
+      }
       enqueueSnackbar(ordersUiText.toasts.deliverySaved, { variant: 'success' })
       return true
     } catch (error) {
@@ -888,7 +900,7 @@ export function OrderDetailsPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isDeliveryEditable={order.status === 'Draft'}
-        isDeliverySubmitting={updateOrderDeliveryMutation.isPending}
+        isDeliverySubmitting={updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending}
         onSaveDelivery={handleSaveDelivery}
         commentDraft={commentDraft}
         onCommentDraftChange={setCommentDraft}
