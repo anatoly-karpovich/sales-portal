@@ -120,7 +120,7 @@ function areAddressesEqual(left: DeliveryAddressFormState, right: DeliveryAddres
 }
 
 function resolveDeliveryLocation(order: OrderDetails): DeliveryLocationOption {
-  if (!order.delivery || order.delivery.condition !== 'Delivery') {
+  if (order.delivery.condition !== 'Delivery') {
     return 'Home'
   }
 
@@ -139,15 +139,6 @@ function resolveDeliveryLocation(order: OrderDetails): DeliveryLocationOption {
 
 function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
   const customerAddress = resolveCustomerAddress(order)
-  if (!order.delivery) {
-    return {
-      condition: 'Delivery',
-      location: 'Home',
-      express: false,
-      address: customerAddress,
-    }
-  }
-
   if (order.delivery.condition === 'Pickup') {
     return {
       condition: 'Pickup',
@@ -243,22 +234,6 @@ function validateDeliveryForm(state: DeliveryFormState): DeliveryFieldErrors {
   }
 }
 
-function toComparableFormState(state: DeliveryFormState) {
-  return {
-    condition: state.condition,
-    location: state.location,
-    express: state.condition === 'Delivery' ? state.express : false,
-    address: {
-      state: state.address.state.trim(),
-      city: state.address.city.trim(),
-      street: state.address.street.trim(),
-      house: Number(state.address.house),
-      apartment: state.address.apartment.trim().length > 0 ? Number(state.address.apartment) : null,
-      zipCode: state.address.zipCode.trim(),
-    },
-  }
-}
-
 function toDeliveryPayload(state: DeliveryFormState): OrderDeliveryPayload {
   const apartment = state.address.apartment.trim()
   const payload: OrderDeliveryPayload = {
@@ -290,8 +265,8 @@ function resolveAddressSourceLabel(condition: DeliveryConditionOption, location:
   return ordersUiText.detailsPage.placeholders.deliveryAddressSourceCustom
 }
 
-function resolvePricingTierLabel(delivery: OrderDelivery | null) {
-  if (!delivery || delivery.condition !== 'Delivery') return '-'
+function resolvePricingTierLabel(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Delivery') return '-'
 
   switch (delivery.pricingTier) {
     case 'local_city':
@@ -305,24 +280,24 @@ function resolvePricingTierLabel(delivery: OrderDelivery | null) {
   }
 }
 
-function resolveEstimatedDate(delivery: OrderDelivery | null) {
-  if (!delivery || delivery.condition !== 'Delivery') return '-'
+function resolveEstimatedDate(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Delivery') return '-'
   if ('estimatedDate' in delivery.schedule) {
     return formatDate(delivery.schedule.estimatedDate)
   }
   return '-'
 }
 
-function resolvePickupAvailableFrom(delivery: OrderDelivery | null) {
-  if (!delivery || delivery.condition !== 'Pickup') return '-'
+function resolvePickupAvailableFrom(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Pickup') return '-'
   if ('availableFromDate' in delivery.schedule) {
     return formatDate(delivery.schedule.availableFromDate)
   }
   return '-'
 }
 
-function resolvePickupByDate(delivery: OrderDelivery | null) {
-  if (!delivery || delivery.condition !== 'Pickup') return '-'
+function resolvePickupByDate(delivery: OrderDelivery) {
+  if (delivery.condition !== 'Pickup') return '-'
   if ('pickupByDate' in delivery.schedule) {
     return formatDate(delivery.schedule.pickupByDate)
   }
@@ -366,6 +341,7 @@ export function OrderDetailsDeliveryTab({
   const [pricingPreviewPickupByDate, setPricingPreviewPickupByDate] = useState<string | null>(null)
   const [isPricingPreviewLoading, setIsPricingPreviewLoading] = useState(false)
   const [isPricingPreviewUnavailable, setIsPricingPreviewUnavailable] = useState(false)
+  const [hasPricingPreviewResponse, setHasPricingPreviewResponse] = useState(false)
 
   const isSettingsDataLoading = isSettingsLoading || (!settings && isSettingsFetching)
   const hasSettingsData = Boolean(settings)
@@ -374,13 +350,15 @@ export function OrderDetailsDeliveryTab({
     isDeliveryEditable &&
     hasSettingsData &&
     order.status === 'Draft' &&
-    order.deliveryStatus === 'Not Scheduled'
+    order.delivery.status === 'Draft'
   const canEditDelivery =
     isDeliveryEditable &&
     hasSettingsData &&
     order.status === 'Draft' &&
-    order.deliveryStatus === 'Scheduled' &&
-    Boolean(order.delivery)
+    (
+      order.delivery.status === 'Delivery Scheduled' ||
+      order.delivery.status === 'Pickup Scheduled'
+    )
   const canEnterEditMode = canScheduleDelivery || canEditDelivery
   const isEditModeVisible = isEditing && canEnterEditMode
 
@@ -394,17 +372,12 @@ export function OrderDetailsDeliveryTab({
     () => Object.values(validation).every((value) => value === null),
     [validation],
   )
-  const hasChanges = useMemo(
-    () =>
-      JSON.stringify(toComparableFormState(formState)) !==
-      JSON.stringify(toComparableFormState(initialFormState)),
-    [formState, initialFormState],
-  )
   const canSave =
     isDeliveryEditable &&
     hasSettingsData &&
     isFormValid &&
-    hasChanges &&
+    hasPricingPreviewResponse &&
+    !isPricingPreviewLoading &&
     !isDeliverySubmitting &&
     !(formState.condition === 'Pickup' && pickupCities.length === 0)
   const canRequestPricingPreview =
@@ -417,9 +390,7 @@ export function OrderDetailsDeliveryTab({
     formState.condition === 'Pickup' || formState.location === 'Home'
   const shouldShowLocation = formState.condition === 'Delivery'
   const deliveryLocation = resolveDeliveryLocation(order)
-  const deliveryAddressSourceLabel = order.delivery
-    ? resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
-    : null
+  const deliveryAddressSourceLabel = resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
 
   useEffect(() => {
     if (!canRequestPricingPreview) {
@@ -444,6 +415,7 @@ export function OrderDetailsDeliveryTab({
           setPricingPreviewAvailableFromDate(pricing.delivery.availableFromDate)
           setPricingPreviewPickupByDate(pricing.delivery.pickupByDate)
           setIsPricingPreviewUnavailable(false)
+          setHasPricingPreviewResponse(true)
         })
         .catch(() => {
           setPricingPreviewTotal(null)
@@ -452,6 +424,7 @@ export function OrderDetailsDeliveryTab({
           setPricingPreviewAvailableFromDate(null)
           setPricingPreviewPickupByDate(null)
           setIsPricingPreviewUnavailable(true)
+          setHasPricingPreviewResponse(true)
         })
         .finally(() => {
           setIsPricingPreviewLoading(false)
@@ -502,6 +475,13 @@ export function OrderDetailsDeliveryTab({
   const handleStartEditing = () => {
     if (!canEnterEditMode) return
     resetEditState()
+    setPricingPreviewTotal(null)
+    setPricingPreviewDeliveryPrice(null)
+    setPricingPreviewEstimatedDate(null)
+    setPricingPreviewAvailableFromDate(null)
+    setPricingPreviewPickupByDate(null)
+    setIsPricingPreviewUnavailable(false)
+    setHasPricingPreviewResponse(false)
     setIsEditing(true)
   }
 
@@ -1003,18 +983,16 @@ export function OrderDetailsDeliveryTab({
             </Stack>
           </Stack>
         </Paper>
-      ) : order.delivery ? (
+      ) : (
         <Stack spacing={1.5} data-testid="order-details-delivery-view">
-          {deliveryAddressSourceLabel ? (
-            <Chip
-              size="small"
-              color="primary"
-              variant="outlined"
-              label={deliveryAddressSourceLabel}
-              sx={{ alignSelf: 'flex-start' }}
-              data-testid="order-details-delivery-view-source-chip"
-            />
-          ) : null}
+          <Chip
+            size="small"
+            color="primary"
+            variant="outlined"
+            label={deliveryAddressSourceLabel}
+            sx={{ alignSelf: 'flex-start' }}
+            data-testid="order-details-delivery-view-source-chip"
+          />
           <Box
             sx={{
               display: 'grid',
@@ -1072,32 +1050,6 @@ export function OrderDetailsDeliveryTab({
             </Typography>
           </Box>
         </Stack>
-      ) : (
-        <Alert
-          severity="info"
-          variant="outlined"
-          sx={{
-            alignSelf: 'flex-start',
-            width: 'fit-content',
-            px: 1.25,
-            py: 0.25,
-            '& .MuiAlert-icon': {
-              py: 0,
-              my: 'auto',
-              mr: 1,
-            },
-            '& .MuiAlert-message': {
-              py: 0,
-              pr: 0.5,
-              display: 'flex',
-              alignItems: 'center',
-              minHeight: 24,
-            },
-          }}
-          data-testid="order-details-delivery-empty-state"
-        >
-          {ordersUiText.detailsPage.placeholders.noDeliveryScheduled}
-        </Alert>
       )}
     </Stack>
   )

@@ -128,7 +128,11 @@ function canCancelOrder(status: OrderStatus) {
 }
 
 function canCancelOrderByDeliveryStatus(deliveryStatus: OrderDeliveryStatus) {
-  return deliveryStatus === 'Not Scheduled' || deliveryStatus === 'Scheduled'
+  return (
+    deliveryStatus === 'Draft' ||
+    deliveryStatus === 'Delivery Scheduled' ||
+    deliveryStatus === 'Pickup Scheduled'
+  )
 }
 
 function canShowCancelOrder(status: OrderStatus, deliveryStatus: OrderDeliveryStatus) {
@@ -138,8 +142,16 @@ function canShowCancelOrder(status: OrderStatus, deliveryStatus: OrderDeliverySt
 function canReceiveOrderProducts(status: OrderStatus, deliveryStatus: OrderDeliveryStatus) {
   return (
     status === 'In Process' &&
-    (deliveryStatus === 'Scheduled' || deliveryStatus === 'Partially Delivered')
+    (
+      deliveryStatus === 'Delivery Scheduled' ||
+      deliveryStatus === 'Pickup Scheduled' ||
+      deliveryStatus === 'Partially Delivered'
+    )
   )
+}
+
+function canProcessOrder(deliveryStatus: OrderDeliveryStatus) {
+  return deliveryStatus === 'Delivery Scheduled' || deliveryStatus === 'Pickup Scheduled'
 }
 
 function isAssignableManager(user: Manager) {
@@ -215,7 +227,7 @@ export function OrderDetailsPage() {
   const hasPendingProductsToReceive = pendingReceiveRowIndices.length > 0
   const canStartReceive =
     Boolean(order) &&
-    canReceiveOrderProducts(order.status, order.deliveryStatus) &&
+    canReceiveOrderProducts(order.status, order.delivery.status) &&
     hasPendingProductsToReceive
   const isSelectAllChecked =
     hasPendingProductsToReceive &&
@@ -238,7 +250,7 @@ export function OrderDetailsPage() {
     }
 
     if (
-      !canReceiveOrderProducts(order.status, order.deliveryStatus) ||
+      !canReceiveOrderProducts(order.status, order.delivery.status) ||
       !order.products.some((product) => !product.received)
     ) {
       setIsReceiveMode(false)
@@ -792,9 +804,9 @@ export function OrderDetailsPage() {
   const isProductsEditable = order.status === 'Draft'
   const isReceiveStartVisible = canStartReceive && !isReceiveMode
   const isReceiveModeVisible = isReceiveMode && canStartReceive
-  const isCancelVisible = canShowCancelOrder(order.status, order.deliveryStatus)
+  const isCancelVisible = canShowCancelOrder(order.status, order.delivery.status)
   const isProcessVisible = order.status === 'Draft'
-  const isProcessDisabled = isProcessVisible && order.deliveryStatus !== 'Scheduled'
+  const isProcessDisabled = isProcessVisible && !canProcessOrder(order.delivery.status)
   const isReopenVisible = order.status === 'Canceled'
 
   const detailsDialogCopy =

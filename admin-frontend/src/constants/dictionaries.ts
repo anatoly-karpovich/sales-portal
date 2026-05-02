@@ -3,8 +3,9 @@ export const MANUFACTURERS = ['Apple', 'Samsung', 'Google', 'Microsoft', 'Sony',
 export const ORDER_STATUSES = ['Draft', 'In Process', 'Completed', 'Canceled'] as const
 
 export const DELIVERY_STATUSES = [
-  'Not Scheduled',
-  'Scheduled',
+  'Draft',
+  'Delivery Scheduled',
+  'Pickup Scheduled',
   'Partially Delivered',
   'Delivered',
 ] as const

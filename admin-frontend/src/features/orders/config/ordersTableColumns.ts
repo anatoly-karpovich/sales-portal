@@ -90,7 +90,7 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
       label: 'Delivery',
       width: '16%',
       minWidth: 200,
-      render: (row) => row.deliveryStatus || '-',
+      render: (row) => row.delivery.status || '-',
     },
     {
       key: 'assignedManager',

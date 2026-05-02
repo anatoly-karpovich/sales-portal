@@ -70,9 +70,9 @@ export const ordersUiText = {
       noHistory: 'History is empty.',
     },
     placeholders: {
-      processNeedsDelivery: 'Schedule delivery before processing order',
-      noDeliveryScheduled: 'Delivery is not scheduled yet',
-      noDelivery: 'Not Scheduled',
+      processNeedsDelivery: 'Schedule delivery or pickup before processing order',
+      noDeliveryScheduled: 'Delivery is in Draft state',
+      noDelivery: 'Draft',
       selectManager: 'Click to select manager',
       deliveryCityOtherOption: 'Other',
       deliveryCityNoOptions: 'No cities found.',

@@ -3,8 +3,9 @@ import type { ApiRequestConfig } from '@/api/types'
 
 export type OrderStatus = 'Draft' | 'In Process' | 'Completed' | 'Canceled'
 export type OrderDeliveryStatus =
-  | 'Not Scheduled'
-  | 'Scheduled'
+  | 'Draft'
+  | 'Delivery Scheduled'
+  | 'Pickup Scheduled'
   | 'Partially Delivered'
   | 'Delivered'
 
@@ -37,6 +38,7 @@ export type OrderDeliverySchedule =
     }
 
 export type OrderDelivery = {
+  status: OrderDeliveryStatus
   condition: OrderDeliveryCondition
   address: OrderDeliveryAddress
   price: number
@@ -75,10 +77,9 @@ export type OrderProduct = {
 export type OrderListItem = {
   _id: string
   status: OrderStatus
-  deliveryStatus: OrderDeliveryStatus
   customer: OrderCustomerSnapshot
   products: OrderProduct[]
-  delivery: OrderDelivery | null
+  delivery: OrderDelivery
   total_price: number
   createdOn: string
   assignedManager: OrderAssignedManager | null
@@ -113,10 +114,9 @@ export type OrderHistoryCustomerRef = string | { _id?: string } | null
 export type OrderHistoryEntry = {
   action?: string
   status?: OrderStatus
-  deliveryStatus?: OrderDeliveryStatus
   customer?: OrderHistoryCustomerRef
   products?: OrderProduct[]
-  delivery?: OrderDelivery | null
+  delivery: OrderDelivery
   total_price?: number
   changedOn?: string
   performer?: OrderAssignedManager | null

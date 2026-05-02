@@ -48,7 +48,6 @@ function resolveCommentAuthorName(comment: OrderComment) {
 }
 
 function resolveDeliveryScheduleKey(order: OrderDetails) {
-  if (!order.delivery) return 'none'
   if ('estimatedDate' in order.delivery.schedule) {
     return `delivery:${order.delivery.schedule.estimatedDate}:${order.delivery.schedule.express}`
   }
@@ -100,7 +99,7 @@ export function OrderDetailsTabsSection({
           <OrderDetailsDeliveryTab
             key={[
               order.status,
-              order.deliveryStatus,
+              order.delivery.status,
               order.customer._id,
               order.customer.state,
               order.customer.city,
@@ -108,16 +107,17 @@ export function OrderDetailsTabsSection({
               order.customer.house,
               order.customer.apartment ?? 'none',
               order.customer.zipCode,
-              order.delivery?.condition ?? 'none',
-              order.delivery?.price ?? 'none',
-              order.delivery?.pricingTier ?? 'none',
+              order.delivery.condition,
+              order.delivery.status,
+              order.delivery.price,
+              order.delivery.pricingTier,
               resolveDeliveryScheduleKey(order),
-              order.delivery?.address.state ?? 'none',
-              order.delivery?.address.city ?? 'none',
-              order.delivery?.address.street ?? 'none',
-              order.delivery?.address.house ?? 'none',
-              order.delivery?.address.apartment ?? 'none',
-              order.delivery?.address.zipCode ?? 'none',
+              order.delivery.address.state,
+              order.delivery.address.city,
+              order.delivery.address.street,
+              order.delivery.address.house,
+              order.delivery.address.apartment ?? 'none',
+              order.delivery.address.zipCode,
             ].join('|')}
             order={order}
             isDeliveryEditable={isDeliveryEditable}
