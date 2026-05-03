@@ -1,5 +1,5 @@
 import { DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
-import type { IProductInOrder } from "../data/types";
+import type { IOrderReceiveRequestItem, IProductInOrder } from "../data/types";
 import Order from "../models/order.model";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
@@ -13,7 +13,7 @@ class OrderReceiveService {
 
   async receiveProducts(
     orderId: Types.ObjectId,
-    products: string[],
+    products: IOrderReceiveRequestItem[],
     performerId: string,
     currentOrder: OrderDetailsDTO,
   ): Promise<OrderDetailsDTO> {
@@ -23,18 +23,22 @@ class OrderReceiveService {
 
     const dbProducts: IProductInOrder[] = currentOrder.products.map((item) => ({
       product: { _id: new Types.ObjectId(item.product._id) },
+      variant: { _id: new Types.ObjectId(item.variant._id) },
       unitPrice: item.unitPrice,
       quantity: item.quantity,
       received: item.received,
     }));
 
     const manager = await managersService.getManager(performerId);
-    const requestedProductIds = products.map((productId) => productId.toString());
-    const requestedProductIdsSet = new Set(requestedProductIds);
+    const requestedProductKeys = products.map(
+      (product) => `${product.productId.toString()}:${product.variantId.toString()}`,
+    );
+    const requestedProductKeysSet = new Set(requestedProductKeys);
     let receivedChanged = false;
-    for (const requestedProductId of requestedProductIds) {
+    for (const requestedProductKey of requestedProductKeys) {
       const positionIndex = dbProducts.findIndex(
-        (item) => item.product._id.toString() === requestedProductId && !item.received,
+        (item) =>
+          `${item.product._id.toString()}:${item.variant._id.toString()}` === requestedProductKey && !item.received,
       );
       if (positionIndex !== -1) {
         dbProducts[positionIndex] = { ...dbProducts[positionIndex], received: true };
@@ -47,13 +51,13 @@ class OrderReceiveService {
     }
 
     const receivedByProductId = new Map<string, boolean>(
-      dbProducts.map((item) => [item.product._id.toString(), item.received]),
+      dbProducts.map((item) => [`${item.product._id.toString()}:${item.variant._id.toString()}`, item.received]),
     );
     const historyProducts = currentOrder.products.map((item) => ({
       ...item,
-      received: requestedProductIdsSet.has(item.product._id.toString())
+      received: requestedProductKeysSet.has(`${item.product._id.toString()}:${item.variant._id.toString()}`)
         ? true
-        : (receivedByProductId.get(item.product._id.toString()) ?? item.received),
+        : (receivedByProductId.get(`${item.product._id.toString()}:${item.variant._id.toString()}`) ?? item.received),
     }));
 
     const orderForUpdate = {

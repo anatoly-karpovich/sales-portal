@@ -21,6 +21,9 @@ const productInOrder = new mongoose.Schema(
     product: {
       _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
     },
+    variant: {
+      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    },
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
     received: { type: Boolean, required: true },
@@ -33,7 +36,9 @@ const productInHistorySnapshot = new mongoose.Schema(
     product: {
       _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
       name: { type: String, required: true },
-      manufacturer: { type: String, required: true },
+    },
+    variant: {
+      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
     },
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },

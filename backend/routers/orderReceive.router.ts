@@ -19,7 +19,7 @@ orderReceiveRouter.post(
  * @swagger
  * /api/orders/{orderId}/receive:
  *   post:
- *     summary: Mark requested products as received
+ *     summary: Mark requested order lines (productId + variantId) as received
  *     tags: [Orders]
  *     parameters:
  *       - in: path

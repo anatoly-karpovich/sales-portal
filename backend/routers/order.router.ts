@@ -118,19 +118,22 @@ orderRouter.put(
  *           format: date-time
  *     ProductInOrder:
  *       type: object
- *       required: [product, unitPrice, quantity, received]
+ *       required: [product, variant, unitPrice, quantity, received]
  *       properties:
  *         product:
  *           type: object
- *           required: [_id, name, manufacturer]
+ *           required: [_id, name]
  *           properties:
  *             _id:
  *               type: string
  *             name:
  *               type: string
- *             manufacturer:
+ *         variant:
+ *           type: object
+ *           required: [_id]
+ *           properties:
+ *             _id:
  *               type: string
- *               enum: [Apple, Samsung, Google, Microsoft, Sony, Xiaomi, Amazon, Tesla]
  *         unitPrice:
  *           type: number
  *         quantity:
@@ -381,11 +384,14 @@ orderRouter.put(
  *           nullable: true
  *     OrderProductRequestItem:
  *       type: object
- *       required: [id, quantity]
+ *       required: [productId, variantId, quantity]
  *       properties:
- *         id:
+ *         productId:
  *           type: string
  *           description: Product id
+ *         variantId:
+ *           type: string
+ *           description: Product variant id
  *         quantity:
  *           type: integer
  *           minimum: 1
@@ -469,8 +475,14 @@ orderRouter.put(
  *           type: array
  *           minItems: 1
  *           items:
- *             type: string
- *           description: Array of product ids to mark as received
+ *             type: object
+ *             required: [productId, variantId]
+ *             properties:
+ *               productId:
+ *                 type: string
+ *               variantId:
+ *                 type: string
+ *           description: Array of order lines to mark as received
  *     OrderCommentPayload:
  *       type: object
  *       required: [comment]

@@ -1,16 +1,55 @@
 import { Request } from "express";
-import { IProduct } from "../product.type";
+import { PRODUCT_STATUSES } from "../../enums";
+import { IProduct, IProductAttribute, IProductVariant } from "../product.type";
 import { BaseResponseDTO } from "./common.dto";
 
 export type ProductByIdParamsDTO = { productId?: string };
+export type ProductVariantByIdParamsDTO = { productId?: string; variantId?: string };
 
-export type ProductCreateOrUpdateRequestDTO = Omit<IProduct, "_id" | "createdOn">;
+export type ProductCreateOrReplaceRequestDTO = Omit<IProduct, "_id" | "createdOn" | "updatedOn">;
+
+export type ProductPatchRequestDTO = Partial<Pick<IProduct, "name" | "manufacturer" | "category" | "description" | "imageUrl" | "status" | "attributes">>;
+
+export type ProductVariantPatchRequestDTO = Partial<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">>;
+export type ProductVariantCreateRequestDTO = Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">;
+
+export type ProductListItemDTO = {
+  _id: string;
+  name: string;
+  manufacturer: string;
+  category: string;
+  status: PRODUCT_STATUSES;
+  variantsCount: number;
+  priceRange: {
+    min: number;
+    max: number;
+  };
+};
+
+export type ProductDetailsDTO = {
+  _id: string;
+  name: string;
+  manufacturer: string;
+  category: string;
+  description?: string;
+  imageUrl?: string;
+  status: PRODUCT_STATUSES;
+  attributes: IProductAttribute[];
+  variants: IProductVariant[];
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  createdOn: string;
+  updatedOn: string;
+};
 
 export type ProductsSortedQueryDTO = {
   search?: string;
-  sortField?: "name" | "price" | "manufacturer" | "createdOn";
+  sortField?: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
   sortOrder?: "asc" | "desc";
   manufacturer?: string | string[];
+  status?: PRODUCT_STATUSES | PRODUCT_STATUSES[];
   page?: string;
   limit?: string;
 };
@@ -20,21 +59,47 @@ export type ProductExportFormatDTO = "csv" | "json";
 export type ProductExportFiltersDTO = {
   search?: string;
   manufacturer?: string[];
+  status?: PRODUCT_STATUSES[];
   page?: number;
   limit?: number;
-  sortField?: "name" | "price" | "manufacturer" | "createdOn";
+  sortField?: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
   sortOrder?: "asc" | "desc";
 } | null;
+
+export type ProductExportFieldsDTO =
+  | "_id"
+  | "name"
+  | "manufacturer"
+  | "category"
+  | "status"
+  | "variantsCount"
+  | "priceRange"
+  | "attributes"
+  | "variants"
+  | "createdOn"
+  | "updatedOn";
 
 export type ProductExportRequestBodyDTO = {
   format: ProductExportFormatDTO;
   filters?: ProductExportFiltersDTO;
-  fields: Array<keyof IProduct>;
+  fields: ProductExportFieldsDTO[];
 };
 
-export type CreateProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrUpdateRequestDTO>;
-export type UpdateProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrUpdateRequestDTO>;
+export type CreateProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrReplaceRequestDTO>;
+export type ReplaceProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrReplaceRequestDTO>;
+export type PatchProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductPatchRequestDTO> & {
+  product?: IProduct;
+};
+export type PatchProductVariantRequestDTO = Request<ProductVariantByIdParamsDTO, unknown, ProductVariantPatchRequestDTO> & {
+  product?: IProduct;
+};
+export type CreateProductVariantRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantCreateRequestDTO> & {
+  product?: IProduct;
+};
 export type DeleteProductRequestDTO = Request<ProductByIdParamsDTO>;
+export type DeleteProductVariantRequestDTO = Request<ProductVariantByIdParamsDTO> & {
+  product?: IProduct;
+};
 export type GetProductsSortedRequestDTO = Request<unknown, unknown, unknown, ProductsSortedQueryDTO>;
 export type ExportProductsRequestDTO = Request<unknown, unknown, ProductExportRequestBodyDTO>;
 
@@ -56,19 +121,23 @@ export type GetProductRequestWithEntityDTO = Request<ProductByIdParamsDTO> & {
 };
 
 export type ProductResponseDTO = BaseResponseDTO & {
-  Product: IProduct;
+  Product: ProductDetailsDTO;
 };
 
 export type ProductsResponseDTO = BaseResponseDTO & {
-  Products: IProduct[];
+  Products: ProductDetailsDTO[];
 };
 
 export type ProductsSortedResponseDTO = BaseResponseDTO & {
-  Products: IProduct[];
+  Products: ProductListItemDTO[];
   total?: number;
   page?: number;
   limit?: number;
   search?: string;
   manufacturer?: string[];
-  sorting?: { sortField: "name" | "price" | "manufacturer" | "createdOn"; sortOrder: "asc" | "desc" };
+  status?: PRODUCT_STATUSES[];
+  sorting?: {
+    sortField: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
+    sortOrder: "asc" | "desc";
+  };
 };

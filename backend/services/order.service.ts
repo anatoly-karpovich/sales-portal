@@ -13,7 +13,7 @@ import {
 } from "../data/types";
 import { Types } from "mongoose";
 import { createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
-import { DELIVERY, DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES, MANUFACTURERS } from "../data/enums";
+import { DELIVERY, DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import _ from "lodash";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
@@ -72,26 +72,31 @@ class OrderService {
     }
 
     const currentById = new Map<string, IProductInOrder>(
-      currentProducts.map((item) => [item.product._id.toString(), item]),
+      currentProducts.map((item) => [`${item.product._id.toString()}:${item.variant._id.toString()}`, item]),
     );
 
-    const newIds = requestedProducts.map((item) => item.id.toString()).filter((id) => !currentById.has(id));
+    const newKeys = requestedProducts
+      .map((item) => `${item.productId.toString()}:${item.variantId.toString()}`)
+      .filter((key) => !currentById.has(key));
 
-    const freshSnapshots = newIds.length
+    const freshSnapshots = newKeys.length
       ? await productsMapping({
-          products: requestedProducts.filter((item) => !currentById.has(item.id.toString())),
+          products: requestedProducts.filter(
+            (item) => !currentById.has(`${item.productId.toString()}:${item.variantId.toString()}`),
+          ),
         })
       : [];
     const freshById = new Map<string, IProductInOrder>(
-      freshSnapshots.map((item) => [item.product._id.toString(), item]),
+      freshSnapshots.map((item) => [`${item.product._id.toString()}:${item.variant._id.toString()}`, item]),
     );
 
     return requestedProducts.map((item) => {
-      const idStr = item.id.toString();
+      const idStr = `${item.productId.toString()}:${item.variantId.toString()}`;
       const existing = currentById.get(idStr);
       if (existing) {
         return {
           product: { _id: new Types.ObjectId(existing.product._id) },
+          variant: { _id: new Types.ObjectId(existing.variant._id) },
           unitPrice: existing.unitPrice,
           quantity: item.quantity,
           received: existing.received,
@@ -99,7 +104,8 @@ class OrderService {
       }
       const fresh = freshById.get(idStr);
       return {
-        product: { _id: new Types.ObjectId(idStr) },
+        product: { _id: new Types.ObjectId(item.productId) },
+        variant: { _id: new Types.ObjectId(item.variantId) },
         unitPrice: fresh?.unitPrice ?? 0,
         quantity: item.quantity,
         received: false,
@@ -133,14 +139,14 @@ class OrderService {
     ];
 
     const productDocs = await Product.find({ _id: { $in: uniqueIds.map((id) => new Types.ObjectId(id)) } })
-      .select("_id name manufacturer")
+      .select("_id name")
       .lean()
       .exec();
 
-    const productById = new Map<string, { name: string; manufacturer: MANUFACTURERS }>(
+    const productById = new Map<string, { name: string }>(
       productDocs.map((doc) => [
         doc._id.toString(),
-        { name: doc.name, manufacturer: doc.manufacturer as MANUFACTURERS },
+        { name: doc.name },
       ]),
     );
 
@@ -151,7 +157,9 @@ class OrderService {
         product: {
           _id: new Types.ObjectId(productId),
           name: lookup?.name ?? "",
-          manufacturer: (lookup?.manufacturer ?? ("" as MANUFACTURERS)) as MANUFACTURERS,
+        },
+        variant: {
+          _id: new Types.ObjectId(item.variant._id),
         },
         unitPrice: item.unitPrice,
         quantity: item.quantity,
@@ -370,8 +378,8 @@ class OrderService {
         products.forEach((item, index) => {
           const base = `products[${index + 1}]`;
           row[`${base}.product._id`] = item?.product?._id?.toString?.() ?? "";
+          row[`${base}.variant._id`] = item?.variant?._id?.toString?.() ?? "";
           row[`${base}.product.name`] = item?.product?.name ?? "";
-          row[`${base}.product.manufacturer`] = item?.product?.manufacturer ?? "";
           row[`${base}.unitPrice`] = typeof item?.unitPrice === "number" ? item.unitPrice : "";
           row[`${base}.quantity`] = typeof item?.quantity === "number" ? item.quantity : "";
           row[`${base}.received`] = typeof item?.received === "boolean" ? item.received : "";
@@ -542,6 +550,7 @@ class OrderService {
 
     const currentProducts: IProductInOrder[] = currentOrder.products.map((item) => ({
       product: { _id: new Types.ObjectId(item.product._id) },
+      variant: { _id: new Types.ObjectId(item.variant._id) },
       unitPrice: item.unitPrice,
       quantity: item.quantity,
       received: item.received,
@@ -612,11 +621,13 @@ class OrderService {
 
     if (order.products) {
       const requested = order.products.map((item) => ({
-        id: item.id.toString(),
+        productId: item.productId.toString(),
+        variantId: item.variantId.toString(),
         quantity: item.quantity,
       }));
       const currentTuples = currentProducts.map((item) => ({
-        id: item.product._id.toString(),
+        productId: item.product._id.toString(),
+        variantId: item.variant._id.toString(),
         quantity: item.quantity,
       }));
       if (!_.isEqual(requested, currentTuples)) {

@@ -1,4 +1,4 @@
-import { MANUFACTURERS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
+import { ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../enums";
 import type { Document } from "mongoose";
 import { Types } from "mongoose";
 import type { ICustomer, IDelivery, DocumentResult, IComment } from ".";
@@ -14,8 +14,13 @@ export interface IProductInOrderRef {
   _id: Types.ObjectId;
 }
 
+export interface IProductVariantInOrderRef {
+  _id: Types.ObjectId;
+}
+
 export interface IProductInOrder {
   product: IProductInOrderRef;
+  variant: IProductVariantInOrderRef;
   unitPrice: number;
   quantity: number;
   received: boolean;
@@ -23,11 +28,13 @@ export interface IProductInOrder {
 
 export interface IProductInOrderResponseRef extends IProductInOrderRef {
   name: string;
-  manufacturer: MANUFACTURERS;
 }
 
-export interface IProductInOrderResponse extends Omit<IProductInOrder, "product"> {
+export interface IProductVariantInOrderResponseRef extends IProductVariantInOrderRef {}
+
+export interface IProductInOrderResponse extends Omit<IProductInOrder, "product" | "variant"> {
   product: IProductInOrderResponseRef;
+  variant: IProductVariantInOrderResponseRef;
 }
 
 export interface IOrder<CustomerType = IOrderCustomerSnapshot, ProductsType = IProductInOrder> {
@@ -44,8 +51,14 @@ export interface IOrder<CustomerType = IOrderCustomerSnapshot, ProductsType = IP
 }
 
 export interface IOrderProductRequestItem {
-  id: Types.ObjectId;
+  productId: Types.ObjectId;
+  variantId: Types.ObjectId;
   quantity: number;
+}
+
+export interface IOrderReceiveRequestItem {
+  productId: Types.ObjectId;
+  variantId: Types.ObjectId;
 }
 
 export interface IOrderUpdateRequest {

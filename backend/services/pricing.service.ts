@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 import { DELIVERY, DELIVERY_STATUSES } from "../data/enums";
-import { IDelivery, IOrderProductRequestItem, IProductInOrder, IProductInOrderResponse } from "../data/types";
+import { IDelivery, IProductInOrder, IProductInOrderResponse } from "../data/types";
 import {
   IDeliveryPayload,
   IDeliverySnapshotCore,
@@ -13,7 +13,11 @@ import { US_STATE_CODES } from "../data/usStates";
 import productsService from "./products.service";
 import { SettingsService } from "./settings.service";
 
-type PricingProductInput = Pick<IOrderProductRequestItem, "quantity"> & { id: Types.ObjectId | string };
+type PricingProductInput = {
+  productId: Types.ObjectId | string;
+  variantId: Types.ObjectId | string;
+  quantity: number;
+};
 type PricingProducts = PricingProductInput[] | IProductInOrder[] | IProductInOrderResponse[];
 type DeliveryCalculationInput = IDelivery | IDeliveryPayload;
 type DateOnly = string;
@@ -173,18 +177,28 @@ export class PricingService {
     }
 
     const requestProducts = products as PricingProductInput[];
-    const ids = requestProducts.map((p) => p.id);
+    const ids = requestProducts.map((p) => p.productId);
     const productsDb = await productsService.getProductsBulk(ids);
     const productMap = new Map(productsDb.map((p) => [p._id.toString(), p]));
 
     return requestProducts.reduce((sum, item) => {
-      const product = productMap.get(item.id.toString());
+      const product = productMap.get(item.productId.toString());
 
       if (!product) {
-        throw new Error(`[Pricing Service] Product with id ${item.id} was not found`);
+        throw new Error(`[Pricing Service] Product with id ${item.productId} was not found`);
       }
 
-      return sum + product.price * item.quantity;
+      const variant = (product.variants ?? []).find(
+        (productVariant) => productVariant?._id?.toString() === item.variantId.toString(),
+      );
+
+      if (!variant) {
+        throw new Error(
+          `[Pricing Service] Variant with id ${item.variantId} was not found in product ${item.productId}`,
+        );
+      }
+
+      return sum + variant.price * item.quantity;
     }, 0);
   }
 

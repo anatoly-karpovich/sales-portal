@@ -67,10 +67,15 @@ export function createHistoryEntry(
 export async function productsMapping<T extends Pick<IOrderRequest, "products">>(order: T): Promise<IProductInOrder[]> {
   const products = await Promise.all(
     order.products.map(async (item) => {
-      const product = await ProductsService.getProduct(item.id);
+      const product = await ProductsService.getProduct(item.productId);
+      const variant = product?.variants?.find((productVariant) => productVariant._id?.toString() === item.variantId.toString());
+      if (!variant) {
+        throw new Error(`Variant with id '${item.variantId}' was not found in product '${item.productId}'`);
+      }
       return {
-        product: { _id: new Types.ObjectId(product._id) },
-        unitPrice: product.price,
+        product: { _id: new Types.ObjectId(item.productId) },
+        variant: { _id: new Types.ObjectId(item.variantId) },
+        unitPrice: variant.price,
         quantity: item.quantity,
         received: false,
       };

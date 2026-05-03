@@ -4,6 +4,7 @@ import type {
   IOrderCustomerSnapshot,
   IOrderDocument,
   IOrderProductRequestItem,
+  IOrderReceiveRequestItem,
   IOrderRequest,
   IOrderUpdateRequest,
   IProductInOrder,
@@ -12,7 +13,7 @@ import type {
   IProductInOrderResponseRef,
 } from "./order.type";
 import type { ICustomer, ICustomerDocument } from "./customer.type";
-import type { IProduct, IProductDocument } from "./product.type";
+import type { IProduct, IProductAttribute, IProductDocument, IProductFilters, IProductVariant } from "./product.type";
 import type { IDeliveryPayload, IDelivery, IDeliveryUpdatePayload, IPickupUpdatePayload } from "./delivery.type";
 import type { DocumentResult } from "./document.type";
 import type { IComment } from "./comments.type";
@@ -23,6 +24,7 @@ export {
   IOrderCustomerSnapshot,
   IOrderDocument,
   IOrderProductRequestItem,
+  IOrderReceiveRequestItem,
   IOrderRequest,
   IOrderUpdateRequest,
   IProductInOrder,
@@ -31,6 +33,9 @@ export {
   IProductInOrderResponseRef,
   ICustomer,
   IProduct,
+  IProductAttribute,
+  IProductVariant,
+  IProductFilters,
   IDeliveryPayload,
   IDelivery,
   IDeliveryUpdatePayload,

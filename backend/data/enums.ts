@@ -3,15 +3,10 @@ export enum DELIVERY {
   PICK_UP = "Pickup",
 }
 
-export enum MANUFACTURERS {
-  Apple = "Apple",
-  Samsung = "Samsung",
-  Google = "Google",
-  Microsoft = "Microsoft",
-  Sony = "Sony",
-  Xiaomi = "Xiaomi",
-  Amazon = "Amazon",
-  Tesla = "Tesla",
+export enum PRODUCT_STATUSES {
+  DRAFT = "Draft",
+  ACTIVE = "Active",
+  ARCHIVED = "Archived",
 }
 
 export enum ROLES {

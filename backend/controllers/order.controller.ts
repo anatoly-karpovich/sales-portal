@@ -25,7 +25,8 @@ class OrderController {
     return {
       customer: new Types.ObjectId(body.customer),
       products: body.products.map((item) => ({
-        id: new Types.ObjectId(item.id),
+        productId: new Types.ObjectId(item.productId),
+        variantId: new Types.ObjectId(item.variantId),
         quantity: item.quantity,
       })),
     };
@@ -40,7 +41,8 @@ class OrderController {
 
     if (Array.isArray(body.products)) {
       updatePayload.products = body.products.map((item) => ({
-        id: new Types.ObjectId(item.id),
+        productId: new Types.ObjectId(item.productId),
+        variantId: new Types.ObjectId(item.variantId),
         quantity: item.quantity,
       }));
     }

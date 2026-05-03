@@ -30,8 +30,16 @@ settingsRouter.patch(
  *   schemas:
  *     Settings:
  *       type: object
- *       required: [order, inventory, shipping]
+ *       required: [catalog, order, inventory, shipping]
  *       properties:
+ *         catalog:
+ *           type: object
+ *           required: [manufacturers]
+ *           properties:
+ *             manufacturers:
+ *               type: array
+ *               items:
+ *                 type: string
  *         order:
  *           type: object
  *           required: [maxProductsInOrder, maxProductQuantityInOrder]

@@ -41,8 +41,14 @@ export type OrderExportRequestBodyDTO = {
 };
 
 export type OrderProductRequestItemDTO = {
-  id: string;
+  productId: string;
+  variantId: string;
   quantity: number;
+};
+
+export type OrderReceiveProductRequestItemDTO = {
+  productId: string;
+  variantId: string;
 };
 
 export type OrderCreateRequestBodyDTO = {
@@ -66,7 +72,7 @@ export type OrderStatusRequestDTO = {
 };
 
 export type OrderReceiveRequestDTO = {
-  products: string[];
+  products: OrderReceiveProductRequestItemDTO[];
 };
 
 export type OrderCommentCreateRequestDTO = {

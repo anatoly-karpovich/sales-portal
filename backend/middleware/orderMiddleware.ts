@@ -3,7 +3,7 @@ import CustomerService from "../services/customer.service.js";
 import { SettingsService } from "../services/settings.service.js";
 import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
-import { DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
+import { DELIVERY_STATUSES, ORDER_STATUSES, PRODUCT_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
@@ -171,23 +171,58 @@ export async function orderValidations(
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing products` });
       }
 
-      const requestedIds = requestedProducts.map((item) => item.id);
-      const uniqueProductIds = new Set(requestedIds);
-      if (uniqueProductIds.size !== requestedIds.length) {
+      const requestedKeys = requestedProducts.map((item) => `${item.productId}:${item.variantId}`);
+      const hasInvalidId = requestedProducts.some(
+        (item) => !Types.ObjectId.isValid(item.productId) || !Types.ObjectId.isValid(item.variantId),
+      );
+      if (hasInvalidId) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+      }
+      const uniqueOrderLineKeys = new Set(requestedKeys);
+      if (uniqueOrderLineKeys.size !== requestedKeys.length) {
         return res
           .status(400)
-          .json({ IsSuccess: false, ErrorMessage: `Duplicate product ids are not allowed` });
+          .json({ IsSuccess: false, ErrorMessage: `Duplicate order product lines are not allowed` });
       }
 
-      const productObjectIds = [...uniqueProductIds].map((productId) => new Types.ObjectId(productId));
-      const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
-      const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
+      const uniqueProductIds = [...new Set(requestedProducts.map((item) => item.productId))];
+      const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
+      const existingProducts = await Product.find({ _id: { $in: productObjectIds } })
+        .select("_id status variants._id variants.status")
+        .lean();
+      const productById = new Map(existingProducts.map((product) => [product._id.toString(), product]));
 
-      const missingProductId = [...uniqueProductIds].find((productId) => !existingProductIds.has(productId));
-      if (missingProductId) {
-        return res
-          .status(404)
-          .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
+      for (const requestedProduct of requestedProducts) {
+        const product = productById.get(requestedProduct.productId);
+        if (!product) {
+          return res
+            .status(404)
+            .json({ IsSuccess: false, ErrorMessage: `Product with id '${requestedProduct.productId}' wasn't found` });
+        }
+
+        if (product.status !== PRODUCT_STATUSES.ACTIVE) {
+          return res.status(400).json({
+            IsSuccess: false,
+            ErrorMessage: `Product with id '${requestedProduct.productId}' is not active`,
+          });
+        }
+
+        const variant = (product.variants ?? []).find(
+          (productVariant) => productVariant?._id?.toString() === requestedProduct.variantId,
+        );
+        if (!variant) {
+          return res.status(404).json({
+            IsSuccess: false,
+            ErrorMessage: `Variant with id '${requestedProduct.variantId}' wasn't found in product '${requestedProduct.productId}'`,
+          });
+        }
+
+        if (variant.status !== PRODUCT_STATUSES.ACTIVE) {
+          return res.status(400).json({
+            IsSuccess: false,
+            ErrorMessage: `Variant with id '${requestedProduct.variantId}' is not active`,
+          });
+        }
       }
 
       const settings = await settingsService.get();
@@ -202,7 +237,7 @@ export async function orderValidations(
       if (overLimit) {
         return res.status(400).json({
           IsSuccess: false,
-          ErrorMessage: `Product '${overLimit.id}' quantity must be between 1 and ${maxQuantity}`,
+          ErrorMessage: `Product '${overLimit.productId}' variant '${overLimit.variantId}' quantity must be between 1 and ${maxQuantity}`,
         });
       }
     }
@@ -334,28 +369,45 @@ export async function orderReceiveValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
 
-    const requestedIds = req.body.products;
-    if (new Set(requestedIds).size !== requestedIds.length) {
+    const requestedItems = req.body.products;
+    const hasInvalidId = requestedItems.some(
+      (item) => !Types.ObjectId.isValid(item.productId) || !Types.ObjectId.isValid(item.variantId),
+    );
+    if (hasInvalidId) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+    const receivedLineKeys = requestedItems.map((item) => `${item.productId}:${item.variantId}`);
+    if (new Set(receivedLineKeys).size !== receivedLineKeys.length) {
       return res
         .status(400)
-        .json({ IsSuccess: false, ErrorMessage: `Duplicate product ids are not allowed` });
+        .json({ IsSuccess: false, ErrorMessage: `Duplicate order product lines are not allowed` });
     }
 
-    if (requestedIds.length > order.products.length) {
+    if (requestedItems.length > order.products.length) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Incorrect amount of received products` });
     }
 
-    for (const productId of requestedIds) {
-      const position = order.products.find((el) => el.product?._id?.toString() === productId);
+    for (const receivedItem of requestedItems) {
+      const position = order.products.find(
+        (el) =>
+          el.product?._id?.toString() === receivedItem.productId &&
+          el.variant?._id?.toString() === receivedItem.variantId,
+      );
       if (!position) {
         return res
           .status(400)
-          .json({ IsSuccess: false, ErrorMessage: `Product with Id '${productId}' is not requested` });
+          .json({
+            IsSuccess: false,
+            ErrorMessage: `Product with Id '${receivedItem.productId}' and variant '${receivedItem.variantId}' is not requested`,
+          });
       }
       if (position.received) {
         return res
           .status(400)
-          .json({ IsSuccess: false, ErrorMessage: `Product with Id '${productId}' is already received` });
+          .json({
+            IsSuccess: false,
+            ErrorMessage: `Product with Id '${receivedItem.productId}' and variant '${receivedItem.variantId}' is already received`,
+          });
       }
     }
     next();

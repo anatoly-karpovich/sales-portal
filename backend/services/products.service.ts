@@ -1,68 +1,161 @@
 import { Types } from "mongoose";
-import type { IProduct } from "../data/types";
-import Product from "../models/product.model";
+import type { IProduct, IProductFilters, IProductVariant } from "../data/types/product.type";
 import { getTodaysDate } from "../utils/utils";
-import { IProductFilters } from "../data/types/product.type";
-import { ProductExportFormatDTO } from "../data/types/dto/products.dto";
+import { ProductExportFormatDTO, ProductListItemDTO } from "../data/types/dto/products.dto";
+import Product from "../models/product.model";
 import ExportService from "./export.service";
+import { PRODUCT_STATUSES } from "../data/enums";
 
-type ProductSortField = "name" | "price" | "manufacturer" | "createdOn";
+type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
 type ProductSortOrder = "asc" | "desc";
 
 class ProductsService {
   private readonly exportableFields = new Set<string>([
     "_id",
     "name",
-    "amount",
-    "price",
     "manufacturer",
+    "category",
+    "status",
+    "variantsCount",
+    "priceRange",
+    "attributes",
+    "variants",
     "createdOn",
-    "notes",
+    "updatedOn",
   ]);
 
-  async create(product: Omit<IProduct, "_id" | "createdOn">): Promise<IProduct> {
-    const createdProduct = await Product.create({ ...product, createdOn: getTodaysDate(true) });
-    return createdProduct;
+  async create(product: Omit<IProduct, "_id" | "createdOn" | "updatedOn">): Promise<IProduct> {
+    const createdOn = getTodaysDate(true);
+    const createdProduct = await Product.create({ ...product, createdOn, updatedOn: createdOn });
+    return this.normalizeProduct(createdProduct.toObject());
+  }
+
+  async replace(productId: Types.ObjectId, payload: Omit<IProduct, "_id" | "createdOn" | "updatedOn">): Promise<IProduct> {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { ...payload, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async patch(productId: Types.ObjectId, payload: Partial<Omit<IProduct, "_id" | "createdOn" | "updatedOn" | "variants">>): Promise<IProduct> {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { ...payload, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async patchVariant(
+    productId: Types.ObjectId,
+    variantId: Types.ObjectId,
+    payload: Partial<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">>,
+  ): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const nextVariants = (product.variants ?? []).map((variant: any) => {
+      if (variant?._id?.toString() !== variantId.toString()) {
+        return variant;
+      }
+      return {
+        ...variant,
+        ...payload,
+      };
+    });
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { variants: nextVariants, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async createVariant(
+    productId: Types.ObjectId,
+    payload: Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">,
+  ): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const nextVariants = [...(product.variants ?? []), payload];
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { variants: nextVariants, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async deleteVariant(productId: Types.ObjectId, variantId: Types.ObjectId): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const nextVariants = (product.variants ?? []).filter((variant: any) => variant?._id?.toString() !== variantId.toString());
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { variants: nextVariants, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    return this.normalizeProduct(updatedProduct);
   }
 
   async getSorted(
     filters: IProductFilters,
     sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder },
     pagination: { skip: number; limit: number },
-  ): Promise<{ products: IProduct[]; total: number }> {
-    const { skip, limit } = pagination;
-    const filter = this.buildFilter(filters);
-    const sort = this.buildSort(sortOptions);
-
-    const [products, total] = await Promise.all([
-      Product.find(filter).sort(sort).skip(skip).limit(limit).collation({ locale: "en", strength: 2 }).exec(),
-      Product.countDocuments(filter).exec(),
-    ]);
-
-    return { products, total };
+  ): Promise<{ products: ProductListItemDTO[]; total: number }> {
+    const filtered = (await Product.find(this.buildFilter(filters)).lean().exec()).map((product) =>
+      this.normalizeProduct(product),
+    );
+    const sorted = this.sortProducts(filtered, sortOptions);
+    const sliced = sorted.slice(pagination.skip, pagination.skip + pagination.limit).map((product) => this.toListItem(product));
+    return { products: sliced, total: filtered.length };
   }
 
   async getForExport(
     filters: {
       manufacturers?: string[];
+      statuses?: PRODUCT_STATUSES[];
       search?: string;
       page?: number;
       limit?: number;
       sortField?: ProductSortField;
       sortOrder?: ProductSortOrder;
     } = {},
-    fields: string[] = [],
   ): Promise<IProduct[]> {
-    const filter = this.buildFilter({ manufacturers: filters.manufacturers ?? [], search: filters.search ?? "" });
-    const sort = this.buildSort({
+    const filter = this.buildFilter({
+      manufacturers: filters.manufacturers ?? [],
+      statuses: filters.statuses ?? [],
+      search: filters.search ?? "",
+    });
+
+    const products = (await Product.find(filter).lean().exec()).map((product) => this.normalizeProduct(product));
+    const sortedProducts = this.sortProducts(products, {
       sortField: filters.sortField ?? "createdOn",
       sortOrder: filters.sortOrder ?? "desc",
     });
-
-    const query = Product.find(filter).sort(sort).collation({ locale: "en", strength: 2 });
-    if (fields.length > 0) {
-      query.select(fields.join(" "));
-    }
 
     if (
       typeof filters.page === "number" &&
@@ -71,10 +164,10 @@ class ProductsService {
       filters.limit > 0
     ) {
       const skip = (filters.page - 1) * filters.limit;
-      query.skip(skip).limit(filters.limit);
+      return sortedProducts.slice(skip, skip + filters.limit);
     }
 
-    return query.exec();
+    return sortedProducts;
   }
 
   async exportProducts(params: {
@@ -82,6 +175,7 @@ class ProductsService {
     fields: string[];
     filters?: {
       manufacturers?: string[];
+      statuses?: PRODUCT_STATUSES[];
       search?: string;
       page?: number;
       limit?: number;
@@ -97,109 +191,180 @@ class ProductsService {
 
     ExportService.assertSelectedFields(fields, this.exportableFields);
 
-    const products = await this.getForExport(
-      {
-        manufacturers: filters?.manufacturers ?? [],
-        search: filters?.search ?? "",
-        page: filters?.page,
-        limit: filters?.limit,
-        sortField: filters?.sortField ?? "createdOn",
-        sortOrder: filters?.sortOrder ?? "desc",
-      },
-      fields,
-    );
+    const products = await this.getForExport({
+      manufacturers: filters?.manufacturers ?? [],
+      statuses: filters?.statuses ?? [],
+      search: filters?.search ?? "",
+      page: filters?.page,
+      limit: filters?.limit,
+      sortField: filters?.sortField ?? "createdOn",
+      sortOrder: filters?.sortOrder ?? "desc",
+    });
 
-    // TODO(types): make ExportService.pickFields generic and remove array cast.
-    const rows = ExportService.pickFields(products as unknown as Record<string, unknown>[], fields);
+    const rows = products.map((product) => {
+      const normalized = this.normalizeProduct(product);
+      const listItem = this.toListItem(normalized);
+      return {
+        _id: normalized._id?.toString?.() ?? "",
+        name: normalized.name,
+        manufacturer: normalized.manufacturer,
+        category: normalized.category,
+        status: normalized.status,
+        variantsCount: listItem.variantsCount,
+        priceRange: listItem.priceRange,
+        attributes: normalized.attributes,
+        variants: normalized.variants.map((variant) => ({
+          ...variant,
+          _id: variant._id?.toString?.() ?? "",
+        })),
+        createdOn: normalized.createdOn,
+        updatedOn: normalized.updatedOn,
+      };
+    });
+
+    const pickedRows = ExportService.pickFields(rows, fields);
     const fileName = ExportService.buildFileName("products-export", format);
 
     if (format === "json") {
       return {
         fileName,
         contentType: "application/json; charset=utf-8",
-        content: JSON.stringify(rows, null, 2),
+        content: JSON.stringify(pickedRows, null, 2),
       };
     }
 
     return {
       fileName,
       contentType: "text/csv; charset=utf-8",
-      content: `\uFEFF${ExportService.toCsv(rows, fields)}`,
+      content: `\uFEFF${ExportService.toCsv(pickedRows, fields)}`,
     };
   }
 
-  private buildFilter(filters: IProductFilters): Record<string, any> {
-    const { manufacturers, search } = filters;
+  private sortProducts(
+    products: IProduct[],
+    sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder },
+  ): IProduct[] {
+    const sortField = sortOptions.sortField;
+    const direction = sortOptions.sortOrder === "asc" ? 1 : -1;
 
-    const filter: Record<string, any> = {};
+    return [...products].sort((a, b) => {
+      if (sortField === "price") {
+        const diff = this.getPriceRange(a.variants).min - this.getPriceRange(b.variants).min;
+        if (diff !== 0) return diff * direction;
+      } else if (sortField === "createdOn") {
+        const ad = new Date(a.createdOn).getTime();
+        const bd = new Date(b.createdOn).getTime();
+        if (ad !== bd) return (ad - bd) * direction;
+      } else {
+        const av = (a as unknown as Record<string, string>)[sortField] ?? "";
+        const bv = (b as unknown as Record<string, string>)[sortField] ?? "";
+        const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
+        if (cmp !== 0) return cmp * direction;
+      }
+
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) * direction;
+    });
+  }
+
+  private buildFilter(filters: IProductFilters): Record<string, unknown> {
+    const { manufacturers, statuses, search } = filters;
+    const filter: Record<string, unknown> = {};
 
     if (manufacturers && manufacturers.length > 0) {
       filter.manufacturer = { $in: manufacturers };
     }
 
+    if (statuses && statuses.length > 0) {
+      filter.status = { $in: statuses };
+    }
+
     if (search && search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
-      const searchNumber = parseFloat(search);
-
-      if (!isNaN(searchNumber)) {
-        filter.$or = [
-          { name: { $regex: searchRegex } },
-          { manufacturer: { $regex: searchRegex } },
-          { price: searchNumber },
-        ];
-      } else {
-        filter.$or = [{ name: { $regex: searchRegex } }, { manufacturer: { $regex: searchRegex } }];
-      }
+      filter.$or = [{ name: { $regex: searchRegex } }, { manufacturer: { $regex: searchRegex } }, { category: { $regex: searchRegex } }];
     }
 
     return filter;
   }
 
-  private buildSort(sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder }): Record<string, 1 | -1> {
-    const allowedSortFields = new Set<ProductSortField>(["name", "price", "manufacturer", "createdOn"]);
-    const sortField: ProductSortField = allowedSortFields.has(sortOptions.sortField)
-      ? sortOptions.sortField
-      : "createdOn";
-    const sortOrder: 1 | -1 = sortOptions.sortOrder === "asc" ? 1 : -1;
-
-    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
-    if (sortField !== "createdOn") {
-      sort.createdOn = sortOrder;
+  private getPriceRange(variants: IProductVariant[]) {
+    if (!variants || variants.length === 0) {
+      return { min: 0, max: 0 };
     }
+    const prices = variants.map((variant) => variant.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+    };
+  }
 
-    return sort;
+  private toListItem(product: IProduct): ProductListItemDTO {
+    const priceRange = this.getPriceRange(product.variants);
+    return {
+      _id: product._id?.toString?.() ?? "",
+      name: product.name,
+      manufacturer: product.manufacturer,
+      category: product.category,
+      status: product.status,
+      variantsCount: product.variants.length,
+      priceRange,
+    };
   }
 
   async getAll() {
-    const products = await Product.find();
-    return products.reverse();
+    const products = await Product.find().lean().exec();
+    return products.map((product) => this.normalizeProduct(product)).reverse();
   }
 
   async getProduct(id: Types.ObjectId): Promise<IProduct> {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    return Product.findById(id).lean().exec();
-  }
-
-  async update(product: Omit<IProduct, "createdOn"> & { _id: Types.ObjectId }): Promise<IProduct> {
-    if (!product._id) {
-      throw new Error("Id was not provided");
-    }
-    const updatedProduct = await Product.findByIdAndUpdate(product._id, product, { new: true });
-    return updatedProduct;
+    const product = await Product.findById(id).lean().exec();
+    return this.normalizeProduct(product);
   }
 
   async delete(id: Types.ObjectId): Promise<IProduct> {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const product = await Product.findByIdAndDelete(id);
-    return product;
+    const product = await Product.findByIdAndDelete(id).lean().exec();
+    return this.normalizeProduct(product);
   }
 
   async getProductsBulk(ids: Array<Types.ObjectId | string>) {
-    return Product.find({ _id: { $in: ids } });
+    return Product.find({ _id: { $in: ids } }).lean().exec();
+  }
+
+  private normalizeAttributesRecord(value: unknown): Record<string, string> {
+    if (value instanceof Map) {
+      return Object.fromEntries(value.entries());
+    }
+    if (value && typeof value === "object") {
+      return value as Record<string, string>;
+    }
+    return {};
+  }
+
+  private normalizeProduct(doc: any): IProduct {
+    if (!doc) {
+      return undefined as unknown as IProduct;
+    }
+
+    return {
+      ...doc,
+      attributes: Array.isArray(doc.attributes) ? doc.attributes : [],
+      variants: Array.isArray(doc.variants)
+        ? doc.variants.map((variant: any) => ({
+            _id: variant._id,
+            price: variant.price,
+            status: variant.status,
+            imageUrl: variant.imageUrl,
+            attributes: this.normalizeAttributesRecord(variant.attributes),
+          }))
+        : [],
+      createdOn: doc.createdOn instanceof Date ? doc.createdOn.toISOString() : doc.createdOn,
+      updatedOn: doc.updatedOn instanceof Date ? doc.updatedOn.toISOString() : doc.updatedOn,
+    };
   }
 }
 

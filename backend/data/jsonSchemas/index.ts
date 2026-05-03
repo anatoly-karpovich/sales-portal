@@ -1,5 +1,11 @@
 import { customerSchema } from "./customer.schema";
-import { productSchema } from "./product.schema";
+import {
+  productCreateSchema,
+  productPatchSchema,
+  productReplaceSchema,
+  productVariantCreateSchema,
+  productVariantPatchSchema,
+} from "./product.schema";
 import {
   orderCreateSchema,
   orderUpdateSchema,
@@ -15,7 +21,11 @@ import { settingsCreateSchema, settingsUpdateSchema } from "./settings.schema";
 
 export {
   customerSchema,
-  productSchema,
+  productCreateSchema,
+  productReplaceSchema,
+  productPatchSchema,
+  productVariantCreateSchema,
+  productVariantPatchSchema,
   orderCreateSchema,
   orderUpdateSchema,
   orderDeliveryUpdateSchema,
