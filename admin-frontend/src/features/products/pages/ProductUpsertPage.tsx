@@ -3,6 +3,7 @@ import { useSnackbar } from 'notistack'
 import { useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ProductUpsertPayload } from '@/api/modules/products.api'
+import { ProductCreateVariantsForm } from '@/features/products/components/ProductCreateVariantsForm'
 import { ProductForm } from '@/features/products/components/ProductForm'
 import {
   useCreateProductMutation,
@@ -80,7 +81,12 @@ export function ProductUpsertPage({ mode }: Props) {
   }, [deleteMutation, enqueueSnackbar, navigate, productId])
 
   if (mode === 'create') {
-    return <ProductForm mode="create" product={null} isSubmitting={isSubmitting} onSubmit={handleCreate} />
+    return (
+      <ProductCreateVariantsForm
+        isSubmitting={isSubmitting}
+        onSubmit={handleCreate}
+      />
+    )
   }
 
   if (!productId) {
