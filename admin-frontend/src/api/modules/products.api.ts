@@ -55,20 +55,27 @@ export type ProductVariantUpsertPayload = {
   category: string
   description?: string
   imageUrl?: string
-  status: ProductStatus
   attributes: ProductAttribute[]
-  variants: ProductVariant[]
+  variants: ProductVariantReplacePayload[]
 }
 
 export type ProductParentPatchPayload = Partial<
   Pick<
     ProductVariantUpsertPayload,
-    'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl' | 'status' | 'attributes'
+    'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl'
   >
 >
 
-export type ProductVariantCreatePayload = Omit<ProductVariant, '_id'>
+export type ProductVariantCreatePayload = {
+  price: number
+  attributes: Record<string, string>
+  imageUrl?: string
+}
 export type ProductVariantReplacePayload = ProductVariantCreatePayload & { _id?: string }
+export type ProductVariantReplaceRequestPayload = {
+  attributes?: ProductAttribute[]
+  variants: ProductVariantReplacePayload[]
+}
 export type ProductVariantPatchPayload = Partial<ProductVariantCreatePayload>
 export type ProductStatusPatchPayload = { status: ProductStatus }
 
@@ -234,7 +241,7 @@ export async function addProductVariants(productId: string, payload: ProductVari
 
 export async function replaceProductVariants(
   productId: string,
-  payload: ProductVariantReplacePayload[],
+  payload: ProductVariantReplaceRequestPayload,
 ) {
   const response = await apiClient.put<ProductResponse>(`/products/${productId}/variants`, payload, {
     ...silentRequestConfig,
@@ -244,7 +251,7 @@ export async function replaceProductVariants(
 
 export async function validateProductVariants(
   productId: string,
-  payload: ProductVariantReplacePayload[],
+  payload: ProductVariantReplaceRequestPayload,
 ) {
   const response = await apiClient.post<ProductResponse>(
     `/products/${productId}/variants/validate`,

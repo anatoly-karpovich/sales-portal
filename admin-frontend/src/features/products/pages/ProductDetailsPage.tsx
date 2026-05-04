@@ -1,8 +1,10 @@
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import KeyboardBackspaceRoundedIcon from '@mui/icons-material/KeyboardBackspaceRounded'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -19,11 +21,14 @@ import { useMemo, useState } from 'react'
 import { useSnackbar } from 'notistack'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type {
+  ProductAttribute,
   Product,
   ProductStatus,
+  ProductUpsertPayload,
   ProductVariant,
-  ProductVariantReplacePayload,
   ProductVariantPatchPayload,
+  ProductVariantReplacePayload,
+  ProductVariantReplaceRequestPayload,
   ProductVariantStatus,
 } from '@/api/modules/products.api'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -37,7 +42,7 @@ import {
   usePatchProductVariantMutation,
   useProductQuery,
   useReplaceProductVariantsMutation,
-  useValidateProductVariantsMutation,
+  useUpdateProductMutation,
 } from '@/features/products/hooks/useProductsQuery'
 import {
   getDeleteProductMessage,
@@ -80,7 +85,7 @@ type PendingConfirmAction =
   | 'discard-single'
   | null
 
-type BulkEditScope = 'all' | 'variants' | null
+type BulkEditScope = 'info' | 'full' | 'variants' | null
 
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status
@@ -110,6 +115,42 @@ function normalizeValues(values: string[]) {
   })
 
   return normalized
+}
+
+function parseCommaSeparatedValues(value: string) {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function applyAttributeValuesToVariants(
+  variants: VariantDraft[],
+  attributeId: string,
+  nextValues: string[],
+) {
+  const normalizedNextValues = normalizeValues(nextValues)
+  const fallbackValue = normalizedNextValues[0] ?? ''
+  const allowedValues = new Set(normalizedNextValues.map((value) => value.toLowerCase()))
+
+  return variants.map((variant) => {
+    const currentValue = (variant.attributesByAttributeId[attributeId] ?? '').trim()
+    const isCurrentAllowed = currentValue
+      ? allowedValues.has(currentValue.toLowerCase())
+      : false
+
+    if (isCurrentAllowed) {
+      return variant
+    }
+
+    return {
+      ...variant,
+      attributesByAttributeId: {
+        ...variant.attributesByAttributeId,
+        [attributeId]: fallbackValue,
+      },
+    }
+  })
 }
 
 function isValidHttpUrl(value: string) {
@@ -224,6 +265,14 @@ function toBulkDraft(product: Product) {
   }
 }
 
+function buildAttributesPayloadFromDraft(draft: ReturnType<typeof toBulkDraft>): ProductAttribute[] {
+  return draft.attributes.map((attribute) => ({
+    key: normalizeAttributeKey(attribute.name),
+    name: attribute.name.trim(),
+    values: normalizeValues(attribute.values),
+  }))
+}
+
 function buildVariantsReplacePayloadFromDraft(
   draft: ReturnType<typeof toBulkDraft>,
 ): ProductVariantReplacePayload[] {
@@ -241,11 +290,46 @@ function buildVariantsReplacePayloadFromDraft(
     return {
       ...(variant.variantId ? { _id: variant.variantId } : {}),
       price: Number(variant.price),
-      status: variant.status,
       attributes: mappedAttributes,
       ...(variant.imageUrl.trim() ? { imageUrl: variant.imageUrl.trim() } : {}),
     }
   })
+}
+
+function buildFullProductPayloadFromDraft(
+  draft: ReturnType<typeof toBulkDraft>,
+): ProductUpsertPayload {
+  return {
+    name: draft.name.trim(),
+    manufacturer: draft.manufacturer.trim(),
+    category: draft.category.trim(),
+    ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
+    ...(draft.imageUrl.trim() ? { imageUrl: draft.imageUrl.trim() } : {}),
+    attributes: buildAttributesPayloadFromDraft(draft),
+    variants: buildVariantsReplacePayloadFromDraft(draft),
+  }
+}
+
+function getAttributesValidationError(draft: ReturnType<typeof toBulkDraft>): string {
+  const normalizedKeys = new Set<string>()
+  for (const attribute of draft.attributes) {
+    const name = attribute.name.trim()
+    if (!name) {
+      return 'Attribute name is required.'
+    }
+
+    const key = normalizeAttributeKey(name)
+    if (normalizedKeys.has(key)) {
+      return 'Attribute names must be unique.'
+    }
+    normalizedKeys.add(key)
+
+    if (normalizeValues(attribute.values).length === 0) {
+      return `${name}: at least one value is required.`
+    }
+  }
+
+  return ''
 }
 
 function ProductDetailsSkeleton() {
@@ -276,11 +360,11 @@ export function ProductDetailsPage() {
 
   const productQuery = useProductQuery(productId ?? '', Boolean(productId))
   const patchProductMutation = usePatchProductMutation()
+  const updateProductMutation = useUpdateProductMutation()
   const patchProductStatusMutation = usePatchProductStatusMutation()
   const patchVariantMutation = usePatchProductVariantMutation()
   const patchVariantStatusMutation = usePatchProductVariantStatusMutation()
   const replaceVariantsMutation = useReplaceProductVariantsMutation()
-  const validateVariantsMutation = useValidateProductVariantsMutation()
   const deleteVariantMutation = useDeleteProductVariantMutation()
   const deleteProductMutation = useDeleteProductMutation()
 
@@ -292,18 +376,20 @@ export function ProductDetailsPage() {
 
   const product = productQuery.data
   const isAnyMutationPending =
+    updateProductMutation.isPending ||
     patchProductMutation.isPending ||
     patchProductStatusMutation.isPending ||
     patchVariantMutation.isPending ||
     patchVariantStatusMutation.isPending ||
     replaceVariantsMutation.isPending ||
-    validateVariantsMutation.isPending ||
     deleteVariantMutation.isPending ||
     deleteProductMutation.isPending
 
   const isBulkEditMode = bulkEditScope !== null
-  const isBulkAllEditMode = bulkEditScope === 'all'
+  const isInfoEditMode = bulkEditScope === 'info'
+  const isFullEditMode = bulkEditScope === 'full'
   const isVariantsEditMode = bulkEditScope === 'variants'
+  const isBulkVariantsEditorMode = isFullEditMode || isVariantsEditMode
   const isSingleEditMode = Boolean(singleVariantDraft)
   const isReadOnlyMode = !isBulkEditMode && !isSingleEditMode
   const isInteractionsLocked = isAnyMutationPending
@@ -357,6 +443,20 @@ export function ProductDetailsPage() {
     return JSON.stringify(parentPatchPayload) !== JSON.stringify(baseParentPayload)
   }, [baseParentPayload, parentPatchPayload])
 
+  const attributesPayload = useMemo(
+    () => (effectiveBulkDraft ? buildAttributesPayloadFromDraft(effectiveBulkDraft) : null),
+    [effectiveBulkDraft],
+  )
+  const baseAttributesPayload = useMemo(
+    () => (baseBulkDraft ? buildAttributesPayloadFromDraft(baseBulkDraft) : null),
+    [baseBulkDraft],
+  )
+
+  const attributesHaveChanges = useMemo(() => {
+    if (!attributesPayload || !baseAttributesPayload) return false
+    return JSON.stringify(attributesPayload) !== JSON.stringify(baseAttributesPayload)
+  }, [attributesPayload, baseAttributesPayload])
+
   const variantsReplacePayload = useMemo(() => {
     if (!effectiveBulkDraft) return null
     return buildVariantsReplacePayloadFromDraft(effectiveBulkDraft)
@@ -371,6 +471,33 @@ export function ProductDetailsPage() {
     if (!variantsReplacePayload || !baseVariantsReplacePayload) return false
     return JSON.stringify(variantsReplacePayload) !== JSON.stringify(baseVariantsReplacePayload)
   }, [baseVariantsReplacePayload, variantsReplacePayload])
+
+  const fullProductPayload = useMemo(
+    () => (effectiveBulkDraft ? buildFullProductPayloadFromDraft(effectiveBulkDraft) : null),
+    [effectiveBulkDraft],
+  )
+  const baseFullProductPayload = useMemo(
+    () => (baseBulkDraft ? buildFullProductPayloadFromDraft(baseBulkDraft) : null),
+    [baseBulkDraft],
+  )
+  const fullProductHasChanges = useMemo(() => {
+    if (!fullProductPayload || !baseFullProductPayload) return false
+    return JSON.stringify(fullProductPayload) !== JSON.stringify(baseFullProductPayload)
+  }, [fullProductPayload, baseFullProductPayload])
+
+  const variantsReplaceRequestPayload = useMemo(() => {
+    if (!variantsReplacePayload) return null
+
+    const payload: ProductVariantReplaceRequestPayload = {
+      variants: variantsReplacePayload,
+    }
+
+    if (attributesHaveChanges && attributesPayload) {
+      payload.attributes = attributesPayload
+    }
+
+    return payload
+  }, [attributesHaveChanges, attributesPayload, variantsReplacePayload])
 
   const possibleCombinations = useMemo(
     () => (effectiveBulkDraft ? buildPossibleCombinations(effectiveBulkDraft.attributes) : []),
@@ -445,30 +572,53 @@ export function ProductDetailsPage() {
     }, 0)
   }, [bulkVariantErrors, effectiveBulkDraft])
 
+  const attributesValidationError = useMemo(
+    () => (effectiveBulkDraft ? getAttributesValidationError(effectiveBulkDraft) : ''),
+    [effectiveBulkDraft],
+  )
+
   const isParentImageValid = useMemo(() => {
     if (!effectiveBulkDraft) return true
     return !effectiveBulkDraft.imageUrl.trim() || isValidHttpUrl(effectiveBulkDraft.imageUrl.trim())
   }, [effectiveBulkDraft])
 
-  const canSaveBulk = Boolean(
-    bulkEditScope === 'variants' &&
-      effectiveBulkDraft &&
-      variantsReplacePayload &&
-      variantsHaveChanges &&
+  const isVariantsDraftValid = Boolean(
+    effectiveBulkDraft &&
       effectiveBulkDraft.variants.length > 0 &&
       invalidVariantsCount === 0 &&
+      !attributesValidationError,
+  )
+
+  const canSaveVariants = Boolean(
+    bulkEditScope === 'variants' &&
+      variantsReplaceRequestPayload &&
+      (variantsHaveChanges || attributesHaveChanges) &&
+      isVariantsDraftValid &&
       hasConfiguredManufacturers &&
       !isInteractionsLocked,
   )
 
-  const canSaveParent = Boolean(
-    bulkEditScope === 'all' &&
+  const canSaveInfo = Boolean(
+    bulkEditScope === 'info' &&
       parentPatchPayload &&
       parentPatchPayload.name.length > 0 &&
       parentPatchPayload.manufacturer.length > 0 &&
       parentPatchPayload.category.length > 0 &&
       isParentImageValid &&
       parentHasChanges &&
+      hasConfiguredManufacturers &&
+      !isInteractionsLocked,
+  )
+
+  const canSaveFull = Boolean(
+    bulkEditScope === 'full' &&
+      fullProductPayload &&
+      fullProductPayload.name.length > 0 &&
+      fullProductPayload.manufacturer.length > 0 &&
+      fullProductPayload.category.length > 0 &&
+      isParentImageValid &&
+      isVariantsDraftValid &&
+      fullProductHasChanges &&
       hasConfiguredManufacturers &&
       !isInteractionsLocked,
   )
@@ -549,6 +699,130 @@ export function ProductDetailsPage() {
     singleVariantDraft && singleVariantHasChanges && !singleVariantError && !isInteractionsLocked,
   )
 
+  const attributeErrors = useMemo(() => {
+    if (!effectiveBulkDraft) return new Map<string, string>()
+
+    const countsByName = new Map<string, number>()
+    effectiveBulkDraft.attributes.forEach((attribute) => {
+      const key = normalizeAttributeKey(attribute.name)
+      if (!key) return
+      countsByName.set(key, (countsByName.get(key) ?? 0) + 1)
+    })
+
+    const errors = new Map<string, string>()
+    effectiveBulkDraft.attributes.forEach((attribute) => {
+      const name = attribute.name.trim()
+      if (!name) {
+        errors.set(attribute.id, 'Attribute name is required.')
+        return
+      }
+
+      if ((countsByName.get(normalizeAttributeKey(attribute.name)) ?? 0) > 1) {
+        errors.set(attribute.id, 'Attribute name must be unique.')
+        return
+      }
+
+      if (normalizeValues(attribute.values).length === 0) {
+        errors.set(attribute.id, 'At least one value is required.')
+      }
+    })
+
+    return errors
+  }, [effectiveBulkDraft])
+
+  const handleAddAttribute = () => {
+    setBulkDraft((current) => {
+      if (!current) return current
+      const attributeId = createLocalId()
+      return {
+        ...current,
+        attributes: [
+          ...current.attributes,
+          { id: attributeId, name: '', values: [], inputValue: '' },
+        ],
+        variants: current.variants.map((variant) => ({
+          ...variant,
+          attributesByAttributeId: {
+            ...variant.attributesByAttributeId,
+            [attributeId]: '',
+          },
+        })),
+      }
+    })
+  }
+
+  const handleAttributeNameChange = (attributeId: string, nextName: string) => {
+    setBulkDraft((current) =>
+      current
+        ? {
+            ...current,
+            attributes: current.attributes.map((item) =>
+              item.id === attributeId ? { ...item, name: nextName } : item,
+            ),
+          }
+        : current,
+    )
+  }
+
+  const commitAttributeValues = (attributeId: string, rawValues: string[]) => {
+    const nextValues = normalizeValues(rawValues.flatMap(parseCommaSeparatedValues))
+    setBulkDraft((current) =>
+      current
+        ? {
+            ...current,
+            attributes: current.attributes.map((item) =>
+              item.id === attributeId
+                ? {
+                    ...item,
+                    values: nextValues,
+                    inputValue: '',
+                  }
+                : item,
+            ),
+            variants: applyAttributeValuesToVariants(current.variants, attributeId, nextValues),
+          }
+        : current,
+    )
+  }
+
+  const handleAttributeInputChange = (attributeId: string, inputValue: string) => {
+    setBulkDraft((current) =>
+      current
+        ? {
+            ...current,
+            attributes: current.attributes.map((item) =>
+              item.id === attributeId ? { ...item, inputValue } : item,
+            ),
+          }
+        : current,
+    )
+  }
+
+  const handleAttributeInputCommit = (attributeId: string) => {
+    const target = effectiveBulkDraft?.attributes.find((attribute) => attribute.id === attributeId)
+    if (!target) return
+    commitAttributeValues(attributeId, [...target.values, ...parseCommaSeparatedValues(target.inputValue)])
+  }
+
+  const handleRemoveAttribute = (attributeId: string) => {
+    setBulkDraft((current) =>
+      current
+        ? {
+            ...current,
+            attributes: current.attributes.filter((item) => item.id !== attributeId),
+            variants: current.variants.map((variant) => {
+              const next = { ...variant.attributesByAttributeId }
+              delete next[attributeId]
+              return {
+                ...variant,
+                attributesByAttributeId: next,
+              }
+            }),
+          }
+        : current,
+    )
+  }
+
   const onEnterBulkEdit = (scope: Exclude<BulkEditScope, null>) => {
     if (!product || !isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers) return
     setBulkDraft(toBulkDraft(product))
@@ -567,7 +841,12 @@ export function ProductDetailsPage() {
 
   const onRequestCancelBulkEdit = () => {
     if (!isBulkEditMode) return
-    const hasUnsavedChanges = bulkEditScope === 'all' ? parentHasChanges : variantsHaveChanges
+    const hasUnsavedChanges =
+      bulkEditScope === 'info'
+        ? parentHasChanges
+        : bulkEditScope === 'full'
+          ? fullProductHasChanges
+          : variantsHaveChanges || attributesHaveChanges
     if (hasUnsavedChanges) {
       setPendingConfirmAction('discard-bulk')
       return
@@ -642,8 +921,8 @@ export function ProductDetailsPage() {
     }
   }
 
-  const onSaveParent = async () => {
-    if (!product || !parentPatchPayload || !canSaveParent) return
+  const onSaveInfo = async () => {
+    if (!product || !parentPatchPayload || !canSaveInfo) return
 
     try {
       await patchProductMutation.mutateAsync({
@@ -664,17 +943,29 @@ export function ProductDetailsPage() {
     }
   }
 
-  const onSaveBulk = async () => {
-    if (!product || !variantsReplacePayload || !canSaveBulk) return
+  const onSaveFull = async () => {
+    if (!product || !fullProductPayload || !canSaveFull) return
 
     try {
-      await validateVariantsMutation.mutateAsync({
+      await updateProductMutation.mutateAsync({
         productId: product._id,
-        payload: variantsReplacePayload,
+        payload: fullProductPayload,
       })
+      enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
+      setBulkEditScope(null)
+      setBulkDraft(null)
+    } catch (error) {
+      enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+    }
+  }
+
+  const onSaveVariants = async () => {
+    if (!product || !variantsReplaceRequestPayload || !canSaveVariants) return
+
+    try {
       await replaceVariantsMutation.mutateAsync({
         productId: product._id,
-        payload: variantsReplacePayload,
+        payload: variantsReplaceRequestPayload,
       })
       enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
       setBulkEditScope(null)
@@ -843,7 +1134,7 @@ export function ProductDetailsPage() {
                   <IconButton
                     size="small"
                     disabled={!isReadOnlyMode || isEditingDisabled}
-                    onClick={() => onEnterBulkEdit('variants')}
+                    onClick={() => onEnterBulkEdit('full')}
                     data-testid="product-details-page-header-edit-button"
                   >
                     <EditOutlinedIcon fontSize="small" />
@@ -900,7 +1191,7 @@ export function ProductDetailsPage() {
                       <IconButton
                         size="small"
                         disabled={!isReadOnlyMode || isEditingDisabled}
-                        onClick={() => onEnterBulkEdit('all')}
+                        onClick={() => onEnterBulkEdit('info')}
                         data-testid="product-details-page-product-info-edit-button"
                       >
                         <EditOutlinedIcon fontSize="small" />
@@ -913,7 +1204,7 @@ export function ProductDetailsPage() {
                 {productsUiText.detailsPage.productInfoSubtitle}
               </Typography>
 
-              {isBulkAllEditMode && effectiveBulkDraft ? (
+              {(isInfoEditMode || isFullEditMode) && effectiveBulkDraft ? (
                 <Stack spacing={1.5}>
                   <Box
                     sx={{
@@ -992,23 +1283,25 @@ export function ProductDetailsPage() {
                     }
                   />
 
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="contained"
-                      disabled={!canSaveParent}
-                      onClick={() => void onSaveParent()}
-                      data-testid="product-details-page-save-product-button"
-                    >
-                      {productsUiText.detailsPage.actions.saveProduct}
-                    </Button>
-                    <Button
-                      onClick={onRequestCancelBulkEdit}
-                      disabled={isInteractionsLocked}
-                      data-testid="product-details-page-cancel-product-edit-button"
-                    >
-                      {productsUiText.detailsPage.actions.cancel}
-                    </Button>
-                  </Stack>
+                  {isInfoEditMode ? (
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="contained"
+                        disabled={!canSaveInfo}
+                        onClick={() => void onSaveInfo()}
+                        data-testid="product-details-page-save-product-button"
+                      >
+                        {productsUiText.detailsPage.actions.saveProduct}
+                      </Button>
+                      <Button
+                        onClick={onRequestCancelBulkEdit}
+                        disabled={isInteractionsLocked}
+                        data-testid="product-details-page-cancel-product-edit-button"
+                      >
+                        {productsUiText.detailsPage.actions.cancel}
+                      </Button>
+                    </Stack>
+                  ) : null}
                 </Stack>
               ) : (
                 <Stack spacing={1}>
@@ -1072,7 +1365,7 @@ export function ProductDetailsPage() {
                 {productsUiText.detailsPage.variantsSubtitle}
               </Typography>
 
-              {isVariantsEditMode && effectiveBulkDraft ? (
+              {isBulkVariantsEditorMode && effectiveBulkDraft ? (
                 <Stack spacing={1.5}>
                   <Paper variant="outlined" sx={{ p: 1.5 }}>
                     <Stack
@@ -1182,22 +1475,126 @@ export function ProductDetailsPage() {
                   </Paper>
 
                   <Paper variant="outlined" sx={{ p: 1.5 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-                      Attributes
-                    </Typography>
-                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                      {product.attributes.length === 0 ? (
-                        <Typography color="text.secondary">No attributes</Typography>
-                      ) : (
-                        product.attributes.map((attribute) => (
-                          <Chip
-                            key={attribute.key}
-                            label={`${attribute.name}: ${attribute.values.join(', ')}`}
-                            size="small"
+                    <Stack spacing={1.5}>
+                      <Stack
+                        direction={{ xs: 'column', md: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'flex-start', md: 'center' }}
+                        gap={1.25}
+                      >
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                            Attributes
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Create unique attributes and available values. Values will be used to build variants.
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          startIcon={<AddRoundedIcon />}
+                          onClick={handleAddAttribute}
+                          disabled={isInteractionsLocked}
+                          data-testid="product-details-page-attributes-add-button"
+                        >
+                          Add Attribute
+                        </Button>
+                      </Stack>
+
+                      <Stack spacing={1.25} data-testid="product-details-page-attributes-list">
+                        {effectiveBulkDraft.attributes.length === 0 ? (
+                          <Alert severity="info" data-testid="product-details-page-attributes-empty-alert">
+                            Attributes are optional. You can generate a single variant without attributes.
+                          </Alert>
+                        ) : null}
+
+                        {effectiveBulkDraft.attributes.map((attribute, index) => (
+                          <Paper
+                            key={attribute.id}
                             variant="outlined"
-                          />
-                        ))
-                      )}
+                            sx={{ p: 1.25 }}
+                            data-testid={`product-details-page-attribute-row-${index}`}
+                          >
+                            <Stack
+                              direction={{ xs: 'column', md: 'row' }}
+                              spacing={1.5}
+                              alignItems={{ xs: 'stretch', md: 'flex-start' }}
+                            >
+                              <TextField
+                                label="Attribute name*"
+                                value={attribute.name}
+                                onChange={(event) =>
+                                  handleAttributeNameChange(attribute.id, event.target.value)
+                                }
+                                error={attributeErrors.has(attribute.id)}
+                                helperText={attributeErrors.get(attribute.id) ?? ' '}
+                                sx={{ width: { xs: '100%', md: 280 } }}
+                                data-testid={`product-details-page-attribute-row-${index}-name-input`}
+                                inputProps={{
+                                  'data-testid': `product-details-page-attribute-row-${index}-name-input-field`,
+                                }}
+                              />
+
+                              <Autocomplete
+                                multiple
+                                freeSolo
+                                options={[]}
+                                value={attribute.values}
+                                inputValue={attribute.inputValue}
+                                onInputChange={(_, nextValue) =>
+                                  handleAttributeInputChange(attribute.id, nextValue)
+                                }
+                                onChange={(_, nextValues) =>
+                                  commitAttributeValues(attribute.id, nextValues as string[])
+                                }
+                                renderTags={(value: readonly string[], getTagProps) =>
+                                  value.map((option: string, valueIndex: number) => {
+                                    const { key, ...chipProps } = getTagProps({ index: valueIndex })
+                                    return (
+                                      <Chip
+                                        key={key}
+                                        label={option}
+                                        {...chipProps}
+                                        data-testid={`product-details-page-attribute-row-${index}-value-chip-${valueIndex}`}
+                                      />
+                                    )
+                                  })
+                                }
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    label="Values"
+                                    placeholder="Type value and press Enter"
+                                    helperText="Example: Black, White, Red. Duplicates are not allowed."
+                                    onBlur={() => handleAttributeInputCommit(attribute.id)}
+                                    onKeyDown={(event) => {
+                                      if (event.key !== 'Enter' && event.key !== ',') return
+                                      event.preventDefault()
+                                      handleAttributeInputCommit(attribute.id)
+                                    }}
+                                    data-testid={`product-details-page-attribute-row-${index}-values-input`}
+                                    inputProps={{
+                                      ...params.inputProps,
+                                      'data-testid': `product-details-page-attribute-row-${index}-values-input-field`,
+                                    }}
+                                  />
+                                )}
+                                sx={{ flex: 1 }}
+                              />
+
+                              <IconButton
+                                color="error"
+                                onClick={() => handleRemoveAttribute(attribute.id)}
+                                sx={{ mt: { xs: 0, md: 1 } }}
+                                disabled={isInteractionsLocked}
+                                data-testid={`product-details-page-attribute-row-${index}-delete-button`}
+                              >
+                                <DeleteOutlineOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          </Paper>
+                        ))}
+                      </Stack>
                     </Stack>
                   </Paper>
 
@@ -1308,33 +1705,6 @@ export function ProductDetailsPage() {
                                 ))}
 
                                 <TextField
-                                  label="Status*"
-                                  select
-                                  value={variant.status}
-                                  onChange={(event) =>
-                                    setBulkDraft((current) =>
-                                      current
-                                        ? {
-                                            ...current,
-                                            variants: current.variants.map((item) =>
-                                              item.id === variant.id
-                                                ? {
-                                                    ...item,
-                                                    status: event.target.value as ProductVariantStatus,
-                                                  }
-                                                : item,
-                                            ),
-                                          }
-                                        : current,
-                                    )
-                                  }
-                                >
-                                  <MenuItem value="Draft">Draft</MenuItem>
-                                  <MenuItem value="Active">Active</MenuItem>
-                                  <MenuItem value="Archived">Archived</MenuItem>
-                                </TextField>
-
-                                <TextField
                                   label="Price*"
                                   value={variant.price}
                                   error={isPriceError}
@@ -1384,8 +1754,22 @@ export function ProductDetailsPage() {
                   <Stack direction="row" spacing={1}>
                     <Button
                       variant="contained"
-                      disabled={!canSaveBulk}
-                      onClick={() => void onSaveBulk()}
+                      disabled={
+                        isFullEditMode
+                          ? !canSaveFull
+                          : isVariantsEditMode
+                            ? !canSaveVariants
+                            : true
+                      }
+                      onClick={() => {
+                        if (isFullEditMode) {
+                          void onSaveFull()
+                          return
+                        }
+                        if (isVariantsEditMode) {
+                          void onSaveVariants()
+                        }
+                      }}
                       data-testid="product-details-page-save-variants-button"
                     >
                       {productsUiText.detailsPage.actions.saveProduct}

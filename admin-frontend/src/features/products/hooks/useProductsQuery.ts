@@ -13,14 +13,13 @@ import {
   patchProductVariantStatus,
   replaceProductVariants,
   updateProduct,
-  validateProductVariants,
   type ProductExportPayload,
   type ProductParentPatchPayload,
   type ProductStatusPatchPayload,
   type ProductUpsertPayload,
   type ProductVariantCreatePayload,
   type ProductVariantPatchPayload,
-  type ProductVariantReplacePayload,
+  type ProductVariantReplaceRequestPayload,
   type ProductsQuery,
 } from '@/api/modules/products.api'
 import { productsQueryKeys } from '@/features/products/hooks/productsQueryKeys'
@@ -145,7 +144,7 @@ export function useReplaceProductVariantsMutation() {
       payload,
     }: {
       productId: string
-      payload: ProductVariantReplacePayload[]
+      payload: ProductVariantReplaceRequestPayload
     }) => replaceProductVariants(productId, payload),
     onSuccess: (product, variables) => {
       syncProductMutationResult({
@@ -154,18 +153,6 @@ export function useReplaceProductVariantsMutation() {
         product,
       })
     },
-  })
-}
-
-export function useValidateProductVariantsMutation() {
-  return useMutation({
-    mutationFn: ({
-      productId,
-      payload,
-    }: {
-      productId: string
-      payload: ProductVariantReplacePayload[]
-    }) => validateProductVariants(productId, payload),
   })
 }
 

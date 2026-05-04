@@ -20,7 +20,7 @@ import { Link } from 'react-router-dom'
 import type {
   ProductAttribute,
   ProductUpsertPayload,
-  ProductVariant,
+  ProductVariantCreatePayload,
   ProductVariantUpsertPayload,
 } from '@/api/modules/products.api'
 import { useManufacturerOptions } from '@/features/products/hooks/useManufacturerOptions'
@@ -218,7 +218,7 @@ function toPayload(
     values: normalizeUniqueValues(attribute.values),
   }))
 
-  const variants: ProductVariant[] = data.variants.map((variant) => {
+  const variants: ProductVariantCreatePayload[] = data.variants.map((variant) => {
     const mappedAttributes: Record<string, string> = {}
 
     preparedAttributes.forEach((attribute) => {
@@ -227,7 +227,6 @@ function toPayload(
 
     return {
       price: Number(variant.price),
-      status: variant.status,
       attributes: mappedAttributes,
       ...(variant.imageUrl.trim()
         ? {
@@ -251,7 +250,6 @@ function toPayload(
           imageUrl: data.imageUrl.trim(),
         }
       : {}),
-    status: 'Draft',
     attributes: preparedAttributes.map((attribute) => ({
       key: attribute.key,
       name: attribute.name,
