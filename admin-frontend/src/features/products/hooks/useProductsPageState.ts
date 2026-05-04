@@ -14,7 +14,7 @@ import {
   useProductsQuery,
 } from '@/features/products/hooks/useProductsQuery'
 import { useManufacturerOptions } from '@/features/products/hooks/useManufacturerOptions'
-import { productsUiText } from '@/features/products/products.ui-text'
+import { getProductApiErrorMessage, productsUiText } from '@/features/products/products.ui-text'
 
 type ExportSubmitPayload = {
   format: 'csv' | 'json'
@@ -22,10 +22,14 @@ type ExportSubmitPayload = {
   fields: string[]
 }
 
+function getErrorStatus(error: unknown) {
+  return (error as { response?: { status?: number } })?.response?.status
+}
+
 export function useProductsPageState() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
-  const manufacturerOptions = useManufacturerOptions()
+  const { options: manufacturerOptions } = useManufacturerOptions()
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
   const [manufacturer, setManufacturer] = useState<string[]>([])
@@ -35,7 +39,6 @@ export function useProductsPageState() {
   const [limit, setLimit] = useState(10)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isTransitionPending, startTransition] = useTransition()
@@ -60,14 +63,12 @@ export function useProductsPageState() {
   const total = data?.total ?? 0
   const isTableUpdating = isFetching || isTransitionPending
 
-  const openDetailsDialog = useCallback((product: Product) => {
-    setSelectedProduct(product)
-    setDetailsOpen(true)
-  }, [])
-
-  const closeDetailsDialog = useCallback(() => {
-    setDetailsOpen(false)
-  }, [])
+  const goToProductDetails = useCallback(
+    (productId: string) => {
+      navigate(`/products/${productId}`)
+    },
+    [navigate],
+  )
 
   const openDeleteDialog = useCallback((product: Product) => {
     setSelectedProduct(product)
@@ -127,45 +128,46 @@ export function useProductsPageState() {
 
   const onExportSubmit = useCallback(
     async (payload: ExportSubmitPayload) => {
-      const filters =
-        payload.exportFrom === 'all'
-          ? null
-          : {
-              search,
-              manufacturer,
-              page,
-              limit,
-              sortField,
-              sortOrder,
-            }
+      try {
+        const filters =
+          payload.exportFrom === 'all'
+            ? null
+            : {
+                search,
+                manufacturer,
+                page,
+                limit,
+                sortField,
+                sortOrder,
+              }
 
-      const response = await exportMutation.mutateAsync({
-        format: payload.format,
-        fields: payload.fields,
-        filters,
-      })
-      downloadBlobResponse(response, `products-export.${payload.format}`)
-      enqueueSnackbar(productsUiText.toasts.exportCompleted, { variant: 'success' })
+        const response = await exportMutation.mutateAsync({
+          format: payload.format,
+          fields: payload.fields,
+          filters,
+        })
+        downloadBlobResponse(response, `products-export.${payload.format}`)
+        enqueueSnackbar(productsUiText.toasts.exportCompleted, { variant: 'success' })
+      } catch (error) {
+        enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+      }
     },
     [enqueueSnackbar, exportMutation, limit, manufacturer, page, search, sortField, sortOrder],
   )
 
   const onConfirmDelete = useCallback(async () => {
     if (!selectedProduct) return
-    await deleteMutation.mutateAsync(selectedProduct._id)
-    if (rows.length === 1 && page > 1) {
-      setPage(page - 1)
+    try {
+      await deleteMutation.mutateAsync(selectedProduct._id)
+      if (rows.length === 1 && page > 1) {
+        setPage(page - 1)
+      }
+      enqueueSnackbar(productsUiText.toasts.deletedFromList, { variant: 'success' })
+      setDeleteDialogOpen(false)
+    } catch (error) {
+      enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
     }
-    enqueueSnackbar(productsUiText.toasts.deletedFromList, { variant: 'success' })
-    setDeleteDialogOpen(false)
   }, [deleteMutation, enqueueSnackbar, page, rows.length, selectedProduct])
-
-  const goToProductEdit = useCallback(
-    (productId: string) => {
-      navigate(`/products/${productId}/edit`)
-    },
-    [navigate],
-  )
 
   return {
     search,
@@ -181,7 +183,6 @@ export function useProductsPageState() {
     selectedProduct,
     filtersOpen,
     exportOpen,
-    detailsOpen,
     deleteDialogOpen,
     isLoading,
     isTableUpdating,
@@ -196,8 +197,6 @@ export function useProductsPageState() {
     onRemoveSearch,
     onRemoveManufacturerFilter,
     onExportSubmit,
-    openDetailsDialog,
-    closeDetailsDialog,
     openDeleteDialog,
     closeDeleteDialog,
     onConfirmDelete,
@@ -206,6 +205,6 @@ export function useProductsPageState() {
       setPage(1)
       setFiltersOpen(false)
     },
-    goToProductEdit,
+    goToProductDetails,
   }
 }

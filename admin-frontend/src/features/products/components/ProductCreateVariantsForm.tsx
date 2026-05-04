@@ -262,7 +262,8 @@ function toPayload(
 }
 
 export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
-  const manufacturerOptions = useManufacturerOptions()
+  const { options: manufacturerOptions, isLoading: isManufacturersLoading, isConfigured } =
+    useManufacturerOptions()
   const [name, setName] = useState('')
   const [manufacturer, setManufacturer] = useState('')
   const [category, setCategory] = useState('')
@@ -361,7 +362,29 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     !hasAttributeErrors &&
     variants.length > 0 &&
     invalidVariantsCount === 0 &&
+    isConfigured &&
     !isSubmitting
+
+  if (isManufacturersLoading) {
+    return (
+      <Paper sx={{ p: 3 }} data-testid="products-upsert-manufacturers-loading">
+        <Typography>Loading catalog settings...</Typography>
+      </Paper>
+    )
+  }
+
+  if (!isConfigured) {
+    return (
+      <Stack spacing={2} data-testid="products-upsert-manufacturers-unavailable">
+        <Alert severity="warning">
+          Catalog manufacturers are not configured. Product creation is unavailable.
+        </Alert>
+        <Button component={Link} to="/products" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+          Back to Products
+        </Button>
+      </Stack>
+    )
+  }
 
   const handleAddAttribute = () => {
     setAttributes((current) => [

@@ -82,6 +82,21 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
+  async replaceVariants(
+    productId: Types.ObjectId,
+    payload: Array<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl"> & { _id?: Types.ObjectId | string }>,
+  ): Promise<IProduct> {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { variants: payload, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    return this.normalizeProduct(updatedProduct);
+  }
+
   async createVariant(
     productId: Types.ObjectId,
     payload: Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">,
@@ -101,6 +116,102 @@ class ProductsService {
       .exec();
 
     return this.normalizeProduct(updatedProduct);
+  }
+
+  async createVariants(
+    productId: Types.ObjectId,
+    payload: Array<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">>,
+  ): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const nextVariants = [...(product.variants ?? []), ...payload];
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { variants: nextVariants, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async patchStatus(productId: Types.ObjectId, status: PRODUCT_STATUSES): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const nextVariants = status === PRODUCT_STATUSES.ARCHIVED
+      ? (product.variants ?? []).map((variant: any) => ({
+          ...variant,
+          status: PRODUCT_STATUSES.ARCHIVED,
+        }))
+      : product.variants;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      {
+        status,
+        variants: nextVariants,
+        updatedOn: getTodaysDate(true),
+      },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async patchVariantStatus(
+    productId: Types.ObjectId,
+    variantId: Types.ObjectId,
+    status: PRODUCT_STATUSES,
+  ): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const nextVariants = (product.variants ?? []).map((variant: any) => {
+      if (variant?._id?.toString() !== variantId.toString()) {
+        return variant;
+      }
+      return {
+        ...variant,
+        status,
+      };
+    });
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { variants: nextVariants, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    return this.normalizeProduct(updatedProduct);
+  }
+
+  async previewWithVariants(
+    productId: Types.ObjectId,
+    payload: Array<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl"> & { _id?: Types.ObjectId | string }>,
+  ): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    return this.normalizeProduct({
+      ...product,
+      variants: payload,
+      updatedOn: getTodaysDate(true),
+    });
   }
 
   async deleteVariant(productId: Types.ObjectId, variantId: Types.ObjectId): Promise<IProduct> {

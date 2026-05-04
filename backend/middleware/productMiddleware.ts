@@ -5,19 +5,30 @@ import { Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
-  CreateProductVariantRequestDTO,
+  CreateProductVariantsRequestDTO,
   CreateProductRequestDTO,
   DeleteProductRequestDTO,
   DeleteProductVariantRequestDTO,
   GetProductByIdRequestDTO,
+  PatchProductStatusRequestDTO,
+  PatchProductVariantStatusRequestDTO,
   PatchProductRequestDTO,
   PatchProductVariantRequestDTO,
+  ReplaceProductVariantsRequestDTO,
   ReplaceProductRequestDTO,
+  ValidateProductVariantsRequestDTO,
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
 import { SettingsService } from "../services/settings.service.js";
 
 const settingsService = new SettingsService();
+const MAX_VARIANTS_PER_REQUEST = 200;
+
+const PRODUCT_STATUS_TRANSITIONS: Record<PRODUCT_STATUSES, PRODUCT_STATUSES[]> = {
+  [PRODUCT_STATUSES.DRAFT]: [PRODUCT_STATUSES.ACTIVE],
+  [PRODUCT_STATUSES.ACTIVE]: [PRODUCT_STATUSES.ARCHIVED],
+  [PRODUCT_STATUSES.ARCHIVED]: [PRODUCT_STATUSES.ACTIVE],
+};
 
 type MutableVariant = {
   _id?: Types.ObjectId | string;
@@ -182,6 +193,81 @@ function validateProductDefinition(product: MutableProduct, allowedManufacturers
   return null;
 }
 
+function getProductValidationStatusCode(validationError: string): 400 | 409 {
+  if (validationError.startsWith("Duplicate ") || validationError === "Variant attributes combination must be unique") {
+    return 409;
+  }
+  return 400;
+}
+
+function normalizeVariantPayload(variant: {
+  _id?: Types.ObjectId | string;
+  price: number;
+  status: PRODUCT_STATUSES;
+  attributes: Record<string, string>;
+  imageUrl?: string;
+}): MutableVariant {
+  return {
+    ...variant,
+    price: toDecimalWithTwoPlaces(variant.price),
+    imageUrl: variant.imageUrl ? normalizeText(variant.imageUrl) : variant.imageUrl,
+    attributes: normalizeRecord(variant.attributes),
+  };
+}
+
+async function validateNextProductPayload(
+  nextProduct: MutableProduct,
+  res: Response<BaseResponseDTO>,
+): Promise<Response<BaseResponseDTO> | null> {
+  const allowedManufacturers = await getAllowedManufacturers();
+  const validationError = validateProductDefinition(nextProduct, allowedManufacturers);
+  if (!validationError) {
+    return null;
+  }
+  return res.status(getProductValidationStatusCode(validationError)).json({ IsSuccess: false, ErrorMessage: validationError });
+}
+
+async function ensureRemovedVariantsAreNotAssigned(params: {
+  productId: string;
+  currentVariants: MutableVariant[];
+  nextVariants: MutableVariant[];
+  res: Response<BaseResponseDTO>;
+}): Promise<Response<BaseResponseDTO> | null> {
+  const { productId, currentVariants, nextVariants, res } = params;
+  const nextVariantIds = new Set(
+    nextVariants
+      .map((variant) => (variant._id ? variant._id.toString() : null))
+      .filter((value): value is string => Boolean(value)),
+  );
+  const removedVariantIds = currentVariants
+    .map((variant) => (variant._id ? variant._id.toString() : null))
+    .filter((value): value is string => Boolean(value) && !nextVariantIds.has(value));
+
+  if (removedVariantIds.length === 0) {
+    return null;
+  }
+
+  const productIdObject = new Types.ObjectId(productId);
+  const removedVariantObjectIds = removedVariantIds.map((id) => new Types.ObjectId(id));
+  const isAssignedToOrder = await Order.exists({
+    products: {
+      $elemMatch: {
+        "product._id": productIdObject,
+        "variant._id": { $in: removedVariantObjectIds },
+      },
+    },
+  });
+
+  if (isAssignedToOrder) {
+    return res.status(409).json({
+      IsSuccess: false,
+      ErrorMessage: "Not allowed to delete variant, assigned to the order",
+    });
+  }
+
+  return null;
+}
+
 async function getAllowedManufacturers(): Promise<string[]> {
   const settings = await settingsService.get();
   return settings?.catalog?.manufacturers ?? [];
@@ -231,10 +317,9 @@ export async function productCreateOrReplaceValidations(
 ) {
   try {
     const normalizedPayload = normalizeProductPayload(req.body as MutableProduct);
-    const allowedManufacturers = await getAllowedManufacturers();
-    const validationError = validateProductDefinition(normalizedPayload, allowedManufacturers);
-    if (validationError) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: validationError });
+    const validationResponse = await validateNextProductPayload(normalizedPayload, res);
+    if (validationResponse) {
+      return validationResponse;
     }
 
     req.body = normalizedPayload as typeof req.body;
@@ -262,10 +347,9 @@ export async function productPatchValidations(
       variants: product.variants,
     } as MutableProduct);
 
-    const allowedManufacturers = await getAllowedManufacturers();
-    const validationError = validateProductDefinition(nextProduct, allowedManufacturers);
-    if (validationError) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: validationError });
+    const validationResponse = await validateNextProductPayload(nextProduct, res);
+    if (validationResponse) {
+      return validationResponse;
     }
 
     const normalizedPatch = {
@@ -324,10 +408,9 @@ export async function productVariantPatchValidations(
       variants: nextVariants,
     });
 
-    const allowedManufacturers = await getAllowedManufacturers();
-    const validationError = validateProductDefinition(normalizedProduct, allowedManufacturers);
-    if (validationError) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: validationError });
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    if (validationResponse) {
+      return validationResponse;
     }
 
     req.body = normalizedPatch as typeof req.body;
@@ -337,8 +420,8 @@ export async function productVariantPatchValidations(
   }
 }
 
-export async function productVariantCreateValidations(
-  req: CreateProductVariantRequestDTO,
+export async function productVariantsCreateValidations(
+  req: CreateProductVariantsRequestDTO,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
@@ -348,25 +431,200 @@ export async function productVariantCreateValidations(
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
 
-    const normalizedVariant: MutableVariant = {
-      ...req.body,
-      price: toDecimalWithTwoPlaces(req.body.price),
-      imageUrl: req.body.imageUrl ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
-      attributes: normalizeRecord(req.body.attributes),
-    };
+    if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const normalizedVariants = req.body.map((variant) => normalizeVariantPayload(variant));
 
     const normalizedProduct: MutableProduct = normalizeProductPayload({
       ...product,
-      variants: [...product.variants, normalizedVariant],
+      variants: [...product.variants, ...normalizedVariants],
     });
 
-    const allowedManufacturers = await getAllowedManufacturers();
-    const validationError = validateProductDefinition(normalizedProduct, allowedManufacturers);
-    if (validationError) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: validationError });
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    if (validationResponse) {
+      return validationResponse;
     }
 
-    req.body = normalizedVariant as typeof req.body;
+    req.body = normalizedVariants as typeof req.body;
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productVariantsReplaceValidations(
+  req: ReplaceProductVariantsRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const existingVariantIds = new Set(
+      product.variants
+        .map((variant) => (variant._id ? variant._id.toString() : null))
+        .filter((value): value is string => Boolean(value)),
+    );
+    const receivedVariantIds = new Set<string>();
+    const normalizedVariants: MutableVariant[] = [];
+
+    for (const variant of req.body) {
+      if (variant._id !== undefined) {
+        const id = variant._id.toString();
+        if (!Types.ObjectId.isValid(id) || !existingVariantIds.has(id)) {
+          return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${id}' wasn't found` });
+        }
+        if (receivedVariantIds.has(id)) {
+          return res.status(409).json({ IsSuccess: false, ErrorMessage: `Duplicate variant id '${id}' is not allowed` });
+        }
+        receivedVariantIds.add(id);
+      }
+
+      normalizedVariants.push(normalizeVariantPayload(variant));
+    }
+
+    const removedCheckResponse = await ensureRemovedVariantsAreNotAssigned({
+      productId: req.params.productId,
+      currentVariants: product.variants,
+      nextVariants: normalizedVariants,
+      res,
+    });
+    if (removedCheckResponse) {
+      return removedCheckResponse;
+    }
+
+    const normalizedProduct: MutableProduct = normalizeProductPayload({
+      ...product,
+      variants: normalizedVariants,
+    });
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    if (validationResponse) {
+      return validationResponse;
+    }
+
+    req.body = normalizedVariants as typeof req.body;
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productVariantsValidate(
+  req: ValidateProductVariantsRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const existingVariantIds = new Set(
+      product.variants
+        .map((variant) => (variant._id ? variant._id.toString() : null))
+        .filter((value): value is string => Boolean(value)),
+    );
+    const receivedVariantIds = new Set<string>();
+    const normalizedVariants: MutableVariant[] = [];
+
+    for (const variant of req.body) {
+      if (variant._id !== undefined) {
+        const id = variant._id.toString();
+        if (!Types.ObjectId.isValid(id) || !existingVariantIds.has(id)) {
+          return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${id}' wasn't found` });
+        }
+        if (receivedVariantIds.has(id)) {
+          return res.status(409).json({ IsSuccess: false, ErrorMessage: `Duplicate variant id '${id}' is not allowed` });
+        }
+        receivedVariantIds.add(id);
+      }
+
+      normalizedVariants.push(normalizeVariantPayload(variant));
+    }
+
+    const normalizedProduct: MutableProduct = normalizeProductPayload({
+      ...product,
+      variants: normalizedVariants,
+    });
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    if (validationResponse) {
+      return validationResponse;
+    }
+
+    req.body = normalizedVariants as typeof req.body;
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productStatusPatchValidations(
+  req: PatchProductStatusRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    const nextStatus = req.body.status;
+    if (!Object.values(PRODUCT_STATUSES).includes(nextStatus)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const allowed = PRODUCT_STATUS_TRANSITIONS[product.status] ?? [];
+    if (!allowed.includes(nextStatus)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid product status transition" });
+    }
+
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productVariantStatusPatchValidations(
+  req: PatchProductVariantStatusRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    const variantId = req.params.variantId;
+    if (!variantId || !Types.ObjectId.isValid(variantId)) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
+    }
+
+    const existingVariant = product.variants.find((variant) => variant._id?.toString() === variantId);
+    if (!existingVariant) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
+    }
+
+    const nextStatus = req.body.status;
+    if (!Object.values(PRODUCT_STATUSES).includes(nextStatus)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

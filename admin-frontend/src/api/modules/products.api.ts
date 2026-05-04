@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client'
+import type { ApiRequestConfig } from '@/api/types'
 
 export type ProductStatus = 'Draft' | 'Active' | 'Archived'
 export type ProductVariantStatus = ProductStatus
@@ -59,16 +60,19 @@ export type ProductVariantUpsertPayload = {
   variants: ProductVariant[]
 }
 
-// Temporary legacy payload kept to avoid blocking old edit flow migration in this task.
-export type ProductLegacyUpsertPayload = {
-  name: string
-  amount: number
-  price: number
-  manufacturer: string
-  notes?: string
-}
+export type ProductParentPatchPayload = Partial<
+  Pick<
+    ProductVariantUpsertPayload,
+    'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl' | 'status' | 'attributes'
+  >
+>
 
-export type ProductUpsertPayload = ProductVariantUpsertPayload | ProductLegacyUpsertPayload
+export type ProductVariantCreatePayload = Omit<ProductVariant, '_id'>
+export type ProductVariantReplacePayload = ProductVariantCreatePayload & { _id?: string }
+export type ProductVariantPatchPayload = Partial<ProductVariantCreatePayload>
+export type ProductStatusPatchPayload = { status: ProductStatus }
+
+export type ProductUpsertPayload = ProductVariantUpsertPayload
 
 export type ProductsListResponse = {
   Products: ProductListItem[]
@@ -159,6 +163,10 @@ function normalizeProductDetails(product: ProductDetails): Product {
   }
 }
 
+const silentRequestConfig: ApiRequestConfig = {
+  skipErrorToast: true,
+}
+
 export async function getProducts(query: ProductsQuery) {
   const response = await apiClient.get<ProductsListResponse>('/products', {
     params: {
@@ -184,22 +192,106 @@ export async function getAllProducts() {
 }
 
 export async function createProduct(payload: ProductUpsertPayload) {
-  const response = await apiClient.post<ProductResponse>('/products', payload)
+  const response = await apiClient.post<ProductResponse>('/products', payload, silentRequestConfig)
   return normalizeProductDetails(response.data.Product)
 }
 
 export async function updateProduct(productId: string, payload: ProductUpsertPayload) {
-  const response = await apiClient.put<ProductResponse>(`/products/${productId}`, payload)
+  const response = await apiClient.put<ProductResponse>(
+    `/products/${productId}`,
+    payload,
+    silentRequestConfig,
+  )
   return normalizeProductDetails(response.data.Product)
 }
 
+export async function patchProduct(productId: string, payload: ProductParentPatchPayload) {
+  const response = await apiClient.patch<ProductResponse>(
+    `/products/${productId}`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function patchProductStatus(productId: string, payload: ProductStatusPatchPayload) {
+  const response = await apiClient.patch<ProductResponse>(
+    `/products/${productId}/status`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function addProductVariants(productId: string, payload: ProductVariantCreatePayload[]) {
+  const response = await apiClient.post<ProductResponse>(
+    `/products/${productId}/variants`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function replaceProductVariants(
+  productId: string,
+  payload: ProductVariantReplacePayload[],
+) {
+  const response = await apiClient.put<ProductResponse>(`/products/${productId}/variants`, payload, {
+    ...silentRequestConfig,
+  })
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function validateProductVariants(
+  productId: string,
+  payload: ProductVariantReplacePayload[],
+) {
+  const response = await apiClient.post<ProductResponse>(
+    `/products/${productId}/variants/validate`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function patchProductVariant(
+  productId: string,
+  variantId: string,
+  payload: ProductVariantPatchPayload,
+) {
+  const response = await apiClient.patch<ProductResponse>(
+    `/products/${productId}/variants/${variantId}`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function patchProductVariantStatus(
+  productId: string,
+  variantId: string,
+  payload: ProductStatusPatchPayload,
+) {
+  const response = await apiClient.patch<ProductResponse>(
+    `/products/${productId}/variants/${variantId}/status`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function deleteProductVariant(productId: string, variantId: string) {
+  await apiClient.delete(`/products/${productId}/variants/${variantId}`, silentRequestConfig)
+}
+
 export async function deleteProduct(productId: string) {
-  await apiClient.delete(`/products/${productId}`)
+  await apiClient.delete(`/products/${productId}`, silentRequestConfig)
 }
 
 export async function exportProducts(payload: ProductExportPayload) {
   const response = await apiClient.post('/products/export', payload, {
     responseType: 'blob',
+    ...silentRequestConfig,
   })
   return response
 }

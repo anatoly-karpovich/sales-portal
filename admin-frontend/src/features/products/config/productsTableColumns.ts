@@ -35,7 +35,6 @@ export function isProductsSortField(field: string): field is ProductsSortField {
 
 type ProductsTableColumnActions = {
   onView: (product: Product) => void
-  onEdit: (product: Product) => void
   onDelete: (product: Product) => void
 }
 
@@ -56,7 +55,6 @@ function renderProductPriceRange(product: Product) {
 
 export function getProductsTableColumns({
   onView,
-  onEdit,
   onDelete,
 }: ProductsTableColumnActions): DataTableColumn<Product>[] {
   return [
@@ -111,7 +109,6 @@ export function getProductsTableColumns({
         createElement(ProductsTableActionsCell, {
           product: row,
           onView,
-          onEdit,
           onDelete,
         }),
     },

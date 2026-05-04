@@ -44,6 +44,8 @@ Rules:
 - variant attribute values must belong to corresponding `ProductAttribute.values`;
 - combination of variant attributes must be unique inside the product.
 - deleting a variant is blocked with `409` when any order references that `productId + variantId` pair.
+- `POST /api/products/:productId/variants`, `PUT /api/products/:productId/variants`, and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
+- duplicate-like validation conflicts are returned as `409` (duplicate product name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload).
 
 ## Endpoints
 
@@ -55,11 +57,32 @@ Rules:
 | GET | `/api/products/:productId` | Get product details. |
 | PUT | `/api/products/:productId` | Full replace product. |
 | PATCH | `/api/products/:productId` | Partial update product parent fields. |
-| POST | `/api/products/:productId/variants` | Add one variant to product. |
+| PATCH | `/api/products/:productId/status` | Update product status with guarded transitions. |
+| PUT | `/api/products/:productId/variants` | Full replace `variants[]` (atomic). |
+| POST | `/api/products/:productId/variants` | Bulk add variants (array payload, max 200). |
+| POST | `/api/products/:productId/variants/validate` | Dry-run variants validation without saving. |
 | PATCH | `/api/products/:productId/variants/:variantId` | Partial update one variant. |
+| PATCH | `/api/products/:productId/variants/:variantId/status` | Update one variant status. |
 | DELETE | `/api/products/:productId/variants/:variantId` | Delete one variant (`204` on success). |
 | DELETE | `/api/products/:productId` | Delete product (`204` on success). |
 | POST | `/api/products/export` | Export products (`csv` or `json`). |
+
+Status transitions:
+- product status: `Draft -> Active`, `Active -> Archived`, `Archived -> Active`;
+- any other transition is rejected (`400`);
+- setting product to `Archived` auto-archives every variant.
+
+Variants replace semantics (`PUT /api/products/:productId/variants`):
+- atomic full replace of the whole `variants[]` array;
+- existing variants are matched by `_id` (for existing variants `_id` must be provided);
+- payload entries without `_id` are treated as new variants;
+- existing variants missing from payload are treated as removed;
+- if a removed variant is referenced by any order line, backend returns `409` and rejects the whole request.
+
+Validate semantics (`POST /api/products/:productId/variants/validate`):
+- dry-run only, no persistence;
+- validates structure, combinations, duplicates, and prices;
+- does not check order-reference conflicts.
 
 ## List DTO (`GET /api/products`)
 

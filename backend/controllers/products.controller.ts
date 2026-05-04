@@ -4,20 +4,24 @@ import { Types } from "mongoose";
 import { IProductFilters } from "../data/types/product.type.js";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
-  CreateProductVariantRequestDTO,
+  CreateProductVariantsRequestDTO,
   CreateProductRequestDTO,
   DeleteProductRequestDTO,
   DeleteProductVariantRequestDTO,
   ExportProductsRequestDTO,
   GetProductRequestWithEntityDTO,
   GetProductsSortedRequestDTO,
+  PatchProductStatusRequestDTO,
   PatchProductRequestDTO,
+  PatchProductVariantStatusRequestDTO,
   PatchProductVariantRequestDTO,
+  ReplaceProductVariantsRequestDTO,
   ProductDetailsDTO,
   ProductResponseDTO,
   ProductsResponseDTO,
   ProductsSortedResponseDTO,
   ReplaceProductRequestDTO,
+  ValidateProductVariantsRequestDTO,
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
 
@@ -174,13 +178,54 @@ class ProductsController {
     }
   }
 
-  async createVariant(req: CreateProductVariantRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+  async replaceVariants(req: ReplaceProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const productId = new Types.ObjectId(req.params.productId);
-      const updatedProduct = await ProductsService.createVariant(productId, req.body);
+      const updatedProduct = await ProductsService.replaceVariants(productId, req.body);
+      return res.json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async createVariants(req: CreateProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const updatedProduct = await ProductsService.createVariants(productId, req.body);
       return res.status(201).json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async validateVariants(req: ValidateProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const previewProduct = await ProductsService.previewWithVariants(productId, req.body);
+      return res.status(200).json({ Product: this.toDetailsDTO(previewProduct), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async patchStatus(req: PatchProductStatusRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const updatedProduct = await ProductsService.patchStatus(productId, req.body.status);
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async patchVariantStatus(req: PatchProductVariantStatusRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const variantId = new Types.ObjectId(req.params.variantId);
+      const updatedProduct = await ProductsService.patchVariantStatus(productId, variantId, req.body.status);
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 

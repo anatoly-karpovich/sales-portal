@@ -110,8 +110,12 @@ Products:
 - `POST /products`
 - `PUT /products/:productId`
 - `PATCH /products/:productId`
+- `PATCH /products/:productId/status`
+- `PUT /products/:productId/variants`
 - `POST /products/:productId/variants`
+- `POST /products/:productId/variants/validate`
 - `PATCH /products/:productId/variants/:variantId`
+- `PATCH /products/:productId/variants/:variantId/status`
 - `DELETE /products/:productId/variants/:variantId`
 - `DELETE /products/:productId`
 - `POST /products/export`
@@ -233,6 +237,11 @@ Current important constraints:
   - variant attribute values must belong to corresponding product attribute values;
   - variant attribute combination must be unique inside product;
   - variant price is decimal (`> 0`) with up to 2 digits after dot.
+  - `POST /products/:productId/variants`, `PUT /products/:productId/variants`, and `POST /products/:productId/variants/validate` accept `1..200` variants per request.
+  - `PUT /products/:productId/variants` is atomic full replace; removing a variant referenced in orders is rejected with `409`.
+  - `PATCH /products/:productId/status` allows only transitions: `Draft -> Active`, `Active -> Archived`, `Archived -> Active`.
+  - `PATCH /products/:productId/status` with target `Archived` auto-archives all variants.
+  - duplicate-like product conflicts (duplicate name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload) are treated as `409`.
 - Customer uniqueness: case-insensitive by trimmed/lowercased `email`.
 - `POST /settings` and `PATCH /settings` validate `catalog.manufacturers` (non-empty array, no case-insensitive duplicates).
 - `POST /settings` and `PATCH /settings` require `shipping.delivery.pricing` and `shipping.pickup.{policy,locations}`.

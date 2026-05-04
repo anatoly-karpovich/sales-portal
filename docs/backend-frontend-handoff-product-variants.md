@@ -1,6 +1,6 @@
 # Backend Handoff: Product Variants And Order Contracts
 
-Last updated: 2026-05-03  
+Last updated: 2026-05-04  
 Scope: `backend/` only  
 Compatibility: **breaking change**, no backward compatibility with old product/order payloads.
 
@@ -171,17 +171,46 @@ Response:
 
 - `200`, `{ Product, IsSuccess, ErrorMessage }`
 
-### 4.7 Add one variant
+### 4.7 Add variants (bulk)
 
 `POST /api/products/:productId/variants`
 
 Body:
 
-- `{ price, status, attributes, imageUrl? }`
+- array payload:
+  - `[{ price, status, attributes, imageUrl? }, ...]`
+  - max `200` items
 
 Response:
 
 - `201`, `{ Product, IsSuccess, ErrorMessage }`
+
+### 4.7.1 Replace variants array (full replace)
+
+`PUT /api/products/:productId/variants`
+
+Body:
+
+- full `variants[]` payload (max `200`), atomic update.
+- existing variants are identified by `_id`;
+- missing previously existing `_id` values are treated as removals.
+
+Conflict behavior:
+
+- `409` when payload removes a variant that is referenced by orders.
+
+### 4.7.2 Validate variants dry-run
+
+`POST /api/products/:productId/variants/validate`
+
+Body:
+
+- full `variants[]` payload (max `200`), no persistence.
+
+Validation scope:
+
+- attributes/combination/duplicate/price checks only;
+- no order-reference conflict checks.
 
 ### 4.8 Patch one variant
 
@@ -194,6 +223,33 @@ Body can include subset of:
 Response:
 
 - `200`, `{ Product, IsSuccess, ErrorMessage }`
+
+### 4.8.1 Patch one variant status
+
+`PATCH /api/products/:productId/variants/:variantId/status`
+
+Body:
+
+- `{ status }`
+
+Response:
+
+- `200`, `{ Product, IsSuccess, ErrorMessage }`
+
+### 4.8.2 Patch product status
+
+`PATCH /api/products/:productId/status`
+
+Allowed transitions:
+
+- `Draft -> Active`
+- `Active -> Archived`
+- `Archived -> Active`
+
+Notes:
+
+- any other transition is rejected with `400`;
+- when setting product status to `Archived`, backend auto-archives all variants.
 
 ### 4.9 Delete one variant
 
@@ -337,7 +393,7 @@ Common product-related status codes:
 
 - `400` validation/business-rule error
 - `404` product/variant not found
-- `409` conflict (name uniqueness, referenced by order)
+- `409` conflict (name uniqueness, duplicate attribute/variant conflicts, referenced-by-order conflicts)
 - `500` server/internal error
 
 ## 10. Frontend Migration Checklist
@@ -349,8 +405,12 @@ Common product-related status codes:
    - attributes matrix
    - variants list with attribute combinations
 4. Add UI actions for:
-   - add variant (`POST /products/:id/variants`)
+   - bulk add variants (`POST /products/:id/variants`)
+   - replace all variants (`PUT /products/:id/variants`)
+   - pre-validate replace/add payload (`POST /products/:id/variants/validate`)
    - patch variant (`PATCH /products/:id/variants/:variantId`)
+   - patch variant status (`PATCH /products/:id/variants/:variantId/status`)
+   - patch product status (`PATCH /products/:id/status`)
    - delete variant (`DELETE /products/:id/variants/:variantId`)
 5. Consume manufacturer options from settings (`catalog.manufacturers`) instead of hardcoded enum.
 6. Adjust product list table to show:

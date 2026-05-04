@@ -14,7 +14,6 @@ import {
   PRODUCTS_EXPORT_DEFAULT_FIELDS,
 } from '@/features/products/config/productsTableColumns'
 import { useProductsPageState } from '@/features/products/hooks/useProductsPageState'
-import { ProductDetailsDialog } from '@/features/products/components/ProductDetailsDialog'
 import { getDeleteProductMessage, productsUiText } from '@/features/products/products.ui-text'
 
 export function ProductsPage() {
@@ -25,8 +24,7 @@ export function ProductsPage() {
     : productsUiText.listPage.emptyStateNoProducts
 
   const columns = getProductsTableColumns({
-    onView: state.openDetailsDialog,
-    onEdit: (product) => state.goToProductEdit(product._id),
+    onView: (product) => state.goToProductDetails(product._id),
     onDelete: state.openDeleteDialog,
   })
 
@@ -110,15 +108,6 @@ export function ProductsPage() {
         isSubmitting={state.isDeletePending}
         onCancel={state.closeDeleteDialog}
         onConfirm={state.onConfirmDelete}
-      />
-
-      <ProductDetailsDialog
-        open={state.detailsOpen}
-        product={state.selectedProduct}
-        onClose={state.closeDetailsDialog}
-        onEdit={(product) => {
-          state.goToProductEdit(product._id)
-        }}
       />
     </Stack>
   )

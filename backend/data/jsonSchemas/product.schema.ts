@@ -36,6 +36,34 @@ const productVariantSchema: JSONSchema7 = {
 };
 
 export const productVariantCreateSchema: AllowedSchema = productVariantSchema as AllowedSchema;
+const productVariantReplaceSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    _id: { type: "string", minLength: 1 },
+    price: { type: "number", exclusiveMinimum: 0 },
+    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
+    attributes: variantAttributesSchema,
+    imageUrl: { type: "string" },
+  },
+  required: ["price", "status", "attributes"],
+  additionalProperties: false,
+};
+
+export const productVariantsCreateSchema: AllowedSchema = {
+  type: "array",
+  minItems: 1,
+  maxItems: 200,
+  items: productVariantSchema,
+} as AllowedSchema;
+
+export const productVariantsReplaceSchema: AllowedSchema = {
+  type: "array",
+  minItems: 1,
+  maxItems: 200,
+  items: productVariantReplaceSchema,
+} as AllowedSchema;
+
+export const productVariantsValidateSchema = productVariantsReplaceSchema;
 
 export const productCreateSchema: AllowedSchema = {
   type: "object",
@@ -85,3 +113,14 @@ export const productVariantPatchSchema: AllowedSchema = {
   additionalProperties: false,
   minProperties: 1,
 };
+
+export const productStatusPatchSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
+  },
+  required: ["status"],
+  additionalProperties: false,
+};
+
+export const productVariantStatusPatchSchema = productStatusPatchSchema;
