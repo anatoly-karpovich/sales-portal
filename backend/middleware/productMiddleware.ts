@@ -38,6 +38,13 @@ type MutableVariant = {
   imageUrl?: string;
 };
 
+type VariantPayloadWithoutStatus = {
+  _id?: Types.ObjectId | string;
+  price: number;
+  attributes: Record<string, string>;
+  imageUrl?: string;
+};
+
 type MutableProduct = {
   name: string;
   manufacturer: string;
@@ -203,16 +210,55 @@ function getProductValidationStatusCode(validationError: string): 400 | 409 {
 function normalizeVariantPayload(variant: {
   _id?: Types.ObjectId | string;
   price: number;
-  status: PRODUCT_STATUSES;
   attributes: Record<string, string>;
   imageUrl?: string;
-}): MutableVariant {
+}, status: PRODUCT_STATUSES): MutableVariant {
   return {
     ...variant,
+    status,
     price: toDecimalWithTwoPlaces(variant.price),
     imageUrl: variant.imageUrl ? normalizeText(variant.imageUrl) : variant.imageUrl,
     attributes: normalizeRecord(variant.attributes),
   };
+}
+
+function normalizeVariantsForReplace(params: {
+  currentVariants: MutableVariant[];
+  variantsPayload: VariantPayloadWithoutStatus[];
+  res: Response<BaseResponseDTO>;
+}): { normalizedVariants: MutableVariant[] } | { errorResponse: Response<BaseResponseDTO> } {
+  const { currentVariants, variantsPayload, res } = params;
+  const existingVariantsById = new Map(
+    currentVariants
+      .map((variant) => {
+        const id = variant._id?.toString();
+        return id ? [id, variant] : null;
+      })
+      .filter((entry): entry is [string, MutableVariant] => Boolean(entry)),
+  );
+
+  const receivedVariantIds = new Set<string>();
+  const normalizedVariants: MutableVariant[] = [];
+
+  for (const variant of variantsPayload) {
+    if (variant._id !== undefined) {
+      const id = variant._id.toString();
+      const existingVariant = existingVariantsById.get(id);
+      if (!Types.ObjectId.isValid(id) || !existingVariant) {
+        return { errorResponse: res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${id}' wasn't found` }) };
+      }
+      if (receivedVariantIds.has(id)) {
+        return { errorResponse: res.status(409).json({ IsSuccess: false, ErrorMessage: `Duplicate variant id '${id}' is not allowed` }) };
+      }
+      receivedVariantIds.add(id);
+      normalizedVariants.push(normalizeVariantPayload({ ...variant, _id: existingVariant._id }, existingVariant.status));
+      continue;
+    }
+
+    normalizedVariants.push(normalizeVariantPayload(variant, PRODUCT_STATUSES.DRAFT));
+  }
+
+  return { normalizedVariants };
 }
 
 async function validateNextProductPayload(
@@ -316,13 +362,57 @@ export async function productCreateOrReplaceValidations(
   next: NextFunction,
 ) {
   try {
-    const normalizedPayload = normalizeProductPayload(req.body as MutableProduct);
+    const existingProduct = (req as ReplaceProductRequestDTO).product as unknown as MutableProduct | undefined;
+    const requestBody = req.body as ReplaceProductRequestDTO["body"];
+
+    let normalizedVariants: MutableVariant[] = [];
+
+    if (existingProduct) {
+      const normalizedReplaceResult = normalizeVariantsForReplace({
+        currentVariants: existingProduct.variants,
+        variantsPayload: requestBody.variants,
+        res,
+      });
+      if ("errorResponse" in normalizedReplaceResult) {
+        return normalizedReplaceResult.errorResponse;
+      }
+
+      const removedCheckResponse = await ensureRemovedVariantsAreNotAssigned({
+        productId: req.params.productId,
+        currentVariants: existingProduct.variants,
+        nextVariants: normalizedReplaceResult.normalizedVariants,
+        res,
+      });
+      if (removedCheckResponse) {
+        return removedCheckResponse;
+      }
+
+      normalizedVariants = normalizedReplaceResult.normalizedVariants;
+    } else {
+      normalizedVariants = requestBody.variants.map((variant) => normalizeVariantPayload(variant, PRODUCT_STATUSES.DRAFT));
+    }
+
+    const normalizedPayload = normalizeProductPayload({
+      ...requestBody,
+      status: existingProduct?.status ?? PRODUCT_STATUSES.DRAFT,
+      variants: normalizedVariants,
+    } as MutableProduct);
+
     const validationResponse = await validateNextProductPayload(normalizedPayload, res);
     if (validationResponse) {
       return validationResponse;
     }
 
-    req.body = normalizedPayload as typeof req.body;
+    req.body = {
+      ...req.body,
+      name: normalizedPayload.name,
+      manufacturer: normalizedPayload.manufacturer,
+      category: normalizedPayload.category,
+      description: normalizedPayload.description,
+      imageUrl: normalizedPayload.imageUrl,
+      attributes: normalizedPayload.attributes,
+      variants: normalizedPayload.variants,
+    } as typeof req.body;
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
@@ -343,7 +433,7 @@ export async function productPatchValidations(
     const nextProduct: MutableProduct = normalizeProductPayload({
       ...product,
       ...req.body,
-      attributes: req.body.attributes ?? product.attributes,
+      attributes: product.attributes,
       variants: product.variants,
     } as MutableProduct);
 
@@ -361,7 +451,6 @@ export async function productPatchValidations(
       description:
         typeof req.body.description === "string" ? normalizeText(req.body.description) : req.body.description,
       imageUrl: typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
-      attributes: req.body.attributes ? normalizeAttributes(req.body.attributes as MutableProduct["attributes"]) : req.body.attributes,
     };
 
     req.body = normalizedPatch as typeof req.body;
@@ -435,7 +524,7 @@ export async function productVariantsCreateValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
     }
 
-    const normalizedVariants = req.body.map((variant) => normalizeVariantPayload(variant));
+    const normalizedVariants = req.body.map((variant) => normalizeVariantPayload(variant, PRODUCT_STATUSES.DRAFT));
 
     const normalizedProduct: MutableProduct = normalizeProductPayload({
       ...product,
@@ -465,32 +554,19 @@ export async function productVariantsReplaceValidations(
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
 
-    if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
+    if (!Array.isArray(req.body?.variants) || req.body.variants.length < 1 || req.body.variants.length > MAX_VARIANTS_PER_REQUEST) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
     }
 
-    const existingVariantIds = new Set(
-      product.variants
-        .map((variant) => (variant._id ? variant._id.toString() : null))
-        .filter((value): value is string => Boolean(value)),
-    );
-    const receivedVariantIds = new Set<string>();
-    const normalizedVariants: MutableVariant[] = [];
-
-    for (const variant of req.body) {
-      if (variant._id !== undefined) {
-        const id = variant._id.toString();
-        if (!Types.ObjectId.isValid(id) || !existingVariantIds.has(id)) {
-          return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${id}' wasn't found` });
-        }
-        if (receivedVariantIds.has(id)) {
-          return res.status(409).json({ IsSuccess: false, ErrorMessage: `Duplicate variant id '${id}' is not allowed` });
-        }
-        receivedVariantIds.add(id);
-      }
-
-      normalizedVariants.push(normalizeVariantPayload(variant));
+    const normalizedReplaceResult = normalizeVariantsForReplace({
+      currentVariants: product.variants,
+      variantsPayload: req.body.variants,
+      res,
+    });
+    if ("errorResponse" in normalizedReplaceResult) {
+      return normalizedReplaceResult.errorResponse;
     }
+    const normalizedVariants = normalizedReplaceResult.normalizedVariants;
 
     const removedCheckResponse = await ensureRemovedVariantsAreNotAssigned({
       productId: req.params.productId,
@@ -504,6 +580,7 @@ export async function productVariantsReplaceValidations(
 
     const normalizedProduct: MutableProduct = normalizeProductPayload({
       ...product,
+      attributes: req.body.attributes ? normalizeAttributes(req.body.attributes as MutableProduct["attributes"]) : product.attributes,
       variants: normalizedVariants,
     });
     const validationResponse = await validateNextProductPayload(normalizedProduct, res);
@@ -511,7 +588,10 @@ export async function productVariantsReplaceValidations(
       return validationResponse;
     }
 
-    req.body = normalizedVariants as typeof req.body;
+    req.body = {
+      attributes: req.body.attributes ? normalizedProduct.attributes : undefined,
+      variants: normalizedVariants,
+    } as typeof req.body;
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
@@ -529,35 +609,23 @@ export async function productVariantsValidate(
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
 
-    if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
+    if (!Array.isArray(req.body?.variants) || req.body.variants.length < 1 || req.body.variants.length > MAX_VARIANTS_PER_REQUEST) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
     }
 
-    const existingVariantIds = new Set(
-      product.variants
-        .map((variant) => (variant._id ? variant._id.toString() : null))
-        .filter((value): value is string => Boolean(value)),
-    );
-    const receivedVariantIds = new Set<string>();
-    const normalizedVariants: MutableVariant[] = [];
-
-    for (const variant of req.body) {
-      if (variant._id !== undefined) {
-        const id = variant._id.toString();
-        if (!Types.ObjectId.isValid(id) || !existingVariantIds.has(id)) {
-          return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${id}' wasn't found` });
-        }
-        if (receivedVariantIds.has(id)) {
-          return res.status(409).json({ IsSuccess: false, ErrorMessage: `Duplicate variant id '${id}' is not allowed` });
-        }
-        receivedVariantIds.add(id);
-      }
-
-      normalizedVariants.push(normalizeVariantPayload(variant));
+    const normalizedReplaceResult = normalizeVariantsForReplace({
+      currentVariants: product.variants,
+      variantsPayload: req.body.variants,
+      res,
+    });
+    if ("errorResponse" in normalizedReplaceResult) {
+      return normalizedReplaceResult.errorResponse;
     }
+    const normalizedVariants = normalizedReplaceResult.normalizedVariants;
 
     const normalizedProduct: MutableProduct = normalizeProductPayload({
       ...product,
+      attributes: req.body.attributes ? normalizeAttributes(req.body.attributes as MutableProduct["attributes"]) : product.attributes,
       variants: normalizedVariants,
     });
     const validationResponse = await validateNextProductPayload(normalizedProduct, res);
@@ -565,7 +633,10 @@ export async function productVariantsValidate(
       return validationResponse;
     }
 
-    req.body = normalizedVariants as typeof req.body;
+    req.body = {
+      attributes: req.body.attributes ? normalizedProduct.attributes : undefined,
+      variants: normalizedVariants,
+    } as typeof req.body;
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

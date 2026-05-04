@@ -46,6 +46,7 @@ Rules:
 - deleting a variant is blocked with `409` when any order references that `productId + variantId` pair.
 - `POST /api/products/:productId/variants`, `PUT /api/products/:productId/variants`, and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
 - duplicate-like validation conflicts are returned as `409` (duplicate product name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload).
+- non-status endpoints do not accept `status` in payloads; status changes are allowed only via dedicated status endpoints.
 
 ## Endpoints
 
@@ -58,7 +59,7 @@ Rules:
 | PUT | `/api/products/:productId` | Full replace product. |
 | PATCH | `/api/products/:productId` | Partial update product parent fields. |
 | PATCH | `/api/products/:productId/status` | Update product status with guarded transitions. |
-| PUT | `/api/products/:productId/variants` | Full replace `variants[]` (atomic). |
+| PUT | `/api/products/:productId/variants` | Full replace `variants[]` and optional `attributes` (atomic). |
 | POST | `/api/products/:productId/variants` | Bulk add variants (array payload, max 200). |
 | POST | `/api/products/:productId/variants/validate` | Dry-run variants validation without saving. |
 | PATCH | `/api/products/:productId/variants/:variantId` | Partial update one variant. |
@@ -72,14 +73,24 @@ Status transitions:
 - any other transition is rejected (`400`);
 - setting product to `Archived` auto-archives every variant.
 
+Payload rules for non-status endpoints:
+- `POST /api/products`: no `status` in request body; created product and variants default to `Draft`.
+- `PUT /api/products/:productId`: no `status` in request body for product and variants.
+- `PATCH /api/products/:productId`: only parent fields (`name`, `manufacturer`, `category`, `description`, `imageUrl`).
+- `POST /api/products/:productId/variants`: variant payload has no `status`; new variants default to `Draft`.
+- `PATCH /api/products/:productId/variants/:variantId`: payload has no `status`.
+
 Variants replace semantics (`PUT /api/products/:productId/variants`):
+- request body is object payload: `{ attributes?, variants[] }`;
 - atomic full replace of the whole `variants[]` array;
 - existing variants are matched by `_id` (for existing variants `_id` must be provided);
 - payload entries without `_id` are treated as new variants;
 - existing variants missing from payload are treated as removed;
 - if a removed variant is referenced by any order line, backend returns `409` and rejects the whole request.
+- if `attributes` is provided, backend updates `attributes` and `variants` in one atomic operation.
 
 Validate semantics (`POST /api/products/:productId/variants/validate`):
+- request body is object payload: `{ attributes?, variants[] }`;
 - dry-run only, no persistence;
 - validates structure, combinations, duplicates, and prices;
 - does not check order-reference conflicts.

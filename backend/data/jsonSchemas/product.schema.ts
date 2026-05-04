@@ -27,11 +27,10 @@ const productVariantSchema: JSONSchema7 = {
   type: "object",
   properties: {
     price: { type: "number", exclusiveMinimum: 0 },
-    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
     attributes: variantAttributesSchema,
     imageUrl: { type: "string" },
   },
-  required: ["price", "status", "attributes"],
+  required: ["price", "attributes"],
   additionalProperties: false,
 };
 
@@ -41,11 +40,10 @@ const productVariantReplaceSchema: JSONSchema7 = {
   properties: {
     _id: { type: "string", minLength: 1 },
     price: { type: "number", exclusiveMinimum: 0 },
-    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
     attributes: variantAttributesSchema,
     imageUrl: { type: "string" },
   },
-  required: ["price", "status", "attributes"],
+  required: ["price", "attributes"],
   additionalProperties: false,
 };
 
@@ -57,10 +55,18 @@ export const productVariantsCreateSchema: AllowedSchema = {
 } as AllowedSchema;
 
 export const productVariantsReplaceSchema: AllowedSchema = {
-  type: "array",
-  minItems: 1,
-  maxItems: 200,
-  items: productVariantReplaceSchema,
+  type: "object",
+  properties: {
+    attributes: { type: "array", items: productAttributeSchema },
+    variants: {
+      type: "array",
+      minItems: 1,
+      maxItems: 200,
+      items: productVariantReplaceSchema,
+    },
+  },
+  required: ["variants"],
+  additionalProperties: false,
 } as AllowedSchema;
 
 export const productVariantsValidateSchema = productVariantsReplaceSchema;
@@ -73,7 +79,6 @@ export const productCreateSchema: AllowedSchema = {
     category: { type: "string", minLength: 1 },
     description: { type: "string" },
     imageUrl: { type: "string" },
-    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
     attributes: { type: "array", items: productAttributeSchema },
     variants: {
       type: "array",
@@ -81,11 +86,28 @@ export const productCreateSchema: AllowedSchema = {
       items: productVariantSchema,
     },
   },
-  required: ["name", "manufacturer", "category", "status", "attributes", "variants"],
+  required: ["name", "manufacturer", "category", "attributes", "variants"],
   additionalProperties: false,
 };
 
-export const productReplaceSchema = productCreateSchema;
+export const productReplaceSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 1 },
+    manufacturer: { type: "string", minLength: 1 },
+    category: { type: "string", minLength: 1 },
+    description: { type: "string" },
+    imageUrl: { type: "string" },
+    attributes: { type: "array", items: productAttributeSchema },
+    variants: {
+      type: "array",
+      minItems: 1,
+      items: productVariantReplaceSchema,
+    },
+  },
+  required: ["name", "manufacturer", "category", "attributes", "variants"],
+  additionalProperties: false,
+} as AllowedSchema;
 
 export const productPatchSchema: AllowedSchema = {
   type: "object",
@@ -95,8 +117,6 @@ export const productPatchSchema: AllowedSchema = {
     category: { type: "string", minLength: 1 },
     description: { type: "string" },
     imageUrl: { type: "string" },
-    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
-    attributes: { type: "array", items: productAttributeSchema },
   },
   additionalProperties: false,
   minProperties: 1,
@@ -106,7 +126,6 @@ export const productVariantPatchSchema: AllowedSchema = {
   type: "object",
   properties: {
     price: { type: "number", exclusiveMinimum: 0 },
-    status: { type: "string", enum: Object.values(PRODUCT_STATUSES) },
     attributes: variantAttributesSchema,
     imageUrl: { type: "string" },
   },

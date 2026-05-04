@@ -201,14 +201,13 @@ productsRouter.delete(
  *         updatedOn: { type: string }
  *     ProductCreatePayload:
  *       type: object
- *       required: [name, manufacturer, category, status, attributes, variants]
+ *       required: [name, manufacturer, category, attributes, variants]
  *       properties:
  *         name: { type: string, minLength: 1 }
  *         manufacturer: { type: string, minLength: 1 }
  *         category: { type: string, minLength: 1 }
  *         description: { type: string }
  *         imageUrl: { type: string }
- *         status: { type: string, enum: [Draft, Active, Archived] }
  *         attributes:
  *           type: array
  *           items:
@@ -218,6 +217,24 @@ productsRouter.delete(
  *           minItems: 1
  *           items:
  *             $ref: '#/components/schemas/ProductVariantCreatePayload'
+ *     ProductReplacePayload:
+ *       type: object
+ *       required: [name, manufacturer, category, attributes, variants]
+ *       properties:
+ *         name: { type: string, minLength: 1 }
+ *         manufacturer: { type: string, minLength: 1 }
+ *         category: { type: string, minLength: 1 }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         attributes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductAttribute'
+ *         variants:
+ *           type: array
+ *           minItems: 1
+ *           items:
+ *             $ref: '#/components/schemas/ProductVariantReplacePayload'
  *     ProductPatchPayload:
  *       type: object
  *       minProperties: 1
@@ -227,19 +244,11 @@ productsRouter.delete(
  *         category: { type: string, minLength: 1 }
  *         description: { type: string }
  *         imageUrl: { type: string }
- *         status: { type: string, enum: [Draft, Active, Archived] }
- *         attributes:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/ProductAttribute'
  *     ProductVariantCreatePayload:
  *       type: object
- *       required: [price, status, attributes]
+ *       required: [price, attributes]
  *       properties:
  *         price: { type: number }
- *         status:
- *           type: string
- *           enum: [Draft, Active, Archived]
  *         attributes:
  *           type: object
  *           additionalProperties: { type: string }
@@ -256,13 +265,24 @@ productsRouter.delete(
  *       additionalProperties: false
  *       properties:
  *         price: { type: number }
- *         status:
- *           type: string
- *           enum: [Draft, Active, Archived]
  *         attributes:
  *           type: object
  *           additionalProperties: { type: string }
  *         imageUrl: { type: string }
+ *     ProductVariantsReplacePayload:
+ *       type: object
+ *       required: [variants]
+ *       properties:
+ *         attributes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductAttribute'
+ *         variants:
+ *           type: array
+ *           minItems: 1
+ *           maxItems: 200
+ *           items:
+ *             $ref: '#/components/schemas/ProductVariantReplacePayload'
  *     ProductStatusPatchPayload:
  *       type: object
  *       required: [status]
@@ -442,7 +462,7 @@ productsRouter.delete(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ProductCreatePayload'
+ *             $ref: '#/components/schemas/ProductReplacePayload'
  *     responses:
  *       201:
  *         description: Product created
@@ -641,7 +661,7 @@ productsRouter.delete(
  *         description: Server error
  * /api/products/{productId}/variants:
  *   put:
- *     summary: Replace product variants array
+ *     summary: Replace product variants and optional attributes
  *     tags: [Products]
  *     parameters:
  *       - in: path
@@ -656,11 +676,7 @@ productsRouter.delete(
  *       content:
  *         application/json:
  *           schema:
- *             type: array
- *             minItems: 1
- *             maxItems: 200
- *             items:
- *               $ref: '#/components/schemas/ProductVariantReplacePayload'
+ *             $ref: '#/components/schemas/ProductVariantsReplacePayload'
  *     responses:
  *       200:
  *         description: Product variants replaced
@@ -733,11 +749,7 @@ productsRouter.delete(
  *       content:
  *         application/json:
  *           schema:
- *             type: array
- *             minItems: 1
- *             maxItems: 200
- *             items:
- *               $ref: '#/components/schemas/ProductVariantReplacePayload'
+ *             $ref: '#/components/schemas/ProductVariantsReplacePayload'
  *     responses:
  *       200:
  *         description: Payload is valid, returns preview Product

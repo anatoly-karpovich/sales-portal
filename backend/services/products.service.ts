@@ -1,13 +1,21 @@
 import { Types } from "mongoose";
 import type { IProduct, IProductFilters, IProductVariant } from "../data/types/product.type";
 import { getTodaysDate } from "../utils/utils";
-import { ProductExportFormatDTO, ProductListItemDTO } from "../data/types/dto/products.dto";
+import {
+  ProductCreateOrReplaceRequestDTO,
+  ProductExportFormatDTO,
+  ProductListItemDTO,
+  ProductVariantCreateRequestDTO,
+  ProductVariantPatchRequestDTO,
+  ProductVariantsReplaceBodyDTO,
+} from "../data/types/dto/products.dto";
 import Product from "../models/product.model";
 import ExportService from "./export.service";
 import { PRODUCT_STATUSES } from "../data/enums";
 
 type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
 type ProductSortOrder = "asc" | "desc";
+type ProductVariantWritePayload = ProductVariantCreateRequestDTO & { _id?: Types.ObjectId | string; status?: PRODUCT_STATUSES };
 
 class ProductsService {
   private readonly exportableFields = new Set<string>([
@@ -24,16 +32,57 @@ class ProductsService {
     "updatedOn",
   ]);
 
-  async create(product: Omit<IProduct, "_id" | "createdOn" | "updatedOn">): Promise<IProduct> {
+  async create(product: ProductCreateOrReplaceRequestDTO): Promise<IProduct> {
     const createdOn = getTodaysDate(true);
-    const createdProduct = await Product.create({ ...product, createdOn, updatedOn: createdOn });
+    const createdProduct = await Product.create({
+      ...product,
+      status: PRODUCT_STATUSES.DRAFT,
+      variants: product.variants.map((variant) => ({ ...variant, status: PRODUCT_STATUSES.DRAFT })),
+      createdOn,
+      updatedOn: createdOn,
+    });
     return this.normalizeProduct(createdProduct.toObject());
   }
 
-  async replace(productId: Types.ObjectId, payload: Omit<IProduct, "_id" | "createdOn" | "updatedOn">): Promise<IProduct> {
+  async replace(productId: Types.ObjectId, payload: ProductCreateOrReplaceRequestDTO): Promise<IProduct> {
+    const currentProduct = await Product.findById(productId).lean().exec();
+    if (!currentProduct) {
+      return undefined;
+    }
+
+    const existingVariantsById = new Map(
+      (currentProduct.variants ?? [])
+        .map((variant: any) => {
+          const id = variant?._id?.toString?.();
+          return id ? [id, variant] : null;
+        })
+        .filter((entry): entry is [string, any] => Boolean(entry)),
+    );
+
+    const nextVariants = payload.variants.map((variant: ProductVariantWritePayload) => {
+      if (variant._id) {
+        const existing = existingVariantsById.get(variant._id.toString());
+        return {
+          ...variant,
+          _id: existing?._id ?? variant._id,
+          status: existing?.status ?? PRODUCT_STATUSES.DRAFT,
+        };
+      }
+
+      return {
+        ...variant,
+        status: PRODUCT_STATUSES.DRAFT,
+      };
+    });
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
-      { ...payload, updatedOn: getTodaysDate(true) },
+      {
+        ...payload,
+        status: currentProduct.status,
+        variants: nextVariants,
+        updatedOn: getTodaysDate(true),
+      },
       { new: true },
     )
       .lean()
@@ -41,7 +90,10 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
-  async patch(productId: Types.ObjectId, payload: Partial<Omit<IProduct, "_id" | "createdOn" | "updatedOn" | "variants">>): Promise<IProduct> {
+  async patch(
+    productId: Types.ObjectId,
+    payload: Partial<Pick<IProduct, "name" | "manufacturer" | "category" | "description" | "imageUrl">>,
+  ): Promise<IProduct> {
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { ...payload, updatedOn: getTodaysDate(true) },
@@ -55,7 +107,7 @@ class ProductsService {
   async patchVariant(
     productId: Types.ObjectId,
     variantId: Types.ObjectId,
-    payload: Partial<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">>,
+    payload: ProductVariantPatchRequestDTO,
   ): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
@@ -84,11 +136,45 @@ class ProductsService {
 
   async replaceVariants(
     productId: Types.ObjectId,
-    payload: Array<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl"> & { _id?: Types.ObjectId | string }>,
+    payload: ProductVariantsReplaceBodyDTO,
   ): Promise<IProduct> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      return undefined;
+    }
+
+    const existingVariantsById = new Map(
+      (product.variants ?? [])
+        .map((variant: any) => {
+          const id = variant?._id?.toString?.();
+          return id ? [id, variant] : null;
+        })
+        .filter((entry): entry is [string, any] => Boolean(entry)),
+    );
+
+    const nextVariants = payload.variants.map((variant: ProductVariantWritePayload) => {
+      if (variant._id) {
+        const existing = existingVariantsById.get(variant._id.toString());
+        return {
+          ...variant,
+          _id: existing?._id ?? variant._id,
+          status: existing?.status ?? PRODUCT_STATUSES.DRAFT,
+        };
+      }
+
+      return {
+        ...variant,
+        status: PRODUCT_STATUSES.DRAFT,
+      };
+    });
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
-      { variants: payload, updatedOn: getTodaysDate(true) },
+      {
+        variants: nextVariants,
+        ...(payload.attributes ? { attributes: payload.attributes } : {}),
+        updatedOn: getTodaysDate(true),
+      },
       { new: true },
     )
       .lean()
@@ -99,14 +185,14 @@ class ProductsService {
 
   async createVariant(
     productId: Types.ObjectId,
-    payload: Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">,
+    payload: ProductVariantCreateRequestDTO,
   ): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
     }
 
-    const nextVariants = [...(product.variants ?? []), payload];
+    const nextVariants = [...(product.variants ?? []), { ...payload, status: PRODUCT_STATUSES.DRAFT }];
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { variants: nextVariants, updatedOn: getTodaysDate(true) },
@@ -120,14 +206,14 @@ class ProductsService {
 
   async createVariants(
     productId: Types.ObjectId,
-    payload: Array<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl">>,
+    payload: ProductVariantCreateRequestDTO[],
   ): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
     }
 
-    const nextVariants = [...(product.variants ?? []), ...payload];
+    const nextVariants = [...(product.variants ?? []), ...payload.map((variant) => ({ ...variant, status: PRODUCT_STATUSES.DRAFT }))];
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { variants: nextVariants, updatedOn: getTodaysDate(true) },
@@ -200,16 +286,42 @@ class ProductsService {
 
   async previewWithVariants(
     productId: Types.ObjectId,
-    payload: Array<Pick<IProductVariant, "price" | "status" | "attributes" | "imageUrl"> & { _id?: Types.ObjectId | string }>,
+    payload: ProductVariantsReplaceBodyDTO,
   ): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
     }
 
+    const existingVariantsById = new Map(
+      (product.variants ?? [])
+        .map((variant: any) => {
+          const id = variant?._id?.toString?.();
+          return id ? [id, variant] : null;
+        })
+        .filter((entry): entry is [string, any] => Boolean(entry)),
+    );
+
+    const nextVariants = payload.variants.map((variant: ProductVariantWritePayload) => {
+      if (variant._id) {
+        const existing = existingVariantsById.get(variant._id.toString());
+        return {
+          ...variant,
+          _id: existing?._id ?? variant._id,
+          status: existing?.status ?? PRODUCT_STATUSES.DRAFT,
+        };
+      }
+
+      return {
+        ...variant,
+        status: PRODUCT_STATUSES.DRAFT,
+      };
+    });
+
     return this.normalizeProduct({
       ...product,
-      variants: payload,
+      ...(payload.attributes ? { attributes: payload.attributes } : {}),
+      variants: nextVariants,
       updatedOn: getTodaysDate(true),
     });
   }
