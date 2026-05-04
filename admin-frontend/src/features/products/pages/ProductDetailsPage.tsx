@@ -87,6 +87,9 @@ type PendingConfirmAction =
 
 type BulkEditScope = 'info' | 'full' | 'variants' | null
 
+const EMPTY_ATTRIBUTES: AttributeDraft[] = []
+const EMPTY_VARIANTS: VariantDraft[] = []
+
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status
 }
@@ -135,9 +138,7 @@ function applyAttributeValuesToVariants(
 
   return variants.map((variant) => {
     const currentValue = (variant.attributesByAttributeId[attributeId] ?? '').trim()
-    const isCurrentAllowed = currentValue
-      ? allowedValues.has(currentValue.toLowerCase())
-      : false
+    const isCurrentAllowed = currentValue ? allowedValues.has(currentValue.toLowerCase()) : false
 
     if (isCurrentAllowed) {
       return variant
@@ -218,7 +219,8 @@ function toVariantTitle(
   variant: ProductVariant | VariantDraft,
   attributes: Array<{ key: string; name: string }> | AttributeDraft[],
 ) {
-  const source = 'attributesByAttributeId' in variant ? variant.attributesByAttributeId : variant.attributes
+  const source =
+    'attributesByAttributeId' in variant ? variant.attributesByAttributeId : variant.attributes
   const parts = attributes
     .map((attribute) => {
       const key = 'id' in attribute ? attribute.id : attribute.key
@@ -265,7 +267,9 @@ function toBulkDraft(product: Product) {
   }
 }
 
-function buildAttributesPayloadFromDraft(draft: ReturnType<typeof toBulkDraft>): ProductAttribute[] {
+function buildAttributesPayloadFromDraft(
+  draft: ReturnType<typeof toBulkDraft>,
+): ProductAttribute[] {
   return draft.attributes.map((attribute) => ({
     key: normalizeAttributeKey(attribute.name),
     name: attribute.name.trim(),
@@ -310,9 +314,9 @@ function buildFullProductPayloadFromDraft(
   }
 }
 
-function getAttributesValidationError(draft: ReturnType<typeof toBulkDraft>): string {
+function getAttributesValidationError(attributes: AttributeDraft[]): string {
   const normalizedKeys = new Set<string>()
-  for (const attribute of draft.attributes) {
+  for (const attribute of attributes) {
     const name = attribute.name.trim()
     if (!name) {
       return 'Attribute name is required.'
@@ -407,14 +411,14 @@ export function ProductDetailsPage() {
   const statusActionColor = currentStatus === 'Active' ? 'warning' : 'success'
   const targetStatus: ProductStatus = currentStatus === 'Active' ? 'Archived' : 'Active'
 
-  const baseBulkDraft = useMemo(
-    () => (product ? toBulkDraft(product) : null),
-    [product],
-  )
+  const baseBulkDraft = useMemo(() => (product ? toBulkDraft(product) : null), [product])
 
   const effectiveBulkDraft = bulkDraft ?? baseBulkDraft
+  const effectiveAttributes = effectiveBulkDraft?.attributes ?? EMPTY_ATTRIBUTES
+  const effectiveVariants = effectiveBulkDraft?.variants ?? EMPTY_VARIANTS
 
   const parentPatchPayload = useMemo(() => {
+    if (!isInfoEditMode && !isFullEditMode) return null
     if (!effectiveBulkDraft) return null
 
     return {
@@ -424,7 +428,7 @@ export function ProductDetailsPage() {
       description: effectiveBulkDraft.description.trim(),
       imageUrl: effectiveBulkDraft.imageUrl.trim(),
     }
-  }, [effectiveBulkDraft])
+  }, [effectiveBulkDraft, isFullEditMode, isInfoEditMode])
 
   const baseParentPayload = useMemo(() => {
     if (!baseBulkDraft) return null
@@ -443,10 +447,11 @@ export function ProductDetailsPage() {
     return JSON.stringify(parentPatchPayload) !== JSON.stringify(baseParentPayload)
   }, [baseParentPayload, parentPatchPayload])
 
-  const attributesPayload = useMemo(
-    () => (effectiveBulkDraft ? buildAttributesPayloadFromDraft(effectiveBulkDraft) : null),
-    [effectiveBulkDraft],
-  )
+  const attributesPayload = useMemo(() => {
+    if (!isVariantsEditMode) return null
+    if (!effectiveBulkDraft) return null
+    return buildAttributesPayloadFromDraft(effectiveBulkDraft)
+  }, [effectiveBulkDraft, isVariantsEditMode])
   const baseAttributesPayload = useMemo(
     () => (baseBulkDraft ? buildAttributesPayloadFromDraft(baseBulkDraft) : null),
     [baseBulkDraft],
@@ -458,9 +463,10 @@ export function ProductDetailsPage() {
   }, [attributesPayload, baseAttributesPayload])
 
   const variantsReplacePayload = useMemo(() => {
+    if (!isVariantsEditMode) return null
     if (!effectiveBulkDraft) return null
     return buildVariantsReplacePayloadFromDraft(effectiveBulkDraft)
-  }, [effectiveBulkDraft])
+  }, [effectiveBulkDraft, isVariantsEditMode])
 
   const baseVariantsReplacePayload = useMemo(() => {
     if (!baseBulkDraft) return null
@@ -472,18 +478,20 @@ export function ProductDetailsPage() {
     return JSON.stringify(variantsReplacePayload) !== JSON.stringify(baseVariantsReplacePayload)
   }, [baseVariantsReplacePayload, variantsReplacePayload])
 
-  const fullProductPayload = useMemo(
-    () => (effectiveBulkDraft ? buildFullProductPayloadFromDraft(effectiveBulkDraft) : null),
-    [effectiveBulkDraft],
-  )
+  const fullProductPayload = useMemo(() => {
+    if (!isFullEditMode) return null
+    if (!effectiveBulkDraft) return null
+    return buildFullProductPayloadFromDraft(effectiveBulkDraft)
+  }, [effectiveBulkDraft, isFullEditMode])
   const baseFullProductPayload = useMemo(
     () => (baseBulkDraft ? buildFullProductPayloadFromDraft(baseBulkDraft) : null),
     [baseBulkDraft],
   )
   const fullProductHasChanges = useMemo(() => {
+    if (!isFullEditMode) return false
     if (!fullProductPayload || !baseFullProductPayload) return false
     return JSON.stringify(fullProductPayload) !== JSON.stringify(baseFullProductPayload)
-  }, [fullProductPayload, baseFullProductPayload])
+  }, [baseFullProductPayload, fullProductPayload, isFullEditMode])
 
   const variantsReplaceRequestPayload = useMemo(() => {
     if (!variantsReplacePayload) return null
@@ -500,24 +508,24 @@ export function ProductDetailsPage() {
   }, [attributesHaveChanges, attributesPayload, variantsReplacePayload])
 
   const possibleCombinations = useMemo(
-    () => (effectiveBulkDraft ? buildPossibleCombinations(effectiveBulkDraft.attributes) : []),
-    [effectiveBulkDraft],
+    () => (effectiveBulkDraft ? buildPossibleCombinations(effectiveAttributes) : []),
+    [effectiveAttributes, effectiveBulkDraft],
   )
 
   const hasReachedMaxVariants = useMemo(() => {
     if (!effectiveBulkDraft || possibleCombinations.length === 0) return false
-    return effectiveBulkDraft.variants.length >= possibleCombinations.length
-  }, [effectiveBulkDraft, possibleCombinations.length])
+    return effectiveVariants.length >= possibleCombinations.length
+  }, [effectiveBulkDraft, effectiveVariants.length, possibleCombinations.length])
 
   const bulkVariantErrors = useMemo(() => {
     if (!effectiveBulkDraft) return new Map<string, string>()
-    const duplicateCounts = buildVariantDuplicateCounts(effectiveBulkDraft.variants)
+    const duplicateCounts = buildVariantDuplicateCounts(effectiveVariants)
     const errors = new Map<string, string>()
 
-    effectiveBulkDraft.variants.forEach((variant) => {
+    effectiveVariants.forEach((variant) => {
       let error = ''
 
-      for (const attribute of effectiveBulkDraft.attributes) {
+      for (const attribute of effectiveAttributes) {
         const attributeName = attribute.name.trim()
         if (!attributeName) {
           error = 'Attribute name is required.'
@@ -546,15 +554,22 @@ export function ProductDetailsPage() {
         }
       }
 
-      if (!error) {
-        if (!variant.price.trim() || Number(variant.price) <= 0) {
-          error = 'Price should be greater than 0.'
-        } else if (!/^\d+(\.\d{1,2})?$/.test(variant.price.trim())) {
-          error = 'Price can have max 2 decimal places.'
-        }
-      }
+      errors.set(variant.id, error)
+    })
 
-      if (!error && variant.imageUrl.trim() && !isValidHttpUrl(variant.imageUrl.trim())) {
+    return errors
+  }, [effectiveAttributes, effectiveBulkDraft, effectiveVariants])
+
+  const variantPriceErrors = useMemo(() => {
+    const errors = new Map<string, string>()
+
+    effectiveVariants.forEach((variant) => {
+      let error = ''
+      if (!variant.price.trim() || Number(variant.price) <= 0) {
+        error = 'Price should be greater than 0.'
+      } else if (!/^\d+(\.\d{1,2})?$/.test(variant.price.trim())) {
+        error = 'Price can have max 2 decimal places.'
+      } else if (variant.imageUrl.trim() && !isValidHttpUrl(variant.imageUrl.trim())) {
         error = 'Variant image URL must be a valid http(s) URL.'
       }
 
@@ -562,19 +577,19 @@ export function ProductDetailsPage() {
     })
 
     return errors
-  }, [effectiveBulkDraft])
+  }, [effectiveVariants])
 
   const invalidVariantsCount = useMemo(() => {
     if (!effectiveBulkDraft) return 0
-    return effectiveBulkDraft.variants.reduce((count, variant) => {
-      const error = bulkVariantErrors.get(variant.id)
+    return effectiveVariants.reduce((count, variant) => {
+      const error = bulkVariantErrors.get(variant.id) || variantPriceErrors.get(variant.id)
       return error ? count + 1 : count
     }, 0)
-  }, [bulkVariantErrors, effectiveBulkDraft])
+  }, [bulkVariantErrors, effectiveBulkDraft, effectiveVariants, variantPriceErrors])
 
   const attributesValidationError = useMemo(
-    () => (effectiveBulkDraft ? getAttributesValidationError(effectiveBulkDraft) : ''),
-    [effectiveBulkDraft],
+    () => getAttributesValidationError(effectiveAttributes),
+    [effectiveAttributes],
   )
 
   const isParentImageValid = useMemo(() => {
@@ -584,43 +599,43 @@ export function ProductDetailsPage() {
 
   const isVariantsDraftValid = Boolean(
     effectiveBulkDraft &&
-      effectiveBulkDraft.variants.length > 0 &&
-      invalidVariantsCount === 0 &&
-      !attributesValidationError,
+    effectiveBulkDraft.variants.length > 0 &&
+    invalidVariantsCount === 0 &&
+    !attributesValidationError,
   )
 
   const canSaveVariants = Boolean(
     bulkEditScope === 'variants' &&
-      variantsReplaceRequestPayload &&
-      (variantsHaveChanges || attributesHaveChanges) &&
-      isVariantsDraftValid &&
-      hasConfiguredManufacturers &&
-      !isInteractionsLocked,
+    variantsReplaceRequestPayload &&
+    (variantsHaveChanges || attributesHaveChanges) &&
+    isVariantsDraftValid &&
+    hasConfiguredManufacturers &&
+    !isInteractionsLocked,
   )
 
   const canSaveInfo = Boolean(
     bulkEditScope === 'info' &&
-      parentPatchPayload &&
-      parentPatchPayload.name.length > 0 &&
-      parentPatchPayload.manufacturer.length > 0 &&
-      parentPatchPayload.category.length > 0 &&
-      isParentImageValid &&
-      parentHasChanges &&
-      hasConfiguredManufacturers &&
-      !isInteractionsLocked,
+    parentPatchPayload &&
+    parentPatchPayload.name.length > 0 &&
+    parentPatchPayload.manufacturer.length > 0 &&
+    parentPatchPayload.category.length > 0 &&
+    isParentImageValid &&
+    parentHasChanges &&
+    hasConfiguredManufacturers &&
+    !isInteractionsLocked,
   )
 
   const canSaveFull = Boolean(
     bulkEditScope === 'full' &&
-      fullProductPayload &&
-      fullProductPayload.name.length > 0 &&
-      fullProductPayload.manufacturer.length > 0 &&
-      fullProductPayload.category.length > 0 &&
-      isParentImageValid &&
-      isVariantsDraftValid &&
-      fullProductHasChanges &&
-      hasConfiguredManufacturers &&
-      !isInteractionsLocked,
+    fullProductPayload &&
+    fullProductPayload.name.length > 0 &&
+    fullProductPayload.manufacturer.length > 0 &&
+    fullProductPayload.category.length > 0 &&
+    isParentImageValid &&
+    isVariantsDraftValid &&
+    fullProductHasChanges &&
+    hasConfiguredManufacturers &&
+    !isInteractionsLocked,
   )
 
   const singleEditingVariant = useMemo(() => {
@@ -636,10 +651,7 @@ export function ProductDetailsPage() {
     if (!/^\d+(\.\d{1,2})?$/.test(singleVariantDraft.price.trim())) {
       return 'Price can have max 2 decimal places.'
     }
-    if (
-      singleVariantDraft.imageUrl.trim() &&
-      !isValidHttpUrl(singleVariantDraft.imageUrl.trim())
-    ) {
+    if (singleVariantDraft.imageUrl.trim() && !isValidHttpUrl(singleVariantDraft.imageUrl.trim())) {
       return 'Variant image URL must be a valid http(s) URL.'
     }
 
@@ -668,7 +680,9 @@ export function ProductDetailsPage() {
     const duplicateExists = product.variants.some((variant) => {
       if (variant._id === singleVariantDraft.variantId) return false
       const combinationKey = buildVariantCombinationKey(
-        Object.fromEntries(Object.keys(variant.attributes).map((key) => [key, variant.attributes[key]])),
+        Object.fromEntries(
+          Object.keys(variant.attributes).map((key) => [key, variant.attributes[key]]),
+        ),
       )
       return combinationKey === currentCombinationKey
     })
@@ -703,14 +717,14 @@ export function ProductDetailsPage() {
     if (!effectiveBulkDraft) return new Map<string, string>()
 
     const countsByName = new Map<string, number>()
-    effectiveBulkDraft.attributes.forEach((attribute) => {
+    effectiveAttributes.forEach((attribute) => {
       const key = normalizeAttributeKey(attribute.name)
       if (!key) return
       countsByName.set(key, (countsByName.get(key) ?? 0) + 1)
     })
 
     const errors = new Map<string, string>()
-    effectiveBulkDraft.attributes.forEach((attribute) => {
+    effectiveAttributes.forEach((attribute) => {
       const name = attribute.name.trim()
       if (!name) {
         errors.set(attribute.id, 'Attribute name is required.')
@@ -728,7 +742,7 @@ export function ProductDetailsPage() {
     })
 
     return errors
-  }, [effectiveBulkDraft])
+  }, [effectiveAttributes, effectiveBulkDraft])
 
   const handleAddAttribute = () => {
     setBulkDraft((current) => {
@@ -801,7 +815,10 @@ export function ProductDetailsPage() {
   const handleAttributeInputCommit = (attributeId: string) => {
     const target = effectiveBulkDraft?.attributes.find((attribute) => attribute.id === attributeId)
     if (!target) return
-    commitAttributeValues(attributeId, [...target.values, ...parseCommaSeparatedValues(target.inputValue)])
+    commitAttributeValues(attributeId, [
+      ...target.values,
+      ...parseCommaSeparatedValues(target.inputValue),
+    ])
   }
 
   const handleRemoveAttribute = (attributeId: string) => {
@@ -830,7 +847,8 @@ export function ProductDetailsPage() {
   }
 
   const onEnterSingleVariantEdit = (variant: ProductVariant) => {
-    if (!variant._id || !isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers) return
+    if (!variant._id || !isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers)
+      return
     setSingleVariantDraft({
       variantId: variant._id,
       price: String(variant.price),
@@ -1004,7 +1022,9 @@ export function ProductDetailsPage() {
     const payload: ProductVariantPatchPayload = {
       price: Number(singleVariantDraft.price),
       attributes: singleVariantDraft.attributes,
-      ...(singleVariantDraft.imageUrl.trim() ? { imageUrl: singleVariantDraft.imageUrl.trim() } : {}),
+      ...(singleVariantDraft.imageUrl.trim()
+        ? { imageUrl: singleVariantDraft.imageUrl.trim() }
+        : {}),
     }
 
     try {
@@ -1125,7 +1145,11 @@ export function ProductDetailsPage() {
         >
           <Stack spacing={0.5}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-              <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="product-details-page-title">
+              <Typography
+                variant="h4"
+                sx={{ fontWeight: 700 }}
+                data-testid="product-details-page-title"
+              >
                 {product.name}
               </Typography>
               <Chip label={product.status} color={statusChipColor} variant="outlined" />
@@ -1152,8 +1176,8 @@ export function ProductDetailsPage() {
               </Button>
             </Stack>
             <Typography color="text.secondary" data-testid="product-details-page-meta">
-              {product.manufacturer} | {product.category} | Created {formatDate(product.createdOn)} | Updated{' '}
-              {formatDate(product.updatedOn)}
+              {product.manufacturer} | {product.category} | Created {formatDate(product.createdOn)}{' '}
+              | Updated {formatDate(product.updatedOn)}
             </Typography>
           </Stack>
 
@@ -1172,14 +1196,21 @@ export function ProductDetailsPage() {
       </Stack>
 
       {!hasConfiguredManufacturers ? (
-        <Alert severity="warning" data-testid="product-details-page-manufacturers-unavailable-alert">
+        <Alert
+          severity="warning"
+          data-testid="product-details-page-manufacturers-unavailable-alert"
+        >
           {productsUiText.detailsPage.placeholders.manufacturersUnavailable}
         </Alert>
       ) : null}
 
       <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="product-details-page-content">
         <Stack spacing={2}>
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="product-details-page-product-info-section">
+          <Paper
+            variant="outlined"
+            sx={{ p: { xs: 1.5, md: 2 } }}
+            data-testid="product-details-page-product-info-section"
+          >
             <Stack spacing={1.5}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                 <Stack direction="row" spacing={0.5} alignItems="center">
@@ -1218,9 +1249,7 @@ export function ProductDetailsPage() {
                       value={effectiveBulkDraft.name}
                       onChange={(event) =>
                         setBulkDraft((current) =>
-                          current
-                            ? { ...current, name: event.target.value }
-                            : current,
+                          current ? { ...current, name: event.target.value } : current,
                         )
                       }
                     />
@@ -1230,9 +1259,7 @@ export function ProductDetailsPage() {
                       value={effectiveBulkDraft.manufacturer}
                       onChange={(event) =>
                         setBulkDraft((current) =>
-                          current
-                            ? { ...current, manufacturer: event.target.value }
-                            : current,
+                          current ? { ...current, manufacturer: event.target.value } : current,
                         )
                       }
                     >
@@ -1248,9 +1275,7 @@ export function ProductDetailsPage() {
                       value={effectiveBulkDraft.category}
                       onChange={(event) =>
                         setBulkDraft((current) =>
-                          current
-                            ? { ...current, category: event.target.value }
-                            : current,
+                          current ? { ...current, category: event.target.value } : current,
                         )
                       }
                     />
@@ -1258,12 +1283,12 @@ export function ProductDetailsPage() {
                       label="Parent image URL"
                       value={effectiveBulkDraft.imageUrl}
                       error={!isParentImageValid}
-                      helperText={!isParentImageValid ? 'Parent image URL must be a valid http(s) URL.' : ' '}
+                      helperText={
+                        !isParentImageValid ? 'Parent image URL must be a valid http(s) URL.' : ' '
+                      }
                       onChange={(event) =>
                         setBulkDraft((current) =>
-                          current
-                            ? { ...current, imageUrl: event.target.value }
-                            : current,
+                          current ? { ...current, imageUrl: event.target.value } : current,
                         )
                       }
                     />
@@ -1276,9 +1301,7 @@ export function ProductDetailsPage() {
                     minRows={3}
                     onChange={(event) =>
                       setBulkDraft((current) =>
-                        current
-                          ? { ...current, description: event.target.value }
-                          : current,
+                        current ? { ...current, description: event.target.value } : current,
                       )
                     }
                   />
@@ -1340,7 +1363,11 @@ export function ProductDetailsPage() {
             </Stack>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="product-details-page-variants-section">
+          <Paper
+            variant="outlined"
+            sx={{ p: { xs: 1.5, md: 2 } }}
+            data-testid="product-details-page-variants-section"
+          >
             <Stack spacing={1.5}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Stack direction="row" spacing={0.5} alignItems="center">
@@ -1416,7 +1443,9 @@ export function ProductDetailsPage() {
                         <Button
                           variant="contained"
                           disabled={
-                            possibleCombinations.length === 0 || hasReachedMaxVariants || isInteractionsLocked
+                            possibleCombinations.length === 0 ||
+                            hasReachedMaxVariants ||
+                            isInteractionsLocked
                           }
                           onClick={() => {
                             setBulkDraft((current) => {
@@ -1427,18 +1456,20 @@ export function ProductDetailsPage() {
                                 ),
                               )
                               const generated: VariantDraft[] = []
-                              buildPossibleCombinations(current.attributes).forEach((combination) => {
-                                const key = buildVariantCombinationKey(combination)
-                                if (existingKeys.has(key)) return
-                                existingKeys.add(key)
-                                generated.push({
-                                  id: createLocalId(),
-                                  price: '',
-                                  status: 'Draft',
-                                  imageUrl: '',
-                                  attributesByAttributeId: combination,
-                                })
-                              })
+                              buildPossibleCombinations(current.attributes).forEach(
+                                (combination) => {
+                                  const key = buildVariantCombinationKey(combination)
+                                  if (existingKeys.has(key)) return
+                                  existingKeys.add(key)
+                                  generated.push({
+                                    id: createLocalId(),
+                                    price: '',
+                                    status: 'Draft',
+                                    imageUrl: '',
+                                    attributesByAttributeId: combination,
+                                  })
+                                },
+                              )
 
                               return {
                                 ...current,
@@ -1460,7 +1491,9 @@ export function ProductDetailsPage() {
                                 return {
                                   ...current,
                                   variants: current.variants.filter((variant) => {
-                                    const error = bulkVariantErrors.get(variant.id)
+                                    const error =
+                                      bulkVariantErrors.get(variant.id) ||
+                                      variantPriceErrors.get(variant.id)
                                     return !error
                                   }),
                                 }
@@ -1487,7 +1520,8 @@ export function ProductDetailsPage() {
                             Attributes
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Create unique attributes and available values. Values will be used to build variants.
+                            Create unique attributes and available values. Values will be used to
+                            build variants.
                           </Typography>
                         </Box>
                         <Button
@@ -1503,8 +1537,12 @@ export function ProductDetailsPage() {
 
                       <Stack spacing={1.25} data-testid="product-details-page-attributes-list">
                         {effectiveBulkDraft.attributes.length === 0 ? (
-                          <Alert severity="info" data-testid="product-details-page-attributes-empty-alert">
-                            Attributes are optional. You can generate a single variant without attributes.
+                          <Alert
+                            severity="info"
+                            data-testid="product-details-page-attributes-empty-alert"
+                          >
+                            Attributes are optional. You can generate a single variant without
+                            attributes.
                           </Alert>
                         ) : null}
 
@@ -1603,7 +1641,9 @@ export function ProductDetailsPage() {
                       variant="outlined"
                       sx={{ py: 4, px: 2, borderStyle: 'dashed', textAlign: 'center' }}
                     >
-                      <Typography variant="h6">{productsUiText.detailsPage.placeholders.noVariants}</Typography>
+                      <Typography variant="h6">
+                        {productsUiText.detailsPage.placeholders.noVariants}
+                      </Typography>
                       <Typography color="text.secondary">
                         {productsUiText.detailsPage.placeholders.noVariantsHelp}
                       </Typography>
@@ -1617,10 +1657,14 @@ export function ProductDetailsPage() {
                       }}
                     >
                       {effectiveBulkDraft.variants.map((variant, index) => {
-                        const variantError = bulkVariantErrors.get(variant.id) ?? ''
+                        const variantError =
+                          bulkVariantErrors.get(variant.id) ||
+                          variantPriceErrors.get(variant.id) ||
+                          ''
                         const isPriceError =
                           variantError === 'Price should be greater than 0.' ||
-                          variantError === 'Price can have max 2 decimal places.'
+                          variantError === 'Price can have max 2 decimal places.' ||
+                          variantError === 'Variant image URL must be a valid http(s) URL.'
 
                         return (
                           <Paper
@@ -1632,7 +1676,11 @@ export function ProductDetailsPage() {
                             }}
                           >
                             <Stack spacing={1.25}>
-                              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Stack
+                                direction="row"
+                                justifyContent="space-between"
+                                alignItems="center"
+                              >
                                 <Stack direction="row" spacing={1} alignItems="center">
                                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                                     Variant #{index + 1}
@@ -1641,13 +1689,17 @@ export function ProductDetailsPage() {
                                 </Stack>
                                 <IconButton
                                   color="error"
-                                  disabled={effectiveBulkDraft.variants.length <= 1 || isInteractionsLocked}
+                                  disabled={
+                                    effectiveBulkDraft.variants.length <= 1 || isInteractionsLocked
+                                  }
                                   onClick={() =>
                                     setBulkDraft((current) =>
                                       current
                                         ? {
                                             ...current,
-                                            variants: current.variants.filter((item) => item.id !== variant.id),
+                                            variants: current.variants.filter(
+                                              (item) => item.id !== variant.id,
+                                            ),
                                           }
                                         : current,
                                     )
@@ -1755,11 +1807,7 @@ export function ProductDetailsPage() {
                     <Button
                       variant="contained"
                       disabled={
-                        isFullEditMode
-                          ? !canSaveFull
-                          : isVariantsEditMode
-                            ? !canSaveVariants
-                            : true
+                        isFullEditMode ? !canSaveFull : isVariantsEditMode ? !canSaveVariants : true
                       }
                       onClick={() => {
                         if (isFullEditMode) {
@@ -1946,7 +1994,9 @@ export function ProductDetailsPage() {
                                 <strong>Price:</strong> {formatPrice(variant.price)}
                               </Typography>
                               <Typography>
-                                <strong>Image:</strong> {variant.imageUrl?.trim() || productsUiText.detailsPage.placeholders.useParentImage}
+                                <strong>Image:</strong>{' '}
+                                {variant.imageUrl?.trim() ||
+                                  productsUiText.detailsPage.placeholders.useParentImage}
                               </Typography>
                               {product.attributes.map((attribute) => (
                                 <Typography key={`${variant._id ?? variantIndex}-${attribute.key}`}>
@@ -1956,7 +2006,8 @@ export function ProductDetailsPage() {
                               ))}
                               {product.attributes.length === 0 ? (
                                 <Typography>
-                                  <strong>Variant:</strong> {toVariantTitle(variant, product.attributes) || '-'}
+                                  <strong>Variant:</strong>{' '}
+                                  {toVariantTitle(variant, product.attributes) || '-'}
                                 </Typography>
                               ) : null}
                             </Stack>
