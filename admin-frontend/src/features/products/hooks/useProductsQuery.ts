@@ -90,8 +90,12 @@ export function useDeleteProductMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (productId: string) => deleteProduct(productId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.all })
+    onSuccess: (_, deletedProductId) => {
+      queryClient.removeQueries({
+        queryKey: productsQueryKeys.detail(deletedProductId),
+        exact: true,
+      })
+      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.lists() })
     },
   })
 }

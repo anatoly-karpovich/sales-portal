@@ -17,246 +17,30 @@ import {
 } from '@mui/material'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type {
-  ProductAttribute,
-  ProductUpsertPayload,
-  ProductVariantCreatePayload,
-  ProductVariantUpsertPayload,
-} from '@/api/modules/products.api'
+import type { ProductUpsertPayload } from '@/api/modules/products.api'
+import {
+  getProductCategoryError,
+  getProductImageUrlError,
+  getProductNameError,
+} from '@/features/products/forms/productParentValidation'
+import type { AttributeDraft, VariantDraft } from '@/features/products/forms/productVariantsDraft'
+import {
+  buildPossibleCombinations,
+  buildProductUpsertPayloadFromDraft,
+  buildVariantCombinationKey,
+  buildVariantDuplicateCounts,
+  createLocalId,
+  isValidHttpUrl,
+  normalizeAttributeKey,
+  normalizeValues,
+  parseCommaSeparatedValues,
+  validatePrice,
+} from '@/features/products/forms/productVariantsDraft'
 import { useManufacturerOptions } from '@/features/products/hooks/useManufacturerOptions'
-
-type AttributeDraft = {
-  id: string
-  name: string
-  values: string[]
-  inputValue: string
-}
-
-type VariantDraft = {
-  id: string
-  attributesByAttributeId: Record<string, string>
-  price: string
-  imageUrl: string
-  status: 'Draft'
-}
 
 type Props = {
   isSubmitting: boolean
   onSubmit: (payload: ProductUpsertPayload) => Promise<void>
-}
-
-type VariantValidationContext = {
-  attributes: AttributeDraft[]
-  duplicateCountsByKey: Map<string, number>
-}
-
-function createLocalId() {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2)
-}
-
-function normalizeAttributeKey(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function normalizeUniqueValues(values: string[]) {
-  const result: string[] = []
-  const seen = new Set<string>()
-
-  values.forEach((value) => {
-    const normalized = value.trim()
-    if (!normalized) return
-
-    const dedupeKey = normalized.toLowerCase()
-    if (seen.has(dedupeKey)) return
-
-    seen.add(dedupeKey)
-    result.push(normalized)
-  })
-
-  return result
-}
-
-function parseCommaSeparatedValues(input: string) {
-  return input
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function isValidHttpUrl(value: string) {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-function getPossibleCombinations(attributes: AttributeDraft[]) {
-  if (attributes.length === 0) {
-    return [{}]
-  }
-
-  const prepared = attributes
-    .map((attribute) => ({
-      id: attribute.id,
-      key: normalizeAttributeKey(attribute.name),
-      values: normalizeUniqueValues(attribute.values),
-    }))
-    .filter((attribute) => attribute.key.length > 0)
-
-  if (prepared.length === 0 || prepared.length !== attributes.length) {
-    return []
-  }
-
-  if (prepared.some((attribute) => attribute.values.length === 0)) {
-    return []
-  }
-
-  const uniqueKeys = new Set(prepared.map((attribute) => attribute.key))
-  if (uniqueKeys.size !== prepared.length) {
-    return []
-  }
-
-  return prepared.reduce<Array<Record<string, string>>>(
-    (accumulator, attribute) => {
-      const next: Array<Record<string, string>> = []
-
-      accumulator.forEach((base) => {
-        attribute.values.forEach((value) => {
-          next.push({
-            ...base,
-            [attribute.id]: value,
-          })
-        })
-      })
-
-      return next
-    },
-    [{}],
-  )
-}
-
-function getCombinationKey(attributeValues: Record<string, string>) {
-  return Object.keys(attributeValues)
-    .sort()
-    .map((attributeId) => `${attributeId}:${attributeValues[attributeId]}`)
-    .join('|')
-}
-
-function buildDuplicateCounts(variants: VariantDraft[]) {
-  const counts = new Map<string, number>()
-
-  variants.forEach((variant) => {
-    const key = getCombinationKey(variant.attributesByAttributeId)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  })
-
-  return counts
-}
-
-function getVariantError(variant: VariantDraft, context: VariantValidationContext) {
-  for (const attribute of context.attributes) {
-    const attributeName = attribute.name.trim()
-    if (!attributeName) {
-      return 'Attribute name is required.'
-    }
-
-    const selectedValue = variant.attributesByAttributeId[attribute.id]
-    if (!selectedValue) {
-      return `${attributeName}: value is required.`
-    }
-
-    const hasValue = attribute.values.some(
-      (value) => value.trim().toLowerCase() === selectedValue.trim().toLowerCase(),
-    )
-    if (!hasValue) {
-      return `${attributeName}: ${selectedValue} no longer exists in attribute values.`
-    }
-  }
-
-  const duplicateCount = context.duplicateCountsByKey.get(
-    getCombinationKey(variant.attributesByAttributeId),
-  )
-  if ((duplicateCount ?? 0) > 1) {
-    return 'Variant with this attribute combination already exists.'
-  }
-
-  if (!variant.price.trim() || Number(variant.price) <= 0) {
-    return 'Price should be greater than 0.'
-  }
-
-  if (!/^\d+(\.\d{1,2})?$/.test(variant.price.trim())) {
-    return 'Price can have max 2 decimal places.'
-  }
-
-  const imageUrl = variant.imageUrl.trim()
-  if (imageUrl.length > 0 && !isValidHttpUrl(imageUrl)) {
-    return 'Variant image URL must be a valid http(s) URL.'
-  }
-
-  return ''
-}
-
-function toPayload(
-  data: {
-    name: string
-    manufacturer: string
-    category: string
-    description: string
-    imageUrl: string
-    attributes: AttributeDraft[]
-    variants: VariantDraft[]
-  },
-): ProductVariantUpsertPayload {
-  const preparedAttributes: Array<ProductAttribute & { id: string }> = data.attributes.map((attribute) => ({
-    id: attribute.id,
-    key: normalizeAttributeKey(attribute.name),
-    name: attribute.name.trim(),
-    values: normalizeUniqueValues(attribute.values),
-  }))
-
-  const variants: ProductVariantCreatePayload[] = data.variants.map((variant) => {
-    const mappedAttributes: Record<string, string> = {}
-
-    preparedAttributes.forEach((attribute) => {
-      mappedAttributes[attribute.key] = variant.attributesByAttributeId[attribute.id] ?? ''
-    })
-
-    return {
-      price: Number(variant.price),
-      attributes: mappedAttributes,
-      ...(variant.imageUrl.trim()
-        ? {
-            imageUrl: variant.imageUrl.trim(),
-          }
-        : {}),
-    }
-  })
-
-  return {
-    name: data.name.trim(),
-    manufacturer: data.manufacturer.trim(),
-    category: data.category.trim(),
-    ...(data.description.trim()
-      ? {
-          description: data.description.trim(),
-        }
-      : {}),
-    ...(data.imageUrl.trim()
-      ? {
-          imageUrl: data.imageUrl.trim(),
-        }
-      : {}),
-    attributes: preparedAttributes.map((attribute) => ({
-      key: attribute.key,
-      name: attribute.name,
-      values: attribute.values,
-    })),
-    variants,
-  }
 }
 
 export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
@@ -267,6 +51,11 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [parentTouched, setParentTouched] = useState({
+    name: false,
+    category: false,
+    imageUrl: false,
+  })
   const [attributes, setAttributes] = useState<AttributeDraft[]>([])
   const [variants, setVariants] = useState<VariantDraft[]>([])
 
@@ -278,7 +67,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
       attributes.map((attribute) => ({
         ...attribute,
         normalizedName: normalizeAttributeKey(attribute.name),
-        normalizedValues: normalizeUniqueValues(attribute.values),
+        normalizedValues: normalizeValues(attribute.values),
       })),
     [attributes],
   )
@@ -319,17 +108,54 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     return errors
   }, [duplicatedAttributeNames, normalizedAttributes])
 
-  const duplicateCountsByKey = useMemo(() => buildDuplicateCounts(variants), [variants])
+  const duplicateCountsByKey = useMemo(() => buildVariantDuplicateCounts(variants), [variants])
 
   const variantErrors = useMemo(() => {
-    const context: VariantValidationContext = {
-      attributes,
-      duplicateCountsByKey,
-    }
-
     const errors = new Map<string, string>()
     variants.forEach((variant) => {
-      errors.set(variant.id, getVariantError(variant, context))
+      let error = ''
+
+      for (const attribute of attributes) {
+        const attributeName = attribute.name.trim()
+        if (!attributeName) {
+          error = 'Attribute name is required.'
+          break
+        }
+
+        const selectedValue = variant.attributesByAttributeId[attribute.id]
+        if (!selectedValue) {
+          error = `${attributeName}: value is required.`
+          break
+        }
+
+        const hasValue = attribute.values.some(
+          (value) => value.trim().toLowerCase() === selectedValue.trim().toLowerCase(),
+        )
+        if (!hasValue) {
+          error = `${attributeName}: ${selectedValue} no longer exists in attribute values.`
+          break
+        }
+      }
+
+      if (!error) {
+        const duplicateCount = duplicateCountsByKey.get(
+          buildVariantCombinationKey(variant.attributesByAttributeId),
+        )
+        if ((duplicateCount ?? 0) > 1) {
+          error = 'Variant with this attribute combination already exists.'
+        }
+      }
+
+      if (!error) {
+        error = validatePrice(variant.price)
+      }
+
+      const imageUrl = variant.imageUrl.trim()
+      if (!error && imageUrl.length > 0 && !isValidHttpUrl(imageUrl)) {
+        error = 'Variant image URL must be a valid http(s) URL.'
+      }
+
+      errors.set(variant.id, error)
     })
 
     return errors
@@ -344,19 +170,20 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     [variantErrors, variants],
   )
 
-  const possibleCombinations = useMemo(() => getPossibleCombinations(attributes), [attributes])
+  const possibleCombinations = useMemo(() => buildPossibleCombinations(attributes), [attributes])
   const hasReachedMaxVariants =
     possibleCombinations.length > 0 && variants.length >= possibleCombinations.length
 
-  const isParentImageUrlValid = imageUrl.trim().length === 0 || isValidHttpUrl(imageUrl.trim())
-  const hasParentFields =
-    name.trim().length > 0 &&
-    selectedManufacturer.trim().length > 0 &&
-    category.trim().length > 0
+  const nameError = getProductNameError(name)
+  const categoryError = getProductCategoryError(category)
+  const imageUrlError = getProductImageUrlError(imageUrl, isValidHttpUrl)
+
   const hasAttributeErrors = attributeErrors.size > 0
   const canSave =
-    hasParentFields &&
-    isParentImageUrlValid &&
+    !nameError &&
+    selectedManufacturer.trim().length > 0 &&
+    !categoryError &&
+    !imageUrlError &&
     !hasAttributeErrors &&
     variants.length > 0 &&
     invalidVariantsCount === 0 &&
@@ -410,7 +237,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
   }
 
   const commitAttributeValues = (attributeId: string, rawValues: string[]) => {
-    const incoming = normalizeUniqueValues(rawValues.flatMap(parseCommaSeparatedValues))
+    const incoming = normalizeValues(rawValues.flatMap(parseCommaSeparatedValues))
     setAttributes((current) =>
       current.map((attribute) =>
         attribute.id === attributeId
@@ -441,7 +268,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     const target = attributes.find((attribute) => attribute.id === attributeId)
     if (!target) return
 
-    const nextValues = normalizeUniqueValues([
+    const nextValues = normalizeValues([
       ...target.values,
       ...parseCommaSeparatedValues(target.inputValue),
     ])
@@ -494,12 +321,12 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
 
   const handleGenerateAllCombinations = () => {
     const existingKeys = new Set(
-      variants.map((variant) => getCombinationKey(variant.attributesByAttributeId)),
+      variants.map((variant) => buildVariantCombinationKey(variant.attributesByAttributeId)),
     )
 
     const generated: VariantDraft[] = []
     possibleCombinations.forEach((combination) => {
-      const combinationKey = getCombinationKey(combination)
+      const combinationKey = buildVariantCombinationKey(combination)
       if (existingKeys.has(combinationKey)) {
         return
       }
@@ -572,7 +399,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
   const handleSave = async () => {
     if (!canSave) return
 
-    const payload = toPayload({
+    const payload = buildProductUpsertPayloadFromDraft({
       name,
       manufacturer: selectedManufacturer,
       category,
@@ -633,15 +460,23 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                 }}
               >
                 <TextField
-                  label="Name*"
+                  label="Name"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
+                  onBlur={() =>
+                    setParentTouched((current) => ({
+                      ...current,
+                      name: true,
+                    }))
+                  }
+                  error={parentTouched.name && Boolean(nameError)}
+                  helperText={parentTouched.name ? (nameError || ' ') : ' '}
                   data-testid="products-upsert-parent-name-input"
                   inputProps={{ 'data-testid': 'products-upsert-parent-name-input-field' }}
                 />
 
                 <TextField
-                  label="Manufacturer*"
+                  label="Manufacturer"
                   select
                   value={selectedManufacturer}
                   onChange={(event) => setManufacturer(event.target.value)}
@@ -666,9 +501,17 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                 </TextField>
 
                 <TextField
-                  label="Category*"
+                  label="Category"
                   value={category}
                   onChange={(event) => setCategory(event.target.value)}
+                  onBlur={() =>
+                    setParentTouched((current) => ({
+                      ...current,
+                      category: true,
+                    }))
+                  }
+                  error={parentTouched.category && Boolean(categoryError)}
+                  helperText={parentTouched.category ? (categoryError || ' ') : ' '}
                   data-testid="products-upsert-parent-category-input"
                   inputProps={{ 'data-testid': 'products-upsert-parent-category-input-field' }}
                 />
@@ -677,12 +520,14 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                   label="Parent image URL"
                   value={imageUrl}
                   onChange={(event) => setImageUrl(event.target.value)}
-                  error={!isParentImageUrlValid}
-                  helperText={
-                    !isParentImageUrlValid
-                      ? 'Parent image URL must be a valid http(s) URL.'
-                      : ' '
+                  onBlur={() =>
+                    setParentTouched((current) => ({
+                      ...current,
+                      imageUrl: true,
+                    }))
                   }
+                  error={parentTouched.imageUrl && Boolean(imageUrlError)}
+                  helperText={parentTouched.imageUrl ? (imageUrlError || ' ') : ' '}
                   data-testid="products-upsert-parent-image-url-input"
                   inputProps={{
                     'data-testid': 'products-upsert-parent-image-url-input-field',
@@ -752,7 +597,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                       alignItems={{ xs: 'stretch', md: 'flex-start' }}
                     >
                       <TextField
-                        label="Attribute name*"
+                        label="Attribute name"
                         value={attribute.name}
                         onChange={(event) =>
                           handleAttributeNameChange(attribute.id, event.target.value)
@@ -972,7 +817,28 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                           </Stack>
 
                           {variantError && !isPriceError ? (
-                            <Alert severity="error" data-testid={`products-upsert-variant-card-${index}-error`}>
+                            <Alert
+                              severity="error"
+                              sx={{
+                                bgcolor: 'transparent !important',
+                                border: 'none',
+                                p: 0,
+                                alignItems: 'center',
+                                color: 'error.main',
+                                '& .MuiAlert-icon': {
+                                  color: 'error.main',
+                                  p: 0,
+                                  mr: 1,
+                                  alignItems: 'center',
+                                },
+                                '& .MuiAlert-message': {
+                                  p: 0,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                },
+                              }}
+                              data-testid={`products-upsert-variant-card-${index}-error`}
+                            >
                               {variantError}
                             </Alert>
                           ) : null}
@@ -1023,7 +889,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                             ))}
 
                             <TextField
-                              label="Price*"
+                              label="Price"
                               value={variant.price}
                               onChange={(event) =>
                                 handleVariantFieldChange(variant.id, 'price', event.target.value)
