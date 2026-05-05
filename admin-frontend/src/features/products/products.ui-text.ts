@@ -6,9 +6,23 @@ export const productsUiText = {
     addButton: '+ Add Product',
     filtersTitle: 'Filters',
     emptyStateNoProducts: 'No products created yet.',
+    filterSections: {
+      manufacturer: 'Manufacturers',
+      productStatus: 'Product Status',
+      price: 'Price',
+    },
     chips: {
       searchPrefix: 'Search',
       manufacturerPrefix: 'Manufacturer',
+      statusPrefix: 'Status',
+      pricePrefix: 'Price',
+    },
+    validation: {
+      priceRangeInvalid: 'Minimum price cannot be greater than maximum price.',
+    },
+    fields: {
+      minPrice: 'Min Price',
+      maxPrice: 'Max Price',
     },
   },
   detailsPage: {

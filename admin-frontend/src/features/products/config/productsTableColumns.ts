@@ -25,7 +25,13 @@ export const PRODUCTS_EXPORT_DEFAULT_FIELDS = [
   'createdOn',
 ]
 
-export const PRODUCTS_SORT_FIELDS = ['name', 'price', 'manufacturer', 'createdOn'] as const
+export const PRODUCTS_SORT_FIELDS = [
+  'name',
+  'price',
+  'manufacturer',
+  'createdOn',
+  'variantsCount',
+] as const
 export type ProductsSortField = (typeof PRODUCTS_SORT_FIELDS)[number]
 export type ProductsSortOrder = 'asc' | 'desc'
 
@@ -83,11 +89,11 @@ export function getProductsTableColumns({
       render: (row) => row.manufacturer,
     },
     {
-      key: 'variants',
+      key: 'variantsCount',
       label: 'Variants',
+      sortable: true,
       width: 110,
       minWidth: 100,
-      align: 'center',
       render: (row) => row.variantsCount ?? row.variants?.length ?? 0,
     },
     {

@@ -89,8 +89,17 @@ export type ProductsListResponse = {
   search: string
   manufacturer: string[]
   status?: ProductStatus[]
+  minPrice?: number
+  maxPrice?: number
   sorting: {
-    sortField: 'name' | 'price' | 'manufacturer' | 'category' | 'status' | 'createdOn'
+    sortField:
+      | 'name'
+      | 'price'
+      | 'manufacturer'
+      | 'category'
+      | 'status'
+      | 'createdOn'
+      | 'variantsCount'
     sortOrder: 'asc' | 'desc'
   }
   IsSuccess: boolean
@@ -114,9 +123,19 @@ export type ProductExportPayload = {
   filters: {
     search: string
     manufacturer: string[]
+    status?: ProductStatus[]
+    minPrice?: number
+    maxPrice?: number
     page: number
     limit: number
-    sortField: 'name' | 'price' | 'manufacturer' | 'category' | 'status' | 'createdOn'
+    sortField:
+      | 'name'
+      | 'price'
+      | 'manufacturer'
+      | 'category'
+      | 'status'
+      | 'createdOn'
+      | 'variantsCount'
     sortOrder: 'asc' | 'desc'
   } | null
   fields: string[]
@@ -125,7 +144,17 @@ export type ProductExportPayload = {
 export type ProductsQuery = {
   search: string
   manufacturer: string[]
-  sortField: 'name' | 'price' | 'manufacturer' | 'createdOn'
+  status?: ProductStatus[]
+  minPrice?: number
+  maxPrice?: number
+  sortField:
+    | 'name'
+    | 'price'
+    | 'manufacturer'
+    | 'category'
+    | 'status'
+    | 'createdOn'
+    | 'variantsCount'
   sortOrder: 'asc' | 'desc'
   page: number
   limit: number

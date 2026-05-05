@@ -39,6 +39,7 @@ export type ProductListItemDTO = {
   manufacturer: string;
   category: string;
   status: PRODUCT_STATUSES;
+  createdOn: string;
   variantsCount: number;
   priceRange: {
     min: number;

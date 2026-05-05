@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { downloadBlobResponse } from '@/utils/download'
-import type { Product } from '@/api/modules/products.api'
+import type { Product, ProductStatus } from '@/api/modules/products.api'
 import {
   isProductsSortField,
   type ProductsSortField,
@@ -22,6 +22,20 @@ type ExportSubmitPayload = {
   fields: string[]
 }
 
+type ProductsFiltersApplyPayload = {
+  manufacturer: string[]
+  status: string[]
+  minPrice: number | null
+  maxPrice: number | null
+}
+
+const PRODUCT_STATUSES: ProductStatus[] = ['Draft', 'Active', 'Archived']
+const PRODUCT_STATUS_SET = new Set<string>(PRODUCT_STATUSES)
+
+function toProductStatusList(values: string[]): ProductStatus[] {
+  return values.filter((value): value is ProductStatus => PRODUCT_STATUS_SET.has(value))
+}
+
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status
 }
@@ -33,6 +47,9 @@ export function useProductsPageState() {
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
   const [manufacturer, setManufacturer] = useState<string[]>([])
+  const [status, setStatus] = useState<ProductStatus[]>([])
+  const [minPrice, setMinPrice] = useState<number | null>(null)
+  const [maxPrice, setMaxPrice] = useState<number | null>(null)
   const [sortField, setSortField] = useState<ProductsSortField>('createdOn')
   const [sortOrder, setSortOrder] = useState<ProductsSortOrder>('desc')
   const [page, setPage] = useState(1)
@@ -47,12 +64,15 @@ export function useProductsPageState() {
     () => ({
       search,
       manufacturer,
+      status,
+      ...(minPrice === null ? {} : { minPrice }),
+      ...(maxPrice === null ? {} : { maxPrice }),
       sortField,
       sortOrder,
       page,
       limit,
     }),
-    [search, manufacturer, sortField, sortOrder, page, limit],
+    [search, manufacturer, status, minPrice, maxPrice, sortField, sortOrder, page, limit],
   )
 
   const { data, isLoading, isFetching } = useProductsQuery(query)
@@ -97,6 +117,17 @@ export function useProductsPageState() {
     setPage(1)
   }, [])
 
+  const onRemoveStatusFilter = useCallback((value: string) => {
+    setStatus((current) => current.filter((item) => item !== value))
+    setPage(1)
+  }, [])
+
+  const onRemovePriceFilter = useCallback(() => {
+    setMinPrice(null)
+    setMaxPrice(null)
+    setPage(1)
+  }, [])
+
   const onSort = useCallback(
     (field: string) => {
       if (!isProductsSortField(field)) return
@@ -135,6 +166,9 @@ export function useProductsPageState() {
             : {
                 search,
                 manufacturer,
+                status,
+                ...(minPrice === null ? {} : { minPrice }),
+                ...(maxPrice === null ? {} : { maxPrice }),
                 page,
                 limit,
                 sortField,
@@ -152,7 +186,19 @@ export function useProductsPageState() {
         enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
       }
     },
-    [enqueueSnackbar, exportMutation, limit, manufacturer, page, search, sortField, sortOrder],
+    [
+      enqueueSnackbar,
+      exportMutation,
+      limit,
+      manufacturer,
+      maxPrice,
+      minPrice,
+      page,
+      search,
+      sortField,
+      sortOrder,
+      status,
+    ],
   )
 
   const onConfirmDelete = useCallback(async () => {
@@ -174,6 +220,10 @@ export function useProductsPageState() {
     searchDraft,
     manufacturer,
     manufacturerOptions,
+    status,
+    statusOptions: [...PRODUCT_STATUSES],
+    minPrice,
+    maxPrice,
     sortField,
     sortOrder,
     page,
@@ -196,12 +246,17 @@ export function useProductsPageState() {
     onLimitChange,
     onRemoveSearch,
     onRemoveManufacturerFilter,
+    onRemoveStatusFilter,
+    onRemovePriceFilter,
     onExportSubmit,
     openDeleteDialog,
     closeDeleteDialog,
     onConfirmDelete,
-    applyManufacturerFilters: (values: string[]) => {
-      setManufacturer(values)
+    applyFilters: (values: ProductsFiltersApplyPayload) => {
+      setManufacturer(values.manufacturer)
+      setStatus(toProductStatusList(values.status))
+      setMinPrice(values.minPrice)
+      setMaxPrice(values.maxPrice)
       setPage(1)
       setFiltersOpen(false)
     },

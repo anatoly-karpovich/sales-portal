@@ -1,13 +1,13 @@
 import { Button, Paper, Stack, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
-import { FilterDialog } from '@/components/shared/FilterDialog'
-import { FilterChips } from '@/components/shared/FilterChips'
 import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
+import { ProductsFilterChips } from '@/features/products/components/ProductsFilterChips'
+import { ProductsFiltersDialog } from '@/features/products/components/ProductsFiltersDialog'
 import {
   getProductsTableColumns,
   PRODUCTS_EXPORT_AVAILABLE_FIELDS,
@@ -18,7 +18,12 @@ import { getDeleteProductMessage, productsUiText } from '@/features/products/pro
 
 export function ProductsPage() {
   const state = useProductsPageState()
-  const hasActiveCriteria = Boolean(state.search) || state.manufacturer.length > 0
+  const hasActiveCriteria =
+    Boolean(state.search) ||
+    state.manufacturer.length > 0 ||
+    state.status.length > 0 ||
+    state.minPrice !== null ||
+    state.maxPrice !== null
   const emptyText = hasActiveCriteria
     ? sharedUiText.table.emptyFiltered
     : productsUiText.listPage.emptyStateNoProducts
@@ -51,13 +56,20 @@ export function ProductsPage() {
             onOpenExport={() => state.setExportOpen(true)}
           />
 
-          <FilterChips
+          <ProductsFilterChips
             search={state.search}
             searchPrefix={productsUiText.listPage.chips.searchPrefix}
-            filters={state.manufacturer}
-            filterPrefix={productsUiText.listPage.chips.manufacturerPrefix}
+            manufacturerFilters={state.manufacturer}
+            manufacturerPrefix={productsUiText.listPage.chips.manufacturerPrefix}
+            statusFilters={state.status}
+            statusPrefix={productsUiText.listPage.chips.statusPrefix}
+            pricePrefix={productsUiText.listPage.chips.pricePrefix}
+            minPrice={state.minPrice}
+            maxPrice={state.maxPrice}
             onRemoveSearch={state.onRemoveSearch}
-            onRemoveFilter={state.onRemoveManufacturerFilter}
+            onRemoveManufacturerFilter={state.onRemoveManufacturerFilter}
+            onRemoveStatusFilter={state.onRemoveStatusFilter}
+            onRemovePriceFilter={state.onRemovePriceFilter}
           />
 
           <DataTable
@@ -82,13 +94,23 @@ export function ProductsPage() {
         </Stack>
       </Paper>
 
-      <FilterDialog
+      <ProductsFiltersDialog
         open={state.filtersOpen}
         title={productsUiText.listPage.filtersTitle}
-        values={state.manufacturerOptions}
-        selected={state.manufacturer}
+        manufacturersTitle={productsUiText.listPage.filterSections.manufacturer}
+        statusTitle={productsUiText.listPage.filterSections.productStatus}
+        priceTitle={productsUiText.listPage.filterSections.price}
+        minPriceLabel={productsUiText.listPage.fields.minPrice}
+        maxPriceLabel={productsUiText.listPage.fields.maxPrice}
+        invalidPriceRangeText={productsUiText.listPage.validation.priceRangeInvalid}
+        manufacturerValues={state.manufacturerOptions}
+        selectedManufacturer={state.manufacturer}
+        statusValues={state.statusOptions}
+        selectedStatus={state.status}
+        selectedMinPrice={state.minPrice}
+        selectedMaxPrice={state.maxPrice}
         onClose={() => state.setFiltersOpen(false)}
-        onApply={state.applyManufacturerFilters}
+        onApply={state.applyFilters}
       />
 
       <ExportDialog

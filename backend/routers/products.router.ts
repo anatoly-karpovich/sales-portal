@@ -168,13 +168,14 @@ productsRouter.delete(
  *         max: { type: number }
  *     ProductListItem:
  *       type: object
- *       required: [_id, name, manufacturer, category, status, variantsCount, priceRange]
+ *       required: [_id, name, manufacturer, category, status, createdOn, variantsCount, priceRange]
  *       properties:
  *         _id: { type: string }
  *         name: { type: string }
  *         manufacturer: { type: string }
  *         category: { type: string }
  *         status: { type: string, enum: [Draft, Active, Archived] }
+ *         createdOn: { type: string, format: date-time }
  *         variantsCount: { type: integer }
  *         priceRange:
  *           $ref: '#/components/schemas/ProductPriceRange'

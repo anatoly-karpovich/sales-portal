@@ -570,6 +570,7 @@ class ProductsService {
       manufacturer: product.manufacturer,
       category: product.category,
       status: product.status,
+      createdOn: product.createdOn,
       variantsCount: product.variants.length,
       priceRange,
     };
