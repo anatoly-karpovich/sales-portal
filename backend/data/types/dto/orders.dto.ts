@@ -8,6 +8,7 @@ import { IOrder, IOrderCustomerSnapshot, IProductInOrderResponse } from "../orde
 export type OrderByIdParamsDTO = { orderId?: string };
 export type OrderPathIdParamsDTO = { orderId?: string };
 export type OrderPathOrderIdParamsDTO = { orderId?: string };
+export type OrderCustomerReplaceParamsDTO = { orderId?: string; customerId?: string };
 export type OrderAssignManagerParamsDTO = { orderId?: string; managerId?: string };
 export type OrderCommentParamsDTO = { orderId?: string; commentId?: string };
 export type OrderSortedQueryDTO = {
@@ -51,6 +52,18 @@ export type OrderReceiveProductRequestItemDTO = {
   variantId: string;
 };
 
+export type OrderProductAddRequestBodyDTO = OrderProductRequestItemDTO;
+
+export type OrderProductDeleteRequestBodyDTO = {
+  productId: string;
+  variantId: string;
+};
+
+export type OrderProductReplaceRequestBodyDTO = {
+  from: OrderProductDeleteRequestBodyDTO;
+  to: OrderProductRequestItemDTO;
+};
+
 export type OrderCreateRequestBodyDTO = {
   customer: string;
   products: OrderProductRequestItemDTO[];
@@ -84,6 +97,18 @@ export type OrderListItemDTO = IOrder<IOrderCustomerSnapshot, IProductInOrderRes
 
 export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateRequestBodyDTO>;
 export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderUpdateRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type AddOrderProductRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderProductAddRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type ReplaceOrderProductRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderProductReplaceRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type DeleteOrderProductRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderProductDeleteRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type ReplaceOrderCustomerRequestDTO = Request<OrderCustomerReplaceParamsDTO> & {
   order?: OrderDetailsDTO;
 };
 export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO> & {

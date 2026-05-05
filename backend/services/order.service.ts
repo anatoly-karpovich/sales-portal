@@ -4,6 +4,7 @@ import CustomerService from "./customer.service";
 import {
   IOrder,
   IOrderRequest,
+  IOrderProductRequestItem,
   IOrderUpdateRequest,
   ICustomer,
   IHistory,
@@ -43,6 +44,20 @@ class OrderService {
       _id: new Types.ObjectId(customer._id),
       email: customer.email,
       name: customer.name,
+    };
+  }
+
+  private createHttpError(message: string, statusCode: number): Error & { statusCode: number } {
+    const error = new Error(message) as Error & { statusCode: number };
+    error.statusCode = statusCode;
+    return error;
+  }
+
+  private toRequestOrderLine(product: Pick<IProductInOrder, "product" | "variant" | "quantity">): IOrderProductRequestItem {
+    return {
+      productId: new Types.ObjectId(product.product._id),
+      variantId: new Types.ObjectId(product.variant._id),
+      quantity: product.quantity,
     };
   }
 
@@ -677,6 +692,117 @@ class OrderService {
     }
 
     return this.getOrder(updatedOrder._id);
+  }
+
+  async addProduct(
+    orderId: Types.ObjectId,
+    product: IOrderProductRequestItem,
+    performerId: string,
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
+    const currentProducts = currentOrder.products.map((item) =>
+      this.toRequestOrderLine({
+        product: { _id: new Types.ObjectId(item.product._id) },
+        variant: { _id: new Types.ObjectId(item.variant._id) },
+        quantity: item.quantity,
+      }),
+    );
+
+    const nextKey = `${product.productId.toString()}:${product.variantId.toString()}`;
+    const hasDuplicate = currentProducts.some(
+      (item) => `${item.productId.toString()}:${item.variantId.toString()}` === nextKey,
+    );
+    if (hasDuplicate) {
+      throw this.createHttpError(
+        `Product with Id '${product.productId.toString()}' and variant '${product.variantId.toString()}' is already requested`,
+        409,
+      );
+    }
+
+    return this.update(orderId, { products: [...currentProducts, product] }, performerId, currentOrder);
+  }
+
+  async replaceProduct(
+    orderId: Types.ObjectId,
+    from: Pick<IOrderProductRequestItem, "productId" | "variantId">,
+    to: IOrderProductRequestItem,
+    performerId: string,
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
+    const currentProducts = currentOrder.products.map((item) =>
+      this.toRequestOrderLine({
+        product: { _id: new Types.ObjectId(item.product._id) },
+        variant: { _id: new Types.ObjectId(item.variant._id) },
+        quantity: item.quantity,
+      }),
+    );
+
+    const fromKey = `${from.productId.toString()}:${from.variantId.toString()}`;
+    const replaceIndex = currentProducts.findIndex(
+      (item) => `${item.productId.toString()}:${item.variantId.toString()}` === fromKey,
+    );
+    if (replaceIndex < 0) {
+      throw this.createHttpError(
+        `Product with Id '${from.productId.toString()}' and variant '${from.variantId.toString()}' is not requested`,
+        404,
+      );
+    }
+
+    const toKey = `${to.productId.toString()}:${to.variantId.toString()}`;
+    const duplicateIndex = currentProducts.findIndex(
+      (item) => `${item.productId.toString()}:${item.variantId.toString()}` === toKey,
+    );
+    if (duplicateIndex >= 0 && duplicateIndex !== replaceIndex) {
+      throw this.createHttpError(
+        `Product with Id '${to.productId.toString()}' and variant '${to.variantId.toString()}' is already requested`,
+        409,
+      );
+    }
+
+    const nextProducts = [...currentProducts];
+    nextProducts[replaceIndex] = to;
+    return this.update(orderId, { products: nextProducts }, performerId, currentOrder);
+  }
+
+  async deleteProduct(
+    orderId: Types.ObjectId,
+    product: Pick<IOrderProductRequestItem, "productId" | "variantId">,
+    performerId: string,
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
+    const currentProducts = currentOrder.products.map((item) =>
+      this.toRequestOrderLine({
+        product: { _id: new Types.ObjectId(item.product._id) },
+        variant: { _id: new Types.ObjectId(item.variant._id) },
+        quantity: item.quantity,
+      }),
+    );
+
+    if (currentProducts.length <= 1) {
+      throw this.createHttpError("Cannot delete the last product from order", 400);
+    }
+
+    const deleteKey = `${product.productId.toString()}:${product.variantId.toString()}`;
+    const nextProducts = currentProducts.filter(
+      (item) => `${item.productId.toString()}:${item.variantId.toString()}` !== deleteKey,
+    );
+    if (nextProducts.length === currentProducts.length) {
+      throw this.createHttpError(
+        `Product with Id '${product.productId.toString()}' and variant '${product.variantId.toString()}' is not requested`,
+        404,
+      );
+    }
+
+    return this.update(orderId, { products: nextProducts }, performerId, currentOrder);
+  }
+
+  async replaceCustomer(
+    orderId: Types.ObjectId,
+    customerId: Types.ObjectId,
+    performerId: string,
+    currentOrder: OrderDetailsDTO,
+  ): Promise<OrderDetailsDTO> {
+    return this.update(orderId, { customer: customerId }, performerId, currentOrder);
   }
 
   async delete(id: Types.ObjectId): Promise<OrderDetailsDTO> {

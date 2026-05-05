@@ -316,7 +316,7 @@ productsRouter.delete(
  *             - type: "null"
  *     ProductsSortedResponse:
  *       type: object
- *       required: [Products, total, page, limit, search, manufacturer, status, sorting, IsSuccess, ErrorMessage]
+ *       required: [Products, total, page, limit, search, manufacturer, status, category, sorting, IsSuccess, ErrorMessage]
  *       properties:
  *         Products:
  *           type: array
@@ -334,13 +334,16 @@ productsRouter.delete(
  *           items:
  *             type: string
  *             enum: [Draft, Active, Archived]
+ *         category: { type: string }
+ *         minPrice: { type: number }
+ *         maxPrice: { type: number }
  *         sorting:
  *           type: object
  *           required: [sortField, sortOrder]
  *           properties:
  *             sortField:
  *               type: string
- *               enum: [name, price, manufacturer, category, status, createdOn]
+ *               enum: [name, price, manufacturer, category, status, createdOn, variantsCount]
  *             sortOrder:
  *               type: string
  *               enum: [asc, desc]
@@ -369,11 +372,14 @@ productsRouter.delete(
  *               items:
  *                 type: string
  *                 enum: [Draft, Active, Archived]
+ *             category: { type: string }
+ *             minPrice: { type: number }
+ *             maxPrice: { type: number }
  *             page: { type: integer }
  *             limit: { type: integer }
  *             sortField:
  *               type: string
- *               enum: [name, price, manufacturer, category, status, createdOn]
+ *               enum: [name, price, manufacturer, category, status, createdOn, variantsCount]
  *             sortOrder:
  *               type: string
  *               enum: [asc, desc]
@@ -422,10 +428,25 @@ productsRouter.delete(
  *         explode: true
  *         description: Status filters (repeat query param)
  *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Category filter (case-insensitive partial match)
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: string
+ *         description: Minimum variant price (inclusive)
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: string
+ *         description: Maximum variant price (inclusive)
+ *       - in: query
  *         name: sortField
  *         schema:
  *           type: string
- *           enum: [name, price, manufacturer, category, status, createdOn]
+ *           enum: [name, price, manufacturer, category, status, createdOn, variantsCount]
  *       - in: query
  *         name: sortOrder
  *         schema:
@@ -450,6 +471,8 @@ productsRouter.delete(
  *               $ref: '#/components/schemas/ProductsSortedResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
+ *       400:
+ *         description: Invalid filter values
  *       500:
  *         description: Server error
  *   post:

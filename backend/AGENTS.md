@@ -137,6 +137,10 @@ Orders:
 - `GET /orders/:orderId`
 - `POST /orders`
 - `PATCH /orders/:orderId`
+- `POST /orders/:orderId/products`
+- `PATCH /orders/:orderId/products`
+- `DELETE /orders/:orderId/products`
+- `PATCH /orders/:orderId/customer/:customerId`
 - `DELETE /orders/:orderId`
 - `POST /orders/export`
 - `POST /orders/pricing`
@@ -215,6 +219,11 @@ Current important constraints:
   - `POST /orders` creates a default delivery snapshot (`condition=Delivery`, `express=false`, customer address) with `delivery.status=Draft`.
   - On customer change in `PATCH /orders/:orderId`, delivery is reset to the new customer address and `delivery.status=Draft`.
   - `total_price` always includes delivery price.
+- Order product/customer patch endpoints (`POST/PATCH/DELETE /orders/:orderId/products`, `PATCH /orders/:orderId/customer/:customerId`):
+  - allowed only for `Draft` orders;
+  - add (`POST .../products`) returns `409` when `(productId, variantId)` already exists in order;
+  - replace (`PATCH .../products`) returns `409` when target `(to.productId, to.variantId)` already exists in another order line;
+  - delete (`DELETE .../products`) removes the full line by `(productId, variantId)` and rejects deleting the last line (`400`).
 - Order receive: `products` is an array of unique `{ productId, variantId }` objects to mark as received.
   - Each pair must reference an existing position in the order with `received = false` (otherwise `400`).
   - Partial receive of a single position by `quantity` is NOT supported - the entire position flips to `received = true`.
@@ -231,6 +240,8 @@ Current important constraints:
   `deliveryStatus` filters are applied to `delivery.status`.
 - Product uniqueness: case-insensitive by trimmed `name`.
 - Product manufacturer must exist in `settings.catalog.manufacturers` (case-insensitive).
+- `GET /products` filters support `manufacturer[]`, `status[]`, `category` (case-insensitive partial match), `minPrice`, `maxPrice` (inclusive; applied to `variants.price`).
+- `GET /products` sorting supports `name`, `price`, `manufacturer`, `category`, `status`, `createdOn`, `variantsCount`; tie-break is `createdOn` descending.
 - Product variants rules:
   - product must contain at least one variant;
   - variant attributes must include all product attribute keys;
@@ -310,6 +321,7 @@ Order lifecycle:
   - delivery statuses: `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
 - initial state on create is `Draft` + `delivery.status=Draft` with default `Delivery` snapshot based on customer address (`express=false`);
 - only `Draft` orders can be updated (`PATCH /orders/:orderId`);
+- order line/customer mutation endpoints (`POST/PATCH/DELETE /orders/:orderId/products`, `PATCH /orders/:orderId/customer/:customerId`) are also Draft-only;
 - delivery can be created/edited only while order is `Draft`, and sets delivery status to:
   - `Delivery Planned` for delivery endpoint
   - `Pickup Planned` for pickup endpoint

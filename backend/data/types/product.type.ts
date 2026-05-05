@@ -37,5 +37,8 @@ export interface IProductDocument extends IProduct, mongoose.Document {
 export interface IProductFilters {
   manufacturers?: string[];
   statuses?: PRODUCT_STATUSES[];
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
   search: string;
 }

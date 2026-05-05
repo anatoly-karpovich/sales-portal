@@ -4,14 +4,18 @@ import { Types } from "mongoose";
 import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
+  AddOrderProductRequestDTO,
   AssignManagerRequestDTO,
   CreateOrderRequestDTO,
+  DeleteOrderProductRequestDTO,
   DeleteOrderRequestDTO,
   ExportOrdersRequestDTO,
   GetOrderRequestWithEntityDTO,
   GetOrdersSortedRequestDTO,
   OrderResponseDTO,
   OrdersSortedResponseDTO,
+  ReplaceOrderCustomerRequestDTO,
+  ReplaceOrderProductRequestDTO,
   UnassignManagerRequestDTO,
   UpdateOrderRequestDTO,
 } from "../data/types/dto/orders.dto.js";
@@ -21,14 +25,18 @@ const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class OrderController {
+  private mapOrderProductRequestItem(item: { productId: string; variantId: string; quantity: number }) {
+    return {
+      productId: new Types.ObjectId(item.productId),
+      variantId: new Types.ObjectId(item.variantId),
+      quantity: item.quantity,
+    };
+  }
+
   private mapCreateOrderRequestBody(body: CreateOrderRequestDTO["body"]): IOrderRequest {
     return {
       customer: new Types.ObjectId(body.customer),
-      products: body.products.map((item) => ({
-        productId: new Types.ObjectId(item.productId),
-        variantId: new Types.ObjectId(item.variantId),
-        quantity: item.quantity,
-      })),
+      products: body.products.map((item) => this.mapOrderProductRequestItem(item)),
     };
   }
 
@@ -40,11 +48,7 @@ class OrderController {
     }
 
     if (Array.isArray(body.products)) {
-      updatePayload.products = body.products.map((item) => ({
-        productId: new Types.ObjectId(item.productId),
-        variantId: new Types.ObjectId(item.variantId),
-        quantity: item.quantity,
-      }));
+      updatePayload.products = body.products.map((item) => this.mapOrderProductRequestItem(item));
     }
 
     return updatePayload;
@@ -140,6 +144,100 @@ class OrderController {
     } catch (e: any) {
       console.log(e);
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async addProduct(req: AddOrderProductRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
+    try {
+      const token = getTokenFromRequest(req);
+      const managerData = getDataDataFromToken(token);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+
+      const orderId = new Types.ObjectId(req.params.orderId);
+      const updatedOrder = await OrderService.addProduct(
+        orderId,
+        this.mapOrderProductRequestItem(req.body),
+        managerData.id,
+        req.order,
+      );
+
+      return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async replaceProduct(req: ReplaceOrderProductRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
+    try {
+      const token = getTokenFromRequest(req);
+      const managerData = getDataDataFromToken(token);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+
+      const orderId = new Types.ObjectId(req.params.orderId);
+      const updatedOrder = await OrderService.replaceProduct(
+        orderId,
+        {
+          productId: new Types.ObjectId(req.body.from.productId),
+          variantId: new Types.ObjectId(req.body.from.variantId),
+        },
+        this.mapOrderProductRequestItem(req.body.to),
+        managerData.id,
+        req.order,
+      );
+
+      return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async deleteProduct(req: DeleteOrderProductRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
+    try {
+      const token = getTokenFromRequest(req);
+      const managerData = getDataDataFromToken(token);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+
+      const orderId = new Types.ObjectId(req.params.orderId);
+      const updatedOrder = await OrderService.deleteProduct(
+        orderId,
+        {
+          productId: new Types.ObjectId(req.body.productId),
+          variantId: new Types.ObjectId(req.body.variantId),
+        },
+        managerData.id,
+        req.order,
+      );
+
+      return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async replaceCustomer(req: ReplaceOrderCustomerRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>) {
+    try {
+      const token = getTokenFromRequest(req);
+      const managerData = getDataDataFromToken(token);
+      if (!req.order) {
+        return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+      }
+
+      const orderId = new Types.ObjectId(req.params.orderId);
+      const customerId = new Types.ObjectId(req.params.customerId);
+      const updatedOrder = await OrderService.replaceCustomer(orderId, customerId, managerData.id, req.order);
+      return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 

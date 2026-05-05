@@ -48,6 +48,54 @@ export const orderUpdateSchema: AllowedSchema = {
   anyOf: [{ required: ["customer"] }, { required: ["products"] }],
 };
 
+export const orderProductAddSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    productId: { type: "string" },
+    variantId: { type: "string" },
+    quantity: { type: "integer", minimum: 1 },
+  },
+  required: ["productId", "variantId", "quantity"],
+  additionalProperties: false,
+};
+
+export const orderProductReplaceSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    from: {
+      type: "object",
+      properties: {
+        productId: { type: "string" },
+        variantId: { type: "string" },
+      },
+      required: ["productId", "variantId"],
+      additionalProperties: false,
+    },
+    to: {
+      type: "object",
+      properties: {
+        productId: { type: "string" },
+        variantId: { type: "string" },
+        quantity: { type: "integer", minimum: 1 },
+      },
+      required: ["productId", "variantId", "quantity"],
+      additionalProperties: false,
+    },
+  },
+  required: ["from", "to"],
+  additionalProperties: false,
+};
+
+export const orderProductDeleteSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    productId: { type: "string" },
+    variantId: { type: "string" },
+  },
+  required: ["productId", "variantId"],
+  additionalProperties: false,
+};
+
 export const orderReceiveSchema: AllowedSchema = {
   type: "object",
   properties: {

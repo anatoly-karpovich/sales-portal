@@ -66,10 +66,13 @@ export type ProductDetailsDTO = {
 
 export type ProductsSortedQueryDTO = {
   search?: string;
-  sortField?: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
+  sortField?: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
   sortOrder?: "asc" | "desc";
   manufacturer?: string | string[];
   status?: PRODUCT_STATUSES | PRODUCT_STATUSES[];
+  category?: string;
+  minPrice?: string;
+  maxPrice?: string;
   page?: string;
   limit?: string;
 };
@@ -80,9 +83,12 @@ export type ProductExportFiltersDTO = {
   search?: string;
   manufacturer?: string[];
   status?: PRODUCT_STATUSES[];
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
   page?: number;
   limit?: number;
-  sortField?: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
+  sortField?: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
   sortOrder?: "asc" | "desc";
 } | null;
 
@@ -177,8 +183,11 @@ export type ProductsSortedResponseDTO = BaseResponseDTO & {
   search?: string;
   manufacturer?: string[];
   status?: PRODUCT_STATUSES[];
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
   sorting?: {
-    sortField: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
+    sortField: "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
     sortOrder: "asc" | "desc";
   };
 };

@@ -1,7 +1,15 @@
 import Router from "express";
 import OrderController from "../controllers/order.controller.js";
 import { authmiddleware } from "../middleware/authmiddleware.js";
-import { orderById, orderValidations, orderUpdateValidations } from "../middleware/orderMiddleware.js";
+import {
+  orderById,
+  orderCustomerReplaceValidations,
+  orderProductAddValidations,
+  orderProductDeleteValidations,
+  orderProductReplaceValidations,
+  orderValidations,
+  orderUpdateValidations,
+} from "../middleware/orderMiddleware.js";
 import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 import { isManager, managerById } from "../middleware/managersMiddleware.js";
 
@@ -30,6 +38,42 @@ orderRouter.patch(
   orderValidations,
   OrderController.update.bind(OrderController),
 );
+
+orderRouter.post(
+  "/orders/:orderId/products",
+  authmiddleware,
+  schemaMiddleware("orderProductAddSchema"),
+  orderById,
+  orderProductAddValidations,
+  OrderController.addProduct.bind(OrderController),
+);
+
+orderRouter.patch(
+  "/orders/:orderId/products",
+  authmiddleware,
+  schemaMiddleware("orderProductReplaceSchema"),
+  orderById,
+  orderProductReplaceValidations,
+  OrderController.replaceProduct.bind(OrderController),
+);
+
+orderRouter.delete(
+  "/orders/:orderId/products",
+  authmiddleware,
+  schemaMiddleware("orderProductDeleteSchema"),
+  orderById,
+  orderProductDeleteValidations,
+  OrderController.deleteProduct.bind(OrderController),
+);
+
+orderRouter.patch(
+  "/orders/:orderId/customer/:customerId",
+  authmiddleware,
+  orderById,
+  orderCustomerReplaceValidations,
+  OrderController.replaceCustomer.bind(OrderController),
+);
+
 orderRouter.delete("/orders/:orderId", authmiddleware, orderById, OrderController.delete.bind(OrderController));
 
 orderRouter.put(
@@ -422,6 +466,24 @@ orderRouter.put(
  *           items:
  *             $ref: '#/components/schemas/OrderProductRequestItem'
  *           description: Array of order products with quantities
+ *     OrderProductDeletePayload:
+ *       type: object
+ *       required: [productId, variantId]
+ *       properties:
+ *         productId:
+ *           type: string
+ *           description: Product id
+ *         variantId:
+ *           type: string
+ *           description: Product variant id
+ *     OrderProductReplacePayload:
+ *       type: object
+ *       required: [from, to]
+ *       properties:
+ *         from:
+ *           $ref: '#/components/schemas/OrderProductDeletePayload'
+ *         to:
+ *           $ref: '#/components/schemas/OrderProductRequestItem'
  *     OrderExportPayload:
  *       type: object
  *       required: [format, fields]
@@ -696,6 +758,147 @@ orderRouter.put(
  *         description: Order not found
  *       409:
  *         description: Conflict, unable to update the order
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/orders/{orderId}/products:
+ *   post:
+ *     summary: Add one product line to draft order
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderProductRequestItem'
+ *     responses:
+ *       200:
+ *         description: Product line added
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OrderResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Order/product/variant not found
+ *       409:
+ *         description: Product line already exists in order
+ *       500:
+ *         description: Server error
+ *   patch:
+ *     summary: Replace one product line in draft order
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderProductReplacePayload'
+ *     responses:
+ *       200:
+ *         description: Product line replaced
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OrderResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Order/source line/product/variant not found
+ *       409:
+ *         description: Target product line already exists in order
+ *       500:
+ *         description: Server error
+ *   delete:
+ *     summary: Delete one product line from draft order
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderProductDeletePayload'
+ *     responses:
+ *       200:
+ *         description: Product line deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OrderResponse'
+ *       400:
+ *         description: Validation error or last product deletion is blocked
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Order or product line not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/orders/{orderId}/customer/{customerId}:
+ *   patch:
+ *     summary: Replace customer in draft order
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: customerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Customer replaced
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OrderResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Order or customer not found
  *       500:
  *         description: Server error
  */

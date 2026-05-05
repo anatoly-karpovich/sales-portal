@@ -13,7 +13,7 @@ import Product from "../models/product.model";
 import ExportService from "./export.service";
 import { PRODUCT_STATUSES } from "../data/enums";
 
-type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn";
+type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
 type ProductSortOrder = "asc" | "desc";
 type ProductVariantWritePayload = ProductVariantCreateRequestDTO & { _id?: Types.ObjectId | string; status?: PRODUCT_STATUSES };
 
@@ -362,6 +362,9 @@ class ProductsService {
       manufacturers?: string[];
       statuses?: PRODUCT_STATUSES[];
       search?: string;
+      category?: string;
+      minPrice?: number;
+      maxPrice?: number;
       page?: number;
       limit?: number;
       sortField?: ProductSortField;
@@ -372,6 +375,9 @@ class ProductsService {
       manufacturers: filters.manufacturers ?? [],
       statuses: filters.statuses ?? [],
       search: filters.search ?? "",
+      category: filters.category ?? "",
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
     });
 
     const products = (await Product.find(filter).lean().exec()).map((product) => this.normalizeProduct(product));
@@ -400,6 +406,9 @@ class ProductsService {
       manufacturers?: string[];
       statuses?: PRODUCT_STATUSES[];
       search?: string;
+      category?: string;
+      minPrice?: number;
+      maxPrice?: number;
       page?: number;
       limit?: number;
       sortField?: ProductSortField;
@@ -418,6 +427,9 @@ class ProductsService {
       manufacturers: filters?.manufacturers ?? [],
       statuses: filters?.statuses ?? [],
       search: filters?.search ?? "",
+      category: filters?.category ?? "",
+      minPrice: filters?.minPrice,
+      maxPrice: filters?.maxPrice,
       page: filters?.page,
       limit: filters?.limit,
       sortField: filters?.sortField ?? "createdOn",
@@ -471,26 +483,37 @@ class ProductsService {
     const direction = sortOptions.sortOrder === "asc" ? 1 : -1;
 
     return [...products].sort((a, b) => {
+      let primaryComparison = 0;
+
       if (sortField === "price") {
-        const diff = this.getPriceRange(a.variants).min - this.getPriceRange(b.variants).min;
-        if (diff !== 0) return diff * direction;
+        primaryComparison = (this.getPriceRange(a.variants).min - this.getPriceRange(b.variants).min) * direction;
+      } else if (sortField === "variantsCount") {
+        primaryComparison = (a.variants.length - b.variants.length) * direction;
       } else if (sortField === "createdOn") {
         const ad = new Date(a.createdOn).getTime();
         const bd = new Date(b.createdOn).getTime();
-        if (ad !== bd) return (ad - bd) * direction;
+        primaryComparison = (ad - bd) * direction;
       } else {
         const av = (a as unknown as Record<string, string>)[sortField] ?? "";
         const bv = (b as unknown as Record<string, string>)[sortField] ?? "";
-        const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
-        if (cmp !== 0) return cmp * direction;
+        primaryComparison = av.localeCompare(bv, undefined, { sensitivity: "base" }) * direction;
       }
 
-      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) * direction;
+      if (primaryComparison !== 0) {
+        return primaryComparison;
+      }
+
+      const createdDiff = new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime();
+      if (createdDiff !== 0) {
+        return createdDiff;
+      }
+
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
   }
 
   private buildFilter(filters: IProductFilters): Record<string, unknown> {
-    const { manufacturers, statuses, search } = filters;
+    const { manufacturers, statuses, search, category, minPrice, maxPrice } = filters;
     const filter: Record<string, unknown> = {};
 
     if (manufacturers && manufacturers.length > 0) {
@@ -499,6 +522,21 @@ class ProductsService {
 
     if (statuses && statuses.length > 0) {
       filter.status = { $in: statuses };
+    }
+
+    if (category && category.trim() !== "") {
+      filter.category = { $regex: new RegExp(this.escapeRegex(category.trim()), "i") };
+    }
+
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      const priceRange: Record<string, number> = {};
+      if (minPrice !== undefined) {
+        priceRange.$gte = minPrice;
+      }
+      if (maxPrice !== undefined) {
+        priceRange.$lte = maxPrice;
+      }
+      filter.variants = { $elemMatch: { price: priceRange } };
     }
 
     if (search && search.trim() !== "") {
@@ -518,6 +556,10 @@ class ProductsService {
       min: Math.min(...prices),
       max: Math.max(...prices),
     };
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   private toListItem(product: IProduct): ProductListItemDTO {

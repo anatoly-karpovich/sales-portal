@@ -29,6 +29,24 @@ const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
 
 class ProductsController {
+  private parseOptionalPrice(value: unknown): number | undefined {
+    if (typeof value !== "string") {
+      return undefined;
+    }
+
+    const normalized = value.trim();
+    if (!normalized) {
+      return undefined;
+    }
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed)) {
+      throw new Error("INVALID_PRICE_FILTER");
+    }
+
+    return parsed;
+  }
+
   private toDetailsDTO(product: any): ProductDetailsDTO {
     const prices = product.variants.map((variant: any) => variant.price);
     return {
@@ -73,6 +91,9 @@ class ProductsController {
         sortOrder = "desc",
         manufacturer,
         status,
+        category,
+        minPrice,
+        maxPrice,
         page = "1",
         limit = MIN_LIMIT,
       } = req.query;
@@ -92,15 +113,25 @@ class ProductsController {
         : typeof status === "string" && Object.values(PRODUCT_STATUSES).includes(status as PRODUCT_STATUSES)
           ? [status as PRODUCT_STATUSES]
           : [];
+      const normalizedCategory = typeof category === "string" ? category.trim() : "";
+      const parsedMinPrice = this.parseOptionalPrice(minPrice);
+      const parsedMaxPrice = this.parseOptionalPrice(maxPrice);
+
+      if (parsedMinPrice !== undefined && parsedMaxPrice !== undefined && parsedMinPrice > parsedMaxPrice) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "minPrice cannot be greater than maxPrice" });
+      }
 
       const filters: IProductFilters = {
         manufacturers,
         statuses,
+        category: normalizedCategory,
+        minPrice: parsedMinPrice,
+        maxPrice: parsedMaxPrice,
         search,
       };
 
       const sortOptions = {
-        sortField: sortField as "name" | "price" | "manufacturer" | "category" | "status" | "createdOn",
+        sortField: sortField as "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount",
         sortOrder: sortOrder as "asc" | "desc",
       };
 
@@ -117,11 +148,17 @@ class ProductsController {
         search,
         manufacturer: manufacturers,
         status: statuses,
+        category: normalizedCategory,
+        minPrice: parsedMinPrice,
+        maxPrice: parsedMaxPrice,
         sorting: sortOptions,
         IsSuccess: true,
         ErrorMessage: null,
       });
     } catch (e: any) {
+      if (e?.message === "INVALID_PRICE_FILTER") {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "minPrice and maxPrice must be valid numbers" });
+      }
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
@@ -261,6 +298,9 @@ class ProductsController {
               manufacturers: filters.manufacturer,
               statuses: filters.status,
               search: filters.search,
+              category: filters.category,
+              minPrice: filters.minPrice,
+              maxPrice: filters.maxPrice,
               page: filters.page,
               limit: filters.limit,
               sortField: filters.sortField,
