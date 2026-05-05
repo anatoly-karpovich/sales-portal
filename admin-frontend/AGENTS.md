@@ -111,6 +111,7 @@ Top-level source layout:
   - `ManagerOrder` shape is shared with manager details "Assigned Orders" table rendering.
 - `api/modules/products.api.ts`
   - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
+  - products list query supports filters `manufacturer[]`, `status[]`, `minPrice`, `maxPrice` and sorting with `variantsCount`.
   - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
 
 ### 4.3 `features` layer
@@ -132,12 +133,17 @@ Top-level source layout:
   - shipping settings contract is `shipping.delivery.pricing` + `shipping.pickup.{policy,locations}`.
 - `features/products` (most complete module)
   - `pages/ProductsPage.tsx` - list, filters, export, pagination, dialogs
-    - shared chips are prefixed (`Search:`, `Manufacturer:`).
+    - products-only filters modal uses 3 accordions: `Manufacturers`, `Product Status`, `Price`.
+    - only one accordion can be expanded at a time; section header shows `<N> selected` when values exist.
+    - manufacturers source is `settings.catalog.manufacturers`.
+    - price filter uses decimal dot input and validates `min <= max` before apply.
+    - chips are prefixed (`Search:`, `Manufacturer:`, `Status:`, `Price:`).
   - `pages/ProductUpsertPage.tsx`, `ProductCreatePage.tsx`, `ProductEditPage.tsx`
   - `hooks/useProductsPageState.ts` - UI orchestration + query params
   - `hooks/useProductsQuery.ts` - query/mutation layer
   - `config/productsTableColumns.ts` - table schema, sort fields, export fields
-  - `components/ProductForm.tsx`, `ProductDetailsDialog.tsx`, `ProductsTableActionsCell.tsx`
+    - products list includes sortable `Variants` column mapped to `sortField=variantsCount`.
+  - `components/ProductForm.tsx`, `ProductsFiltersDialog.tsx`, `ProductsFilterChips.tsx`, `ProductsTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `products.ui-text.ts` - labels, validation text, toast text
 - `features/customers` (implemented in iteration 5)
@@ -285,8 +291,8 @@ Top-level source layout:
   - `DataTable`
   - `SearchToolbar`
     - search apply button is enabled only when search input contains a non-empty value
-  - `FilterDialog` (generic modal, still used by products/customers pages)
-  - `FilterChips` (generic chips, still used by products/customers pages)
+  - `FilterDialog` (generic modal, still used by customers page)
+  - `FilterChips` (generic chips, still used by customers page)
     - supports optional label prefixes for search/filter values (for example `Search: foo`, `State: NY`).
   - `ExportDialog`
   - `PaginationControls`

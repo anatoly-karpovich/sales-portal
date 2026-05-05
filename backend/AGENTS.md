@@ -242,6 +242,7 @@ Current important constraints:
 - Product manufacturer must exist in `settings.catalog.manufacturers` (case-insensitive).
 - `GET /products` filters support `manufacturer[]`, `status[]`, `category` (case-insensitive partial match), `minPrice`, `maxPrice` (inclusive; applied to `variants.price`).
 - `GET /products` sorting supports `name`, `price`, `manufacturer`, `category`, `status`, `createdOn`, `variantsCount`; tie-break is `createdOn` descending.
+- `GET /products` list item response includes `createdOn`.
 - Product variants rules:
   - product must contain at least one variant;
   - variant attributes must include all product attribute keys;

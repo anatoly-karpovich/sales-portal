@@ -104,19 +104,26 @@ Validate semantics (`POST /api/products/:productId/variants/validate`):
   "manufacturer": "string",
   "category": "string",
   "status": "Active",
+  "createdOn": "2026-05-06T10:00:00.000Z",
   "variantsCount": 3,
   "priceRange": { "min": 599.99, "max": 899.99 }
 }
 ```
 
 Sorting:
-- `sortField`: `name | price | manufacturer | category | status | createdOn`
+- `sortField`: `name | price | manufacturer | category | status | createdOn | variantsCount`
 - `price` sorting is based on `priceRange.min`.
+- `variantsCount` sorting is based on the product `variants.length`.
+- tie-break for equal primary sort values is always `createdOn desc`.
 
 Filters:
 - `manufacturer` (single/multiple)
 - `status` (single/multiple)
+- `category` (case-insensitive partial match with trim)
+- `minPrice` (inclusive, optional)
+- `maxPrice` (inclusive, optional)
 - `search` (name/manufacturer/category)
+- price filters are applied to variant prices (product is included when at least one variant is within the passed bounds).
 
 ## Details DTO (`GET /api/products/:productId`, `/all`)
 
@@ -150,9 +157,13 @@ Allowed fields:
 - `variantsCount`, `priceRange`, `attributes`, `variants`,
 - `createdOn`, `updatedOn`.
 
+Supported `filters` keys:
+- `search`, `manufacturer[]`, `status[]`, `category`, `minPrice`, `maxPrice`,
+- `page`, `limit`, `sortField`, `sortOrder`.
+
 ## Standard Response Envelopes
 
 - Success (entity): `{ Product, IsSuccess: true, ErrorMessage: null }`
 - Success (list): `{ Products, IsSuccess: true, ErrorMessage: null }`
-- Success (sorted list): `{ Products, total, page, limit, search, manufacturer, status, sorting, IsSuccess: true, ErrorMessage: null }`
+- Success (sorted list): `{ Products, total, page, limit, search, manufacturer, status, category, minPrice, maxPrice, sorting, IsSuccess: true, ErrorMessage: null }`
 - Failure: `{ IsSuccess: false, ErrorMessage }`

@@ -38,6 +38,10 @@
 | GET | `/api/orders/:orderId` | Detailed order. |
 | POST | `/api/orders` | Create order. |
 | PATCH | `/api/orders/:orderId` | Update customer/products (Draft only). |
+| POST | `/api/orders/:orderId/products` | Add one product line (Draft only). |
+| PATCH | `/api/orders/:orderId/products` | Replace one product line (Draft only). |
+| DELETE | `/api/orders/:orderId/products` | Delete one product line (Draft only). |
+| PATCH | `/api/orders/:orderId/customer/:customerId` | Replace customer (Draft only). |
 | DELETE | `/api/orders/:orderId` | Delete order (`204`). |
 | POST | `/api/orders/export` | Export orders (`csv` or `json`). |
 | POST | `/api/orders/pricing` | Calculate products + delivery/pickup pricing. |
@@ -80,6 +84,10 @@ Rules:
 - `variantId` must belong to `productId`;
 - line quantity: `1..settings.order.maxProductQuantityInOrder`;
 - line `unitPrice` is snapshotted from variant price when line is added.
+- add line (`POST /api/orders/:orderId/products`) returns `409` if the same `productId + variantId` already exists in order.
+- replace line (`PATCH /api/orders/:orderId/products`) returns `409` if target `to.productId + to.variantId` already exists in another line.
+- delete line (`DELETE /api/orders/:orderId/products`) removes full line by `productId + variantId`; deleting the last line is forbidden (`400`).
+- all line/customer patch endpoints are Draft-only.
 
 ## Order Response Line Item
 
