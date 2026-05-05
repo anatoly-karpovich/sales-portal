@@ -6,7 +6,7 @@
 
 | Aspect | Details |
 | --- | --- |
-| Entry points | `#/orders`, `#/orders/{id}` |
+| Entry points | `#/orders`, `#/orders/add`, `#/orders/{id}` |
 | APIs | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/orders/pricing`, `/api/settings` |
 | Status model | Order status: `Draft / In Process / Completed / Canceled`; delivery status source: `order.delivery.status` |
 | Delivery status values | `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered` |
@@ -16,7 +16,7 @@
 
 | Element | Description |
 | --- | --- |
-| Header | Title plus `Create Order` button. Clicking performs lightweight customers/products existence checks and then opens create modal. |
+| Header | Title plus `Create Order` button. Clicking performs lightweight customers/products existence checks and then navigates to `#/orders/add`. |
 | Toolbar | Search, filters dialog (`status` + `deliveryStatus`), export dialog (CSV/JSON + fields). |
 | Table | Columns: Order Number, Customer Email, Price, Status, Delivery, Assigned Manager, Created On. Delivery column displays `order.delivery.status`. |
 | Row actions | Details opens `#/orders/{id}`. `Reopen` is visible only for canceled orders. |
@@ -34,17 +34,23 @@
 - Export supports filtered/all modes and selected fields.
 - Export field `deliveryStatus` is populated from `order.delivery.status`.
 
-## Create Order Modal
+## Create Order Page (`#/orders/add`)
 
 | Section | Rules |
 | --- | --- |
 | Customer | Searchable selector, required. |
-| Products | At least one row is required by UI and API. |
-| Total price | Debounced preview via `POST /api/orders/pricing` after product changes. |
-| Buttons | `Create` and `Cancel`; submit shows pending state. |
+| Products | Two-step picker: parent product list -> variants list. Variant selection supports multi-select and batched add (`Add Selected Variants`). |
+| Selected products | Added variant rows include quantity control and delete action. Duplicate lines by `productId + variantId` are blocked. |
+| Delivery | Read-only preview. If customer is selected, address fields are prefilled from customer; otherwise empty placeholder is shown. |
+| Summary | Sticky right-side card with customer, products count, subtotal, delivery, and total. Price values animate up/down after recalculation. |
+| Buttons | Header: `Cancel`. Summary card: `Create Order`. Submit shows pending state. |
 
-- Dialog opens only after prechecks confirm at least one customer and one product exist.
-- After successful create, list is refreshed and success toast is shown.
+- Create page opens only after prechecks confirm at least one customer and one product exist.
+- Pricing preview is debounced and requested via `POST /api/orders/pricing`:
+  - before customer selection: products-only pricing;
+  - after customer selection: products + delivery pricing by customer address.
+- Unsaved changes prompt is shown on route leave/refresh when customer or products were changed.
+- After successful create, UI redirects to order details `#/orders/{id}` and shows success toast.
 - Backend returns non-null `delivery` snapshot immediately on create.
 
 ## Order Details Layout

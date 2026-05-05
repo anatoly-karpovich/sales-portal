@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | Header strip | Title plus `+ Add Product` button linking to the add page | Button stays primary-styled down to mobile widths |
 | Utility row | Search bar, Filter button, prefixed chip container | Search limited to 40 chars; filters modal has accordions for manufacturers, product statuses, and price range |
-| Data table | Columns Name, Price, Manufacturer, Variants, Created On | Sortable columns: Name, Price, Manufacturer, Variants, Created On |
+| Data table | Columns Name, Price, Manufacturer, Status, Variants, Created On | Sortable columns: Name, Price, Manufacturer, Status, Variants, Created On |
 | Row actions | Details, Edit, Delete | Icon buttons with tooltips; Delete always opens confirmation modal |
 | Pagination | Standard controls under the table | If a page empties (after delete), step back and refetch |
 
@@ -46,6 +46,12 @@
 - **Details** opens the Product Details modal (read-only fields, formatted timestamps, Edit shortcut).
 - **Edit** navigates to `#/products/{id}/edit`.
 - **Delete** shows the standard confirmation modal ("Yes, Delete" / "Cancel"). Confirmed deletes disable both buttons, show a spinner, send the request, then display success/error toasts.
+
+### Table Status Styling
+- Status column is color-coded for quick scan:
+  - `Active` -> blue (`primary.main`)
+  - `Archived` -> yellow-ish (`warning.main`)
+  - `Draft` -> neutral (`text.primary`)
 
 ### Create and Edit Forms
 

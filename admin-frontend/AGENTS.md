@@ -142,7 +142,11 @@ Top-level source layout:
   - `hooks/useProductsPageState.ts` - UI orchestration + query params
   - `hooks/useProductsQuery.ts` - query/mutation layer
   - `config/productsTableColumns.ts` - table schema, sort fields, export fields
-    - products list includes sortable `Variants` column mapped to `sortField=variantsCount`.
+    - products list includes sortable `Status` and `Variants` columns (`Status -> sortField=status`, `Variants -> sortField=variantsCount`).
+    - list status cell uses product-specific colors:
+      - `Active` -> `primary.main` (blue),
+      - `Archived` -> `warning.main` (yellow-ish),
+      - `Draft` -> `text.primary` (neutral).
   - `components/ProductForm.tsx`, `ProductsFiltersDialog.tsx`, `ProductsFilterChips.tsx`, `ProductsTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `products.ui-text.ts` - labels, validation text, toast text
@@ -171,9 +175,10 @@ Top-level source layout:
       - `Delivery: <deliveryStatus>`
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows.
     - query and export (`filtered`) include both filter arrays: `status[]` and `deliveryStatus[]`.
-    - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
+    - create action does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
+    - successful precheck navigates to `#/orders/add` create page.
     - customer precheck requests pass customers-state filter defaults (`state: []`) to satisfy customers API contract.
-  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment and pricing preview (`POST /orders/pricing`)
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/product details/comments/manager assignment and pricing preview (`POST /orders/pricing`)
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
     - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `order.delivery.status`.
     - export fields include both `delivery` and `deliveryStatus`.
@@ -184,14 +189,19 @@ Top-level source layout:
     - default expanded section on open: `Order Status`;
     - section header shows `<N> selected` only when section has at least one selected value.
   - `components/OrdersFilterChips.tsx` - orders-only chip row for search/status/deliveryStatus filters with per-chip removal
-  - `components/CreateOrderDialog.tsx` - create modal with search-driven pickers:
-    - customer selection uses MUI `Autocomplete` with popper overlay (outside dialog flow), opens on field click, and closes after selection;
-    - selected customer value is shown in the same input field (`name | email`), without separate pencil action;
-    - product rows support `1..5`, duplicates are allowed, and only one active product `Autocomplete` chooser is rendered at a time;
-    - product row click opens editing chooser; delete action is independent and does not trigger edit open;
-    - product row outline/hovers are aligned with outlined-input style for consistent visual affordance;
-    - unavailable products are detected via availability checks and block create action;
-    - total price preview is requested from backend pricing endpoint with debounce after product changes.
+  - `pages/OrderCreatePage.tsx` - dedicated create page at `#/orders/add`:
+    - customer selection uses searchable MUI `Autocomplete`;
+    - products flow is two-step: parent products list -> variants list;
+    - variants support multi-select and batch add (`Add Selected Variants`);
+    - selected product rows include quantity controls and remove action;
+    - duplicate selected rows by `productId + variantId` are blocked;
+    - delivery section is read-only and sourced from selected customer (empty placeholder before customer selection);
+    - pricing preview uses debounce after product/quantity changes:
+      - products-only before customer selection;
+      - products + delivery after customer selection;
+    - summary card is sticky and shows animated price transitions (count up/down);
+    - create action redirects to `#/orders/:orderId` on success.
+  - `hooks/useUnsavedChangesGuard.ts` - hash-router compatible unsaved changes prompt for page leave/refresh in create flow.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
   - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
   - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard, and backend pricing preview (products-only or products+current delivery)
@@ -313,6 +323,7 @@ Routes:
 - Protected:
   - `/home`
   - `/orders`
+  - `/orders/add`
   - `/orders/:orderId`
   - `/products`
   - `/products/add`
@@ -385,6 +396,7 @@ Existing scope prefixes to follow:
 - `orders-list-*`
 - `orders-table-*`
 - `orders-create-*`
+- `orders-create-page-*`
 - `order-details-*`
 - `products-list-*`
 - `products-upsert-*`

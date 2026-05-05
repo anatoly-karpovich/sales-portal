@@ -1,4 +1,5 @@
 import { createElement } from 'react'
+import { Typography } from '@mui/material'
 import type { Product } from '@/api/modules/products.api'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { ProductsTableActionsCell } from '@/features/products/components/ProductsTableActionsCell'
@@ -29,6 +30,7 @@ export const PRODUCTS_SORT_FIELDS = [
   'name',
   'price',
   'manufacturer',
+  'status',
   'createdOn',
   'variantsCount',
 ] as const
@@ -59,6 +61,12 @@ function renderProductPriceRange(product: Product) {
   return `${formatPrice(min)} - ${formatPrice(max)}`
 }
 
+function getProductStatusColor(status: Product['status']) {
+  if (status === 'Active') return 'primary.main'
+  if (status === 'Archived') return 'warning.main'
+  return 'text.primary'
+}
+
 export function getProductsTableColumns({
   onView,
   onDelete,
@@ -68,47 +76,60 @@ export function getProductsTableColumns({
       key: 'name',
       label: 'Name',
       sortable: true,
-      width: '29%',
-      minWidth: 240,
+      width: '24%',
+      minWidth: 220,
       render: (row) => row.name,
     },
     {
       key: 'price',
       label: 'Price',
       sortable: true,
-      width: 190,
-      minWidth: 180,
+      width: 170,
+      minWidth: 160,
       render: (row) => renderProductPriceRange(row),
     },
     {
       key: 'manufacturer',
       label: 'Manufacturer',
       sortable: true,
-      width: '20%',
-      minWidth: 180,
+      width: '18%',
+      minWidth: 160,
       render: (row) => row.manufacturer,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      width: 130,
+      minWidth: 120,
+      render: (row) =>
+        createElement(
+          Typography,
+          { component: 'span', sx: { color: getProductStatusColor(row.status) } },
+          row.status,
+        ),
     },
     {
       key: 'variantsCount',
       label: 'Variants',
       sortable: true,
-      width: 110,
-      minWidth: 100,
+      width: 100,
+      minWidth: 90,
       render: (row) => row.variantsCount ?? row.variants?.length ?? 0,
     },
     {
       key: 'createdOn',
       label: 'Created On',
       sortable: true,
-      width: '23%',
-      minWidth: 210,
+      width: '20%',
+      minWidth: 190,
       render: (row) => formatDateTime(row.createdOn),
     },
     {
       key: 'actions',
       label: 'Actions',
-      width: 150,
-      minWidth: 140,
+      width: 140,
+      minWidth: 130,
       align: 'right',
       stickyRight: true,
       render: (row) =>
