@@ -82,6 +82,9 @@ export type OrderProductSnapshot = {
 
 export type OrderProduct = {
   product: OrderProductSnapshot
+  variant?: {
+    _id: string
+  }
   unitPrice: number
   quantity: number
   received: boolean
@@ -258,8 +261,10 @@ export type CreateOrderPayload = {
 }
 
 export type OrderProductRequestItem = {
-  id: string
   quantity: number
+  id?: string
+  productId?: string
+  variantId?: string
 }
 
 export type OrderPricingPayload =

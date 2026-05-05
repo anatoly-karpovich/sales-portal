@@ -13,6 +13,8 @@ export const ordersQueryKeys = {
   historyCustomer: (customerId: string) =>
     [...ORDERS_QUERY_KEY_BASE, 'history-customer', customerId] as const,
   productOptions: (search: string) => [...ORDERS_QUERY_KEY_BASE, 'product-options', search] as const,
+  productDetails: (productId: string) =>
+    [...ORDERS_QUERY_KEY_BASE, 'product-details', productId] as const,
   productAvailability: (productId: string) =>
     [...ORDERS_QUERY_KEY_BASE, 'product-availability', productId] as const,
 }

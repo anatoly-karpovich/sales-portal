@@ -93,6 +93,14 @@ export function useOrderProductOptionsQuery(search: string, enabled = true) {
   })
 }
 
+export function useOrderProductDetailsQuery(productId: string, enabled = true) {
+  return useQuery({
+    queryKey: ordersQueryKeys.productDetails(productId),
+    queryFn: () => getProductById(productId),
+    enabled,
+  })
+}
+
 export function useOrderManagerOptionsQuery(enabled = true) {
   return useQuery({
     queryKey: ordersQueryKeys.managerOptions(),

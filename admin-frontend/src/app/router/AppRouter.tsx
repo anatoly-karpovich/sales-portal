@@ -9,6 +9,7 @@ import { RouteLoadingFallback } from '@/app/router/RouteLoadingFallback'
 const LoginPage = lazy(async () => ({ default: (await import('@/features/auth/pages/LoginPage')).LoginPage }))
 const HomePage = lazy(async () => ({ default: (await import('@/features/home/pages/HomePage')).HomePage }))
 const OrdersPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrdersPage')).OrdersPage }))
+const OrderCreatePage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderCreatePage')).OrderCreatePage }))
 const OrderDetailsPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderDetailsPage')).OrderDetailsPage }))
 const ProductsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductsPage')).ProductsPage }))
 const ProductCreatePage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductCreatePage')).ProductCreatePage }))
@@ -52,6 +53,14 @@ function AppRoutes() {
           element={
             <SuspendedRoute>
               <HomePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/orders/add"
+          element={
+            <SuspendedRoute>
+              <OrderCreatePage />
             </SuspendedRoute>
           }
         />
