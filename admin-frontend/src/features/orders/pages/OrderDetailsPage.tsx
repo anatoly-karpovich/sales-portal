@@ -911,94 +911,114 @@ export function OrderDetailsPage() {
         </Typography>
       </Stack>
 
-      <OrderDetailsSummarySection
-        order={order}
-        productsSubtotal={productsSubtotal}
-        isCancelVisible={isCancelVisible}
-        isCancelDisabled={false}
-        isReopenVisible={isReopenVisible}
-        isProcessVisible={isProcessVisible}
-        isProcessDisabled={isProcessDisabled}
-        isRefreshPending={isRefreshPending}
-        isOrderFetching={orderDetailsQuery.isFetching}
-        onCancel={() => setPendingStatusAction('cancel')}
-        onReopen={() => setPendingStatusAction('reopen')}
-        onProcess={() => setPendingStatusAction('process')}
-        onRefresh={() => void handleRefresh()}
-      />
-
-      <Paper sx={{ overflow: 'hidden' }} data-testid="order-details-page-main-content">
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', lg: '390px minmax(0, 1fr)' },
-            alignItems: 'stretch',
-          }}
-        >
-          <Box sx={{ borderRight: { xs: 0, lg: 1 }, borderColor: 'divider' }}>
-            <OrderDetailsManagerSection
+      <Paper
+        variant="outlined"
+        sx={{ p: { xs: 1.5, md: 2 }, borderColor: 'divider' }}
+        data-testid="order-details-page-main-content"
+      >
+        <Stack spacing={2}>
+          <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'divider' }}>
+            <OrderDetailsSummarySection
               order={order}
-              assignedManagerDisplayValue={assignedManagerDisplayValue}
-              isManagerAssigned={isManagerAssigned}
-              isManagerActionPending={isManagerActionPending}
+              productsSubtotal={productsSubtotal}
               isEmbedded
-              onAssignManager={handleOpenManagerAssignDialog}
-              onEditManager={handleOpenManagerAssignDialog}
-              onUnassignManager={handleOpenManagerUnassignDialog}
+              isCancelVisible={isCancelVisible}
+              isCancelDisabled={false}
+              isReopenVisible={isReopenVisible}
+              isProcessVisible={isProcessVisible}
+              isProcessDisabled={isProcessDisabled}
+              isRefreshPending={isRefreshPending}
+              isOrderFetching={orderDetailsQuery.isFetching}
+              onCancel={() => setPendingStatusAction('cancel')}
+              onReopen={() => setPendingStatusAction('reopen')}
+              onProcess={() => setPendingStatusAction('process')}
+              onRefresh={() => void handleRefresh()}
             />
+          </Paper>
 
-            <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
-              <OrderDetailsCustomerSection
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: {
+                xs: '1fr',
+                lg: 'minmax(360px, 460px) minmax(460px, 1fr)',
+                xl: 'minmax(420px, 520px) minmax(520px, 1fr)',
+              },
+              alignItems: 'stretch',
+            }}
+          >
+            <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderColor: 'divider' }}>
+              <Stack spacing={1.25}>
+                <Paper variant="outlined" sx={{ borderColor: 'divider' }}>
+                  <OrderDetailsManagerSection
+                    order={order}
+                    assignedManagerDisplayValue={assignedManagerDisplayValue}
+                    isManagerAssigned={isManagerAssigned}
+                    isManagerActionPending={isManagerActionPending}
+                    isEmbedded
+                    onAssignManager={handleOpenManagerAssignDialog}
+                    onEditManager={handleOpenManagerAssignDialog}
+                    onUnassignManager={handleOpenManagerUnassignDialog}
+                  />
+                </Paper>
+
+                <Paper variant="outlined" sx={{ borderColor: 'divider' }}>
+                  <OrderDetailsCustomerSection
+                    order={order}
+                    isCustomerEditable={isCustomerEditable}
+                    isEmbedded
+                    onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
+                  />
+                </Paper>
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'divider' }}>
+              <OrderDetailsProductsSection
                 order={order}
-                isCustomerEditable={isCustomerEditable}
+                displayRows={orderProductDisplayRows}
+                isProductsEditable={isProductsEditable}
+                isReceiveStartVisible={isReceiveStartVisible}
+                isReceiveModeVisible={isReceiveModeVisible}
+                isReceiveSavePending={isReceiveSavePending}
+                isReceiveSaveEnabled={isReceiveSaveEnabled}
+                hasPendingProductsToReceive={hasPendingProductsToReceive}
+                isSelectAllChecked={isSelectAllChecked}
+                isSelectAllIndeterminate={isSelectAllIndeterminate}
+                selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
                 isEmbedded
-                onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
+                onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
+                onStartReceiveMode={handleStartReceiveMode}
+                onCancelReceiveMode={handleCancelReceiveMode}
+                onSaveReceivedProducts={() => void handleSaveReceivedProducts()}
+                onToggleSelectAllReceive={handleToggleSelectAllReceive}
+                onToggleReceiveProduct={handleToggleReceiveProduct}
               />
-            </Box>
+            </Paper>
           </Box>
 
-          <OrderDetailsProductsSection
-            order={order}
-            displayRows={orderProductDisplayRows}
-            isProductsEditable={isProductsEditable}
-            isReceiveStartVisible={isReceiveStartVisible}
-            isReceiveModeVisible={isReceiveModeVisible}
-            isReceiveSavePending={isReceiveSavePending}
-            isReceiveSaveEnabled={isReceiveSaveEnabled}
-            hasPendingProductsToReceive={hasPendingProductsToReceive}
-            isSelectAllChecked={isSelectAllChecked}
-            isSelectAllIndeterminate={isSelectAllIndeterminate}
-            selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
-            isEmbedded
-            onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
-            onStartReceiveMode={handleStartReceiveMode}
-            onCancelReceiveMode={handleCancelReceiveMode}
-            onSaveReceivedProducts={() => void handleSaveReceivedProducts()}
-            onToggleSelectAllReceive={handleToggleSelectAllReceive}
-            onToggleReceiveProduct={handleToggleReceiveProduct}
-          />
-        </Box>
-
-        <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
-          <OrderDetailsTabsSection
-            order={order}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            isEmbedded
-            isDeliveryEditable={order.status === 'Draft'}
-            isDeliverySubmitting={updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending}
-            onSaveDelivery={handleSaveDelivery}
-            commentDraft={commentDraft}
-            onCommentDraftChange={setCommentDraft}
-            isCommentValid={isCommentValid}
-            isCommentCreatePending={isCommentCreatePending}
-            isCommentDeletePending={isCommentDeletePending}
-            pendingDeleteCommentId={pendingDeleteCommentId}
-            orderedComments={orderedComments}
-            onCreateComment={() => void handleCreateComment()}
-            onDeleteComment={(commentId) => void handleDeleteComment(commentId)}
-          />
-        </Box>
+          <Paper variant="outlined" sx={{ borderColor: 'divider' }}>
+            <OrderDetailsTabsSection
+              order={order}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              isEmbedded
+              isDeliveryEditable={order.status === 'Draft'}
+              isDeliverySubmitting={updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending}
+              onSaveDelivery={handleSaveDelivery}
+              commentDraft={commentDraft}
+              onCommentDraftChange={setCommentDraft}
+              isCommentValid={isCommentValid}
+              isCommentCreatePending={isCommentCreatePending}
+              isCommentDeletePending={isCommentDeletePending}
+              pendingDeleteCommentId={pendingDeleteCommentId}
+              orderedComments={orderedComments}
+              onCreateComment={() => void handleCreateComment()}
+              onDeleteComment={(commentId) => void handleDeleteComment(commentId)}
+            />
+          </Paper>
+        </Stack>
       </Paper>
 
       <EditOrderCustomerDialog

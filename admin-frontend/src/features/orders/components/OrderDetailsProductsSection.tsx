@@ -152,9 +152,8 @@ export function OrderDetailsProductsSection({
           <Stack
             direction="row"
             spacing={0.5}
-            justifyContent="flex-end"
+            justifyContent="flex-start"
             alignItems="center"
-            sx={{ pr: { xs: 0, md: 0.25 } }}
           >
             {isReceiveModeVisible ? (
               <Checkbox
@@ -216,12 +215,12 @@ export function OrderDetailsProductsSection({
                       {displayRow?.displayName ?? product.product.name}
                     </Typography>
                     <Typography
-                      variant="body2"
+                      variant="caption"
                       color="text.secondary"
-                      sx={{ overflowWrap: 'anywhere' }}
+                      sx={{ display: 'block', overflowWrap: 'anywhere' }}
                       data-testid={`order-details-products-row-${index}-manufacturer`}
                     >
-                      {displayRow?.manufacturer ?? product.product.manufacturer}
+                      {product.product.manufacturer}
                     </Typography>
                     <Stack
                       direction="row"
@@ -246,7 +245,7 @@ export function OrderDetailsProductsSection({
                   {formatPrice(product.unitPrice)}
                 </Typography>
 
-                <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-start">
                   {isReceiveModeVisible ? (
                     <Checkbox
                       size="small"
