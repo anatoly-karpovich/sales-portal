@@ -899,6 +899,18 @@ export function OrderDetailsPage() {
   const assignedManagerDisplayValue = assignedManagerValue
   return (
     <Stack spacing={2.5} data-testid="order-details-page">
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.5}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        data-testid="order-details-page-header"
+      >
+        <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="order-details-page-title">
+          {ordersUiText.detailsPage.title}
+        </Typography>
+      </Stack>
+
       <OrderDetailsSummarySection
         order={order}
         productsSubtotal={productsSubtotal}
@@ -915,26 +927,36 @@ export function OrderDetailsPage() {
         onRefresh={() => void handleRefresh()}
       />
 
-      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '360px minmax(0, 1fr)' } }}>
-        <Stack spacing={2.5}>
-          <OrderDetailsManagerSection
-            order={order}
-            assignedManagerDisplayValue={assignedManagerDisplayValue}
-            isManagerAssigned={isManagerAssigned}
-            isManagerActionPending={isManagerActionPending}
-            onAssignManager={handleOpenManagerAssignDialog}
-            onEditManager={handleOpenManagerAssignDialog}
-            onUnassignManager={handleOpenManagerUnassignDialog}
-          />
+      <Paper sx={{ overflow: 'hidden' }} data-testid="order-details-page-main-content">
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: '390px minmax(0, 1fr)' },
+            alignItems: 'stretch',
+          }}
+        >
+          <Box sx={{ borderRight: { xs: 0, lg: 1 }, borderColor: 'divider' }}>
+            <OrderDetailsManagerSection
+              order={order}
+              assignedManagerDisplayValue={assignedManagerDisplayValue}
+              isManagerAssigned={isManagerAssigned}
+              isManagerActionPending={isManagerActionPending}
+              isEmbedded
+              onAssignManager={handleOpenManagerAssignDialog}
+              onEditManager={handleOpenManagerAssignDialog}
+              onUnassignManager={handleOpenManagerUnassignDialog}
+            />
 
-          <OrderDetailsCustomerSection
-            order={order}
-            isCustomerEditable={isCustomerEditable}
-            onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
-          />
-        </Stack>
+            <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+              <OrderDetailsCustomerSection
+                order={order}
+                isCustomerEditable={isCustomerEditable}
+                isEmbedded
+                onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
+              />
+            </Box>
+          </Box>
 
-        <Stack spacing={2.5}>
           <OrderDetailsProductsSection
             order={order}
             displayRows={orderProductDisplayRows}
@@ -947,6 +969,7 @@ export function OrderDetailsPage() {
             isSelectAllChecked={isSelectAllChecked}
             isSelectAllIndeterminate={isSelectAllIndeterminate}
             selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
+            isEmbedded
             onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
             onStartReceiveMode={handleStartReceiveMode}
             onCancelReceiveMode={handleCancelReceiveMode}
@@ -954,11 +977,14 @@ export function OrderDetailsPage() {
             onToggleSelectAllReceive={handleToggleSelectAllReceive}
             onToggleReceiveProduct={handleToggleReceiveProduct}
           />
+        </Box>
 
+        <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
           <OrderDetailsTabsSection
             order={order}
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            isEmbedded
             isDeliveryEditable={order.status === 'Draft'}
             isDeliverySubmitting={updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending}
             onSaveDelivery={handleSaveDelivery}
@@ -972,8 +998,8 @@ export function OrderDetailsPage() {
             onCreateComment={() => void handleCreateComment()}
             onDeleteComment={(commentId) => void handleDeleteComment(commentId)}
           />
-        </Stack>
-      </Box>
+        </Box>
+      </Paper>
 
       <EditOrderCustomerDialog
         open={isCustomerEditDialogOpen}

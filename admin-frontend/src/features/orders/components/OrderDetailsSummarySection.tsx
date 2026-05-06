@@ -74,9 +74,6 @@ export function OrderDetailsSummarySection({
               alignItems={{ xs: 'flex-start', lg: 'flex-start' }}
             >
               <Box>
-                <Typography color="text.secondary" sx={{ mb: 0.75 }}>
-                  {ordersUiText.detailsPage.title}
-                </Typography>
                 <Typography
                   variant="h4"
                   sx={{ fontWeight: 800, letterSpacing: -0.6 }}

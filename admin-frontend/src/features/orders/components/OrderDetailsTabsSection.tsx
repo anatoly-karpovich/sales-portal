@@ -37,6 +37,7 @@ type OrderDetailsTabsSectionProps = {
   order: OrderDetails
   activeTab: OrderDetailsTab
   onTabChange: (tab: OrderDetailsTab) => void
+  isEmbedded?: boolean
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
   onSaveDelivery: (delivery: OrderDeliverySavePayload) => Promise<boolean>
@@ -72,6 +73,7 @@ export function OrderDetailsTabsSection({
   order,
   activeTab,
   onTabChange,
+  isEmbedded = false,
   isDeliveryEditable,
   isDeliverySubmitting,
   onSaveDelivery,
@@ -85,8 +87,8 @@ export function OrderDetailsTabsSection({
   onCreateComment,
   onDeleteComment,
 }: OrderDetailsTabsSectionProps) {
-  return (
-    <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
+  const content = (
+    <>
       <Tabs
         value={activeTab}
         onChange={(_, value: OrderDetailsTab) => onTabChange(value)}
@@ -228,6 +230,20 @@ export function OrderDetailsTabsSection({
           </Stack>
         ) : null}
       </Box>
+    </>
+  )
+
+  if (isEmbedded) {
+    return (
+      <Stack sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
+        {content}
+      </Stack>
+    )
+  }
+
+  return (
+    <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
+      {content}
     </Paper>
   )
 }
