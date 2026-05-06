@@ -30,7 +30,7 @@ import {
 } from '@/features/orders/config/pickupLocations.config'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import { useOrderPricingMutation } from '@/features/orders/hooks/useOrdersQuery'
-import { ordersUiText } from '@/features/orders/orders.ui-text'
+import { getOverdueByDaysLabel, ordersUiText } from '@/features/orders/orders.ui-text'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatDate } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
@@ -326,9 +326,24 @@ function resolvePickupByDate(delivery: OrderDelivery) {
   return '-'
 }
 
-function resolveAddressOneLine(address: OrderDeliveryByAddressPayload['address']) {
+function resolveAddressPrimaryLine(address: OrderDeliveryByAddressPayload['address']) {
   const apartmentPart = typeof address.apartment === 'number' ? `, Apt ${address.apartment}` : ''
-  return `${address.house} ${address.street}${apartmentPart}, ${address.city}, ${address.state} ${address.zipCode}`
+  return `${address.house} ${address.street}${apartmentPart}`
+}
+
+function resolveAddressSecondaryLine(address: OrderDeliveryByAddressPayload['address']) {
+  return `${address.city}, ${address.state} ${address.zipCode}`
+}
+
+function formatDaysLabel(value: number | null | undefined) {
+  if (typeof value !== 'number') return '-'
+  return `${value} day${value === 1 ? '' : 's'}`
+}
+
+function resolveDeliveryStatusLabel(status: OrderDelivery['status']) {
+  if (status.includes('Planned')) return 'Planned'
+  if (status === 'Delivery Scheduled' || status === 'Pickup Scheduled') return 'Scheduled'
+  return status
 }
 
 export function OrderDetailsDeliveryTab({
@@ -425,6 +440,8 @@ export function OrderDetailsDeliveryTab({
   const shouldShowLocation = formState.condition === 'Delivery'
   const deliveryLocation = resolveDeliveryLocation(order)
   const deliveryAddressSourceLabel = resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
+  const isDeliveryCondition = order.delivery.condition === 'Delivery'
+  const viewTitle = isDeliveryCondition ? ordersUiText.detailsPage.labels.deliveryInformation : 'Pickup Information'
 
   useEffect(() => {
     if (!canRequestPricingPreview) {
@@ -638,7 +655,7 @@ export function OrderDetailsDeliveryTab({
       <Stack spacing={1.25} alignItems="flex-start">
         <Stack direction="row" spacing={0.75} alignItems="center">
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {ordersUiText.detailsPage.labels.deliveryInformation}
+            {viewTitle}
           </Typography>
           {!isEditModeVisible && canEditDelivery ? (
             <IconButton
@@ -1111,72 +1128,192 @@ export function OrderDetailsDeliveryTab({
           </Stack>
         </Paper>
       ) : (
-        <Stack spacing={1.5} data-testid="order-details-delivery-view">
-          <Chip
-            size="small"
-            color="primary"
-            variant="outlined"
-            label={deliveryAddressSourceLabel}
-            sx={{ alignSelf: 'flex-start' }}
-            data-testid="order-details-delivery-view-source-chip"
-          />
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 1.25,
-              gridTemplateColumns: { xs: '1fr', sm: '220px 1fr' },
-            }}
-          >
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.condition}</Typography>
-            <Typography data-testid="order-details-delivery-condition-value">
-              {normalizeTextValue(order.delivery.condition)}
-            </Typography>
+        <Paper
+          variant="outlined"
+          sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2.5 }}
+          data-testid="order-details-delivery-view"
+        >
+          <Stack spacing={2}>
+            {order.delivery.isOverdue ? (
+              <Alert severity="error" variant="outlined" data-testid="order-details-delivery-overdue-alert">
+                {getOverdueByDaysLabel(order.delivery.overdueByDays)}
+              </Alert>
+            ) : null}
 
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.labels.deliveryPrice}</Typography>
-            <Typography data-testid="order-details-delivery-price-value">
-              {formatPrice(order.delivery.price)}
-            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1.25,
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, minmax(0, 1fr))',
+                  lg: 'repeat(4, minmax(0, 1fr))',
+                },
+              }}
+            >
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+              <Stack spacing={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Method
+                </Typography>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 700 }}
+                  data-testid="order-details-delivery-condition-value"
+                >
+                  {normalizeTextValue(order.delivery.condition)}
+                </Typography>
+              </Stack>
+            </Paper>
 
-            {order.delivery.condition === 'Delivery' ? (
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+              <Stack spacing={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Price
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }} data-testid="order-details-delivery-price-value">
+                  {isDeliveryCondition
+                    ? formatPrice(order.delivery.price)
+                    : order.delivery.price > 0
+                      ? formatPrice(order.delivery.price)
+                      : 'Free'}
+                </Typography>
+              </Stack>
+            </Paper>
+
+            {isDeliveryCondition ? (
               <>
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.location}</Typography>
-                <Typography data-testid="order-details-delivery-location-value">{deliveryLocation}</Typography>
+                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="caption" color="text.secondary">
+                      ETA
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: 700 }}
+                      data-testid="order-details-delivery-estimated-date-value"
+                    >
+                      {resolveEstimatedDate(order.delivery)}
+                    </Typography>
+                  </Stack>
+                </Paper>
 
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.express}</Typography>
-                <Typography data-testid="order-details-delivery-express-value">
-                  {'express' in order.delivery.schedule && order.delivery.schedule.express ? 'Yes' : 'No'}
-                </Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.pricingTier}</Typography>
-                <Typography data-testid="order-details-delivery-pricing-tier-value">
-                  {resolvePricingTierLabel(order.delivery)}
-                </Typography>
-
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.estimatedDate}</Typography>
-                <Typography data-testid="order-details-delivery-estimated-date-value">
-                  {resolveEstimatedDate(order.delivery)}
-                </Typography>
+                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="caption" color="text.secondary">
+                      Express
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: 700 }}
+                      data-testid="order-details-delivery-express-value"
+                    >
+                      {'express' in order.delivery.schedule && order.delivery.schedule.express ? 'Yes' : 'No'}
+                    </Typography>
+                  </Stack>
+                </Paper>
               </>
             ) : (
               <>
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.availableFromDate}</Typography>
-                <Typography data-testid="order-details-delivery-available-from-date-value">
-                  {resolvePickupAvailableFrom(order.delivery)}
-                </Typography>
+                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="caption" color="text.secondary">
+                      Available
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: 700 }}
+                      data-testid="order-details-delivery-available-from-date-value"
+                    >
+                      {resolvePickupAvailableFrom(order.delivery)}
+                    </Typography>
+                  </Stack>
+                </Paper>
 
-                <Typography fontWeight={700}>{ordersUiText.detailsPage.fields.delivery.pickupByDate}</Typography>
-                <Typography data-testid="order-details-delivery-pickup-by-date-value">
-                  {resolvePickupByDate(order.delivery)}
-                </Typography>
+                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="caption" color="text.secondary">
+                      Pickup By
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: 700 }}
+                      data-testid="order-details-delivery-pickup-by-date-value"
+                    >
+                      {resolvePickupByDate(order.delivery)}
+                    </Typography>
+                  </Stack>
+                </Paper>
               </>
             )}
+            </Box>
 
-            <Typography fontWeight={700}>{ordersUiText.detailsPage.labels.deliveryAddress}</Typography>
-            <Typography data-testid="order-details-delivery-address-value">
-              {resolveAddressOneLine(order.delivery.address)}
-            </Typography>
-          </Box>
-        </Stack>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1.25,
+                gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
+              }}
+            >
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+              <Stack spacing={0.75}>
+                <Typography fontWeight={700}>
+                  {isDeliveryCondition ? 'Delivery Address' : 'Pickup Location'}
+                </Typography>
+                <Chip
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  label={deliveryAddressSourceLabel}
+                  sx={{ alignSelf: 'flex-start' }}
+                  data-testid="order-details-delivery-view-source-chip"
+                />
+                <Typography data-testid="order-details-delivery-address-value">
+                  {resolveAddressPrimaryLine(order.delivery.address)}
+                </Typography>
+                <Typography>{resolveAddressSecondaryLine(order.delivery.address)}</Typography>
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+              <Stack spacing={0.75}>
+                <Typography fontWeight={700}>
+                  {isDeliveryCondition ? 'Delivery Details' : 'Pickup Details'}
+                </Typography>
+                {isDeliveryCondition ? (
+                  <>
+                    <Typography data-testid="order-details-delivery-pricing-tier-value">
+                      Tier: {resolvePricingTierLabel(order.delivery)}
+                    </Typography>
+                    <Typography>
+                      Estimated:{' '}
+                      {'estimatedDays' in order.delivery.schedule
+                        ? formatDaysLabel(order.delivery.schedule.estimatedDays)
+                        : '-'}
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Typography>
+                      Ready in:{' '}
+                      {'readyInDays' in order.delivery.schedule
+                        ? formatDaysLabel(order.delivery.schedule.readyInDays)
+                        : '-'}
+                    </Typography>
+                    <Typography>
+                      Hold for:{' '}
+                      {'holdForDays' in order.delivery.schedule
+                        ? formatDaysLabel(order.delivery.schedule.holdForDays)
+                        : '-'}
+                    </Typography>
+                  </>
+                )}
+                <Typography>Status: {resolveDeliveryStatusLabel(order.delivery.status)}</Typography>
+              </Stack>
+            </Paper>
+            </Box>
+          </Stack>
+        </Paper>
       )}
     </Stack>
   )
