@@ -15,7 +15,10 @@ import { PRODUCT_STATUSES } from "../data/enums";
 
 type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
 type ProductSortOrder = "asc" | "desc";
-type ProductVariantWritePayload = ProductVariantCreateRequestDTO & { _id?: Types.ObjectId | string; status?: PRODUCT_STATUSES };
+type ProductVariantWritePayload = ProductVariantCreateRequestDTO & {
+  _id?: Types.ObjectId | string;
+  status?: PRODUCT_STATUSES;
+};
 
 class ProductsService {
   private readonly exportableFields = new Set<string>([
@@ -134,10 +137,7 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
-  async replaceVariants(
-    productId: Types.ObjectId,
-    payload: ProductVariantsReplaceBodyDTO,
-  ): Promise<IProduct> {
+  async replaceVariants(productId: Types.ObjectId, payload: ProductVariantsReplaceBodyDTO): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
@@ -183,10 +183,7 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
-  async createVariant(
-    productId: Types.ObjectId,
-    payload: ProductVariantCreateRequestDTO,
-  ): Promise<IProduct> {
+  async createVariant(productId: Types.ObjectId, payload: ProductVariantCreateRequestDTO): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
@@ -204,16 +201,16 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
-  async createVariants(
-    productId: Types.ObjectId,
-    payload: ProductVariantCreateRequestDTO[],
-  ): Promise<IProduct> {
+  async createVariants(productId: Types.ObjectId, payload: ProductVariantCreateRequestDTO[]): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
     }
 
-    const nextVariants = [...(product.variants ?? []), ...payload.map((variant) => ({ ...variant, status: PRODUCT_STATUSES.DRAFT }))];
+    const nextVariants = [
+      ...(product.variants ?? []),
+      ...payload.map((variant) => ({ ...variant, status: PRODUCT_STATUSES.DRAFT })),
+    ];
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { variants: nextVariants, updatedOn: getTodaysDate(true) },
@@ -231,12 +228,13 @@ class ProductsService {
       return undefined;
     }
 
-    const nextVariants = status === PRODUCT_STATUSES.ARCHIVED
-      ? (product.variants ?? []).map((variant: any) => ({
-          ...variant,
-          status: PRODUCT_STATUSES.ARCHIVED,
-        }))
-      : product.variants;
+    const nextVariants =
+      status === PRODUCT_STATUSES.ARCHIVED
+        ? (product.variants ?? []).map((variant: any) => ({
+            ...variant,
+            status: PRODUCT_STATUSES.ARCHIVED,
+          }))
+        : product.variants;
 
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
@@ -284,10 +282,7 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
-  async previewWithVariants(
-    productId: Types.ObjectId,
-    payload: ProductVariantsReplaceBodyDTO,
-  ): Promise<IProduct> {
+  async previewWithVariants(productId: Types.ObjectId, payload: ProductVariantsReplaceBodyDTO): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
@@ -332,7 +327,9 @@ class ProductsService {
       return undefined;
     }
 
-    const nextVariants = (product.variants ?? []).filter((variant: any) => variant?._id?.toString() !== variantId.toString());
+    const nextVariants = (product.variants ?? []).filter(
+      (variant: any) => variant?._id?.toString() !== variantId.toString(),
+    );
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { variants: nextVariants, updatedOn: getTodaysDate(true) },
@@ -353,7 +350,9 @@ class ProductsService {
       this.normalizeProduct(product),
     );
     const sorted = this.sortProducts(filtered, sortOptions);
-    const sliced = sorted.slice(pagination.skip, pagination.skip + pagination.limit).map((product) => this.toListItem(product));
+    const sliced = sorted
+      .slice(pagination.skip, pagination.skip + pagination.limit)
+      .map((product) => this.toListItem(product));
     return { products: sliced, total: filtered.length };
   }
 
@@ -541,7 +540,11 @@ class ProductsService {
 
     if (search && search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
-      filter.$or = [{ name: { $regex: searchRegex } }, { manufacturer: { $regex: searchRegex } }, { category: { $regex: searchRegex } }];
+      filter.$or = [
+        { name: { $regex: searchRegex } },
+        { manufacturer: { $regex: searchRegex } },
+        { category: { $regex: searchRegex } },
+      ];
     }
 
     return filter;
@@ -573,6 +576,7 @@ class ProductsService {
       createdOn: product.createdOn,
       variantsCount: product.variants.length,
       priceRange,
+      ...(product.imageUrl && { imageUrl: product.imageUrl }),
     };
   }
 
@@ -598,7 +602,9 @@ class ProductsService {
   }
 
   async getProductsBulk(ids: Array<Types.ObjectId | string>) {
-    return Product.find({ _id: { $in: ids } }).lean().exec();
+    return Product.find({ _id: { $in: ids } })
+      .lean()
+      .exec();
   }
 
   private normalizeAttributesRecord(value: unknown): Record<string, string> {

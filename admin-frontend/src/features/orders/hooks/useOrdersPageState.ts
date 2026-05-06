@@ -207,6 +207,7 @@ export function useOrdersPageState() {
         getProducts({
           search: '',
           manufacturer: [],
+          status: ['Active'],
           sortField: 'name',
           sortOrder: 'asc',
           page: 1,

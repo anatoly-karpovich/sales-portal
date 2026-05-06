@@ -1,3 +1,6 @@
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import CloseIcon from '@mui/icons-material/Close'
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import {
   Alert,
   Autocomplete,
@@ -14,10 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import CloseIcon from '@mui/icons-material/Close'
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Product } from '@/api/modules/products.api'
 import type {
   OrderDelivery,
@@ -26,25 +26,27 @@ import type {
   OrderProduct,
   OrderProductRequestItem,
 } from '@/api/modules/orders.api'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import {
   buildPickupLocationsByStateMap,
   resolvePickupLocation,
 } from '@/features/orders/config/pickupLocations.config'
+import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
 import {
   useOrderPricingMutation,
   useOrderProductOptionsQuery,
   useOrderProductsAvailability,
+  useOrderProductsDetailsQueries,
 } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
-import { formatPrice } from '@/utils/number'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
+import { formatPrice } from '@/utils/number'
 
 type ProductRow = {
   id: number
   productId: string
+  variantId: string
   quantity: number
 }
 
@@ -65,7 +67,9 @@ type Props = {
 }
 
 function normalizeRequestedProducts(items: OrderProductRequestItem[]) {
-  return [...items].sort((left, right) => left.id.localeCompare(right.id))
+  return [...items].sort((left, right) =>
+    `${left.productId}|${left.variantId}`.localeCompare(`${right.productId}|${right.variantId}`),
+  )
 }
 
 function areEqualRequestedProducts(a: OrderProductRequestItem[], b: OrderProductRequestItem[]) {
@@ -74,7 +78,9 @@ function areEqualRequestedProducts(a: OrderProductRequestItem[], b: OrderProduct
   const normalizedB = normalizeRequestedProducts(b)
   return normalizedA.every(
     (item, index) =>
-      item.id === normalizedB[index].id && item.quantity === normalizedB[index].quantity,
+      item.productId === normalizedB[index].productId &&
+      item.variantId === normalizedB[index].variantId &&
+      item.quantity === normalizedB[index].quantity,
   )
 }
 
@@ -151,9 +157,10 @@ export function EditOrderProductsDialog({
       ? initialProducts.map((product, index) => ({
           id: index + 1,
           productId: product.product._id,
+          variantId: product.variant._id,
           quantity: product.quantity,
         }))
-      : [{ id: 1, productId: '', quantity: 1 }],
+      : [{ id: 1, productId: '', variantId: '', quantity: 1 }],
   )
   const [editingRowId, setEditingRowId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
@@ -205,25 +212,68 @@ export function EditOrderProductsDialog({
     }
   }, [open, search])
 
+  const rowProductIds = useMemo(
+    () => [...new Set(rows.map((row) => row.productId).filter(Boolean))],
+    [rows],
+  )
+  const rowProductDetailsQueries = useOrderProductsDetailsQueries(rowProductIds, true)
+  const firstActiveVariantIdByProductId = useMemo(() => {
+    const result = new Map<string, string>()
+    rowProductDetailsQueries.forEach((query, index) => {
+      const productId = rowProductIds[index]
+      if (!productId || !query.data) return
+      const variant = query.data.variants.find((item) => item.status === 'Active')
+      if (!variant?._id) return
+      result.set(productId, variant._id)
+    })
+    return result
+  }, [rowProductDetailsQueries, rowProductIds])
+
+  const resolveRowVariantId = useCallback(
+    (row: ProductRow) => {
+      if (row.variantId) return row.variantId
+      if (!row.productId) return ''
+      return firstActiveVariantIdByProductId.get(row.productId) ?? ''
+    },
+    [firstActiveVariantIdByProductId],
+  )
+
   const currentProducts = useMemo(
     () =>
       rows
-        .filter((row) => row.productId)
+        .filter((row) => row.productId && resolveRowVariantId(row))
         .map((row) => ({
-          id: row.productId,
+          productId: row.productId,
+          variantId: resolveRowVariantId(row),
           quantity:
             hasQuantityLimit && maxProductQuantityInOrder
               ? clampQuantity(row.quantity, maxProductQuantityInOrder)
               : row.quantity,
         })),
-    [hasQuantityLimit, maxProductQuantityInOrder, rows],
+    [hasQuantityLimit, maxProductQuantityInOrder, resolveRowVariantId, rows],
   )
-  const currentProductIds = useMemo(() => currentProducts.map((product) => product.id), [currentProducts])
+  const currentProductIds = useMemo(
+    () => currentProducts.map((product) => product.productId),
+    [currentProducts],
+  )
   const initialRequestedProducts = useMemo(
-    () => initialProducts.map((product) => ({ id: product.product._id, quantity: product.quantity })),
+    () =>
+      initialProducts.map((product) => ({
+        productId: product.product._id,
+        variantId: product.variant._id,
+        quantity: product.quantity,
+      })),
     [initialProducts],
   )
-  const hasDuplicateRows = new Set(currentProductIds).size !== currentProductIds.length
+  const currentRequestedPairs = rows
+    .filter((row) => row.productId && resolveRowVariantId(row))
+    .map((row) => ({
+      productId: row.productId,
+      variantId: resolveRowVariantId(row),
+    }))
+  const hasDuplicateRows =
+    new Set(currentRequestedPairs.map((row) => `${row.productId}|${row.variantId}`)).size !==
+    currentRequestedPairs.length
 
   const selectedProductIdsOutsideActive = useMemo(() => {
     return new Set(
@@ -253,6 +303,7 @@ export function EditOrderProductsDialog({
 
   const canRemoveRow = rows.length > 1 && hasQuantityLimit
   const hasEmptyRows = rows.some((row) => !row.productId)
+  const hasRowsWithoutVariant = rows.some((row) => row.productId && !resolveRowVariantId(row))
   const hasUnavailableRows = rows.some((row) => row.productId && unavailableIds.has(row.productId))
   const hasChanges = !areEqualRequestedProducts(initialRequestedProducts, currentProducts)
   const canAddRow = hasQuantityLimit && !isSubmitting
@@ -262,11 +313,17 @@ export function EditOrderProductsDialog({
     !hasQuantityLimit ||
     isAvailabilityLoading ||
     hasEmptyRows ||
+    hasRowsWithoutVariant ||
     hasDuplicateRows ||
     hasUnavailableRows ||
     !hasChanges
   const canRequestPricingPreview =
-    open && hasQuantityLimit && !hasEmptyRows && !hasDuplicateRows && currentProducts.length > 0
+    open &&
+    hasQuantityLimit &&
+    !hasEmptyRows &&
+    !hasRowsWithoutVariant &&
+    !hasDuplicateRows &&
+    currentProducts.length > 0
   const saveDisabledReason = isSubmitting
     ? null
     : isSettingsPending
@@ -275,15 +332,17 @@ export function EditOrderProductsDialog({
         ? ordersUiText.errors.settingsNotFound
         : isAvailabilityLoading
           ? ordersUiText.dialogs.details.editProductsDisabledReasonCheckingAvailability
-          : hasDuplicateRows
-            ? ordersUiText.dialogs.details.editProductsDisabledReasonDuplicates
-            : hasUnavailableRows
-              ? ordersUiText.dialogs.details.editProductsDisabledReasonUnavailable
-              : hasEmptyRows
-                ? ordersUiText.dialogs.details.editProductsDisabledReasonEmptyRows
-                : !hasChanges
-                  ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
-                  : null
+          : hasRowsWithoutVariant
+            ? 'No active variants are available for one or more selected products.'
+            : hasDuplicateRows
+              ? ordersUiText.dialogs.details.editProductsDisabledReasonDuplicates
+              : hasUnavailableRows
+                ? ordersUiText.dialogs.details.editProductsDisabledReasonUnavailable
+                : hasEmptyRows
+                  ? ordersUiText.dialogs.details.editProductsDisabledReasonEmptyRows
+                  : !hasChanges
+                    ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
+                    : null
 
   useEffect(() => {
     if (!canRequestPricingPreview) {
@@ -303,12 +362,12 @@ export function EditOrderProductsDialog({
       }
 
       void calculatePricingAsync({
-          payload: {
-            products: currentProducts,
-            ...(pricingContext ?? {}),
-          },
-          requestConfig: { skipErrorToast: true },
-        })
+        payload: {
+          products: currentProducts,
+          ...(pricingContext ?? {}),
+        },
+        requestConfig: { skipErrorToast: true },
+      })
         .then((pricing) => {
           if (pricingRequestIdRef.current !== requestId) return
           setPricingPreviewTotal(pricing.totalPrice)
@@ -329,15 +388,11 @@ export function EditOrderProductsDialog({
       window.clearTimeout(timeoutId)
     }
   }, [
+    calculatePricingAsync,
     canRequestPricingPreview,
     currentDelivery,
     currentProducts,
-    hasDuplicateRows,
-    hasEmptyRows,
-    hasQuantityLimit,
-    open,
     pickupLocationsMap,
-    calculatePricingAsync,
   ])
 
   const handleAddRow = () => {
@@ -345,7 +400,7 @@ export function EditOrderProductsDialog({
     const nextId = nextRowId.current
     nextRowId.current += 1
 
-    setRows((current) => [...current, { id: nextId, productId: '', quantity: 1 }])
+    setRows((current) => [...current, { id: nextId, productId: '', variantId: '', quantity: 1 }])
     setEditingRowId(nextId)
     setSearch('')
     setDebouncedSearch('')
@@ -379,8 +434,17 @@ export function EditOrderProductsDialog({
   const handleSelectProduct = (product: Product | null) => {
     if (!editingRowId || isSubmitting || !product) return
     if (rows.some((row) => row.id !== editingRowId && row.productId === product._id)) return
+    const fallbackVariantId = firstActiveVariantIdByProductId.get(product._id) ?? ''
     setRows((current) =>
-      current.map((row) => (row.id === editingRowId ? { ...row, productId: product._id } : row)),
+      current.map((row) =>
+        row.id === editingRowId
+          ? {
+              ...row,
+              productId: product._id,
+              variantId: fallbackVariantId,
+            }
+          : row,
+      ),
     )
     setKnownProductsById((current) => {
       const next = new Map(current)

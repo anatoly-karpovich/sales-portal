@@ -107,9 +107,12 @@ function resolveReceivedLabel(received: boolean | undefined) {
   return received ? 'Received' : ordersUiText.detailsPage.history.notReceived
 }
 
-function resolveOrderProductId(product: OrderProduct | undefined) {
-  const id = product?.product?._id
-  return typeof id === 'string' && id.trim().length > 0 ? id : null
+function resolveOrderProductKey(product: OrderProduct | undefined) {
+  const productId = product?.product?._id
+  const variantId = product?.variant?._id
+  if (typeof productId !== 'string' || productId.trim().length === 0) return null
+  if (typeof variantId !== 'string' || variantId.trim().length === 0) return null
+  return `${productId}|${variantId}`
 }
 
 function resolveOrderProductName(product: OrderProduct | undefined) {
@@ -134,9 +137,9 @@ function resolveOrderProductDescriptor(product: OrderProduct | undefined) {
 function buildProductsById(products: OrderProduct[]) {
   const byId = new Map<string, OrderProduct>()
   products.forEach((product) => {
-    const productId = resolveOrderProductId(product)
-    if (productId) {
-      byId.set(productId, product)
+    const key = resolveOrderProductKey(product)
+    if (key) {
+      byId.set(key, product)
     }
   })
   return byId
@@ -393,7 +396,7 @@ function buildReceivedChanges(
   if (changes.length) return changes
 
   return updatedProducts.map((updatedProduct) => {
-    const productId = resolveOrderProductId(updatedProduct)
+    const productId = resolveOrderProductKey(updatedProduct)
     const previousReceived = productId
       ? previousProductsById.get(productId)?.received
       : undefined
@@ -523,7 +526,7 @@ function HistoryProducts({
     >
       {products.map((product, productIndex) => (
         <Box
-          key={`${product.product._id}-${productIndex}`}
+          key={`${product.product._id}-${product.variant._id}-${productIndex}`}
           component="span"
           sx={{
             px: 1,

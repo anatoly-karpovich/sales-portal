@@ -82,7 +82,7 @@ export type OrderProductSnapshot = {
 
 export type OrderProduct = {
   product: OrderProductSnapshot
-  variant?: {
+  variant: {
     _id: string
   }
   unitPrice: number
@@ -312,7 +312,10 @@ export type OrderCommentDeletePayload = {
 
 export type OrderReceivePayload = {
   orderId: string
-  products: string[]
+  products: Array<{
+    productId: string
+    variantId: string
+  }>
   requestConfig?: ApiRequestConfig
 }
 
@@ -395,7 +398,7 @@ export async function deleteOrderComment(orderId: string, commentId: string, req
 
 export async function receiveOrderProducts(
   orderId: string,
-  products: string[],
+  products: Array<{ productId: string; variantId: string }>,
   requestConfig?: ApiRequestConfig,
 ) {
   const response = await apiClient.post<OrderResponse<OrderDetails>>(

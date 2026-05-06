@@ -434,7 +434,8 @@ export function OrderDetailsDeliveryTab({
     const timeoutId = window.setTimeout(() => {
       setIsPricingPreviewLoading(true)
       const products = order.products.map((item) => ({
-        id: item.product._id,
+        productId: item.product._id,
+        variantId: item.variant._id,
         quantity: item.quantity,
       }))
       const payload =

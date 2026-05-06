@@ -22,10 +22,12 @@ import type {
 } from '@/api/modules/orders.api'
 import type { Customer } from '@/api/modules/customers.api'
 import type { Manager } from '@/api/modules/managers.api'
+import noImageProduct from '@/assets/no-image-product.jpeg'
 import { AssignManagerDialog } from '@/features/orders/components/AssignManagerDialog'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
 import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
 import { OrderDetailsCustomerSection } from '@/features/orders/components/OrderDetailsCustomerSection'
+import { OrderDetailsManagerSection } from '@/features/orders/components/OrderDetailsManagerSection'
 import { OrderDetailsProductsSection } from '@/features/orders/components/OrderDetailsProductsSection'
 import { OrderDetailsSummarySection } from '@/features/orders/components/OrderDetailsSummarySection'
 import {
@@ -42,6 +44,7 @@ import {
   useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
   useOrderManagerOptionsQuery,
+  useOrderProductsDetailsQueries,
   useReceiveOrderProductsMutation,
   useUnassignOrderManagerMutation,
   useUpdateOrderDeliveryMutation,
@@ -50,6 +53,7 @@ import {
   useUpdateOrderMutation,
 } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
+import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
 
 type PendingStatusAction = 'cancel' | 'process' | 'reopen' | null
 const MONGO_OBJECT_ID_REGEX = /^[a-f0-9]{24}$/i
@@ -208,6 +212,14 @@ export function OrderDetailsPage() {
   const createOrderCommentMutation = useCreateOrderCommentMutation()
   const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
+  const orderProductIds = useMemo(
+    () => [...new Set((order?.products ?? []).map((item) => item.product._id))],
+    [order?.products],
+  )
+  const orderProductDetailsQueries = useOrderProductsDetailsQueries(
+    orderProductIds,
+    Boolean(order),
+  )
   const isNotFoundError =
     isAxiosError(orderDetailsQuery.error) && orderDetailsQuery.error.response?.status === 404
   const orderedComments = useMemo(() => [...(order?.comments ?? [])].reverse(), [order?.comments])
@@ -241,6 +253,38 @@ export function OrderDetailsPage() {
     selectedReceivePendingRowIndices.length < pendingReceiveRowIndices.length
   const isReceiveSavePending = receiveOrderProductsMutation.isPending
   const isReceiveSaveEnabled = selectedReceivePendingRowIndices.length > 0 && !isReceiveSavePending
+  const productDetailsById = useMemo(() => {
+    const detailsById = new Map<string, (typeof orderProductDetailsQueries)[number]['data']>()
+    orderProductDetailsQueries.forEach((query, index) => {
+      const productId = orderProductIds[index]
+      if (!productId || !query.data) return
+      detailsById.set(productId, query.data)
+    })
+    return detailsById
+  }, [orderProductDetailsQueries, orderProductIds])
+  const orderProductDisplayRows = useMemo(() => {
+    if (!order) return []
+
+    return order.products.map((product) => {
+      const productDetails = productDetailsById.get(product.product._id)
+      const variant = productDetails?.variants.find((item) => item._id === product.variant._id)
+      const variantLabel =
+        variant && productDetails ? toVariantTitle(variant, productDetails.attributes) : ''
+      const displayName = variantLabel
+        ? `${product.product.name} | ${variantLabel}`
+        : product.product.name
+      const imageUrl =
+        variant?.imageUrl?.trim() ||
+        productDetails?.imageUrl?.trim() ||
+        noImageProduct
+
+      return {
+        displayName,
+        manufacturer: product.product.manufacturer,
+        imageUrl,
+      }
+    })
+  }, [order, productDetailsById])
 
   useEffect(() => {
     setIsNotFoundRedirectScheduled(false)
@@ -597,8 +641,15 @@ export function OrderDetailsPage() {
     if (!order || !orderId || !isReceiveSaveEnabled) return
 
     const products = selectedReceivePendingRowIndices
-      .map((index) => order.products[index]?.product._id)
-      .filter((productId): productId is string => Boolean(productId))
+      .map((index) => {
+        const line = order.products[index]
+        if (!line) return null
+        return {
+          productId: line.product._id,
+          variantId: line.variant._id,
+        }
+      })
+      .filter((value): value is { productId: string; variantId: string } => Boolean(value))
 
     if (!products.length) return
 
@@ -820,6 +871,7 @@ export function OrderDetailsPage() {
   const isProcessVisible = order.status === 'Draft'
   const isProcessDisabled = isProcessVisible && !canProcessOrder(order.delivery.status)
   const isReopenVisible = order.status === 'Canceled'
+  const productsSubtotal = Math.max(order.total_price - order.delivery.price, 0)
 
   const detailsDialogCopy =
     pendingStatusAction === 'cancel'
@@ -849,9 +901,7 @@ export function OrderDetailsPage() {
     <Stack spacing={2.5} data-testid="order-details-page">
       <OrderDetailsSummarySection
         order={order}
-        assignedManagerDisplayValue={assignedManagerDisplayValue}
-        isManagerAssigned={isManagerAssigned}
-        isManagerActionPending={isManagerActionPending}
+        productsSubtotal={productsSubtotal}
         isCancelVisible={isCancelVisible}
         isCancelDisabled={false}
         isReopenVisible={isReopenVisible}
@@ -859,59 +909,71 @@ export function OrderDetailsPage() {
         isProcessDisabled={isProcessDisabled}
         isRefreshPending={isRefreshPending}
         isOrderFetching={orderDetailsQuery.isFetching}
-        onAssignManager={handleOpenManagerAssignDialog}
-        onEditManager={handleOpenManagerAssignDialog}
-        onUnassignManager={handleOpenManagerUnassignDialog}
         onCancel={() => setPendingStatusAction('cancel')}
         onReopen={() => setPendingStatusAction('reopen')}
         onProcess={() => setPendingStatusAction('process')}
         onRefresh={() => void handleRefresh()}
       />
 
-      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' } }}>
-        <OrderDetailsCustomerSection
-          order={order}
-          isCustomerEditable={isCustomerEditable}
-          onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
-        />
+      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '360px minmax(0, 1fr)' } }}>
+        <Stack spacing={2.5}>
+          <OrderDetailsManagerSection
+            order={order}
+            assignedManagerDisplayValue={assignedManagerDisplayValue}
+            isManagerAssigned={isManagerAssigned}
+            isManagerActionPending={isManagerActionPending}
+            onAssignManager={handleOpenManagerAssignDialog}
+            onEditManager={handleOpenManagerAssignDialog}
+            onUnassignManager={handleOpenManagerUnassignDialog}
+          />
 
-        <OrderDetailsProductsSection
-          order={order}
-          isProductsEditable={isProductsEditable}
-          isReceiveStartVisible={isReceiveStartVisible}
-          isReceiveModeVisible={isReceiveModeVisible}
-          isReceiveSavePending={isReceiveSavePending}
-          isReceiveSaveEnabled={isReceiveSaveEnabled}
-          hasPendingProductsToReceive={hasPendingProductsToReceive}
-          isSelectAllChecked={isSelectAllChecked}
-          isSelectAllIndeterminate={isSelectAllIndeterminate}
-          selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
-          onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
-          onStartReceiveMode={handleStartReceiveMode}
-          onCancelReceiveMode={handleCancelReceiveMode}
-          onSaveReceivedProducts={() => void handleSaveReceivedProducts()}
-          onToggleSelectAllReceive={handleToggleSelectAllReceive}
-          onToggleReceiveProduct={handleToggleReceiveProduct}
-        />
+          <OrderDetailsCustomerSection
+            order={order}
+            isCustomerEditable={isCustomerEditable}
+            onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
+          />
+        </Stack>
+
+        <Stack spacing={2.5}>
+          <OrderDetailsProductsSection
+            order={order}
+            displayRows={orderProductDisplayRows}
+            isProductsEditable={isProductsEditable}
+            isReceiveStartVisible={isReceiveStartVisible}
+            isReceiveModeVisible={isReceiveModeVisible}
+            isReceiveSavePending={isReceiveSavePending}
+            isReceiveSaveEnabled={isReceiveSaveEnabled}
+            hasPendingProductsToReceive={hasPendingProductsToReceive}
+            isSelectAllChecked={isSelectAllChecked}
+            isSelectAllIndeterminate={isSelectAllIndeterminate}
+            selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
+            onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
+            onStartReceiveMode={handleStartReceiveMode}
+            onCancelReceiveMode={handleCancelReceiveMode}
+            onSaveReceivedProducts={() => void handleSaveReceivedProducts()}
+            onToggleSelectAllReceive={handleToggleSelectAllReceive}
+            onToggleReceiveProduct={handleToggleReceiveProduct}
+          />
+
+          <OrderDetailsTabsSection
+            order={order}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            isDeliveryEditable={order.status === 'Draft'}
+            isDeliverySubmitting={updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending}
+            onSaveDelivery={handleSaveDelivery}
+            commentDraft={commentDraft}
+            onCommentDraftChange={setCommentDraft}
+            isCommentValid={isCommentValid}
+            isCommentCreatePending={isCommentCreatePending}
+            isCommentDeletePending={isCommentDeletePending}
+            pendingDeleteCommentId={pendingDeleteCommentId}
+            orderedComments={orderedComments}
+            onCreateComment={() => void handleCreateComment()}
+            onDeleteComment={(commentId) => void handleDeleteComment(commentId)}
+          />
+        </Stack>
       </Box>
-
-      <OrderDetailsTabsSection
-        order={order}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        isDeliveryEditable={order.status === 'Draft'}
-        isDeliverySubmitting={updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending}
-        onSaveDelivery={handleSaveDelivery}
-        commentDraft={commentDraft}
-        onCommentDraftChange={setCommentDraft}
-        isCommentValid={isCommentValid}
-        isCommentCreatePending={isCommentCreatePending}
-        isCommentDeletePending={isCommentDeletePending}
-        pendingDeleteCommentId={pendingDeleteCommentId}
-        orderedComments={orderedComments}
-        onCreateComment={() => void handleCreateComment()}
-        onDeleteComment={(commentId) => void handleDeleteComment(commentId)}
-      />
 
       <EditOrderCustomerDialog
         open={isCustomerEditDialogOpen}

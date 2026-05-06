@@ -27,6 +27,7 @@ import {
   useOrderCustomerOptionsQuery,
   useOrderPricingMutation,
   useOrderProductDetailsQuery,
+  useOrderProductsDetailsQueries,
   useOrderProductOptionsQuery,
 } from '@/features/orders/hooks/useOrdersQuery'
 import { useUnsavedChangesGuard } from '@/features/orders/hooks/useUnsavedChangesGuard'
@@ -52,6 +53,7 @@ type ProductSummary = {
   name: string
   manufacturer: string
   category: string
+  variantsCount: number
 }
 
 type SelectedVariantRow = {
@@ -84,6 +86,7 @@ function toProductSummary(product: Product): ProductSummary {
     name: product.name,
     manufacturer: product.manufacturer,
     category: product.category,
+    variantsCount: typeof product.variantsCount === 'number' ? product.variantsCount : 0,
   }
 }
 
@@ -244,10 +247,31 @@ export function OrderCreatePage() {
   const parentProductOptions = useMemo(
     () =>
       (parentProductsQuery.data?.Products ?? [])
-        .filter((product) => product.status === 'Active')
+        .filter((product) => product.status === 'Active' && (product.variantsCount ?? 0) > 0)
         .map(toProductSummary),
     [parentProductsQuery.data?.Products],
   )
+  const parentProductOptionIds = useMemo(
+    () => parentProductOptions.map((product) => product._id),
+    [parentProductOptions],
+  )
+  const parentProductDetailsQueries = useOrderProductsDetailsQueries(
+    parentProductOptionIds,
+    hasValidSettings,
+  )
+  const parentProductsWithActiveVariants = useMemo(() => {
+    const hasActiveVariantById = new Map<string, boolean>()
+
+    parentProductDetailsQueries.forEach((query, index) => {
+      const productId = parentProductOptionIds[index]
+      if (!productId) return
+      if (!query.data) return
+
+      hasActiveVariantById.set(productId, query.data.variants.some(isVariantActive))
+    })
+
+    return parentProductOptions.filter((product) => hasActiveVariantById.get(product._id) !== false)
+  }, [parentProductDetailsQueries, parentProductOptionIds, parentProductOptions])
 
   const parentProductDetailsQuery = useOrderProductDetailsQuery(
     selectedParentProduct?._id ?? '',
@@ -733,7 +757,7 @@ export function OrderCreatePage() {
                         </Stack>
                       ) : null}
 
-                      {!parentProductsQuery.isFetching && parentProductOptions.length === 0 ? (
+                      {!parentProductsQuery.isFetching && parentProductsWithActiveVariants.length === 0 ? (
                         <Typography
                           variant="body2"
                           color="text.secondary"
@@ -743,7 +767,7 @@ export function OrderCreatePage() {
                         </Typography>
                       ) : null}
 
-                      {parentProductOptions.map((product, index) => {
+                      {parentProductsWithActiveVariants.map((product, index) => {
                         const isSelected = selectedParentProduct?._id === product._id
                         return (
                           <Paper

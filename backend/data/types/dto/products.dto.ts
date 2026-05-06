@@ -23,7 +23,9 @@ export type ProductCreateOrReplaceRequestDTO = Pick<
   variants: ProductVariantReplaceRequestDTO[];
 };
 
-export type ProductPatchRequestDTO = Partial<Pick<IProduct, "name" | "manufacturer" | "category" | "description" | "imageUrl">>;
+export type ProductPatchRequestDTO = Partial<
+  Pick<IProduct, "name" | "manufacturer" | "category" | "description" | "imageUrl">
+>;
 
 export type ProductVariantPatchRequestDTO = Partial<Pick<IProductVariant, "price" | "attributes" | "imageUrl">>;
 export type ProductStatusPatchRequestDTO = {
@@ -39,6 +41,7 @@ export type ProductListItemDTO = {
   manufacturer: string;
   category: string;
   status: PRODUCT_STATUSES;
+  imageUrl?: string;
   createdOn: string;
   variantsCount: number;
   priceRange: {
@@ -119,19 +122,31 @@ export type ReplaceProductRequestDTO = Request<ProductByIdParamsDTO, unknown, Pr
 export type PatchProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductPatchRequestDTO> & {
   product?: IProduct;
 };
-export type PatchProductVariantRequestDTO = Request<ProductVariantByIdParamsDTO, unknown, ProductVariantPatchRequestDTO> & {
+export type PatchProductVariantRequestDTO = Request<
+  ProductVariantByIdParamsDTO,
+  unknown,
+  ProductVariantPatchRequestDTO
+> & {
   product?: IProduct;
 };
 export type CreateProductVariantRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantCreateRequestDTO> & {
   product?: IProduct;
 };
-export type CreateProductVariantsRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantsCreateRequestDTO> & {
+export type CreateProductVariantsRequestDTO = Request<
+  ProductByIdParamsDTO,
+  unknown,
+  ProductVariantsCreateRequestDTO
+> & {
   product?: IProduct;
 };
 export type ReplaceProductVariantsRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantsReplaceBodyDTO> & {
   product?: IProduct;
 };
-export type ValidateProductVariantsRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantsReplaceBodyDTO> & {
+export type ValidateProductVariantsRequestDTO = Request<
+  ProductByIdParamsDTO,
+  unknown,
+  ProductVariantsReplaceBodyDTO
+> & {
   product?: IProduct;
 };
 export type PatchProductStatusRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductStatusPatchRequestDTO> & {
