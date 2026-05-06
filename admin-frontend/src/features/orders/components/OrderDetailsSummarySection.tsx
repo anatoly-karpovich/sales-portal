@@ -163,15 +163,26 @@ export function OrderDetailsSummarySection({
           }}
           data-testid="order-details-summary-metrics-grid"
         >
-          <MetricCard label={ordersUiText.detailsPage.labels.orderStatus} testId="order-details-summary-status-value">
+          <MetricCard
+            label={ordersUiText.detailsPage.labels.orderStatus}
+            testId="order-details-summary-status-value"
+          >
             <Typography sx={{ fontWeight: 700, color: getOrderStatusColor(order.status) }}>
               {order.status}
             </Typography>
           </MetricCard>
 
-          <MetricCard label={ordersUiText.detailsPage.labels.delivery} testId="order-details-summary-delivery-date-value">
+          <MetricCard
+            label={ordersUiText.detailsPage.labels.delivery}
+            testId="order-details-summary-delivery-date-value"
+          >
             <Stack spacing={0.75}>
-              <Typography sx={{ fontWeight: 700, color: order.delivery.isOverdue ? 'error.main' : 'text.primary' }}>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  color: order.delivery.isOverdue ? 'error.main' : 'text.primary',
+                }}
+              >
                 {order.delivery.status}
               </Typography>
               {order.delivery.isOverdue ? (
@@ -190,7 +201,10 @@ export function OrderDetailsSummarySection({
             <Typography sx={{ fontWeight: 800 }}>{formatPrice(order.total_price)}</Typography>
           </MetricCard>
 
-          <MetricCard label="Products Subtotal" testId="order-details-summary-products-subtotal-value">
+          <MetricCard
+            label="Products Subtotal"
+            testId="order-details-summary-products-subtotal-value"
+          >
             <Typography sx={{ fontWeight: 800 }}>{formatPrice(productsSubtotal)}</Typography>
           </MetricCard>
 
@@ -203,11 +217,7 @@ export function OrderDetailsSummarySection({
   )
 
   if (isEmbedded) {
-    return (
-      <Box data-testid="order-details-summary-section">
-        {content}
-      </Box>
-    )
+    return <Box data-testid="order-details-summary-section">{content}</Box>
   }
 
   return (
@@ -227,7 +237,10 @@ function MetricCard({
   children: ReactNode
 }) {
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, borderColor: 'divider', height: '100%' }}>
+    <Paper
+      variant="outlined"
+      sx={{ p: { xs: 1.5, md: 2 }, borderColor: 'divider', height: '100%' }}
+    >
       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
         {label}
       </Typography>

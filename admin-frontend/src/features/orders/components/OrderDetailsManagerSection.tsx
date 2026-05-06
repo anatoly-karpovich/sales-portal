@@ -29,7 +29,7 @@ export function OrderDetailsManagerSection({
     <Stack spacing={1.75}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Manager
+          {ordersUiText.detailsPage.labels.assignedManager}
         </Typography>
         <Stack direction="row" spacing={1}>
           <Button

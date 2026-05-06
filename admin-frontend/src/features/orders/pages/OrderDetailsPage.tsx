@@ -273,6 +273,10 @@ export function OrderDetailsPage() {
       const displayName = variantLabel
         ? `${product.product.name} | ${variantLabel}`
         : product.product.name
+      const manufacturer =
+        product.product.manufacturer?.trim() ||
+        productDetails?.manufacturer?.trim() ||
+        '-'
       const imageUrl =
         variant?.imageUrl?.trim() ||
         productDetails?.imageUrl?.trim() ||
@@ -280,7 +284,7 @@ export function OrderDetailsPage() {
 
       return {
         displayName,
-        manufacturer: product.product.manufacturer,
+        manufacturer,
         imageUrl,
       }
     })
@@ -942,8 +946,8 @@ export function OrderDetailsPage() {
               gap: 2,
               gridTemplateColumns: {
                 xs: '1fr',
-                lg: 'minmax(360px, 460px) minmax(460px, 1fr)',
-                xl: 'minmax(420px, 520px) minmax(520px, 1fr)',
+                lg: 'minmax(380px, 500px) minmax(460px, 1fr)',
+                xl: 'minmax(440px, 560px) minmax(520px, 1fr)',
               },
               alignItems: 'stretch',
             }}

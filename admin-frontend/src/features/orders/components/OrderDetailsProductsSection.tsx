@@ -165,7 +165,7 @@ export function OrderDetailsProductsSection({
                 data-testid="order-details-products-receive-select-all-checkbox"
               />
             ) : null}
-            <Typography color="text.secondary" fontSize={12}>
+            <Typography color="text.secondary">
               Status
             </Typography>
           </Stack>
@@ -215,12 +215,12 @@ export function OrderDetailsProductsSection({
                       {displayRow?.displayName ?? product.product.name}
                     </Typography>
                     <Typography
-                      variant="caption"
+                      variant="body2"
                       color="text.secondary"
-                      sx={{ display: 'block', overflowWrap: 'anywhere' }}
+                      sx={{ overflowWrap: 'anywhere' }}
                       data-testid={`order-details-products-row-${index}-manufacturer`}
                     >
-                      {product.product.manufacturer}
+                      {displayRow?.manufacturer ?? product.product.manufacturer ?? '-'}
                     </Typography>
                     <Stack
                       direction="row"
@@ -259,8 +259,12 @@ export function OrderDetailsProductsSection({
                     label={product.received ? 'Received' : 'Not Received'}
                     color={product.received ? 'success' : 'default'}
                     variant="outlined"
-                    size="small"
-                    sx={{ display: { xs: 'none', md: 'inline-flex' } }}
+                    sx={{
+                      display: { xs: 'none', md: 'inline-flex' },
+                      '& .MuiChip-label': {
+                        fontSize: '0.95rem',
+                      },
+                    }}
                   />
                   <Typography
                     color={product.received ? 'success.main' : 'text.secondary'}
