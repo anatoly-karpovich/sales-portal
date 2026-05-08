@@ -17,7 +17,7 @@ import type {
   OrderDelivery,
   OrderHistoryCustomerRef,
   OrderHistoryEntry,
-  OrderProduct,
+  OrderDetailsProduct,
 } from '@/api/modules/orders.api'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
@@ -107,19 +107,19 @@ function resolveReceivedLabel(received: boolean | undefined) {
   return received ? 'Received' : ordersUiText.detailsPage.history.notReceived
 }
 
-function resolveOrderProductKey(product: OrderProduct | undefined) {
-  const productId = product?.product?._id
-  const variantId = product?.variant?._id
+function resolveOrderProductKey(product: OrderDetailsProduct | undefined) {
+  const productId = product?.productId
+  const variantId = product?.variantId
   if (typeof productId !== 'string' || productId.trim().length === 0) return null
   if (typeof variantId !== 'string' || variantId.trim().length === 0) return null
   return `${productId}|${variantId}`
 }
 
-function resolveOrderProductName(product: OrderProduct | undefined) {
-  return normalizeText(product?.product?.name)
+function resolveOrderProductName(product: OrderDetailsProduct | undefined) {
+  return normalizeText(product?.name)
 }
 
-function resolveOrderProductLabel(product: OrderProduct | undefined) {
+function resolveOrderProductLabel(product: OrderDetailsProduct | undefined) {
   const name = resolveOrderProductName(product)
   if (name === '-') {
     return ordersUiText.detailsPage.history.productLabel
@@ -127,15 +127,15 @@ function resolveOrderProductLabel(product: OrderProduct | undefined) {
   return name
 }
 
-function resolveOrderProductDescriptor(product: OrderProduct | undefined) {
+function resolveOrderProductDescriptor(product: OrderDetailsProduct | undefined) {
   if (!product) return '-'
   const name = resolveOrderProductName(product)
   const quantity = typeof product.quantity === 'number' ? product.quantity : '-'
   return `${name} (${quantity})`
 }
 
-function buildProductsById(products: OrderProduct[]) {
-  const byId = new Map<string, OrderProduct>()
+function buildProductsById(products: OrderDetailsProduct[]) {
+  const byId = new Map<string, OrderDetailsProduct>()
   products.forEach((product) => {
     const key = resolveOrderProductKey(product)
     if (key) {
@@ -512,7 +512,7 @@ function HistoryProducts({
   products,
   index,
 }: {
-  products: OrderProduct[]
+  products: OrderDetailsProduct[]
   index: number
 }) {
   if (!products.length) {
@@ -526,7 +526,7 @@ function HistoryProducts({
     >
       {products.map((product, productIndex) => (
         <Box
-          key={`${product.product._id}-${product.variant._id}-${productIndex}`}
+          key={`${product.productId}-${product.variantId}-${productIndex}`}
           component="span"
           sx={{
             px: 1,

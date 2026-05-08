@@ -438,7 +438,7 @@ export async function orderProductAddValidations(
     }
 
     const existingKeys = new Set(
-      (req.order?.products ?? []).map((item) => toOrderLineKey(item.product._id.toString(), item.variant._id.toString())),
+      (req.order?.products ?? []).map((item) => toOrderLineKey(item.productId.toString(), item.variantId.toString())),
     );
     const requestedKey = toOrderLineKey(req.body.productId, req.body.variantId);
     if (existingKeys.has(requestedKey)) {
@@ -478,7 +478,7 @@ export async function orderProductReplaceValidations(
     }
 
     const existingKeys = new Set(
-      (req.order?.products ?? []).map((item) => toOrderLineKey(item.product._id.toString(), item.variant._id.toString())),
+      (req.order?.products ?? []).map((item) => toOrderLineKey(item.productId.toString(), item.variantId.toString())),
     );
     const fromKey = toOrderLineKey(from.productId, from.variantId);
     if (!existingKeys.has(fromKey)) {
@@ -524,7 +524,7 @@ export async function orderProductDeleteValidations(
     }
 
     const existingKeys = new Set(
-      (req.order?.products ?? []).map((item) => toOrderLineKey(item.product._id.toString(), item.variant._id.toString())),
+      (req.order?.products ?? []).map((item) => toOrderLineKey(item.productId.toString(), item.variantId.toString())),
     );
     const requestedKey = toOrderLineKey(productId, variantId);
     if (!existingKeys.has(requestedKey)) {
@@ -618,9 +618,7 @@ export async function orderReceiveValidations(
 
     for (const receivedItem of requestedItems) {
       const position = order.products.find(
-        (el) =>
-          el.product?._id?.toString() === receivedItem.productId &&
-          el.variant?._id?.toString() === receivedItem.variantId,
+        (el) => el.productId?.toString() === receivedItem.productId && el.variantId?.toString() === receivedItem.variantId,
       );
       if (!position) {
         return res

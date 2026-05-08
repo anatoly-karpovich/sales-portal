@@ -18,31 +18,30 @@ const manager = new mongoose.Schema(
 
 const productInOrder = new mongoose.Schema(
   {
-    product: {
-      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
-    },
-    variant: {
-      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
-    },
+    productId: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    variantId: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    manufacturer: { type: String, required: true },
+    name: { type: String, required: true },
+    attributes: { type: Map, of: String, required: true },
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
     received: { type: Boolean, required: true },
+    imageUrl: { type: String, required: false },
   },
   { _id: false },
 );
 
 const productInHistorySnapshot = new mongoose.Schema(
   {
-    product: {
-      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
-      name: { type: String, required: true },
-    },
-    variant: {
-      _id: { type: mongoose.SchemaTypes.ObjectId, required: true },
-    },
+    productId: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    variantId: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    manufacturer: { type: String, required: true },
+    name: { type: String, required: true },
+    attributes: { type: Map, of: String, required: true },
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
     received: { type: Boolean, required: true },
+    imageUrl: { type: String, required: false },
   },
   { _id: false },
 );
@@ -128,5 +127,7 @@ const Order = new mongoose.Schema(
 
 Order.index({ "customer._id": 1 });
 Order.index({ "customer.email": 1 });
+Order.index({ "products.productId": 1 });
+Order.index({ "products.productId": 1, "products.variantId": 1 });
 
 export default mongoose.model<IOrderDocument>("Order", Order);

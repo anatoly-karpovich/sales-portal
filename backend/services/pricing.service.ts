@@ -311,7 +311,7 @@ export class PricingService {
 
   private isProductsInOrder(products: PricingProducts): products is IProductInOrder[] | IProductInOrderResponse[] {
     for (const p of products) {
-      if (!("product" in p) || !("unitPrice" in p)) return false;
+      if (!("unitPrice" in p)) return false;
     }
     return true;
   }

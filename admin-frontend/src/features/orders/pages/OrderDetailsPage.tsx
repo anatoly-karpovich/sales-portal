@@ -44,7 +44,6 @@ import {
   useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
   useOrderManagerOptionsQuery,
-  useOrderProductsDetailsQueries,
   useReceiveOrderProductsMutation,
   useUnassignOrderManagerMutation,
   useUpdateOrderDeliveryMutation,
@@ -53,7 +52,6 @@ import {
   useUpdateOrderMutation,
 } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
-import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
 
 type PendingStatusAction = 'cancel' | 'process' | 'reopen' | null
 const MONGO_OBJECT_ID_REGEX = /^[a-f0-9]{24}$/i
@@ -170,6 +168,14 @@ function resolveManagerSortKey(manager: Manager) {
   return (fullName || manager.username).toLocaleLowerCase()
 }
 
+function resolveVariantLabelFromSnapshotAttributes(attributes: Record<string, string>) {
+  const parts = Object.values(attributes)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+
+  return parts.join(' | ')
+}
+
 export function OrderDetailsPage() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -212,14 +218,6 @@ export function OrderDetailsPage() {
   const createOrderCommentMutation = useCreateOrderCommentMutation()
   const deleteOrderCommentMutation = useDeleteOrderCommentMutation()
   const order = orderDetailsQuery.data
-  const orderProductIds = useMemo(
-    () => [...new Set((order?.products ?? []).map((item) => item.product._id))],
-    [order?.products],
-  )
-  const orderProductDetailsQueries = useOrderProductsDetailsQueries(
-    orderProductIds,
-    Boolean(order),
-  )
   const isNotFoundError =
     isAxiosError(orderDetailsQuery.error) && orderDetailsQuery.error.response?.status === 404
   const orderedComments = useMemo(() => [...(order?.comments ?? [])].reverse(), [order?.comments])
@@ -253,34 +251,16 @@ export function OrderDetailsPage() {
     selectedReceivePendingRowIndices.length < pendingReceiveRowIndices.length
   const isReceiveSavePending = receiveOrderProductsMutation.isPending
   const isReceiveSaveEnabled = selectedReceivePendingRowIndices.length > 0 && !isReceiveSavePending
-  const productDetailsById = useMemo(() => {
-    const detailsById = new Map<string, (typeof orderProductDetailsQueries)[number]['data']>()
-    orderProductDetailsQueries.forEach((query, index) => {
-      const productId = orderProductIds[index]
-      if (!productId || !query.data) return
-      detailsById.set(productId, query.data)
-    })
-    return detailsById
-  }, [orderProductDetailsQueries, orderProductIds])
   const orderProductDisplayRows = useMemo(() => {
     if (!order) return []
 
     return order.products.map((product) => {
-      const productDetails = productDetailsById.get(product.product._id)
-      const variant = productDetails?.variants.find((item) => item._id === product.variant._id)
-      const variantLabel =
-        variant && productDetails ? toVariantTitle(variant, productDetails.attributes) : ''
+      const variantLabel = resolveVariantLabelFromSnapshotAttributes(product.attributes)
       const displayName = variantLabel
-        ? `${product.product.name} | ${variantLabel}`
-        : product.product.name
-      const manufacturer =
-        product.product.manufacturer?.trim() ||
-        productDetails?.manufacturer?.trim() ||
-        '-'
-      const imageUrl =
-        variant?.imageUrl?.trim() ||
-        productDetails?.imageUrl?.trim() ||
-        noImageProduct
+        ? `${product.name} | ${variantLabel}`
+        : product.name
+      const manufacturer = product.manufacturer?.trim() || '-'
+      const imageUrl = product.imageUrl?.trim() || noImageProduct
 
       return {
         displayName,
@@ -288,7 +268,7 @@ export function OrderDetailsPage() {
         imageUrl,
       }
     })
-  }, [order, productDetailsById])
+  }, [order])
 
   useEffect(() => {
     setIsNotFoundRedirectScheduled(false)
@@ -649,8 +629,8 @@ export function OrderDetailsPage() {
         const line = order.products[index]
         if (!line) return null
         return {
-          productId: line.product._id,
-          variantId: line.variant._id,
+          productId: line.productId,
+          variantId: line.variantId,
         }
       })
       .filter((value): value is { productId: string; variantId: string } => Boolean(value))

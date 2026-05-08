@@ -298,8 +298,8 @@ async function ensureRemovedVariantsAreNotAssigned(params: {
   const isAssignedToOrder = await Order.exists({
     products: {
       $elemMatch: {
-        "product._id": productIdObject,
-        "variant._id": { $in: removedVariantObjectIds },
+        productId: productIdObject,
+        variantId: { $in: removedVariantObjectIds },
       },
     },
   });
@@ -719,7 +719,7 @@ export async function productById(req: GetProductByIdRequestDTO, res: Response<B
 export async function deleteProduct(req: DeleteProductRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
     const productId = new Types.ObjectId(req.params.productId);
-    const isAssignedToOrder = await Order.exists({ "products.product._id": productId });
+    const isAssignedToOrder = await Order.exists({ "products.productId": productId });
     if (isAssignedToOrder) {
       return res
         .status(409)
@@ -759,7 +759,7 @@ export async function deleteProductVariant(
     const productIdObject = new Types.ObjectId(req.params.productId);
     const variantIdObject = new Types.ObjectId(variantId);
     const isAssignedToOrder = await Order.exists({
-      products: { $elemMatch: { "product._id": productIdObject, "variant._id": variantIdObject } },
+      products: { $elemMatch: { productId: productIdObject, variantId: variantIdObject } },
     });
     if (isAssignedToOrder) {
       return res.status(409).json({

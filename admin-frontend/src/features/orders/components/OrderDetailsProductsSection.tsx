@@ -176,7 +176,7 @@ export function OrderDetailsProductsSection({
             const displayRow = displayRows[index]
             return (
               <Box
-                key={`${product.product._id}-${product.variant._id}-${index}`}
+                key={`${product.productId}-${product.variantId}-${index}`}
                 sx={{
                   px: { xs: 1.5, md: 2.5 },
                   py: 1.5,
@@ -196,7 +196,7 @@ export function OrderDetailsProductsSection({
                   <Box
                     component="img"
                     src={displayRow?.imageUrl}
-                    alt={displayRow?.displayName ?? product.product.name}
+                    alt={displayRow?.displayName ?? product.name}
                     sx={{
                       width: 52,
                       height: 52,
@@ -212,7 +212,7 @@ export function OrderDetailsProductsSection({
                       sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
                       data-testid={`order-details-products-row-${index}-name`}
                     >
-                      {displayRow?.displayName ?? product.product.name}
+                      {displayRow?.displayName ?? product.name}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -220,7 +220,7 @@ export function OrderDetailsProductsSection({
                       sx={{ overflowWrap: 'anywhere' }}
                       data-testid={`order-details-products-row-${index}-manufacturer`}
                     >
-                      {displayRow?.manufacturer ?? product.product.manufacturer ?? '-'}
+                      {displayRow?.manufacturer ?? product.manufacturer ?? '-'}
                     </Typography>
                     <Stack
                       direction="row"

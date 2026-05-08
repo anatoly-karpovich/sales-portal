@@ -160,7 +160,7 @@ orderRouter.put(
  *         createdOn:
  *           type: string
  *           format: date-time
- *     ProductInOrder:
+ *     ProductInOrderList:
  *       type: object
  *       required: [product, variant, unitPrice, quantity, received]
  *       properties:
@@ -185,6 +185,31 @@ orderRouter.put(
  *           minimum: 1
  *         received:
  *           type: boolean
+ *     ProductInOrderDetails:
+ *       type: object
+ *       required: [productId, variantId, manufacturer, unitPrice, quantity, name, attributes, received]
+ *       properties:
+ *         productId:
+ *           type: string
+ *         variantId:
+ *           type: string
+ *         manufacturer:
+ *           type: string
+ *         unitPrice:
+ *           type: number
+ *         quantity:
+ *           type: integer
+ *           minimum: 1
+ *         name:
+ *           type: string
+ *         attributes:
+ *           type: object
+ *           additionalProperties:
+ *             type: string
+ *         received:
+ *           type: boolean
+ *         imageUrl:
+ *           type: string
  *     DeliveryAddress:
  *       type: object
  *       required: [state, city, street, house, zipCode]
@@ -301,7 +326,7 @@ orderRouter.put(
  *         products:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/ProductInOrder'
+ *             $ref: '#/components/schemas/ProductInOrderDetails'
  *         total_price:
  *           type: number
  *         delivery:
@@ -349,7 +374,7 @@ orderRouter.put(
  *         products:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/ProductInOrder'
+ *             $ref: '#/components/schemas/ProductInOrderList'
  *         delivery:
  *           $ref: '#/components/schemas/Delivery'
  *         total_price:
@@ -363,20 +388,40 @@ orderRouter.put(
  *             - $ref: '#/components/schemas/ManagerSnapshot'
  *           nullable: true
  *     OrderDetails:
- *       allOf:
- *         - $ref: '#/components/schemas/OrderListItem'
- *         - type: object
- *           properties:
- *             customer:
- *               $ref: '#/components/schemas/OrderCustomerFull'
- *             comments:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/OrderComment'
- *             history:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/OrderHistoryEntry'
+ *       type: object
+ *       required: [_id, status, customer, products, delivery, total_price, createdOn]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [Draft, In Process, Completed, Canceled]
+ *         customer:
+ *           $ref: '#/components/schemas/OrderCustomerFull'
+ *         products:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductInOrderDetails'
+ *         delivery:
+ *           $ref: '#/components/schemas/Delivery'
+ *         total_price:
+ *           type: number
+ *         createdOn:
+ *           type: string
+ *           format: date-time
+ *         assignedManager:
+ *           type: object
+ *           allOf:
+ *             - $ref: '#/components/schemas/ManagerSnapshot'
+ *           nullable: true
+ *         comments:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/OrderComment'
+ *         history:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/OrderHistoryEntry'
  *     OrdersListResponse:
  *       type: object
  *       required: [Orders, total, page, limit, search, status, deliveryStatus, sorting, IsSuccess, ErrorMessage]

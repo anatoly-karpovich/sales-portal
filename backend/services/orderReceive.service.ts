@@ -21,13 +21,7 @@ class OrderReceiveService {
       throw new Error("Id was not provided");
     }
 
-    const dbProducts: IProductInOrder[] = currentOrder.products.map((item) => ({
-      product: { _id: new Types.ObjectId(item.product._id) },
-      variant: { _id: new Types.ObjectId(item.variant._id) },
-      unitPrice: item.unitPrice,
-      quantity: item.quantity,
-      received: item.received,
-    }));
+    const dbProducts: IProductInOrder[] = currentOrder.products.map((item) => ({ ...item }));
 
     const manager = await managersService.getManager(performerId);
     const requestedProductKeys = products.map(
@@ -37,8 +31,7 @@ class OrderReceiveService {
     let receivedChanged = false;
     for (const requestedProductKey of requestedProductKeys) {
       const positionIndex = dbProducts.findIndex(
-        (item) =>
-          `${item.product._id.toString()}:${item.variant._id.toString()}` === requestedProductKey && !item.received,
+        (item) => `${item.productId.toString()}:${item.variantId.toString()}` === requestedProductKey && !item.received,
       );
       if (positionIndex !== -1) {
         dbProducts[positionIndex] = { ...dbProducts[positionIndex], received: true };
@@ -51,13 +44,13 @@ class OrderReceiveService {
     }
 
     const receivedByProductId = new Map<string, boolean>(
-      dbProducts.map((item) => [`${item.product._id.toString()}:${item.variant._id.toString()}`, item.received]),
+      dbProducts.map((item) => [`${item.productId.toString()}:${item.variantId.toString()}`, item.received]),
     );
     const historyProducts = currentOrder.products.map((item) => ({
       ...item,
-      received: requestedProductKeysSet.has(`${item.product._id.toString()}:${item.variant._id.toString()}`)
+      received: requestedProductKeysSet.has(`${item.productId.toString()}:${item.variantId.toString()}`)
         ? true
-        : (receivedByProductId.get(`${item.product._id.toString()}:${item.variant._id.toString()}`) ?? item.received),
+        : (receivedByProductId.get(`${item.productId.toString()}:${item.variantId.toString()}`) ?? item.received),
     }));
 
     const orderForUpdate = {

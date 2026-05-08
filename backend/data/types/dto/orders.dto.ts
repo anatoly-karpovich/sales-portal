@@ -3,7 +3,7 @@ import { ORDER_STATUSES } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
 import { ICustomer } from "../customer.type";
 import { IDeliveryUpdatePayload, IPickupUpdatePayload } from "../delivery.type";
-import { IOrder, IOrderCustomerSnapshot, IProductInOrderResponse } from "../order.type";
+import { IOrder, IOrderCustomerSnapshot, IProductInOrder, IProductInOrderResponse } from "../order.type";
 
 export type OrderByIdParamsDTO = { orderId?: string };
 export type OrderPathIdParamsDTO = { orderId?: string };
@@ -92,7 +92,7 @@ export type OrderCommentCreateRequestDTO = {
   comment: string;
 };
 
-export type OrderDetailsDTO = IOrder<ICustomer, IProductInOrderResponse>;
+export type OrderDetailsDTO = IOrder<ICustomer, IProductInOrder>;
 export type OrderListItemDTO = IOrder<IOrderCustomerSnapshot, IProductInOrderResponse>;
 
 export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateRequestBodyDTO>;

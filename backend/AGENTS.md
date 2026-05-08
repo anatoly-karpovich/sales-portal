@@ -266,15 +266,19 @@ DB shape (`Order.products[i]`):
 
 ```
 {
-  product: { _id: ObjectId },
-  variant: { _id: ObjectId },
+  productId: ObjectId,
+  variantId: ObjectId,
+  manufacturer: String,
+  name: String,
+  attributes: Map<String, String>,
   unitPrice: Number,
   quantity: Number (>= 1),
-  received: Boolean
+  received: Boolean,
+  imageUrl?: String
 }
 ```
 
-API response shape (`getOrder`, `getSorted`, etc.):
+API response shape for order list (`GET /orders`, `getSorted`):
 
 ```
 {
@@ -286,7 +290,23 @@ API response shape (`getOrder`, `getSorted`, etc.):
 }
 ```
 
-- `name` is joined from the live `Product` collection on every read (see `OrderService.enrichProducts`).
+API response shape for order details (`GET /orders/:orderId`):
+
+```
+{
+  productId: string,
+  variantId: string,
+  manufacturer: string,
+  unitPrice: number,
+  quantity: number,
+  name: string,
+  attributes: Record<string, string>,
+  received: boolean,
+  imageUrl?: string
+}
+```
+
+- product details are stored as snapshot directly in order lines and returned from `GET /orders/:orderId` without live joins to `Product`.
 - `unitPrice` is a snapshot of variant price taken at the moment a position is added to the order. On `PATCH /orders/:orderId`:
   - positions that already existed in the order keep their previous `unitPrice` and `received`,
   - newly added positions get a fresh `unitPrice` from the current variant price,
@@ -297,11 +317,15 @@ History snapshot (`Order.history[].products[i]`) keeps:
 
 ```
 {
-  product: { _id: ObjectId, name: string },
-  variant: { _id: ObjectId },
+  productId: ObjectId,
+  variantId: ObjectId,
+  manufacturer: String,
+  name: String,
+  attributes: Map<String, String>,
   unitPrice: number,
   quantity: number,
-  received: boolean
+  received: boolean,
+  imageUrl?: string
 }
 ```
 
@@ -310,8 +334,8 @@ Settings-driven limits (read each request via `SettingsService.get()`):
 - `settings.order.maxProductsInOrder` - informational; not enforced by backend.
 
 Indexes used for product-deletion guards:
-- product deletion check path: `products.product._id`
-- variant deletion check path: `products.$elemMatch({ "product._id": productId, "variant._id": variantId })`
+- product deletion check path: `products.productId`
+- variant deletion check path: `products.$elemMatch({ productId, variantId })`
 
 ## 9) Core business invariants
 
@@ -341,7 +365,7 @@ Order side effects:
 
 Deletion guards:
 
-- product cannot be deleted if referenced in any order (check is `Order.exists({ "products.product._id": productId })`);
+- product cannot be deleted if referenced in any order (check is `Order.exists({ "products.productId": productId })`);
 - product variant cannot be deleted if referenced in any order line with same product id and variant id;
 - product variant cannot be deleted if it is the last variant in the product;
 - customer cannot be deleted if referenced in any order;

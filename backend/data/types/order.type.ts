@@ -3,6 +3,7 @@ import type { Document } from "mongoose";
 import { Types } from "mongoose";
 import type { ICustomer, IDelivery, DocumentResult, IComment } from ".";
 import { IManagerWithRoles } from "./manager.types";
+import type { IProductVariant } from "./product.type";
 
 export type IOrderCustomerSnapshot = {
   _id: Types.ObjectId;
@@ -19,11 +20,15 @@ export interface IProductVariantInOrderRef {
 }
 
 export interface IProductInOrder {
-  product: IProductInOrderRef;
-  variant: IProductVariantInOrderRef;
+  productId: Types.ObjectId;
+  variantId: Types.ObjectId;
+  manufacturer: string;
   unitPrice: number;
   quantity: number;
+  name: string;
+  attributes: IProductVariant["attributes"];
   received: boolean;
+  imageUrl?: string;
 }
 
 export interface IProductInOrderResponseRef extends IProductInOrderRef {
@@ -32,9 +37,12 @@ export interface IProductInOrderResponseRef extends IProductInOrderRef {
 
 export interface IProductVariantInOrderResponseRef extends IProductVariantInOrderRef {}
 
-export interface IProductInOrderResponse extends Omit<IProductInOrder, "product" | "variant"> {
+export interface IProductInOrderResponse {
   product: IProductInOrderResponseRef;
   variant: IProductVariantInOrderResponseRef;
+  unitPrice: number;
+  quantity: number;
+  received: boolean;
 }
 
 export interface IOrder<CustomerType = IOrderCustomerSnapshot, ProductsType = IProductInOrder> {
@@ -76,7 +84,7 @@ export interface IHistory {
   readonly action: ORDER_HISTORY_ACTIONS;
   readonly status: ORDER_STATUSES;
   readonly customer: Types.ObjectId;
-  readonly products: IProductInOrderResponse[];
+  readonly products: IProductInOrder[];
   readonly delivery: IDelivery;
   readonly total_price: number;
   readonly changedOn: string;

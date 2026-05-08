@@ -80,7 +80,7 @@ export type OrderProductSnapshot = {
   manufacturer: string
 }
 
-export type OrderProduct = {
+export type OrderListProduct = {
   product: OrderProductSnapshot
   variant: {
     _id: string
@@ -90,11 +90,23 @@ export type OrderProduct = {
   received: boolean
 }
 
+export type OrderDetailsProduct = {
+  productId: string
+  variantId: string
+  manufacturer: string
+  unitPrice: number
+  quantity: number
+  name: string
+  attributes: Record<string, string>
+  received: boolean
+  imageUrl?: string
+}
+
 export type OrderListItem = {
   _id: string
   status: OrderStatus
   customer: OrderCustomerSnapshot
-  products: OrderProduct[]
+  products: OrderListProduct[]
   delivery: OrderDelivery
   total_price: number
   createdOn: string
@@ -131,7 +143,7 @@ export type OrderHistoryEntry = {
   action?: string
   status?: OrderStatus
   customer?: OrderHistoryCustomerRef
-  products?: OrderProduct[]
+  products?: OrderDetailsProduct[]
   delivery: OrderDelivery
   total_price?: number
   changedOn?: string
@@ -139,8 +151,9 @@ export type OrderHistoryEntry = {
   assignedManager?: OrderAssignedManager | null
 }
 
-export type OrderDetails = Omit<OrderListItem, 'customer'> & {
+export type OrderDetails = Omit<OrderListItem, 'customer' | 'products'> & {
   customer: OrderCustomerDetails
+  products: OrderDetailsProduct[]
   comments: OrderComment[]
   history: OrderHistoryEntry[]
 }

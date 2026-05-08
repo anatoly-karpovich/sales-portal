@@ -22,8 +22,8 @@ import type { Product } from '@/api/modules/products.api'
 import type {
   OrderDelivery,
   OrderDeliveryByAddressPayload,
+  OrderDetailsProduct,
   OrderPickupPayload,
-  OrderProduct,
   OrderProductRequestItem,
 } from '@/api/modules/orders.api'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -59,7 +59,7 @@ type ProductSummary = {
 
 type Props = {
   open: boolean
-  initialProducts: OrderProduct[]
+  initialProducts: OrderDetailsProduct[]
   currentDelivery: OrderDelivery | null
   isSubmitting: boolean
   onClose: () => void
@@ -88,11 +88,11 @@ function clampQuantity(value: number, max: number) {
   return Math.min(Math.max(value, 1), max)
 }
 
-function buildSummaryFromOrderProduct(product: OrderProduct): ProductSummary {
+function buildSummaryFromOrderProduct(product: OrderDetailsProduct): ProductSummary {
   return {
-    _id: product.product._id,
-    name: product.product.name,
-    manufacturer: product.product.manufacturer,
+    _id: product.productId,
+    name: product.name,
+    manufacturer: product.manufacturer,
     price: product.unitPrice,
   }
 }
@@ -156,8 +156,8 @@ export function EditOrderProductsDialog({
     initialProducts.length
       ? initialProducts.map((product, index) => ({
           id: index + 1,
-          productId: product.product._id,
-          variantId: product.variant._id,
+          productId: product.productId,
+          variantId: product.variantId,
           quantity: product.quantity,
         }))
       : [{ id: 1, productId: '', variantId: '', quantity: 1 }],
@@ -172,7 +172,7 @@ export function EditOrderProductsDialog({
   const [knownProductsById, setKnownProductsById] = useState<Map<string, ProductSummary>>(
     () =>
       new Map(
-        initialProducts.map((product) => [product.product._id, buildSummaryFromOrderProduct(product)]),
+        initialProducts.map((product) => [product.productId, buildSummaryFromOrderProduct(product)]),
       ),
   )
   const nextRowId = useRef(initialProducts.length > 0 ? initialProducts.length + 1 : 2)
@@ -197,7 +197,7 @@ export function EditOrderProductsDialog({
   const initialProductsById = useMemo(
     () =>
       new Map(
-        initialProducts.map((product) => [product.product._id, buildSummaryFromOrderProduct(product)]),
+        initialProducts.map((product) => [product.productId, buildSummaryFromOrderProduct(product)]),
       ),
     [initialProducts],
   )
@@ -259,8 +259,8 @@ export function EditOrderProductsDialog({
   const initialRequestedProducts = useMemo(
     () =>
       initialProducts.map((product) => ({
-        productId: product.product._id,
-        variantId: product.variant._id,
+        productId: product.productId,
+        variantId: product.variantId,
         quantity: product.quantity,
       })),
     [initialProducts],

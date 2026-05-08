@@ -89,7 +89,7 @@ Rules:
 - delete line (`DELETE /api/orders/:orderId/products`) removes full line by `productId + variantId`; deleting the last line is forbidden (`400`).
 - all line/customer patch endpoints are Draft-only.
 
-## Order Response Line Item
+## Order Response Line Item (`GET /api/orders`)
 
 ```json
 {
@@ -100,6 +100,29 @@ Rules:
   "received": false
 }
 ```
+
+## Order Details Line Item (`GET /api/orders/:orderId`)
+
+```json
+{
+  "productId": "64f100000000000000000001",
+  "variantId": "64f100000000000000000101",
+  "manufacturer": "Apple",
+  "unitPrice": 799.99,
+  "quantity": 2,
+  "name": "iPhone 15",
+  "attributes": {
+    "color": "Black",
+    "storage": "128 GB"
+  },
+  "received": false,
+  "imageUrl": "https://cdn.example.com/products/iphone-15-black.png"
+}
+```
+
+Notes:
+- order details use a persisted product snapshot from the order document (no live product join required);
+- order list/export keep the list-oriented line references (`product._id`, `variant._id`) in response/export columns.
 
 ## Export Contract (`POST /api/orders/export`)
 

@@ -1,5 +1,4 @@
 import Order from "../models/order.model";
-import Product from "../models/product.model";
 import CustomerService from "./customer.service";
 import {
   IOrder,
@@ -53,10 +52,12 @@ class OrderService {
     return error;
   }
 
-  private toRequestOrderLine(product: Pick<IProductInOrder, "product" | "variant" | "quantity">): IOrderProductRequestItem {
+  private toRequestOrderLine(
+    product: Pick<IProductInOrder, "productId" | "variantId" | "quantity">,
+  ): IOrderProductRequestItem {
     return {
-      productId: new Types.ObjectId(product.product._id),
-      variantId: new Types.ObjectId(product.variant._id),
+      productId: new Types.ObjectId(product.productId),
+      variantId: new Types.ObjectId(product.variantId),
       quantity: product.quantity,
     };
   }
@@ -87,7 +88,7 @@ class OrderService {
     }
 
     const currentById = new Map<string, IProductInOrder>(
-      currentProducts.map((item) => [`${item.product._id.toString()}:${item.variant._id.toString()}`, item]),
+      currentProducts.map((item) => [`${item.productId.toString()}:${item.variantId.toString()}`, item]),
     );
 
     const newKeys = requestedProducts
@@ -102,7 +103,7 @@ class OrderService {
         })
       : [];
     const freshById = new Map<string, IProductInOrder>(
-      freshSnapshots.map((item) => [`${item.product._id.toString()}:${item.variant._id.toString()}`, item]),
+      freshSnapshots.map((item) => [`${item.productId.toString()}:${item.variantId.toString()}`, item]),
     );
 
     return requestedProducts.map((item) => {
@@ -110,20 +111,28 @@ class OrderService {
       const existing = currentById.get(idStr);
       if (existing) {
         return {
-          product: { _id: new Types.ObjectId(existing.product._id) },
-          variant: { _id: new Types.ObjectId(existing.variant._id) },
+          productId: new Types.ObjectId(existing.productId),
+          variantId: new Types.ObjectId(existing.variantId),
+          manufacturer: existing.manufacturer,
           unitPrice: existing.unitPrice,
           quantity: item.quantity,
+          name: existing.name,
+          attributes: existing.attributes,
           received: existing.received,
+          imageUrl: existing.imageUrl,
         };
       }
       const fresh = freshById.get(idStr);
+      if (!fresh) {
+        throw new Error(
+          `Variant with id '${item.variantId.toString()}' was not found in product '${item.productId.toString()}'`,
+        );
+      }
       return {
-        product: { _id: new Types.ObjectId(item.productId) },
-        variant: { _id: new Types.ObjectId(item.variantId) },
-        unitPrice: fresh?.unitPrice ?? 0,
+        ...fresh,
+        productId: new Types.ObjectId(item.productId),
+        variantId: new Types.ObjectId(item.variantId),
         quantity: item.quantity,
-        received: false,
       };
     });
   }
@@ -147,34 +156,15 @@ class OrderService {
     if (!products || products.length === 0) {
       return [];
     }
-    const uniqueIds = [
-      ...new Set(
-        products.map((item) => item?.product?._id?.toString()).filter((value): value is string => Boolean(value)),
-      ),
-    ];
-
-    const productDocs = await Product.find({ _id: { $in: uniqueIds.map((id) => new Types.ObjectId(id)) } })
-      .select("_id name")
-      .lean()
-      .exec();
-
-    const productById = new Map<string, { name: string }>(
-      productDocs.map((doc) => [
-        doc._id.toString(),
-        { name: doc.name },
-      ]),
-    );
 
     return products.map((item) => {
-      const productId = item.product._id;
-      const lookup = productById.get(productId.toString());
       return {
         product: {
-          _id: new Types.ObjectId(productId),
-          name: lookup?.name ?? "",
+          _id: new Types.ObjectId(item.productId),
+          name: item.name,
         },
         variant: {
-          _id: new Types.ObjectId(item.variant._id),
+          _id: new Types.ObjectId(item.variantId),
         },
         unitPrice: item.unitPrice,
         quantity: item.quantity,
@@ -210,9 +200,8 @@ class OrderService {
       assignedManager: null,
     };
 
-    const historyProducts = await this.enrichProducts(products);
     newOrder.history.unshift(
-      createHistoryEntry({ ...newOrder, products: historyProducts }, ORDER_HISTORY_ACTIONS.CREATED, performer),
+      createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer),
     );
     const createdOrder = await Order.create(newOrder);
 
@@ -543,12 +532,10 @@ class OrderService {
       return { ...comment, createdBy: resolvedAuthor };
     });
 
-    const enrichedProducts = await this.enrichProducts(orderFromDB.products as unknown as IProductInOrder[]);
-
     return this.withOverdueDelivery({
       ...(orderFromDB as unknown as IOrder<IOrderCustomerSnapshot>),
       customer,
-      products: enrichedProducts,
+      products: (orderFromDB.products as unknown as IProductInOrder[]).map((item) => ({ ...item })),
       comments: commentsWithResolvedAuthors,
     } as unknown as OrderDetailsDTO);
   }
@@ -563,13 +550,7 @@ class OrderService {
       ? await CustomerService.getCustomer(order.customer)
       : (currentOrder.customer as ICustomer);
 
-    const currentProducts: IProductInOrder[] = currentOrder.products.map((item) => ({
-      product: { _id: new Types.ObjectId(item.product._id) },
-      variant: { _id: new Types.ObjectId(item.variant._id) },
-      unitPrice: item.unitPrice,
-      quantity: item.quantity,
-      received: item.received,
-    }));
+    const currentProducts: IProductInOrder[] = currentOrder.products.map((item) => ({ ...item }));
 
     const nextProducts: IProductInOrder[] = await this.mergeProductsForUpdate(currentProducts, order.products);
 
@@ -631,7 +612,7 @@ class OrderService {
 
     const changed = { products: false, customer: false };
 
-    const nextHistoryProducts = await this.enrichProducts(nextProducts);
+    const nextHistoryProducts = nextProducts.map((item) => ({ ...item }));
     const currentHistoryProducts = currentOrder.products.map((item) => ({ ...item }));
 
     if (order.products) {
@@ -641,8 +622,8 @@ class OrderService {
         quantity: item.quantity,
       }));
       const currentTuples = currentProducts.map((item) => ({
-        productId: item.product._id.toString(),
-        variantId: item.variant._id.toString(),
+        productId: item.productId.toString(),
+        variantId: item.variantId.toString(),
         quantity: item.quantity,
       }));
       if (!_.isEqual(requested, currentTuples)) {
@@ -700,13 +681,7 @@ class OrderService {
     performerId: string,
     currentOrder: OrderDetailsDTO,
   ): Promise<OrderDetailsDTO> {
-    const currentProducts = currentOrder.products.map((item) =>
-      this.toRequestOrderLine({
-        product: { _id: new Types.ObjectId(item.product._id) },
-        variant: { _id: new Types.ObjectId(item.variant._id) },
-        quantity: item.quantity,
-      }),
-    );
+    const currentProducts = currentOrder.products.map((item) => this.toRequestOrderLine(item));
 
     const nextKey = `${product.productId.toString()}:${product.variantId.toString()}`;
     const hasDuplicate = currentProducts.some(
@@ -729,13 +704,7 @@ class OrderService {
     performerId: string,
     currentOrder: OrderDetailsDTO,
   ): Promise<OrderDetailsDTO> {
-    const currentProducts = currentOrder.products.map((item) =>
-      this.toRequestOrderLine({
-        product: { _id: new Types.ObjectId(item.product._id) },
-        variant: { _id: new Types.ObjectId(item.variant._id) },
-        quantity: item.quantity,
-      }),
-    );
+    const currentProducts = currentOrder.products.map((item) => this.toRequestOrderLine(item));
 
     const fromKey = `${from.productId.toString()}:${from.variantId.toString()}`;
     const replaceIndex = currentProducts.findIndex(
@@ -770,13 +739,7 @@ class OrderService {
     performerId: string,
     currentOrder: OrderDetailsDTO,
   ): Promise<OrderDetailsDTO> {
-    const currentProducts = currentOrder.products.map((item) =>
-      this.toRequestOrderLine({
-        product: { _id: new Types.ObjectId(item.product._id) },
-        variant: { _id: new Types.ObjectId(item.variant._id) },
-        quantity: item.quantity,
-      }),
-    );
+    const currentProducts = currentOrder.products.map((item) => this.toRequestOrderLine(item));
 
     if (currentProducts.length <= 1) {
       throw this.createHttpError("Cannot delete the last product from order", 400);
@@ -815,11 +778,10 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(order.customer._id);
-    const enrichedProducts = await this.enrichProducts(order.products as unknown as IProductInOrder[]);
     return {
       ...(order as unknown as IOrder<IOrderCustomerSnapshot>),
       customer,
-      products: enrichedProducts,
+      products: (order.products as unknown as IProductInOrder[]).map((item) => ({ ...item })),
     } as unknown as OrderDetailsDTO;
   }
 
