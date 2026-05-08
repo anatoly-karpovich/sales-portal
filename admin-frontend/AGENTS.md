@@ -203,13 +203,15 @@ Top-level source layout:
     - create action redirects to `#/orders/:orderId` on success.
   - `hooks/useUnsavedChangesGuard.ts` - hash-router compatible unsaved changes prompt for page leave/refresh in create flow.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
-  - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
-  - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard, and backend pricing preview (products-only or products+current delivery)
   - `components/AssignManagerDialog.tsx` - assign/edit manager dialog with searchable manager list and save-state guards
   - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order id, assigned manager controls near order number, status actions, metrics cards)
     - when manager is assigned and id is present, assigned manager value is a link to `/managers/:managerId`.
-  - `components/OrderDetailsCustomerSection.tsx` - customer read-only block + draft-only edit trigger
-  - `components/OrderDetailsProductsSection.tsx` - products block + draft edit + receive-mode controls
+  - `components/OrderDetailsCustomerSection.tsx` - customer block with view + draft-only inline edit mode
+    - inline edit uses searchable `Autocomplete` and save/cancel actions in section context (no dialog).
+  - `components/OrderDetailsProductsSection.tsx` - products block with view + draft-only inline edit mode + receive-mode controls
+    - inline edit reuses create-flow UX: parent products -> active variants -> batch add.
+    - selected rows support quantity control and remove action; duplicates by `productId + variantId` are blocked.
+    - inline compact summary includes products count/subtotal, delivery, total and debounced pricing preview.
   - `components/OrderDetailsTabsSection.tsx` - tabs switcher and tab-level composition (`Delivery`, `Order History`, `Comments`)
   - `components/OrderDetailsDeliveryTab.tsx` - delivery tab content:
     - view mode with delivery summary and source chip;
@@ -249,7 +251,7 @@ Top-level source layout:
       - `Process` is shown only for `Draft`; enabled only when `delivery.status in [Delivery Scheduled, Pickup Scheduled]`;
       - `Cancel` is shown only for `Draft | In Process` with `delivery.status in [Draft, Delivery Scheduled, Pickup Scheduled]`;
       - `Reopen` is shown only for `Canceled`;
-    - read-only customer/products blocks;
+    - customer/products sections default to read-only view mode;
     - manager assignment flow:
       - if manager is absent: `Click to select manager` trigger opens assignment dialog;
       - if manager exists: show manager value + edit trigger + unassign trigger;
@@ -266,7 +268,11 @@ Top-level source layout:
       - `Select All` uses tri-state behavior (`checked`, `indeterminate`, `unchecked`) for partial selection;
       - `Save` posts selected IDs to `/orders/:orderId/receive`, then refreshes details and exits receive mode;
       - `Cancel` exits receive mode without API call;
-    - draft-only customer/products edit flows;
+    - draft-only inline customer/products edit flows:
+      - customer edit is inline, searchable, and saves via `PATCH /orders/:orderId`;
+      - products edit is inline, uses create-page product picker pattern, and saves via `PATCH /orders/:orderId`;
+      - successful save returns section to view mode;
+      - while customer/products inline edit mode is active, receive mode is disabled/hidden;
     - delivery tab integrated with create/edit flow (`POST /orders/:orderId/delivery`) and success/error toasts;
     - order history tab integrated with timeline renderer and history diff visualization;
     - comments tab integrated with API create/delete;

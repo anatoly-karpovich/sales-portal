@@ -58,8 +58,8 @@
 | Block | Content |
 | --- | --- |
 | Header | Back link, order id, assigned manager controls, summary cards, status actions (`Cancel/Process/Reopen/Refresh` by gate). |
-| Customer section | Read-only summary; edit is available only in `Draft`. |
-| Products section | Read-only list; edit in `Draft`; receive mode in allowed in-process delivery statuses. |
+| Customer section | Read-only summary with inline edit mode in `Draft` (searchable customer picker + save/cancel). |
+| Products section | Read-only list with inline edit mode in `Draft` (`parent -> variants`, batch add, qty/remove, compact summary, save/cancel); receive mode in allowed in-process delivery statuses. |
 | Tabs | Delivery, Order History, Comments. |
 
 ### Action Gates
@@ -69,6 +69,21 @@
   - `status = In Process`
   - `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`
 - `Reopen` is visible only for `Canceled`.
+
+### Draft Inline Editing (Details)
+- Customer edit is inline (no modal):
+  - searchable customer `Autocomplete`;
+  - save is enabled only when selected customer differs from current;
+  - on successful save (`PATCH /api/orders/:id`) section returns to view mode.
+- Products edit is inline (no modal):
+  - same 2-step UX as create page: parent products list -> active variants list;
+  - variants support multi-select and batch add (`Add Selected Variants`);
+  - selected rows support quantity change and row removal;
+  - duplicate rows by `productId + variantId` are blocked;
+  - compact summary shows products count/subtotal, delivery, total;
+  - debounced pricing preview uses `POST /api/orders/pricing` and warning fallback on preview failure;
+  - on successful save (`PATCH /api/orders/:id`) section returns to view mode.
+- Inline edit modes are mutually exclusive with receive mode (receive actions are hidden while editing customer/products).
 
 ### Delivery Management
 - `delivery` is always present in details payload.

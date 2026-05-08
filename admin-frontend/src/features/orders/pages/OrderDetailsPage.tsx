@@ -20,11 +20,9 @@ import type {
   OrderProductRequestItem,
   OrderStatus,
 } from '@/api/modules/orders.api'
-import type { Customer } from '@/api/modules/customers.api'
 import type { Manager } from '@/api/modules/managers.api'
 import noImageProduct from '@/assets/no-image-product.jpeg'
 import { AssignManagerDialog } from '@/features/orders/components/AssignManagerDialog'
-import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
 import { OrderDetailsCustomerSection } from '@/features/orders/components/OrderDetailsCustomerSection'
 import { OrderDetailsManagerSection } from '@/features/orders/components/OrderDetailsManagerSection'
 import { OrderDetailsProductsSection } from '@/features/orders/components/OrderDetailsProductsSection'
@@ -40,7 +38,6 @@ import {
   useAssignOrderManagerMutation,
   useCreateOrderCommentMutation,
   useDeleteOrderCommentMutation,
-  useOrderCustomerOptionsQuery,
   useOrderDetailsQuery,
   useOrderManagerOptionsQuery,
   useReceiveOrderProductsMutation,
@@ -187,25 +184,18 @@ export function OrderDetailsPage() {
   const [isRefreshPending, setIsRefreshPending] = useState(false)
   const [isDetailsReloading, setIsDetailsReloading] = useState(false)
   const [isNotFoundRedirectScheduled, setIsNotFoundRedirectScheduled] = useState(false)
-  const [isCustomerEditDialogOpen, setIsCustomerEditDialogOpen] = useState(false)
+  const [isCustomerEditMode, setIsCustomerEditMode] = useState(false)
   const [isProductsEditMode, setIsProductsEditMode] = useState(false)
   const [isManagerAssignDialogOpen, setIsManagerAssignDialogOpen] = useState(false)
   const [isManagerUnassignDialogOpen, setIsManagerUnassignDialogOpen] = useState(false)
   const [isReceiveMode, setIsReceiveMode] = useState(false)
   const [selectedReceiveRowIndices, setSelectedReceiveRowIndices] = useState<number[]>([])
-  const [customerEditSearch, setCustomerEditSearch] = useState('')
-  const [debouncedCustomerEditSearch, setDebouncedCustomerEditSearch] = useState('')
-  const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [managerSearch, setManagerSearch] = useState('')
   const [selectedManagerId, setSelectedManagerId] = useState('')
 
   const isOrderIdInvalid = Boolean(orderId) && !isValidOrderId(orderId)
   const shouldLoadOrder = Boolean(orderId) && !isOrderIdInvalid
   const orderDetailsQuery = useOrderDetailsQuery(orderId ?? '', shouldLoadOrder)
-  const customerOptionsQuery = useOrderCustomerOptionsQuery(
-    debouncedCustomerEditSearch,
-    isCustomerEditDialogOpen,
-  )
   const managerOptionsQuery = useOrderManagerOptionsQuery(isManagerAssignDialogOpen)
   const assignOrderManagerMutation = useAssignOrderManagerMutation()
   const unassignOrderManagerMutation = useUnassignOrderManagerMutation()
@@ -275,6 +265,7 @@ export function OrderDetailsPage() {
 
   useEffect(() => {
     if (!order) {
+      setIsCustomerEditMode(false)
       setIsProductsEditMode(false)
       setIsReceiveMode(false)
       setSelectedReceiveRowIndices([])
@@ -282,6 +273,7 @@ export function OrderDetailsPage() {
     }
 
     if (order.status !== 'Draft') {
+      setIsCustomerEditMode(false)
       setIsProductsEditMode(false)
     }
 
@@ -314,47 +306,6 @@ export function OrderDetailsPage() {
       window.clearTimeout(timeoutId)
     }
   }, [enqueueSnackbar, isNotFoundError, isNotFoundRedirectScheduled, navigate])
-
-  useEffect(() => {
-    if (!isCustomerEditDialogOpen) {
-      setDebouncedCustomerEditSearch('')
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedCustomerEditSearch(customerEditSearch.trim())
-    }, 300)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
-  }, [customerEditSearch, isCustomerEditDialogOpen])
-
-  const availableCustomers = useMemo(() => {
-    const customers = customerOptionsQuery.data?.Customers ?? []
-    if (!order) return customers
-
-    if (customers.some((customer) => customer._id === order.customer._id)) {
-      return customers
-    }
-
-    const fallbackCurrentCustomer: Customer = {
-      _id: order.customer._id,
-      email: order.customer.email,
-      name: order.customer.name,
-      state: order.customer.state,
-      city: order.customer.city,
-      street: order.customer.street,
-      house: order.customer.house,
-      apartment: order.customer.apartment,
-      zipCode: order.customer.zipCode,
-      phone: order.customer.phone,
-      notes: order.customer.notes,
-      createdOn: order.customer.createdOn,
-    }
-
-    return [fallbackCurrentCustomer, ...customers]
-  }, [customerOptionsQuery.data?.Customers, order])
 
   const availableManagers = useMemo(() => {
     const managers = (managerOptionsQuery.data ?? []).filter(isAssignableManager)
@@ -440,23 +391,24 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleOpenCustomerEditDialog = () => {
+  const handleStartCustomerEdit = () => {
     if (!order || order.status !== 'Draft') return
-
-    setCustomerEditSearch('')
-    setSelectedCustomerId(order.customer._id)
-    setIsCustomerEditDialogOpen(true)
+    setIsReceiveMode(false)
+    setSelectedReceiveRowIndices([])
+    setIsProductsEditMode(false)
+    setIsCustomerEditMode(true)
   }
 
-  const handleCloseCustomerEditDialog = () => {
+  const handleCancelCustomerEdit = () => {
     if (updateOrderMutation.isPending) return
-    setIsCustomerEditDialogOpen(false)
+    setIsCustomerEditMode(false)
   }
 
   const handleStartProductsEdit = () => {
     if (!order || order.status !== 'Draft') return
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(false)
+    setIsCustomerEditMode(false)
     setIsProductsEditMode(true)
   }
 
@@ -466,7 +418,7 @@ export function OrderDetailsPage() {
   }
 
   const handleSaveEditedCustomer = async (payload: { customer: string }) => {
-    if (!order || !orderId) return
+    if (!order || !orderId) return false
 
     try {
       await updateOrderMutation.mutateAsync({
@@ -475,23 +427,25 @@ export function OrderDetailsPage() {
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
-      setIsCustomerEditDialogOpen(false)
+      setIsCustomerEditMode(false)
+      return true
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateCustomerFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
-        setIsCustomerEditDialogOpen(false)
+        setIsCustomerEditMode(false)
         await reloadOrderDetailsWithSkeleton()
-        return
+        return false
       }
 
       if (isOrderStateChangedErrorMessage(errorMessage)) {
-        setIsCustomerEditDialogOpen(false)
+        setIsCustomerEditMode(false)
         enqueueSnackbar(ordersUiText.errors.orderNoLongerDraft, { variant: 'warning' })
         await reloadOrderDetailsWithSkeleton()
-        return
+        return false
       }
 
       enqueueSnackbar(errorMessage, { variant: 'error' })
+      return false
     }
   }
 
@@ -595,7 +549,7 @@ export function OrderDetailsPage() {
   }
 
   const handleStartReceiveMode = () => {
-    if (!canStartReceive || isReceiveSavePending || isProductsEditMode) return
+    if (!canStartReceive || isReceiveSavePending || isProductsEditMode || isCustomerEditMode) return
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(true)
   }
@@ -857,8 +811,10 @@ export function OrderDetailsPage() {
     assignOrderManagerMutation.isPending || unassignOrderManagerMutation.isPending
   const isCustomerEditable = order.status === 'Draft'
   const isProductsEditable = order.status === 'Draft'
-  const isReceiveStartVisible = canStartReceive && !isReceiveMode && !isProductsEditMode
-  const isReceiveModeVisible = isReceiveMode && canStartReceive && !isProductsEditMode
+  const isReceiveStartVisible =
+    canStartReceive && !isReceiveMode && !isProductsEditMode && !isCustomerEditMode
+  const isReceiveModeVisible =
+    isReceiveMode && canStartReceive && !isProductsEditMode && !isCustomerEditMode
   const isCancelVisible = canShowCancelOrder(order.status, order.delivery.status)
   const isProcessVisible = order.status === 'Draft'
   const isProcessDisabled = isProcessVisible && !canProcessOrder(order.delivery.status)
@@ -959,8 +915,12 @@ export function OrderDetailsPage() {
                   <OrderDetailsCustomerSection
                     order={order}
                     isCustomerEditable={isCustomerEditable}
+                    isCustomerEditMode={isCustomerEditMode}
+                    isCustomerEditSavePending={updateOrderMutation.isPending}
                     isEmbedded
-                    onOpenCustomerEdit={() => void handleOpenCustomerEditDialog()}
+                    onStartCustomerEdit={handleStartCustomerEdit}
+                    onCancelCustomerEdit={handleCancelCustomerEdit}
+                    onSaveCustomerEdit={handleSaveEditedCustomer}
                   />
                 </Paper>
               </Stack>
@@ -1017,20 +977,6 @@ export function OrderDetailsPage() {
           </Paper>
         </Stack>
       </Paper>
-
-      <EditOrderCustomerDialog
-        open={isCustomerEditDialogOpen}
-        customers={availableCustomers}
-        currentCustomerId={order.customer._id}
-        selectedCustomerId={selectedCustomerId}
-        isInitialLoading={customerOptionsQuery.isLoading && availableCustomers.length === 0}
-        isUpdating={customerOptionsQuery.isFetching && availableCustomers.length > 0}
-        isSubmitting={updateOrderMutation.isPending}
-        onSearchChange={setCustomerEditSearch}
-        onSelectCustomer={setSelectedCustomerId}
-        onClose={handleCloseCustomerEditDialog}
-        onSave={handleSaveEditedCustomer}
-      />
 
       <AssignManagerDialog
         open={isManagerAssignDialogOpen}
