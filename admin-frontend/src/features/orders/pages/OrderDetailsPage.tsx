@@ -25,7 +25,6 @@ import type { Manager } from '@/api/modules/managers.api'
 import noImageProduct from '@/assets/no-image-product.jpeg'
 import { AssignManagerDialog } from '@/features/orders/components/AssignManagerDialog'
 import { EditOrderCustomerDialog } from '@/features/orders/components/EditOrderCustomerDialog'
-import { EditOrderProductsDialog } from '@/features/orders/components/EditOrderProductsDialog'
 import { OrderDetailsCustomerSection } from '@/features/orders/components/OrderDetailsCustomerSection'
 import { OrderDetailsManagerSection } from '@/features/orders/components/OrderDetailsManagerSection'
 import { OrderDetailsProductsSection } from '@/features/orders/components/OrderDetailsProductsSection'
@@ -189,7 +188,7 @@ export function OrderDetailsPage() {
   const [isDetailsReloading, setIsDetailsReloading] = useState(false)
   const [isNotFoundRedirectScheduled, setIsNotFoundRedirectScheduled] = useState(false)
   const [isCustomerEditDialogOpen, setIsCustomerEditDialogOpen] = useState(false)
-  const [isProductsEditDialogOpen, setIsProductsEditDialogOpen] = useState(false)
+  const [isProductsEditMode, setIsProductsEditMode] = useState(false)
   const [isManagerAssignDialogOpen, setIsManagerAssignDialogOpen] = useState(false)
   const [isManagerUnassignDialogOpen, setIsManagerUnassignDialogOpen] = useState(false)
   const [isReceiveMode, setIsReceiveMode] = useState(false)
@@ -276,9 +275,14 @@ export function OrderDetailsPage() {
 
   useEffect(() => {
     if (!order) {
+      setIsProductsEditMode(false)
       setIsReceiveMode(false)
       setSelectedReceiveRowIndices([])
       return
+    }
+
+    if (order.status !== 'Draft') {
+      setIsProductsEditMode(false)
     }
 
     if (
@@ -449,14 +453,16 @@ export function OrderDetailsPage() {
     setIsCustomerEditDialogOpen(false)
   }
 
-  const handleOpenProductsEditDialog = () => {
+  const handleStartProductsEdit = () => {
     if (!order || order.status !== 'Draft') return
-    setIsProductsEditDialogOpen(true)
+    setSelectedReceiveRowIndices([])
+    setIsReceiveMode(false)
+    setIsProductsEditMode(true)
   }
 
-  const handleCloseProductsEditDialog = () => {
+  const handleCancelProductsEdit = () => {
     if (updateOrderMutation.isPending) return
-    setIsProductsEditDialogOpen(false)
+    setIsProductsEditMode(false)
   }
 
   const handleSaveEditedCustomer = async (payload: { customer: string }) => {
@@ -490,7 +496,7 @@ export function OrderDetailsPage() {
   }
 
   const handleSaveEditedProducts = async (payload: { products: OrderProductRequestItem[] }) => {
-    if (!order || !orderId) return
+    if (!order || !orderId) return false
 
     try {
       await updateOrderMutation.mutateAsync({
@@ -499,23 +505,25 @@ export function OrderDetailsPage() {
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.updated, { variant: 'success' })
-      setIsProductsEditDialogOpen(false)
+      setIsProductsEditMode(false)
+      return true
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.updateProductsFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
-        setIsProductsEditDialogOpen(false)
+        setIsProductsEditMode(false)
         await reloadOrderDetailsWithSkeleton()
-        return
+        return false
       }
 
       if (isOrderStateChangedErrorMessage(errorMessage)) {
         enqueueSnackbar(ordersUiText.errors.orderNoLongerDraft, { variant: 'warning' })
-        setIsProductsEditDialogOpen(false)
+        setIsProductsEditMode(false)
         await reloadOrderDetailsWithSkeleton()
-        return
+        return false
       }
 
       enqueueSnackbar(errorMessage, { variant: 'error' })
+      return false
     }
   }
 
@@ -587,7 +595,7 @@ export function OrderDetailsPage() {
   }
 
   const handleStartReceiveMode = () => {
-    if (!canStartReceive || isReceiveSavePending) return
+    if (!canStartReceive || isReceiveSavePending || isProductsEditMode) return
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(true)
   }
@@ -849,8 +857,8 @@ export function OrderDetailsPage() {
     assignOrderManagerMutation.isPending || unassignOrderManagerMutation.isPending
   const isCustomerEditable = order.status === 'Draft'
   const isProductsEditable = order.status === 'Draft'
-  const isReceiveStartVisible = canStartReceive && !isReceiveMode
-  const isReceiveModeVisible = isReceiveMode && canStartReceive
+  const isReceiveStartVisible = canStartReceive && !isReceiveMode && !isProductsEditMode
+  const isReceiveModeVisible = isReceiveMode && canStartReceive && !isProductsEditMode
   const isCancelVisible = canShowCancelOrder(order.status, order.delivery.status)
   const isProcessVisible = order.status === 'Draft'
   const isProcessDisabled = isProcessVisible && !canProcessOrder(order.delivery.status)
@@ -962,7 +970,10 @@ export function OrderDetailsPage() {
               <OrderDetailsProductsSection
                 order={order}
                 displayRows={orderProductDisplayRows}
+                currentDelivery={order.delivery}
                 isProductsEditable={isProductsEditable}
+                isProductsEditMode={isProductsEditMode}
+                isProductsEditSavePending={updateOrderMutation.isPending}
                 isReceiveStartVisible={isReceiveStartVisible}
                 isReceiveModeVisible={isReceiveModeVisible}
                 isReceiveSavePending={isReceiveSavePending}
@@ -972,7 +983,9 @@ export function OrderDetailsPage() {
                 isSelectAllIndeterminate={isSelectAllIndeterminate}
                 selectedReceivePendingRowIndices={selectedReceivePendingRowIndices}
                 isEmbedded
-                onOpenProductsEdit={() => void handleOpenProductsEditDialog()}
+                onStartProductsEdit={handleStartProductsEdit}
+                onCancelProductsEdit={handleCancelProductsEdit}
+                onSaveProductsEdit={handleSaveEditedProducts}
                 onStartReceiveMode={handleStartReceiveMode}
                 onCancelReceiveMode={handleCancelReceiveMode}
                 onSaveReceivedProducts={() => void handleSaveReceivedProducts()}
@@ -1032,17 +1045,6 @@ export function OrderDetailsPage() {
         onClose={handleCloseManagerAssignDialog}
         onSave={handleSaveAssignedManager}
       />
-
-      {isProductsEditDialogOpen ? (
-        <EditOrderProductsDialog
-          open={isProductsEditDialogOpen}
-          initialProducts={order.products}
-          currentDelivery={order.delivery}
-          isSubmitting={updateOrderMutation.isPending}
-          onClose={handleCloseProductsEditDialog}
-          onSave={handleSaveEditedProducts}
-        />
-      ) : null}
 
       <ConfirmDialog
         open={isManagerUnassignDialogOpen}
