@@ -109,7 +109,10 @@ function normalizeTextValue(value: string | number | null | undefined) {
 }
 
 function toOptionTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function resolveCustomerAddress(order: OrderDetails): DeliveryAddressFormState {
@@ -184,7 +187,9 @@ function resolveInitialFormState(order: OrderDetails): DeliveryFormState {
             city: order.delivery.address.city,
             street: order.delivery.address.street,
             house: String(order.delivery.address.house),
-            apartment: order.delivery.address.apartment ? String(order.delivery.address.apartment) : '',
+            apartment: order.delivery.address.apartment
+              ? String(order.delivery.address.apartment)
+              : '',
             zipCode: order.delivery.address.zipCode,
           },
   }
@@ -277,7 +282,10 @@ function toPickupPayload(
   return { pickupLocationId: location.id }
 }
 
-function resolveAddressSourceLabel(condition: DeliveryConditionOption, location: DeliveryLocationOption) {
+function resolveAddressSourceLabel(
+  condition: DeliveryConditionOption,
+  location: DeliveryLocationOption,
+) {
   if (condition === 'Pickup') {
     return ordersUiText.detailsPage.placeholders.deliveryAddressSourceStore
   }
@@ -372,9 +380,15 @@ export function OrderDetailsDeliveryTab({
   const [touched, setTouched] = useState<DeliveryTouchedState>(INITIAL_TOUCHED_STATE)
   const [selectedPickupState, setSelectedPickupState] = useState(initialFormState.address.state)
   const [pricingPreviewTotal, setPricingPreviewTotal] = useState<number | null>(null)
-  const [pricingPreviewDeliveryPrice, setPricingPreviewDeliveryPrice] = useState<number | null>(null)
-  const [pricingPreviewEstimatedDate, setPricingPreviewEstimatedDate] = useState<string | null>(null)
-  const [pricingPreviewAvailableFromDate, setPricingPreviewAvailableFromDate] = useState<string | null>(null)
+  const [pricingPreviewDeliveryPrice, setPricingPreviewDeliveryPrice] = useState<number | null>(
+    null,
+  )
+  const [pricingPreviewEstimatedDate, setPricingPreviewEstimatedDate] = useState<string | null>(
+    null,
+  )
+  const [pricingPreviewAvailableFromDate, setPricingPreviewAvailableFromDate] = useState<
+    string | null
+  >(null)
   const [pricingPreviewPickupByDate, setPricingPreviewPickupByDate] = useState<string | null>(null)
   const [isPricingPreviewLoading, setIsPricingPreviewLoading] = useState(false)
   const [isPricingPreviewUnavailable, setIsPricingPreviewUnavailable] = useState(false)
@@ -392,10 +406,7 @@ export function OrderDetailsDeliveryTab({
     isDeliveryEditable &&
     hasSettingsData &&
     order.status === 'Draft' &&
-    (
-      order.delivery.status === 'Delivery Planned' ||
-      order.delivery.status === 'Pickup Planned'
-    )
+    (order.delivery.status === 'Delivery Planned' || order.delivery.status === 'Pickup Planned')
   const canEnterEditMode = canScheduleDelivery || canEditDelivery
   const isEditModeVisible = isEditing && canEnterEditMode
 
@@ -418,10 +429,7 @@ export function OrderDetailsDeliveryTab({
     !isDeliverySubmitting &&
     !(
       formState.condition === 'Pickup' &&
-      (
-        pickupCities.length === 0 ||
-        !toPickupPayload(formState, pickupLocationsMap)
-      )
+      (pickupCities.length === 0 || !toPickupPayload(formState, pickupLocationsMap))
     )
   const canRequestPricingPreview =
     isEditModeVisible &&
@@ -429,19 +437,21 @@ export function OrderDetailsDeliveryTab({
     isFormValid &&
     !(
       formState.condition === 'Pickup' &&
-      (
-        pickupCities.length === 0 ||
-        !toPickupPayload(formState, pickupLocationsMap)
-      )
+      (pickupCities.length === 0 || !toPickupPayload(formState, pickupLocationsMap))
     )
 
   const areAddressLineFieldsReadonly =
     formState.condition === 'Pickup' || formState.location === 'Home'
   const shouldShowLocation = formState.condition === 'Delivery'
   const deliveryLocation = resolveDeliveryLocation(order)
-  const deliveryAddressSourceLabel = resolveAddressSourceLabel(order.delivery.condition, deliveryLocation)
+  const deliveryAddressSourceLabel = resolveAddressSourceLabel(
+    order.delivery.condition,
+    deliveryLocation,
+  )
   const isDeliveryCondition = order.delivery.condition === 'Delivery'
-  const viewTitle = isDeliveryCondition ? ordersUiText.detailsPage.labels.deliveryInformation : 'Pickup Information'
+  const viewTitle = isDeliveryCondition
+    ? ordersUiText.detailsPage.labels.deliveryInformation
+    : 'Pickup Information'
 
   useEffect(() => {
     if (!canRequestPricingPreview) {
@@ -565,7 +575,7 @@ export function OrderDetailsDeliveryTab({
     if (nextCondition === 'Pickup') {
       const fallbackState = pickupStates.includes(formState.address.state)
         ? formState.address.state
-        : pickupStates[0] ?? ''
+        : (pickupStates[0] ?? '')
       const fallbackCities = resolvePickupCitiesByState(pickupLocationsMap, fallbackState)
       const fallbackCity = fallbackCities[0] ?? ''
 
@@ -679,8 +689,6 @@ export function OrderDetailsDeliveryTab({
         ) : null}
       </Stack>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }} />
-
       {!hasSettingsData ? (
         <Alert
           severity={isSettingsDataLoading ? 'info' : 'warning'}
@@ -716,7 +724,9 @@ export function OrderDetailsDeliveryTab({
             p: { xs: 2, md: 2.5 },
             borderRadius: 2.5,
             backgroundColor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.015)' : 'rgba(25, 118, 210, 0.02)',
+              theme.palette.mode === 'dark'
+                ? 'rgba(255, 255, 255, 0.015)'
+                : 'rgba(25, 118, 210, 0.02)',
           }}
           data-testid="order-details-delivery-form-card"
         >
@@ -736,7 +746,9 @@ export function OrderDetailsDeliveryTab({
                   handleConditionChange(event.target.value as DeliveryConditionOption)
                 }
                 data-testid="order-details-delivery-condition-select"
-                SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-condition-select-field' } }}
+                SelectProps={{
+                  inputProps: { 'data-testid': 'order-details-delivery-condition-select-field' },
+                }}
               >
                 {DELIVERY_CONDITION_OPTIONS.map((option) => (
                   <MenuItem
@@ -751,7 +763,7 @@ export function OrderDetailsDeliveryTab({
 
               {formState.condition === 'Delivery' ? (
                 <FormControlLabel
-                  control={(
+                  control={
                     <Switch
                       checked={formState.express}
                       onChange={(event) => {
@@ -759,7 +771,7 @@ export function OrderDetailsDeliveryTab({
                       }}
                       data-testid="order-details-delivery-express-switch-field"
                     />
-                  )}
+                  }
                   label={ordersUiText.detailsPage.fields.delivery.express}
                   data-testid="order-details-delivery-express-switch"
                 />
@@ -775,7 +787,9 @@ export function OrderDetailsDeliveryTab({
                   handleLocationChange(event.target.value as DeliveryLocationOption)
                 }
                 data-testid="order-details-delivery-location-select"
-                SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-location-select-field' } }}
+                SelectProps={{
+                  inputProps: { 'data-testid': 'order-details-delivery-location-select-field' },
+                }}
               >
                 {DELIVERY_LOCATION_OPTIONS.map((option) => (
                   <MenuItem
@@ -841,7 +855,11 @@ export function OrderDetailsDeliveryTab({
                     helperText={touched.state ? (validation.state ?? ' ') : ' '}
                     disabled={pickupStates.length === 0}
                     data-testid="order-details-delivery-pickup-state-select"
-                    SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-pickup-state-select-field' } }}
+                    SelectProps={{
+                      inputProps: {
+                        'data-testid': 'order-details-delivery-pickup-state-select-field',
+                      },
+                    }}
                   >
                     {pickupStates.map((stateCode) => (
                       <MenuItem
@@ -873,7 +891,11 @@ export function OrderDetailsDeliveryTab({
                     }
                     disabled={pickupCities.length === 0}
                     data-testid="order-details-delivery-pickup-city-select"
-                    SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-pickup-city-select-field' } }}
+                    SelectProps={{
+                      inputProps: {
+                        'data-testid': 'order-details-delivery-pickup-city-select-field',
+                      },
+                    }}
                   >
                     {pickupCities.map((city) => (
                       <MenuItem
@@ -898,7 +920,9 @@ export function OrderDetailsDeliveryTab({
                     helperText={touched.state ? (validation.state ?? ' ') : ' '}
                     disabled={formState.location === 'Home'}
                     data-testid="order-details-delivery-state-select"
-                    SelectProps={{ inputProps: { 'data-testid': 'order-details-delivery-state-select-field' } }}
+                    SelectProps={{
+                      inputProps: { 'data-testid': 'order-details-delivery-state-select-field' },
+                    }}
                   >
                     {US_STATES.map((state) => (
                       <MenuItem
@@ -984,14 +1008,21 @@ export function OrderDetailsDeliveryTab({
               />
             </Box>
 
-            <Paper variant="outlined" sx={{ p: 1.5 }} data-testid="order-details-delivery-pricing-preview-card">
+            <Paper
+              variant="outlined"
+              sx={{ p: 1.5 }}
+              data-testid="order-details-delivery-pricing-preview-card"
+            >
               <Stack spacing={1}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                   {ordersUiText.detailsPage.labels.pricingPreview}
                 </Typography>
 
                 {canRequestPricingPreview && isPricingPreviewUnavailable ? (
-                  <Alert severity="warning" data-testid="order-details-delivery-pricing-preview-unavailable-alert">
+                  <Alert
+                    severity="warning"
+                    data-testid="order-details-delivery-pricing-preview-unavailable-alert"
+                  >
                     {ordersUiText.errors.pricingPreviewUnavailable}
                   </Alert>
                 ) : null}
@@ -1014,7 +1045,12 @@ export function OrderDetailsDeliveryTab({
                       </Typography>
                       <Typography
                         variant="subtitle2"
-                        sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                        sx={{
+                          fontWeight: 700,
+                          minHeight: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
                         data-testid="order-details-delivery-pricing-preview-total-value"
                       >
                         {canRequestPricingPreview && isPricingPreviewLoading ? (
@@ -1033,7 +1069,12 @@ export function OrderDetailsDeliveryTab({
                       </Typography>
                       <Typography
                         variant="subtitle2"
-                        sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                        sx={{
+                          fontWeight: 700,
+                          minHeight: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
                         data-testid="order-details-delivery-pricing-preview-delivery-price-value"
                       >
                         {canRequestPricingPreview && isPricingPreviewLoading ? (
@@ -1053,12 +1094,19 @@ export function OrderDetailsDeliveryTab({
                         </Typography>
                         <Typography
                           variant="subtitle2"
-                          sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                          sx={{
+                            fontWeight: 700,
+                            minHeight: 24,
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
                           data-testid="order-details-delivery-pricing-preview-estimated-date-value"
                         >
                           {canRequestPricingPreview && isPricingPreviewLoading
                             ? '...'
-                            : formatDate(canRequestPricingPreview ? pricingPreviewEstimatedDate : null)}
+                            : formatDate(
+                                canRequestPricingPreview ? pricingPreviewEstimatedDate : null,
+                              )}
                         </Typography>
                       </Stack>
                     </Paper>
@@ -1071,12 +1119,19 @@ export function OrderDetailsDeliveryTab({
                           </Typography>
                           <Typography
                             variant="subtitle2"
-                            sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                            sx={{
+                              fontWeight: 700,
+                              minHeight: 24,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
                             data-testid="order-details-delivery-pricing-preview-available-from-date-value"
                           >
                             {canRequestPricingPreview && isPricingPreviewLoading
                               ? '...'
-                              : formatDate(canRequestPricingPreview ? pricingPreviewAvailableFromDate : null)}
+                              : formatDate(
+                                  canRequestPricingPreview ? pricingPreviewAvailableFromDate : null,
+                                )}
                           </Typography>
                         </Stack>
                       </Paper>
@@ -1088,12 +1143,19 @@ export function OrderDetailsDeliveryTab({
                           </Typography>
                           <Typography
                             variant="subtitle2"
-                            sx={{ fontWeight: 700, minHeight: 24, display: 'flex', alignItems: 'center' }}
+                            sx={{
+                              fontWeight: 700,
+                              minHeight: 24,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
                             data-testid="order-details-delivery-pricing-preview-pickup-by-date-value"
                           >
                             {canRequestPricingPreview && isPricingPreviewLoading
                               ? '...'
-                              : formatDate(canRequestPricingPreview ? pricingPreviewPickupByDate : null)}
+                              : formatDate(
+                                  canRequestPricingPreview ? pricingPreviewPickupByDate : null,
+                                )}
                           </Typography>
                         </Stack>
                       </Paper>
@@ -1135,7 +1197,11 @@ export function OrderDetailsDeliveryTab({
         >
           <Stack spacing={2}>
             {order.delivery.isOverdue ? (
-              <Alert severity="error" variant="outlined" data-testid="order-details-delivery-overdue-alert">
+              <Alert
+                severity="error"
+                variant="outlined"
+                data-testid="order-details-delivery-overdue-alert"
+              >
                 {getOverdueByDaysLabel(order.delivery.overdueByDays)}
               </Alert>
             ) : null}
@@ -1151,101 +1217,107 @@ export function OrderDetailsDeliveryTab({
                 },
               }}
             >
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-              <Stack spacing={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  Method
-                </Typography>
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 700 }}
-                  data-testid="order-details-delivery-condition-value"
-                >
-                  {normalizeTextValue(order.delivery.condition)}
-                </Typography>
-              </Stack>
-            </Paper>
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Method
+                  </Typography>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="order-details-delivery-condition-value"
+                  >
+                    {normalizeTextValue(order.delivery.condition)}
+                  </Typography>
+                </Stack>
+              </Paper>
 
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-              <Stack spacing={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  Price
-                </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }} data-testid="order-details-delivery-price-value">
-                  {isDeliveryCondition
-                    ? formatPrice(order.delivery.price)
-                    : order.delivery.price > 0
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Price
+                  </Typography>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="order-details-delivery-price-value"
+                  >
+                    {isDeliveryCondition
                       ? formatPrice(order.delivery.price)
-                      : 'Free'}
-                </Typography>
-              </Stack>
-            </Paper>
+                      : order.delivery.price > 0
+                        ? formatPrice(order.delivery.price)
+                        : 'Free'}
+                  </Typography>
+                </Stack>
+              </Paper>
 
-            {isDeliveryCondition ? (
-              <>
-                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="caption" color="text.secondary">
-                      ETA
-                    </Typography>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: 700 }}
-                      data-testid="order-details-delivery-estimated-date-value"
-                    >
-                      {resolveEstimatedDate(order.delivery)}
-                    </Typography>
-                  </Stack>
-                </Paper>
+              {isDeliveryCondition ? (
+                <>
+                  <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        Estimated Date
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700 }}
+                        data-testid="order-details-delivery-estimated-date-value"
+                      >
+                        {resolveEstimatedDate(order.delivery)}
+                      </Typography>
+                    </Stack>
+                  </Paper>
 
-                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="caption" color="text.secondary">
-                      Express
-                    </Typography>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: 700 }}
-                      data-testid="order-details-delivery-express-value"
-                    >
-                      {'express' in order.delivery.schedule && order.delivery.schedule.express ? 'Yes' : 'No'}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              </>
-            ) : (
-              <>
-                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="caption" color="text.secondary">
-                      Available
-                    </Typography>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: 700 }}
-                      data-testid="order-details-delivery-available-from-date-value"
-                    >
-                      {resolvePickupAvailableFrom(order.delivery)}
-                    </Typography>
-                  </Stack>
-                </Paper>
+                  <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        Express
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700 }}
+                        data-testid="order-details-delivery-express-value"
+                      >
+                        {'express' in order.delivery.schedule && order.delivery.schedule.express
+                          ? 'Yes'
+                          : 'No'}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                </>
+              ) : (
+                <>
+                  <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        Available
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700 }}
+                        data-testid="order-details-delivery-available-from-date-value"
+                      >
+                        {resolvePickupAvailableFrom(order.delivery)}
+                      </Typography>
+                    </Stack>
+                  </Paper>
 
-                <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="caption" color="text.secondary">
-                      Pickup By
-                    </Typography>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: 700 }}
-                      data-testid="order-details-delivery-pickup-by-date-value"
-                    >
-                      {resolvePickupByDate(order.delivery)}
-                    </Typography>
-                  </Stack>
-                </Paper>
-              </>
-            )}
+                  <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary">
+                        Pickup By
+                      </Typography>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700 }}
+                        data-testid="order-details-delivery-pickup-by-date-value"
+                      >
+                        {resolvePickupByDate(order.delivery)}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                </>
+              )}
             </Box>
 
             <Box
@@ -1255,62 +1327,64 @@ export function OrderDetailsDeliveryTab({
                 gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
               }}
             >
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-              <Stack spacing={0.75}>
-                <Typography fontWeight={700}>
-                  {isDeliveryCondition ? 'Delivery Address' : 'Pickup Location'}
-                </Typography>
-                <Chip
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  label={deliveryAddressSourceLabel}
-                  sx={{ alignSelf: 'flex-start' }}
-                  data-testid="order-details-delivery-view-source-chip"
-                />
-                <Typography data-testid="order-details-delivery-address-value">
-                  {resolveAddressPrimaryLine(order.delivery.address)}
-                </Typography>
-                <Typography>{resolveAddressSecondaryLine(order.delivery.address)}</Typography>
-              </Stack>
-            </Paper>
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                <Stack spacing={0.75}>
+                  <Typography fontWeight={700}>
+                    {isDeliveryCondition ? 'Delivery Address' : 'Pickup Location'}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    label={deliveryAddressSourceLabel}
+                    sx={{ alignSelf: 'flex-start' }}
+                    data-testid="order-details-delivery-view-source-chip"
+                  />
+                  <Typography data-testid="order-details-delivery-address-value">
+                    {resolveAddressPrimaryLine(order.delivery.address)}
+                  </Typography>
+                  <Typography>{resolveAddressSecondaryLine(order.delivery.address)}</Typography>
+                </Stack>
+              </Paper>
 
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
-              <Stack spacing={0.75}>
-                <Typography fontWeight={700}>
-                  {isDeliveryCondition ? 'Delivery Details' : 'Pickup Details'}
-                </Typography>
-                {isDeliveryCondition ? (
-                  <>
-                    <Typography data-testid="order-details-delivery-pricing-tier-value">
-                      Tier: {resolvePricingTierLabel(order.delivery)}
-                    </Typography>
-                    <Typography>
-                      Estimated:{' '}
-                      {'estimatedDays' in order.delivery.schedule
-                        ? formatDaysLabel(order.delivery.schedule.estimatedDays)
-                        : '-'}
-                    </Typography>
-                  </>
-                ) : (
-                  <>
-                    <Typography>
-                      Ready in:{' '}
-                      {'readyInDays' in order.delivery.schedule
-                        ? formatDaysLabel(order.delivery.schedule.readyInDays)
-                        : '-'}
-                    </Typography>
-                    <Typography>
-                      Hold for:{' '}
-                      {'holdForDays' in order.delivery.schedule
-                        ? formatDaysLabel(order.delivery.schedule.holdForDays)
-                        : '-'}
-                    </Typography>
-                  </>
-                )}
-                <Typography>Status: {resolveDeliveryStatusLabel(order.delivery.status)}</Typography>
-              </Stack>
-            </Paper>
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                <Stack spacing={0.75}>
+                  <Typography fontWeight={700}>
+                    {isDeliveryCondition ? 'Delivery Details' : 'Pickup Details'}
+                  </Typography>
+                  {isDeliveryCondition ? (
+                    <>
+                      <Typography data-testid="order-details-delivery-pricing-tier-value">
+                        Tier: {resolvePricingTierLabel(order.delivery)}
+                      </Typography>
+                      <Typography>
+                        Estimated:{' '}
+                        {'estimatedDays' in order.delivery.schedule
+                          ? formatDaysLabel(order.delivery.schedule.estimatedDays)
+                          : '-'}
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <Typography>
+                        Ready in:{' '}
+                        {'readyInDays' in order.delivery.schedule
+                          ? formatDaysLabel(order.delivery.schedule.readyInDays)
+                          : '-'}
+                      </Typography>
+                      <Typography>
+                        Hold for:{' '}
+                        {'holdForDays' in order.delivery.schedule
+                          ? formatDaysLabel(order.delivery.schedule.holdForDays)
+                          : '-'}
+                      </Typography>
+                    </>
+                  )}
+                  <Typography>
+                    Status: {resolveDeliveryStatusLabel(order.delivery.status)}
+                  </Typography>
+                </Stack>
+              </Paper>
             </Box>
           </Stack>
         </Paper>

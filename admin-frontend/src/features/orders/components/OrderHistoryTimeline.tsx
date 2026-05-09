@@ -119,19 +119,36 @@ function resolveOrderProductName(product: OrderDetailsProduct | undefined) {
   return normalizeText(product?.name)
 }
 
-function resolveOrderProductLabel(product: OrderDetailsProduct | undefined) {
+function resolveOrderProductVariantLabel(product: OrderDetailsProduct | undefined) {
+  if (!product || !product.attributes || typeof product.attributes !== 'object') return ''
+  const parts = Object.values(product.attributes)
+    .map((value) => normalizeText(value))
+    .filter((value) => value !== '-')
+
+  return parts.join(' | ')
+}
+
+function resolveOrderProductDisplayName(product: OrderDetailsProduct | undefined) {
   const name = resolveOrderProductName(product)
-  if (name === '-') {
+  if (name === '-') return '-'
+  const variantLabel = resolveOrderProductVariantLabel(product)
+  if (!variantLabel) return name
+  return `${name} | ${variantLabel}`
+}
+
+function resolveOrderProductLabel(product: OrderDetailsProduct | undefined) {
+  const displayName = resolveOrderProductDisplayName(product)
+  if (displayName === '-') {
     return ordersUiText.detailsPage.history.productLabel
   }
-  return name
+  return displayName
 }
 
 function resolveOrderProductDescriptor(product: OrderDetailsProduct | undefined) {
   if (!product) return '-'
-  const name = resolveOrderProductName(product)
+  const name = resolveOrderProductDisplayName(product)
   const quantity = typeof product.quantity === 'number' ? product.quantity : '-'
-  return `${name} (${quantity})`
+  return `${name} (x${quantity})`
 }
 
 function buildProductsById(products: OrderDetailsProduct[]) {

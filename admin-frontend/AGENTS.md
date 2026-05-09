@@ -342,7 +342,106 @@ Top-level source layout:
 - `utils/download.ts` - blob download from axios response.
 - `utils/orderStatus.ts` - centralized order status color mapping used across orders/customers/home.
 
-## 5) Routing and access rules
+## 5) Visual Border System (Required)
+
+Borders are used as a structural composition tool, not decoration.
+
+UI composition should rely on:
+
+- spacing;
+- semantic grouping;
+- border hierarchy;
+- restrained contrast.
+
+Avoid relying on:
+
+- heavy shadows;
+- bright backgrounds for separation;
+- excessive color splitting;
+- decorative visual effects.
+
+### 5.1 Surface hierarchy
+
+Use three visual separation levels:
+
+1. Page sections:
+- subtle outer border;
+- low contrast;
+- large grouping containers.
+2. Semantic blocks inside sections:
+- slightly stronger border;
+- used for related operational data.
+3. Interactive/editable elements:
+- strongest border contrast;
+- hover/focus states allowed;
+- visually distinguish actionable areas.
+
+### 5.2 Nested borders
+
+Nested bordered containers are allowed only when they:
+
+- represent semantic grouping;
+- improve scanability;
+- reduce ambiguity.
+
+Avoid nested borders that do not add meaning.
+
+### 5.3 Visual restraint
+
+Avoid:
+
+- heavy shadows;
+- gradients on operational surfaces;
+- excessive background color changes;
+- glowing effects;
+- decorative separators.
+
+Target visual feel:
+
+- operational;
+- calm;
+- dense but readable;
+- enterprise-oriented.
+
+### 5.4 Empty space handling
+
+Avoid large dead spaces by:
+
+- semantic grouping;
+- balanced layouts;
+- contextual blocks.
+
+Do not fill space with decorative elements.
+
+### 5.5 Content presentation
+
+Prefer:
+
+- grouped information blocks;
+- scan-friendly layouts;
+- operational summaries.
+
+Avoid:
+
+- long vertical description lists;
+- raw label/value dumps;
+- form-like read-only sections without grouping.
+
+### 5.6 Implementation rules for this codebase
+
+- Page-level containers should use `Paper variant="outlined"` with restrained border contrast.
+- Semantic sub-blocks should use nested outlined surfaces only when they introduce clear meaning.
+- Interactive/editable zones may use stronger border color and hover/focus border states.
+- Avoid decorative shadows/glow for data surfaces; if emphasis is needed, prefer border and typography weight.
+
+### 5.7 PR/review checklist (UI)
+
+- Is border hierarchy clear across page section, semantic block, and interactive block levels?
+- Does each nested border introduce real semantic grouping?
+- Are decorative effects (heavy shadow/glow/gradient) avoided on operational surfaces?
+- Is read-only content grouped and scan-friendly instead of raw label/value dumps?
+
+## 6) Routing and access rules
 
 Routes:
 
@@ -369,7 +468,7 @@ Rules:
 - authenticated users should not stay on `/login`;
 - while auth state is `initializing`, show `AuthRouteFallback`.
 
-## 6) Where to add new code
+## 7) Where to add new code
 
 Use feature-first structure, but reuse `components/shared` whenever possible.
 
@@ -389,7 +488,7 @@ Avoid:
 - duplicating generic UI already present in `components/shared`;
 - introducing naming patterns that conflict with existing code style.
 
-## 7) State and data flow patterns
+## 8) State and data flow patterns
 
 - Server state: React Query (`useQuery`, `useMutation`).
 - Page UI state: feature-level orchestration hooks (example: `useProductsPageState`).
@@ -401,9 +500,9 @@ Avoid:
   - `indeterminate` when only a subset is selected;
   - `unchecked` when nothing is selected.
 
-## 8) `data-testid` standard (required)
+## 9) `data-testid` standard (required)
 
-### 8.1 Core rules
+### 9.1 Core rules
 
 - Use only `data-testid`.
 - Values must be static and business-meaningful.
@@ -411,7 +510,7 @@ Avoid:
 - For repeated items, index-based suffixes are allowed (`-row-0`, `-item-1`).
 - Do not rename existing IDs unless task explicitly requires migration.
 
-### 8.2 Elements that must be covered
+### 9.2 Elements that must be covered
 
 - buttons and icon buttons;
 - links and navigation entries;
@@ -420,7 +519,7 @@ Avoid:
 - dialogs (container/title/content/actions/close/confirm/cancel);
 - important textual states (title/loading/empty/error/value blocks).
 
-### 8.3 Naming pattern
+### 9.3 Naming pattern
 
 Preferred shape:
 
@@ -450,7 +549,7 @@ Existing scope prefixes to follow:
 - `manager-details-*`
 - `change-password-dialog-*`
 
-### 8.4 MUI input specifics
+### 9.4 MUI input specifics
 
 For `TextField`:
 
@@ -468,12 +567,12 @@ For `Autocomplete`:
 - set `inputProps.data-testid` for the actual input node;
 - set deterministic `data-testid` on `renderOption` items (for example by index).
 
-### 8.5 Shared-first rule
+### 9.5 Shared-first rule
 
 If behavior comes from a shared component, add base `data-testid` values in that shared component first.
 Feature-specific IDs should only be added for feature-only business actions or content.
 
-## 9) Current localStorage keys
+## 10) Current localStorage keys
 
 - `admin-frontend-access-token`
 - `admin-frontend-user`
@@ -481,7 +580,7 @@ Feature-specific IDs should only be added for feature-only business actions or c
 
 Do not change these keys without explicit migration requirements.
 
-## 10) Text management
+## 11) Text management
 
 - Put domain text in `<feature>.ui-text.ts` for that feature.
 - Keep generic shared text near shared components (example: `components/shared/shared.ui-text.ts`).
@@ -489,7 +588,7 @@ Do not change these keys without explicit migration requirements.
   - base empty: `No records created yet`
   - filtered/criteria empty: `No records found.`
 
-## 11) Number, money, and status formatting
+## 12) Number, money, and status formatting
 
 - Display monetary values with thousands separators in UI.
 - Prefer a shared formatter/helper (for example locale-based `toLocaleString`) instead of ad-hoc string concatenation in components.
@@ -500,7 +599,7 @@ Do not change these keys without explicit migration requirements.
   - `Completed` -> `success.main`
   - `Canceled` -> `error.main`
 
-## 12) Pre-handoff checklist
+## 13) Pre-handoff checklist
 
 - Ensure code is in correct layer (`api`, `features`, `components/shared`, `app`).
 - Ensure `data-testid` coverage for interactive and validation-critical elements.
@@ -511,7 +610,7 @@ Do not change these keys without explicit migration requirements.
 - For larger changes also run:
   - `npm run build`
 
-## 13) Definition of done for agent tasks
+## 14) Definition of done for agent tasks
 
 Task is done when:
 
