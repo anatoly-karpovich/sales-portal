@@ -20,9 +20,7 @@ import type {
   OrderProductRequestItem,
   OrderStatus,
 } from '@/api/modules/orders.api'
-import type { Manager } from '@/api/modules/managers.api'
 import noImageProduct from '@/assets/no-image-product.jpeg'
-import { AssignManagerDialog } from '@/features/orders/components/AssignManagerDialog'
 import { OrderDetailsCustomerSection } from '@/features/orders/components/OrderDetailsCustomerSection'
 import { OrderDetailsManagerSection } from '@/features/orders/components/OrderDetailsManagerSection'
 import { OrderDetailsProductsSection } from '@/features/orders/components/OrderDetailsProductsSection'
@@ -39,7 +37,6 @@ import {
   useCreateOrderCommentMutation,
   useDeleteOrderCommentMutation,
   useOrderDetailsQuery,
-  useOrderManagerOptionsQuery,
   useReceiveOrderProductsMutation,
   useUnassignOrderManagerMutation,
   useUpdateOrderDeliveryMutation,
@@ -51,7 +48,6 @@ import { ordersUiText } from '@/features/orders/orders.ui-text'
 
 type PendingStatusAction = 'cancel' | 'process' | 'reopen' | null
 const MONGO_OBJECT_ID_REGEX = /^[a-f0-9]{24}$/i
-const ASSIGNABLE_MANAGER_ROLES = new Set(['USER', 'ADMIN'])
 
 const ORDER_STATE_CHANGED_ERROR_MESSAGES = new Set([
   'Invalid order status',
@@ -155,15 +151,6 @@ function canProcessOrder(deliveryStatus: OrderDeliveryStatus) {
   return deliveryStatus === 'Delivery Planned' || deliveryStatus === 'Pickup Planned'
 }
 
-function isAssignableManager(user: Manager) {
-  return user.roles.some((role) => ASSIGNABLE_MANAGER_ROLES.has(role))
-}
-
-function resolveManagerSortKey(manager: Manager) {
-  const fullName = `${manager.firstName ?? ''} ${manager.lastName ?? ''}`.trim()
-  return (fullName || manager.username).toLocaleLowerCase()
-}
-
 function resolveVariantLabelFromSnapshotAttributes(attributes: Record<string, string>) {
   const parts = Object.values(attributes)
     .map((value) => value.trim())
@@ -186,17 +173,14 @@ export function OrderDetailsPage() {
   const [isNotFoundRedirectScheduled, setIsNotFoundRedirectScheduled] = useState(false)
   const [isCustomerEditMode, setIsCustomerEditMode] = useState(false)
   const [isProductsEditMode, setIsProductsEditMode] = useState(false)
-  const [isManagerAssignDialogOpen, setIsManagerAssignDialogOpen] = useState(false)
+  const [isManagerEditMode, setIsManagerEditMode] = useState(false)
   const [isManagerUnassignDialogOpen, setIsManagerUnassignDialogOpen] = useState(false)
   const [isReceiveMode, setIsReceiveMode] = useState(false)
   const [selectedReceiveRowIndices, setSelectedReceiveRowIndices] = useState<number[]>([])
-  const [managerSearch, setManagerSearch] = useState('')
-  const [selectedManagerId, setSelectedManagerId] = useState('')
 
   const isOrderIdInvalid = Boolean(orderId) && !isValidOrderId(orderId)
   const shouldLoadOrder = Boolean(orderId) && !isOrderIdInvalid
   const orderDetailsQuery = useOrderDetailsQuery(orderId ?? '', shouldLoadOrder)
-  const managerOptionsQuery = useOrderManagerOptionsQuery(isManagerAssignDialogOpen)
   const assignOrderManagerMutation = useAssignOrderManagerMutation()
   const unassignOrderManagerMutation = useUnassignOrderManagerMutation()
   const statusMutation = useOrderStatusMutation()
@@ -267,6 +251,7 @@ export function OrderDetailsPage() {
     if (!order) {
       setIsCustomerEditMode(false)
       setIsProductsEditMode(false)
+      setIsManagerEditMode(false)
       setIsReceiveMode(false)
       setSelectedReceiveRowIndices([])
       return
@@ -275,6 +260,7 @@ export function OrderDetailsPage() {
     if (order.status !== 'Draft') {
       setIsCustomerEditMode(false)
       setIsProductsEditMode(false)
+      setIsManagerEditMode(false)
     }
 
     if (
@@ -306,48 +292,6 @@ export function OrderDetailsPage() {
       window.clearTimeout(timeoutId)
     }
   }, [enqueueSnackbar, isNotFoundError, isNotFoundRedirectScheduled, navigate])
-
-  const availableManagers = useMemo(() => {
-    const managers = (managerOptionsQuery.data ?? []).filter(isAssignableManager)
-    const managerById = new Map(managers.map((manager) => [manager._id, manager]))
-
-    if (
-      order?.assignedManager &&
-      typeof order.assignedManager._id === 'string' &&
-      !managerById.has(order.assignedManager._id)
-    ) {
-      managerById.set(order.assignedManager._id, {
-        _id: order.assignedManager._id,
-        username: order.assignedManager.username,
-        firstName: order.assignedManager.firstName,
-        lastName: order.assignedManager.lastName,
-        createdOn: order.assignedManager.createdOn,
-        roles: order.assignedManager.roles ?? [],
-      })
-    }
-
-    return [...managerById.values()].sort((left, right) =>
-      resolveManagerSortKey(left).localeCompare(resolveManagerSortKey(right)),
-    )
-  }, [managerOptionsQuery.data, order?.assignedManager])
-
-  const filteredManagers = useMemo(() => {
-    const normalizedSearch = managerSearch.trim().toLocaleLowerCase()
-    if (!normalizedSearch) {
-      return availableManagers
-    }
-
-    return availableManagers.filter((manager) => {
-      const firstName = (manager.firstName ?? '').toLocaleLowerCase()
-      const lastName = (manager.lastName ?? '').toLocaleLowerCase()
-      const username = (manager.username ?? '').toLocaleLowerCase()
-      return (
-        firstName.includes(normalizedSearch) ||
-        lastName.includes(normalizedSearch) ||
-        username.includes(normalizedSearch)
-      )
-    })
-  }, [availableManagers, managerSearch])
 
   const commentWithoutLineBreaks = commentDraft.replace(/[\r\n]/g, '').trim()
   const isCommentValid =
@@ -409,6 +353,7 @@ export function OrderDetailsPage() {
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(false)
     setIsCustomerEditMode(false)
+    setIsManagerEditMode(false)
     setIsProductsEditMode(true)
   }
 
@@ -481,20 +426,22 @@ export function OrderDetailsPage() {
     }
   }
 
-  const handleOpenManagerAssignDialog = () => {
-    if (!order) return
-    setManagerSearch('')
-    setSelectedManagerId(order.assignedManager?._id ?? '')
-    setIsManagerAssignDialogOpen(true)
+  const handleStartManagerEdit = () => {
+    if (!order || order.status !== 'Draft') return
+    setIsReceiveMode(false)
+    setSelectedReceiveRowIndices([])
+    setIsCustomerEditMode(false)
+    setIsProductsEditMode(false)
+    setIsManagerEditMode(true)
   }
 
-  const handleCloseManagerAssignDialog = () => {
+  const handleCancelManagerEdit = () => {
     if (assignOrderManagerMutation.isPending) return
-    setIsManagerAssignDialogOpen(false)
+    setIsManagerEditMode(false)
   }
 
   const handleSaveAssignedManager = async (nextManagerId: string) => {
-    if (!orderId || !nextManagerId) return
+    if (!orderId || !nextManagerId) return false
 
     try {
       await assignOrderManagerMutation.mutateAsync({
@@ -503,16 +450,18 @@ export function OrderDetailsPage() {
         requestConfig: { skipErrorToast: true },
       })
       enqueueSnackbar(ordersUiText.toasts.managerAssigned, { variant: 'success' })
-      setIsManagerAssignDialogOpen(false)
+      setIsManagerEditMode(false)
+      return true
     } catch (error) {
       const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.assignManagerFailed)
       if (isOrderNotFoundErrorMessage(errorMessage)) {
-        setIsManagerAssignDialogOpen(false)
+        setIsManagerEditMode(false)
         await reloadOrderDetailsWithSkeleton()
-        return
+        return false
       }
 
       enqueueSnackbar(errorMessage, { variant: 'error' })
+      return false
     }
   }
 
@@ -549,7 +498,13 @@ export function OrderDetailsPage() {
   }
 
   const handleStartReceiveMode = () => {
-    if (!canStartReceive || isReceiveSavePending || isProductsEditMode || isCustomerEditMode) return
+    if (
+      !canStartReceive ||
+      isReceiveSavePending ||
+      isProductsEditMode ||
+      isCustomerEditMode ||
+      isManagerEditMode
+    ) return
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(true)
   }
@@ -812,9 +767,17 @@ export function OrderDetailsPage() {
   const isCustomerEditable = order.status === 'Draft'
   const isProductsEditable = order.status === 'Draft'
   const isReceiveStartVisible =
-    canStartReceive && !isReceiveMode && !isProductsEditMode && !isCustomerEditMode
+    canStartReceive &&
+    !isReceiveMode &&
+    !isProductsEditMode &&
+    !isCustomerEditMode &&
+    !isManagerEditMode
   const isReceiveModeVisible =
-    isReceiveMode && canStartReceive && !isProductsEditMode && !isCustomerEditMode
+    isReceiveMode &&
+    canStartReceive &&
+    !isProductsEditMode &&
+    !isCustomerEditMode &&
+    !isManagerEditMode
   const isCancelVisible = canShowCancelOrder(order.status, order.delivery.status)
   const isProcessVisible = order.status === 'Draft'
   const isProcessDisabled = isProcessVisible && !canProcessOrder(order.delivery.status)
@@ -904,9 +867,11 @@ export function OrderDetailsPage() {
                     assignedManagerDisplayValue={assignedManagerDisplayValue}
                     isManagerAssigned={isManagerAssigned}
                     isManagerActionPending={isManagerActionPending}
+                    isManagerEditMode={isManagerEditMode}
                     isEmbedded
-                    onAssignManager={handleOpenManagerAssignDialog}
-                    onEditManager={handleOpenManagerAssignDialog}
+                    onStartManagerEdit={handleStartManagerEdit}
+                    onCancelManagerEdit={handleCancelManagerEdit}
+                    onSaveManagerEdit={handleSaveAssignedManager}
                     onUnassignManager={handleOpenManagerUnassignDialog}
                   />
                 </Paper>
@@ -977,20 +942,6 @@ export function OrderDetailsPage() {
           </Paper>
         </Stack>
       </Paper>
-
-      <AssignManagerDialog
-        open={isManagerAssignDialogOpen}
-        managers={filteredManagers}
-        currentManagerId={order.assignedManager?._id ?? null}
-        selectedManagerId={selectedManagerId}
-        isInitialLoading={managerOptionsQuery.isLoading && availableManagers.length === 0}
-        isUpdating={managerOptionsQuery.isFetching && availableManagers.length > 0}
-        isSubmitting={assignOrderManagerMutation.isPending}
-        onSearchChange={setManagerSearch}
-        onSelectManager={setSelectedManagerId}
-        onClose={handleCloseManagerAssignDialog}
-        onSave={handleSaveAssignedManager}
-      />
 
       <ConfirmDialog
         open={isManagerUnassignDialogOpen}

@@ -203,7 +203,9 @@ Top-level source layout:
     - create action redirects to `#/orders/:orderId` on success.
   - `hooks/useUnsavedChangesGuard.ts` - hash-router compatible unsaved changes prompt for page leave/refresh in create flow.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
-  - `components/AssignManagerDialog.tsx` - assign/edit manager dialog with searchable manager list and save-state guards
+  - `components/OrderDetailsManagerSection.tsx` - manager block with view + draft-only inline edit mode
+    - inline edit uses searchable `Autocomplete` and save/cancel actions in section context (no dialog).
+    - unassign remains explicit and uses shared `ConfirmDialog`.
   - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order id, assigned manager controls near order number, status actions, metrics cards)
     - when manager is assigned and id is present, assigned manager value is a link to `/managers/:managerId`.
   - `components/OrderDetailsCustomerSection.tsx` - customer block with view + draft-only inline edit mode
@@ -245,7 +247,7 @@ Top-level source layout:
     - manager names are resolved from history payload (`performer`, `assignedManager`) without extra manager lookup requests.
   - `orders.ui-text.ts` - labels, dialog text, toasts, errors
   - `pages/OrderDetailsPage.tsx` - implemented details page:
-    - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
+    - page-level orchestration container that wires split sections (`Summary`, `Manager`, `Customer`, `Products`, `Tabs`) and dialogs;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
     - action visibility/availability is based on `status` and `order.delivery.status`:
       - `Process` is shown only for `Draft`; enabled only when `delivery.status in [Delivery Scheduled, Pickup Scheduled]`;
@@ -253,13 +255,13 @@ Top-level source layout:
       - `Reopen` is shown only for `Canceled`;
     - customer/products sections default to read-only view mode;
     - manager assignment flow:
-      - if manager is absent: `Click to select manager` trigger opens assignment dialog;
-      - if manager exists: show manager value + edit trigger + unassign trigger;
-      - assign dialog loads managers from `/managers`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
+      - if manager is absent: `Assign` trigger opens inline manager edit mode in section;
+      - if manager exists: show manager value + `Change` trigger + unassign trigger;
+      - inline manager edit loads managers from `/managers`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
       - list is sorted A-Z by full name (fallback to username);
       - save is disabled for empty selection or unchanged manager;
       - unassign uses shared `ConfirmDialog`;
-      - assign/unassign success closes modal, shows toast, and refreshes details with skeleton reload;
+      - assign/unassign success returns section to view mode, shows toast, and refreshes details with skeleton reload when needed;
     - receive mode for products:
       - available only when `status = In Process` and `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`;
       - `Receive` CTA only when there are pending (not received) products;
@@ -272,7 +274,7 @@ Top-level source layout:
       - customer edit is inline, searchable, and saves via `PATCH /orders/:orderId`;
       - products edit is inline, uses create-page product picker pattern, and saves via `PATCH /orders/:orderId`;
       - successful save returns section to view mode;
-      - while customer/products inline edit mode is active, receive mode is disabled/hidden;
+      - while manager/customer/products inline edit mode is active, receive mode is disabled/hidden;
     - delivery tab integrated with create/edit flow (`POST /orders/:orderId/delivery`) and success/error toasts;
     - order history tab integrated with timeline renderer and history diff visualization;
     - comments tab integrated with API create/delete;

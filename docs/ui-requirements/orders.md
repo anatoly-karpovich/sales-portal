@@ -58,6 +58,7 @@
 | Block | Content |
 | --- | --- |
 | Header | Back link, order id, assigned manager controls, summary cards, status actions (`Cancel/Process/Reopen/Refresh` by gate). |
+| Manager section | Assigned manager summary with inline edit mode in `Draft` (searchable manager picker + save/cancel); unassign remains confirm-based. |
 | Customer section | Read-only summary with inline edit mode in `Draft` (searchable customer picker + save/cancel). |
 | Products section | Read-only list with inline edit mode in `Draft` (`parent -> variants`, batch add, qty/remove, compact summary, save/cancel); receive mode in allowed in-process delivery statuses. |
 | Tabs | Delivery, Order History, Comments. |
@@ -71,6 +72,11 @@
 - `Reopen` is visible only for `Canceled`.
 
 ### Draft Inline Editing (Details)
+- Manager edit is inline (no modal):
+  - searchable manager `Autocomplete`;
+  - save is enabled only when selected manager differs from current;
+  - on successful save (`PUT /api/orders/:id/assign-manager/:managerId`) section returns to view mode;
+  - unassign stays explicit and uses separate confirmation (`PUT /api/orders/:id/unassign-manager`).
 - Customer edit is inline (no modal):
   - searchable customer `Autocomplete`;
   - save is enabled only when selected customer differs from current;
@@ -83,7 +89,7 @@
   - compact summary shows products count/subtotal, delivery, total;
   - debounced pricing preview uses `POST /api/orders/pricing` and warning fallback on preview failure;
   - on successful save (`PATCH /api/orders/:id`) section returns to view mode.
-- Inline edit modes are mutually exclusive with receive mode (receive actions are hidden while editing customer/products).
+- Inline edit modes are mutually exclusive with receive mode (receive actions are hidden while editing manager/customer/products).
 
 ### Delivery Management
 - `delivery` is always present in details payload.
