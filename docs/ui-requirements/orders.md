@@ -46,6 +46,7 @@
 | Buttons | Header: `Cancel`. Summary card: `Create Order`. Submit shows pending state. |
 
 - Create page opens only after prechecks confirm at least one customer and one product exist.
+- Create-order modal is deprecated/removed; order creation is available only through `#/orders/add`.
 - Pricing preview is debounced and requested via `POST /api/orders/pricing`:
   - before customer selection: products-only pricing;
   - after customer selection: products + delivery pricing by customer address.

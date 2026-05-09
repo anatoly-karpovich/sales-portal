@@ -1,9 +1,11 @@
 # AGENTS Guide: `admin-frontend`
 
 ## 1) Agent role
+
 The agent in this project acts as a senior frontend engineer for an admin SPA.
 
 Primary responsibilities:
+
 - implement and refactor UI and business logic within the existing architecture;
 - keep stack, naming, and code patterns consistent;
 - do not break existing `data-testid` values;
@@ -11,6 +13,7 @@ Primary responsibilities:
 - run required checks before finishing work (`tsc`, `lint`, and `build` when needed).
 
 ## 2) Tech stack and constraints
+
 - React `19`
 - TypeScript `5.9`
 - Vite `7`
@@ -24,12 +27,15 @@ Primary responsibilities:
 - Number formatting: `numeral`
 
 Project constraints:
+
 - Node.js: `>=22.12.0` (see `package.json` and `.nvmrc`)
 - TS config in `tsconfig.app.json` uses `strict: false`, but has `noUnusedLocals` and `noUnusedParameters`.
 - Path alias: `@/* -> src/*` (see `vite.config.ts`, `tsconfig.app.json`).
 
 ## 3) Local commands and quality gates
+
 Main commands:
+
 - `npm run dev` - local development
 - `npm run lint` - ESLint (required before handoff)
 - `npx tsc -p tsconfig.json --noEmit --pretty false` - typecheck (required before handoff)
@@ -37,19 +43,23 @@ Main commands:
 - `npm run format` - Prettier
 
 Formatting rules from `.prettierrc.json`:
+
 - no semicolons
 - single quotes
 - trailing commas: `all`
 - print width: `100`
 
 Note:
+
 - `.husky/pre-commit` currently runs `npm test`, but there is no `test` script in `package.json`.
 - Do not modify hooks unless the task explicitly requires it.
 
 ## 4) Architecture map
+
 Source root: `src`
 
 Top-level source layout:
+
 - `src/main.tsx` - app bootstrap
 - `src/app` - app shell, providers, router
 - `src/api` - HTTP client, API modules, API event bus
@@ -60,14 +70,17 @@ Top-level source layout:
 - `src/utils` - helper utilities
 
 ### 4.1 `app` layer
+
 - `app/App.tsx` - root component, wraps router in providers.
 - `app/providers/AppProviders.tsx` - provider order:
+
 1. `ThemeModeProvider`
 2. `QueryClientProvider`
 3. `SnackbarProvider`
 4. `ApiEventsProvider`
 5. `AuthProvider`
 6. `NotificationsProvider`
+
 - `app/router/AppRouter.tsx` - route tree via `HashRouter`.
 - `app/router/ProtectedRoute.tsx` and `PublicOnlyRoute.tsx` - auth guards.
 - `app/router/AuthRouteFallback.tsx` - loading fallback during auth bootstrap.
@@ -76,6 +89,7 @@ Top-level source layout:
 - `app/config/navigation.ts` - single navigation source.
 
 ### 4.2 `api` layer
+
 - `api/client.ts`
   - `apiClient` uses `VITE_API_BASE_URL`.
   - request interceptor injects bearer token from localStorage key `admin-frontend-access-token`.
@@ -115,6 +129,7 @@ Top-level source layout:
   - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
 
 ### 4.3 `features` layer
+
 - `features/auth`
   - `AuthContext.tsx` - auth state machine: `initializing | authenticated | unauthenticated`
   - `auth.service.ts` - login/me/logout/bootstrap/localStorage
@@ -247,7 +262,7 @@ Top-level source layout:
     - manager names are resolved from history payload (`performer`, `assignedManager`) without extra manager lookup requests.
   - `orders.ui-text.ts` - labels, dialog text, toasts, errors
   - `pages/OrderDetailsPage.tsx` - implemented details page:
-    - page-level orchestration container that wires split sections (`Summary`, `Manager`, `Customer`, `Products`, `Tabs`) and dialogs;
+    - page-level orchestration container that wires split sections (`Summary`, `Manager`, `Customer`, `Products`, `Tabs`) and confirm dialogs where needed;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
     - action visibility/availability is based on `status` and `order.delivery.status`:
       - `Process` is shown only for `Draft`; enabled only when `delivery.status in [Delivery Scheduled, Pickup Scheduled]`;
@@ -305,6 +320,7 @@ Top-level source layout:
     - password change payload always requires `oldPassword` + `newPassword` (including admin flow).
 
 ### 4.4 Shared UI layer
+
 - `components/shared`
   - `DataTable`
   - `SearchToolbar`
@@ -318,6 +334,7 @@ Top-level source layout:
 - `components/common/PagePlaceholder.tsx` - reusable placeholder page component.
 
 ### 4.5 Theme, constants, utils
+
 - `theme/ThemeModeProvider.tsx` - light/dark mode and localStorage key `admin-frontend-theme-mode`.
 - `theme/theme.ts` - MUI theme factory.
 - `constants/dictionaries.ts` - manufacturers, countries, statuses, page size options.
@@ -326,7 +343,9 @@ Top-level source layout:
 - `utils/orderStatus.ts` - centralized order status color mapping used across orders/customers/home.
 
 ## 5) Routing and access rules
+
 Routes:
+
 - Public-only: `/login`
 - Protected:
   - `/home`
@@ -345,14 +364,17 @@ Routes:
   - `/managers/:managerId`
 
 Rules:
+
 - unauthenticated users are redirected to `/login`;
 - authenticated users should not stay on `/login`;
 - while auth state is `initializing`, show `AuthRouteFallback`.
 
 ## 6) Where to add new code
+
 Use feature-first structure, but reuse `components/shared` whenever possible.
 
 Recommended flow for a new domain module:
+
 1. add API contract and request functions in `src/api/modules/<entity>.api.ts`;
 2. add React Query hooks in `src/features/<entity>/hooks`;
 3. add table/sort/filter config in `src/features/<entity>/config` when needed;
@@ -362,11 +384,13 @@ Recommended flow for a new domain module:
 7. wire route/nav in `src/app/router/AppRouter.tsx` and `src/app/config/navigation.ts`.
 
 Avoid:
+
 - direct backend calls in page components when a hook/query layer should own that logic;
 - duplicating generic UI already present in `components/shared`;
 - introducing naming patterns that conflict with existing code style.
 
 ## 7) State and data flow patterns
+
 - Server state: React Query (`useQuery`, `useMutation`).
 - Page UI state: feature-level orchestration hooks (example: `useProductsPageState`).
 - API error toasts: centralized via `ApiEventsProvider` and API event bus.
@@ -378,7 +402,9 @@ Avoid:
   - `unchecked` when nothing is selected.
 
 ## 8) `data-testid` standard (required)
+
 ### 8.1 Core rules
+
 - Use only `data-testid`.
 - Values must be static and business-meaningful.
 - Do not use random suffixes, UUIDs, timestamps.
@@ -386,6 +412,7 @@ Avoid:
 - Do not rename existing IDs unless task explicitly requires migration.
 
 ### 8.2 Elements that must be covered
+
 - buttons and icon buttons;
 - links and navigation entries;
 - inputs, selects, checkboxes, radios;
@@ -394,16 +421,18 @@ Avoid:
 - important textual states (title/loading/empty/error/value blocks).
 
 ### 8.3 Naming pattern
+
 Preferred shape:
+
 - `<scope>-<entity>-<element>`
 - `<scope>-<entity>-row-<index>-<cell>`
 
 Existing scope prefixes to follow:
+
 - `app-shell-*`
 - `login-page-*`
 - `orders-list-*`
 - `orders-table-*`
-- `orders-create-*`
 - `orders-create-page-*`
 - `order-details-*`
 - `products-list-*`
@@ -422,24 +451,30 @@ Existing scope prefixes to follow:
 - `change-password-dialog-*`
 
 ### 8.4 MUI input specifics
+
 For `TextField`:
+
 - set `data-testid` on the component;
 - also set `inputProps={{ 'data-testid': '<...>-field' }}` for actual input node.
 
 For `TextField select`:
+
 - set `SelectProps={{ inputProps: { 'data-testid': '<...>-field' } }}`;
 - set explicit IDs on `MenuItem` options.
 
 For `Autocomplete`:
+
 - set `data-testid` on the rendered input through `renderInput`;
 - set `inputProps.data-testid` for the actual input node;
 - set deterministic `data-testid` on `renderOption` items (for example by index).
 
 ### 8.5 Shared-first rule
+
 If behavior comes from a shared component, add base `data-testid` values in that shared component first.
 Feature-specific IDs should only be added for feature-only business actions or content.
 
 ## 9) Current localStorage keys
+
 - `admin-frontend-access-token`
 - `admin-frontend-user`
 - `admin-frontend-theme-mode`
@@ -447,6 +482,7 @@ Feature-specific IDs should only be added for feature-only business actions or c
 Do not change these keys without explicit migration requirements.
 
 ## 10) Text management
+
 - Put domain text in `<feature>.ui-text.ts` for that feature.
 - Keep generic shared text near shared components (example: `components/shared/shared.ui-text.ts`).
 - For table empty states, reuse shared copy from `components/shared/shared.ui-text.ts`:
@@ -454,6 +490,7 @@ Do not change these keys without explicit migration requirements.
   - filtered/criteria empty: `No records found.`
 
 ## 11) Number, money, and status formatting
+
 - Display monetary values with thousands separators in UI.
 - Prefer a shared formatter/helper (for example locale-based `toLocaleString`) instead of ad-hoc string concatenation in components.
 - For order statuses, always use `utils/orderStatus.ts#getOrderStatusColor` (do not inline per-component color logic).
@@ -464,6 +501,7 @@ Do not change these keys without explicit migration requirements.
   - `Canceled` -> `error.main`
 
 ## 12) Pre-handoff checklist
+
 - Ensure code is in correct layer (`api`, `features`, `components/shared`, `app`).
 - Ensure `data-testid` coverage for interactive and validation-critical elements.
 - Ensure existing IDs are not broken.
@@ -474,7 +512,9 @@ Do not change these keys without explicit migration requirements.
   - `npm run build`
 
 ## 13) Definition of done for agent tasks
+
 Task is done when:
+
 - architecture and patterns are respected;
 - business flow and UI behavior are consistent with current modules;
 - automation-oriented `data-testid` values are added/updated correctly;
