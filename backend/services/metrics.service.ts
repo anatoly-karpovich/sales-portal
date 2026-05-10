@@ -97,7 +97,7 @@ class MetricsService {
 
     orders.forEach((order) => {
       order.products.forEach((item) => {
-        const productId = item?.product?._id?.toString();
+        const productId = item?.productId?.toString();
         if (!productId) return;
         const sold = typeof item.quantity === "number" ? item.quantity : 1;
         productSalesById[productId] = (productSalesById[productId] || 0) + sold;

@@ -5,7 +5,6 @@ import { useSnackbar } from 'notistack'
 import { getCustomers } from '@/api/modules/customers.api'
 import { getProducts } from '@/api/modules/products.api'
 import type {
-  CreateOrderPayload,
   OrderDeliveryStatus,
   OrderListItem,
   OrderStatus,
@@ -18,7 +17,6 @@ import {
   type OrdersSortOrder,
 } from '@/features/orders/config/ordersTableColumns'
 import {
-  useCreateOrderMutation,
   useOrderStatusMutation,
   useOrdersExportMutation,
   useOrdersQuery,
@@ -64,8 +62,6 @@ export function useOrdersPageState() {
   const [exportOpen, setExportOpen] = useState(false)
   const [selectedReopenOrder, setSelectedReopenOrder] = useState<OrderListItem | null>(null)
   const [reopenDialogOpen, setReopenDialogOpen] = useState(false)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [createDialogKey, setCreateDialogKey] = useState(0)
   const [isCreateDialogPreloading, setIsCreateDialogPreloading] = useState(false)
   const [isTransitionPending, startTransition] = useTransition()
 
@@ -84,7 +80,6 @@ export function useOrdersPageState() {
 
   const { data, isLoading, isFetching } = useOrdersQuery(query)
   const exportMutation = useOrdersExportMutation()
-  const createMutation = useCreateOrderMutation()
   const orderStatusMutation = useOrderStatusMutation()
 
   const rows = data?.Orders ?? []
@@ -195,10 +190,9 @@ export function useOrdersPageState() {
     ],
   )
 
-  const openCreateDialog = useCallback(async () => {
+  const openCreatePage = useCallback(async () => {
     if (isCreateDialogPreloading) return
 
-    setCreateDialogOpen(false)
     setIsCreateDialogPreloading(true)
     try {
       const [customersResponse, productsResponse] = await Promise.all([
@@ -213,6 +207,7 @@ export function useOrdersPageState() {
         getProducts({
           search: '',
           manufacturer: [],
+          status: ['Active'],
           sortField: 'name',
           sortOrder: 'asc',
           page: 1,
@@ -230,8 +225,7 @@ export function useOrdersPageState() {
         return
       }
 
-      setCreateDialogKey((current) => current + 1)
-      setCreateDialogOpen(true)
+      navigate('/orders/add')
     } catch (error) {
       if (!isAxiosError(error) || !error.response) {
         enqueueSnackbar(ordersUiText.errors.createUnavailable, { variant: 'error' })
@@ -239,21 +233,7 @@ export function useOrdersPageState() {
     } finally {
       setIsCreateDialogPreloading(false)
     }
-  }, [enqueueSnackbar, isCreateDialogPreloading])
-
-  const closeCreateDialog = useCallback(() => {
-    if (createMutation.isPending) return
-    setCreateDialogOpen(false)
-  }, [createMutation.isPending])
-
-  const submitCreateOrder = useCallback(
-    async (payload: CreateOrderPayload) => {
-      await createMutation.mutateAsync(payload)
-      enqueueSnackbar(ordersUiText.toasts.created, { variant: 'success' })
-      setCreateDialogOpen(false)
-    },
-    [createMutation, enqueueSnackbar],
-  )
+  }, [enqueueSnackbar, isCreateDialogPreloading, navigate])
 
   const openReopenDialog = useCallback((order: OrderListItem) => {
     setSelectedReopenOrder(order)
@@ -301,12 +281,9 @@ export function useOrdersPageState() {
     exportOpen,
     reopenDialogOpen,
     selectedReopenOrder,
-    createDialogOpen,
-    createDialogKey,
     isLoading,
     isTableUpdating,
     isCreateDialogPreloading,
-    isCreatePending: createMutation.isPending,
     isReopenPending: orderStatusMutation.isPending,
     setSearchDraft,
     setFiltersOpen,
@@ -320,9 +297,7 @@ export function useOrdersPageState() {
     onPageChange,
     onLimitChange,
     onExportSubmit,
-    openCreateDialog,
-    closeCreateDialog,
-    submitCreateOrder,
+    openCreatePage,
     openReopenDialog,
     closeReopenDialog,
     confirmReopen,

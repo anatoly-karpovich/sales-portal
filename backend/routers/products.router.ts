@@ -1,7 +1,20 @@
 import Router from "express";
 import ProductsController from "../controllers/products.controller.js";
 import { authmiddleware } from "../middleware/authmiddleware.js";
-import { productValidations, productById, deleteProduct, uniqueProduct } from "../middleware/productMiddleware.js";
+import {
+  deleteProductVariant,
+  deleteProduct,
+  productById,
+  productCreateOrReplaceValidations,
+  productStatusPatchValidations,
+  productVariantsCreateValidations,
+  productVariantsReplaceValidations,
+  productVariantsValidate,
+  productPatchValidations,
+  productVariantStatusPatchValidations,
+  productVariantPatchValidations,
+  uniqueProduct,
+} from "../middleware/productMiddleware.js";
 import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const productsRouter = Router();
@@ -22,20 +35,84 @@ productsRouter.get(
 productsRouter.post(
   "/products",
   authmiddleware,
-  schemaMiddleware("productSchema"),
+  schemaMiddleware("productCreateSchema"),
   uniqueProduct,
-  productValidations,
+  productCreateOrReplaceValidations,
   ProductsController.create.bind(ProductsController),
 );
 
 productsRouter.put(
   "/products/:productId",
   authmiddleware,
-  schemaMiddleware("productSchema"),
+  schemaMiddleware("productReplaceSchema"),
   uniqueProduct,
   productById,
-  productValidations,
-  ProductsController.update.bind(ProductsController),
+  productCreateOrReplaceValidations,
+  ProductsController.replace.bind(ProductsController),
+);
+
+productsRouter.patch(
+  "/products/:productId",
+  authmiddleware,
+  schemaMiddleware("productPatchSchema"),
+  productById,
+  uniqueProduct,
+  productPatchValidations,
+  ProductsController.patch.bind(ProductsController),
+);
+
+productsRouter.patch(
+  "/products/:productId/status",
+  authmiddleware,
+  schemaMiddleware("productStatusPatchSchema"),
+  productById,
+  productStatusPatchValidations,
+  ProductsController.patchStatus.bind(ProductsController),
+);
+
+productsRouter.put(
+  "/products/:productId/variants",
+  authmiddleware,
+  schemaMiddleware("productVariantsReplaceSchema"),
+  productById,
+  productVariantsReplaceValidations,
+  ProductsController.replaceVariants.bind(ProductsController),
+);
+
+productsRouter.post(
+  "/products/:productId/variants/validate",
+  authmiddleware,
+  schemaMiddleware("productVariantsValidateSchema"),
+  productById,
+  productVariantsValidate,
+  ProductsController.validateVariants.bind(ProductsController),
+);
+
+productsRouter.patch(
+  "/products/:productId/variants/:variantId/status",
+  authmiddleware,
+  schemaMiddleware("productVariantStatusPatchSchema"),
+  productById,
+  productVariantStatusPatchValidations,
+  ProductsController.patchVariantStatus.bind(ProductsController),
+);
+
+productsRouter.patch(
+  "/products/:productId/variants/:variantId",
+  authmiddleware,
+  schemaMiddleware("productVariantPatchSchema"),
+  productById,
+  productVariantPatchValidations,
+  ProductsController.patchVariant.bind(ProductsController),
+);
+
+productsRouter.post(
+  "/products/:productId/variants",
+  authmiddleware,
+  schemaMiddleware("productVariantsCreateSchema"),
+  productById,
+  productVariantsCreateValidations,
+  ProductsController.createVariants.bind(ProductsController),
 );
 
 productsRouter.delete(
@@ -46,145 +123,239 @@ productsRouter.delete(
   ProductsController.delete.bind(ProductsController),
 );
 
+productsRouter.delete(
+  "/products/:productId/variants/:variantId",
+  authmiddleware,
+  productById,
+  deleteProductVariant,
+  ProductsController.deleteVariant.bind(ProductsController),
+);
+
 /**
  * @swagger
+ * tags:
+ *   - name: Products
+ *     description: Products management service
  * components:
  *   schemas:
- *     Product:
+ *     ProductAttribute:
  *       type: object
- *       required:
- *         - name
- *         - amount
- *         - price
- *         - manufacturer
+ *       required: [key, name, values]
  *       properties:
- *         _id:
- *           type: string
- *           description: The auto-generated id of the product
- *         name:
- *           type: string
- *           description: The products name
- *         amount:
- *           type: number
- *           description: The products amount
- *         price:
- *           type: number
- *           description: The products price
- *         manufacturer:
- *           type: string
- *           enum: [Apple, Samsung, Google, Microsoft, Sony, Xiaomi, Amazon, Tesla]
- *           description: The products manufactirer
- *         createdOn:
- *           type: string
- *           format: date-time
- *           description: The date the product was created
- *         notes:
- *           type: string
- *           description: The products notes
- *       example:
- *         "_id": "6396593e54206d313b2a50b7"
- *         "name": "product 1"
- *         "amount": 1
- *         "price": 1
- *         "manufacturer": "Apple"
- *         "createdOn": "2024-09-28T14:00:00Z"
- *         "notes": "note 1"
- *
- *     ProductWithoutId:
+ *         key: { type: string }
+ *         name: { type: string }
+ *         values:
+ *           type: array
+ *           items: { type: string }
+ *     ProductVariant:
  *       type: object
- *       required:
- *         - name
- *         - amount
- *         - price
- *         - manufacturer
+ *       required: [price, status, attributes]
  *       properties:
- *         name:
+ *         _id: { type: string }
+ *         price: { type: number }
+ *         status:
  *           type: string
- *           description: The products name
- *         amount:
- *           type: number
- *           description: The products amount
- *         price:
- *           type: number
- *           description: The products price
- *         manufacturer:
+ *           enum: [Draft, Active, Archived]
+ *         attributes:
+ *           type: object
+ *           additionalProperties: { type: string }
+ *         imageUrl: { type: string }
+ *     ProductPriceRange:
+ *       type: object
+ *       required: [min, max]
+ *       properties:
+ *         min: { type: number }
+ *         max: { type: number }
+ *     ProductListItem:
+ *       type: object
+ *       required: [_id, name, manufacturer, category, status, createdOn, variantsCount, priceRange]
+ *       properties:
+ *         _id: { type: string }
+ *         name: { type: string }
+ *         manufacturer: { type: string }
+ *         category: { type: string }
+ *         status: { type: string, enum: [Draft, Active, Archived] }
+ *         createdOn: { type: string, format: date-time }
+ *         variantsCount: { type: integer }
+ *         priceRange:
+ *           $ref: '#/components/schemas/ProductPriceRange'
+ *     ProductDetails:
+ *       type: object
+ *       required: [_id, name, manufacturer, category, status, attributes, variants, priceRange, createdOn, updatedOn]
+ *       properties:
+ *         _id: { type: string }
+ *         name: { type: string }
+ *         manufacturer: { type: string }
+ *         category: { type: string }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         status: { type: string, enum: [Draft, Active, Archived] }
+ *         attributes:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProductAttribute' }
+ *         variants:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProductVariant' }
+ *         priceRange:
+ *           $ref: '#/components/schemas/ProductPriceRange'
+ *         createdOn: { type: string }
+ *         updatedOn: { type: string }
+ *     ProductCreatePayload:
+ *       type: object
+ *       required: [name, manufacturer, category, attributes, variants]
+ *       properties:
+ *         name: { type: string, minLength: 1 }
+ *         manufacturer: { type: string, minLength: 1 }
+ *         category: { type: string, minLength: 1 }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         attributes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductAttribute'
+ *         variants:
+ *           type: array
+ *           minItems: 1
+ *           items:
+ *             $ref: '#/components/schemas/ProductVariantCreatePayload'
+ *     ProductReplacePayload:
+ *       type: object
+ *       required: [name, manufacturer, category, attributes, variants]
+ *       properties:
+ *         name: { type: string, minLength: 1 }
+ *         manufacturer: { type: string, minLength: 1 }
+ *         category: { type: string, minLength: 1 }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         attributes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductAttribute'
+ *         variants:
+ *           type: array
+ *           minItems: 1
+ *           items:
+ *             $ref: '#/components/schemas/ProductVariantReplacePayload'
+ *     ProductPatchPayload:
+ *       type: object
+ *       minProperties: 1
+ *       properties:
+ *         name: { type: string, minLength: 1 }
+ *         manufacturer: { type: string, minLength: 1 }
+ *         category: { type: string, minLength: 1 }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *     ProductVariantCreatePayload:
+ *       type: object
+ *       required: [price, attributes]
+ *       properties:
+ *         price: { type: number }
+ *         attributes:
+ *           type: object
+ *           additionalProperties: { type: string }
+ *         imageUrl: { type: string }
+ *     ProductVariantReplacePayload:
+ *       allOf:
+ *         - $ref: '#/components/schemas/ProductVariantCreatePayload'
+ *         - type: object
+ *           properties:
+ *             _id: { type: string }
+ *     ProductVariantPatchPayload:
+ *       type: object
+ *       minProperties: 1
+ *       additionalProperties: false
+ *       properties:
+ *         price: { type: number }
+ *         attributes:
+ *           type: object
+ *           additionalProperties: { type: string }
+ *         imageUrl: { type: string }
+ *     ProductVariantsReplacePayload:
+ *       type: object
+ *       required: [variants]
+ *       properties:
+ *         attributes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductAttribute'
+ *         variants:
+ *           type: array
+ *           minItems: 1
+ *           maxItems: 200
+ *           items:
+ *             $ref: '#/components/schemas/ProductVariantReplacePayload'
+ *     ProductStatusPatchPayload:
+ *       type: object
+ *       required: [status]
+ *       properties:
+ *         status:
  *           type: string
- *           enum: [Apple, Samsung, Google, Microsoft, Sony, Xiaomi, Amazon, Tesla]
- *           description: The products manufactirer
- *         notes:
- *           type: string
- *           description: The products notes
- *       example:
- *         "name": "product 1"
- *         "amount": 1
- *         "price": 1
- *         "manufacturer": "Apple"
- *         "notes": "note 1"
- *
+ *           enum: [Draft, Active, Archived]
  *     ProductResponse:
  *       type: object
- *       required:
- *         - Product
- *         - IsSuccess
- *         - ErrorMessage
+ *       required: [Product, IsSuccess, ErrorMessage]
  *       properties:
  *         Product:
- *           $ref: '#/components/schemas/Product'
- *         IsSuccess:
- *           type: boolean
+ *           $ref: '#/components/schemas/ProductDetails'
+ *         IsSuccess: { type: boolean, example: true }
  *         ErrorMessage:
- *           type: string
- *           nullable: true
- *
- *     ProductsListResponse:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *     ProductsResponse:
  *       type: object
- *       required:
- *         - Products
- *         - IsSuccess
- *         - ErrorMessage
+ *       required: [Products, IsSuccess, ErrorMessage]
  *       properties:
  *         Products:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/Product'
- *         IsSuccess:
- *           type: boolean
+ *             $ref: '#/components/schemas/ProductDetails'
+ *         IsSuccess: { type: boolean, example: true }
  *         ErrorMessage:
- *           type: string
- *           nullable: true
- *
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
  *     ProductsSortedResponse:
- *       allOf:
- *         - $ref: '#/components/schemas/ProductsListResponse'
- *         - type: object
+ *       type: object
+ *       required: [Products, total, page, limit, search, manufacturer, status, category, sorting, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Products:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductListItem'
+ *         total: { type: integer }
+ *         page: { type: integer }
+ *         limit: { type: integer }
+ *         search: { type: string }
+ *         manufacturer:
+ *           type: array
+ *           items: { type: string }
+ *         status:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [Draft, Active, Archived]
+ *         category: { type: string }
+ *         minPrice: { type: number }
+ *         maxPrice: { type: number }
+ *         sorting:
+ *           type: object
+ *           required: [sortField, sortOrder]
  *           properties:
- *             total:
- *               type: number
- *             page:
- *               type: number
- *             limit:
- *               type: number
- *             search:
+ *             sortField:
  *               type: string
- *             manufacturer:
- *               type: array
- *               items:
- *                 type: string
- *             sorting:
- *               type: object
- *               properties:
- *                 sortField:
- *                   type: string
- *                   enum: [name, price, manufacturer, createdOn]
- *                 sortOrder:
- *                   type: string
- *                   enum: [asc, desc]
- *
+ *               enum: [name, price, manufacturer, category, status, createdOn, variantsCount]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         IsSuccess: { type: boolean, example: true }
+ *         ErrorMessage:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
  *     ProductExportPayload:
  *       type: object
- *       required:
- *         - format
- *         - fields
+ *       required: [format, fields]
  *       properties:
  *         format:
  *           type: string
@@ -193,19 +364,23 @@ productsRouter.delete(
  *           type: object
  *           nullable: true
  *           properties:
- *             search:
- *               type: string
+ *             search: { type: string }
  *             manufacturer:
+ *               type: array
+ *               items: { type: string }
+ *             status:
  *               type: array
  *               items:
  *                 type: string
- *             page:
- *               type: number
- *             limit:
- *               type: number
+ *                 enum: [Draft, Active, Archived]
+ *             category: { type: string }
+ *             minPrice: { type: number }
+ *             maxPrice: { type: number }
+ *             page: { type: integer }
+ *             limit: { type: integer }
  *             sortField:
  *               type: string
- *               enum: [name, price, manufacturer, createdOn]
+ *               enum: [name, price, manufacturer, category, status, createdOn, variantsCount]
  *             sortOrder:
  *               type: string
  *               enum: [asc, desc]
@@ -213,124 +388,97 @@ productsRouter.delete(
  *           type: array
  *           items:
  *             type: string
- *             enum: [_id, name, amount, price, manufacturer, createdOn, notes]
- */
-
-/**
- * @swagger
- * tags:
- *   name: Products
- *   description: Products management service
- */
-
-/**
- * @swagger
+ *             enum: [_id, name, manufacturer, category, status, variantsCount, priceRange, attributes, variants, createdOn, updatedOn]
+ *     ProductApiErrorResponse:
+ *       type: object
+ *       required: [IsSuccess, ErrorMessage]
+ *       properties:
+ *         IsSuccess:
+ *           type: boolean
+ *           example: false
+ *         ErrorMessage:
+ *           type: string
+ *
  * /api/products:
  *   get:
- *     summary: Get the list of products with optional filters and sorting
+ *     summary: Get products list
  *     tags: [Products]
  *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for name/manufacturer/category
  *       - in: query
  *         name: manufacturer
  *         schema:
  *           type: array
  *           items:
  *             type: string
- *           example: ["Apple", "Samsung"]
- *         description: Filter products by manufacturer(s)
+ *         style: form
+ *         explode: true
+ *         description: Manufacturer filters (repeat query param)
  *       - in: query
- *         name: search
+ *         name: status
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [Draft, Active, Archived]
+ *         style: form
+ *         explode: true
+ *         description: Status filters (repeat query param)
+ *       - in: query
+ *         name: category
  *         schema:
  *           type: string
- *         description: Search term for filtering products by name, manufacturer, or price
+ *         description: Category filter (case-insensitive partial match)
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: string
+ *         description: Minimum variant price (inclusive)
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: string
+ *         description: Maximum variant price (inclusive)
  *       - in: query
  *         name: sortField
  *         schema:
  *           type: string
- *           enum: [name, price, manufacturer, createdOn]
- *           example: name
- *         description: Field to sort by
+ *           enum: [name, price, manufacturer, category, status, createdOn, variantsCount]
  *       - in: query
  *         name: sortOrder
  *         schema:
  *           type: string
  *           enum: [asc, desc]
- *           example: asc
- *         description: Sort order (ascending or descending)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: The list of the products
+ *         description: Paginated product list
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ProductsSortedResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
+ *       400:
+ *         description: Invalid filter values
  *       500:
  *         description: Server error
- */
-
-/**
- * @swagger
- * /api/products/all:
- *   get:
- *     summary: Get the list of all products (no pagination, filters or sorting)
- *     tags: [Products]
- *     parameters:
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: The complete list of products
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ProductsListResponse'
- *       401:
- *         description: Unauthorized, missing or invalid token
- *       500:
- *         description: Server error
- */
-
-/**
- * @swagger
- * /api/products/{productId}:
- *   get:
- *     summary: Get the product by Id
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: productId
- *         schema:
- *           type: string
- *         required: true
- *         description: The product id
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: The product by Id
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ProductResponse'
- *       401:
- *         description: Unauthorized, missing or invalid token
- *       404:
- *         description: The product was not found
- *       500:
- *         description: Server error
- */
-
-/**
- * @swagger
- * /api/products:
  *   post:
- *     summary: Create a new product
+ *     summary: Create product
  *     tags: [Products]
- *     parameters:
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -338,37 +486,85 @@ productsRouter.delete(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ProductWithoutId'
+ *             $ref: '#/components/schemas/ProductReplacePayload'
  *     responses:
  *       201:
- *         description: The product was successfully created
+ *         description: Product created
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ProductResponse'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       409:
- *         description: Conflict, product already exists
+ *         description: Conflict, e.g. duplicate name/attribute combinations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductApiErrorResponse'
  *       500:
  *         description: Server error
- */
-
-/**
- * @swagger
+ * /api/products/all:
+ *   get:
+ *     summary: Get full product details for all products
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Full product list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductsResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
  * /api/products/{productId}:
- *   put:
- *     summary: Update the product by Id
+ *   get:
+ *     summary: Get product details by id
  *     tags: [Products]
  *     parameters:
  *       - in: path
  *         name: productId
+ *         required: true
  *         schema:
  *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Product details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *   put:
+ *     summary: Replace product by id
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
  *         required: true
- *         description: The product id
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -376,10 +572,48 @@ productsRouter.delete(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ProductWithoutId'
+ *             $ref: '#/components/schemas/ProductCreatePayload'
  *     responses:
  *       200:
- *         description: The product was successfully updated
+ *         description: Product replaced
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductApiErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *       409:
+ *         description: Conflict, e.g. duplicate name/attribute combinations
+ *       500:
+ *         description: Server error
+ *   patch:
+ *     summary: Patch product parent fields
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Product patched
  *         content:
  *           application/json:
  *             schema:
@@ -389,20 +623,283 @@ productsRouter.delete(
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
- *         description: The product was not found
+ *         description: Product not found
  *       409:
- *         description: Conflict, unable to update the product
+ *         description: Conflict, e.g. duplicate name/attribute combinations
  *       500:
  *         description: Server error
- */
-
-/**
- * @swagger
- * /api/products/export:
- *   post:
- *     summary: Export products in CSV/JSON format
+ *   delete:
+ *     summary: Delete product by id
  *     tags: [Products]
  *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       204:
+ *         description: Product deleted
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *       409:
+ *         description: Product is assigned to order
+ *       500:
+ *         description: Server error
+ * /api/products/{productId}/status:
+ *   patch:
+ *     summary: Patch product status
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductStatusPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Product status updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error or invalid status transition
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ * /api/products/{productId}/variants:
+ *   put:
+ *     summary: Replace product variants and optional attributes
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductVariantsReplacePayload'
+ *     responses:
+ *       200:
+ *         description: Product variants replaced
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product or variant not found
+ *       409:
+ *         description: Conflict, e.g. duplicate combinations or deleted variant assigned to order
+ *       500:
+ *         description: Server error
+ *   post:
+ *     summary: Add product variants in bulk
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: array
+ *             minItems: 1
+ *             maxItems: 200
+ *             items:
+ *               $ref: '#/components/schemas/ProductVariantCreatePayload'
+ *     responses:
+ *       201:
+ *         description: Product variants added
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *       409:
+ *         description: Conflict, e.g. duplicate combinations
+ *       500:
+ *         description: Server error
+ * /api/products/{productId}/variants/validate:
+ *   post:
+ *     summary: Validate product variants payload without saving
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductVariantsReplacePayload'
+ *     responses:
+ *       200:
+ *         description: Payload is valid, returns preview Product
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product or variant not found
+ *       409:
+ *         description: Conflict, e.g. duplicate combinations
+ *       500:
+ *         description: Server error
+ * /api/products/{productId}/variants/{variantId}:
+ *   patch:
+ *     summary: Patch one product variant
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductVariantPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Variant patched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product or variant not found
+ *       409:
+ *         description: Conflict, e.g. duplicate combinations
+ *       500:
+ *         description: Server error
+ *   delete:
+ *     summary: Delete one product variant
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       204:
+ *         description: Variant deleted
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product or variant not found
+ *       409:
+ *         description: Variant is assigned to order
+ *       500:
+ *         description: Server error
+ * /api/products/{productId}/variants/{variantId}/status:
+ *   patch:
+ *     summary: Patch one product variant status
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductStatusPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Variant status updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product or variant not found
+ *       500:
+ *         description: Server error
+ * /api/products/export:
+ *   post:
+ *     summary: Export products
+ *     tags: [Products]
  *     security:
  *       - BearerAuth: []
  *     requestBody:
@@ -425,41 +922,15 @@ productsRouter.delete(
  *               format: binary
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProductApiErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       500:
  *         description: Server error
- */
-
-/**
- * @swagger
- * /api/products/{productId}:
- *   delete:
- *     summary: Delete the product by Id
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: productId
- *         schema:
- *           type: string
- *         required: true
- *         description: The product id
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       204:
- *         description: The product was successfully deleted
- *       401:
- *         description: Unauthorized, missing or invalid token
- *       404:
- *         description: The product was not found
- *       409:
- *         description: Conflict, unable to delete the product
- *       500:
- *         description: Server error
+ *
  */
 
 export default productsRouter;
-
-
-

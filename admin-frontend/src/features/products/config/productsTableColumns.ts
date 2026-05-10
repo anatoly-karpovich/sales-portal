@@ -1,13 +1,39 @@
 import { createElement } from 'react'
+import { Typography } from '@mui/material'
 import type { Product } from '@/api/modules/products.api'
 import type { DataTableColumn } from '@/components/shared/DataTable'
-import { formatDateTime } from '@/utils/date'
 import { ProductsTableActionsCell } from '@/features/products/components/ProductsTableActionsCell'
+import { formatDateTime } from '@/utils/date'
+import { formatPrice } from '@/utils/number'
 
-export const PRODUCTS_EXPORT_AVAILABLE_FIELDS = ['name', 'amount', 'price', 'manufacturer', 'createdOn', 'notes']
-export const PRODUCTS_EXPORT_DEFAULT_FIELDS = ['name', 'price', 'manufacturer', 'createdOn']
+export const PRODUCTS_EXPORT_AVAILABLE_FIELDS = [
+  '_id',
+  'name',
+  'manufacturer',
+  'category',
+  'status',
+  'variantsCount',
+  'priceRange',
+  'createdOn',
+  'updatedOn',
+]
+export const PRODUCTS_EXPORT_DEFAULT_FIELDS = [
+  'name',
+  'manufacturer',
+  'category',
+  'variantsCount',
+  'priceRange',
+  'createdOn',
+]
 
-export const PRODUCTS_SORT_FIELDS = ['name', 'price', 'manufacturer', 'createdOn'] as const
+export const PRODUCTS_SORT_FIELDS = [
+  'name',
+  'price',
+  'manufacturer',
+  'status',
+  'createdOn',
+  'variantsCount',
+] as const
 export type ProductsSortField = (typeof PRODUCTS_SORT_FIELDS)[number]
 export type ProductsSortOrder = 'asc' | 'desc'
 
@@ -17,28 +43,99 @@ export function isProductsSortField(field: string): field is ProductsSortField {
 
 type ProductsTableColumnActions = {
   onView: (product: Product) => void
-  onEdit: (product: Product) => void
   onDelete: (product: Product) => void
 }
 
-export function getProductsTableColumns({ onView, onEdit, onDelete }: ProductsTableColumnActions): DataTableColumn<Product>[] {
+function renderProductPriceRange(product: Product) {
+  const min = product.priceRange?.min
+  const max = product.priceRange?.max
+
+  if (typeof min !== 'number' || Number.isNaN(min)) {
+    return '-'
+  }
+
+  if (typeof max !== 'number' || Number.isNaN(max) || min === max) {
+    return formatPrice(min)
+  }
+
+  return `${formatPrice(min)} - ${formatPrice(max)}`
+}
+
+function getProductStatusColor(status: Product['status']) {
+  if (status === 'Active') return 'primary.main'
+  if (status === 'Archived') return 'warning.main'
+  return 'text.primary'
+}
+
+export function getProductsTableColumns({
+  onView,
+  onDelete,
+}: ProductsTableColumnActions): DataTableColumn<Product>[] {
   return [
-    { key: 'name', label: 'Name', sortable: true, width: '32%', minWidth: 260, render: (row) => row.name },
-    { key: 'price', label: 'Price', sortable: true, width: 140, minWidth: 120, render: (row) => `$${row.price}` },
-    { key: 'manufacturer', label: 'Manufacturer', sortable: true, width: '22%', minWidth: 180, render: (row) => row.manufacturer },
-    { key: 'createdOn', label: 'Created On', sortable: true, width: '28%', minWidth: 220, render: (row) => formatDateTime(row.createdOn) },
+    {
+      key: 'name',
+      label: 'Name',
+      sortable: true,
+      width: '24%',
+      minWidth: 220,
+      render: (row) => row.name,
+    },
+    {
+      key: 'price',
+      label: 'Price',
+      sortable: true,
+      width: 170,
+      minWidth: 160,
+      render: (row) => renderProductPriceRange(row),
+    },
+    {
+      key: 'manufacturer',
+      label: 'Manufacturer',
+      sortable: true,
+      width: '18%',
+      minWidth: 160,
+      render: (row) => row.manufacturer,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      width: 130,
+      minWidth: 120,
+      render: (row) =>
+        createElement(
+          Typography,
+          { component: 'span', sx: { color: getProductStatusColor(row.status) } },
+          row.status,
+        ),
+    },
+    {
+      key: 'variantsCount',
+      label: 'Variants',
+      sortable: true,
+      width: 100,
+      minWidth: 90,
+      render: (row) => row.variantsCount ?? row.variants?.length ?? 0,
+    },
+    {
+      key: 'createdOn',
+      label: 'Created On',
+      sortable: true,
+      width: '20%',
+      minWidth: 190,
+      render: (row) => formatDateTime(row.createdOn),
+    },
     {
       key: 'actions',
       label: 'Actions',
-      width: 150,
-      minWidth: 140,
+      width: 140,
+      minWidth: 130,
       align: 'right',
       stickyRight: true,
       render: (row) =>
         createElement(ProductsTableActionsCell, {
           product: row,
           onView,
-          onEdit,
           onDelete,
         }),
     },

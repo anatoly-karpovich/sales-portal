@@ -9,10 +9,11 @@ import { RouteLoadingFallback } from '@/app/router/RouteLoadingFallback'
 const LoginPage = lazy(async () => ({ default: (await import('@/features/auth/pages/LoginPage')).LoginPage }))
 const HomePage = lazy(async () => ({ default: (await import('@/features/home/pages/HomePage')).HomePage }))
 const OrdersPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrdersPage')).OrdersPage }))
+const OrderCreatePage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderCreatePage')).OrderCreatePage }))
 const OrderDetailsPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderDetailsPage')).OrderDetailsPage }))
 const ProductsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductsPage')).ProductsPage }))
 const ProductCreatePage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductCreatePage')).ProductCreatePage }))
-const ProductEditPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductEditPage')).ProductEditPage }))
+const ProductDetailsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductDetailsPage')).ProductDetailsPage }))
 const CustomersPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomersPage')).CustomersPage }))
 const CustomerCreatePage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerCreatePage')).CustomerCreatePage }))
 const CustomerDetailsPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerDetailsPage')).CustomerDetailsPage }))
@@ -56,6 +57,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/orders/add"
+          element={
+            <SuspendedRoute>
+              <OrderCreatePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
           path="/orders/:orderId"
           element={
             <SuspendedRoute>
@@ -80,10 +89,10 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/products/:productId/edit"
+          path="/products/:productId"
           element={
             <SuspendedRoute>
-              <ProductEditPage />
+              <ProductDetailsPage />
             </SuspendedRoute>
           }
         />

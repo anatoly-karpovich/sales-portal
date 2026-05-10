@@ -83,6 +83,7 @@ export function useOrderProductOptionsQuery(search: string, enabled = true) {
       getProducts({
         search,
         manufacturer: [],
+        status: ['Active'],
         sortField: 'name',
         sortOrder: 'asc',
         page: 1,
@@ -90,6 +91,28 @@ export function useOrderProductOptionsQuery(search: string, enabled = true) {
       }),
     enabled,
     placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useOrderProductDetailsQuery(productId: string, enabled = true) {
+  return useQuery({
+    queryKey: ordersQueryKeys.productDetails(productId),
+    queryFn: () => getProductById(productId),
+    enabled,
+  })
+}
+
+export function useOrderProductsDetailsQueries(productIds: string[], enabled = true) {
+  const uniqueProductIds = [...new Set(productIds.filter(Boolean))]
+
+  return useQueries({
+    queries: uniqueProductIds.map((productId) => ({
+      queryKey: ordersQueryKeys.productDetails(productId),
+      queryFn: () => getProductById(productId),
+      enabled,
+      retry: false,
+      staleTime: 60_000,
+    })),
   })
 }
 

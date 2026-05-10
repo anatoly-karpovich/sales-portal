@@ -62,12 +62,16 @@ export type Settings = {
       locations: Record<string, PickupLocation[]>
     }
   }
+  catalog?: {
+    manufacturers: string[]
+  }
 }
 
 export type SettingsUpdatePayload = {
   order?: Partial<Settings['order']>
   inventory?: Partial<Settings['inventory']>
   shipping?: Partial<Settings['shipping']>
+  catalog?: Partial<NonNullable<Settings['catalog']>>
 }
 
 type SettingsResponse = {

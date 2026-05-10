@@ -9,6 +9,9 @@ export interface IPickupLocation {
 }
 
 export interface ISettings {
+  catalog: {
+    manufacturers: string[];
+  };
   order: {
     maxProductsInOrder: number;
     maxProductQuantityInOrder: number;

@@ -3,18 +3,24 @@ import CustomerService from "../services/customer.service.js";
 import { SettingsService } from "../services/settings.service.js";
 import Product from "../models/product.model.js";
 import { Request, Response, NextFunction } from "express";
-import { DELIVERY_STATUSES, ORDER_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
+import { DELIVERY_STATUSES, ORDER_STATUSES, PRODUCT_STATUSES, VALIDATION_ERROR_MESSAGES } from "../data/enums";
 import { isValidInput } from "../utils/validations.js";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
+  AddOrderProductRequestDTO,
   CreateOrderCommentRequestDTO,
   CreateOrderRequestDTO,
+  DeleteOrderProductRequestDTO,
   GetOrderByIdRequestDTO,
   OrderCommentParamsDTO,
   OrderPricingRequestDTO,
   OrderProductRequestItemDTO,
+  OrderProductDeleteRequestBodyDTO,
+  OrderProductReplaceRequestBodyDTO,
   OrderReceiveRequestDTO,
+  ReplaceOrderCustomerRequestDTO,
+  ReplaceOrderProductRequestDTO,
   OrderRequestWithEntityDTO,
   OrderStatusRequestDTO,
   UpdateOrderPickupRequestDTO,
@@ -127,6 +133,79 @@ async function validatePickupPayload(
   }
 }
 
+function toOrderLineKey(productId: string, variantId: string): string {
+  return `${productId}:${variantId}`;
+}
+
+function isDraftOrder(
+  order: GetOrderByIdRequestDTO["order"],
+  res: Response<BaseResponseDTO>,
+): Response<BaseResponseDTO> | undefined {
+  if (!order) {
+    return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order wasn't found` });
+  }
+
+  if (order.status !== ORDER_STATUSES.DRAFT) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+  }
+}
+
+async function validateRequestedOrderLine(
+  item: OrderProductRequestItemDTO,
+  res: Response<BaseResponseDTO>,
+): Promise<Response<BaseResponseDTO> | undefined> {
+  if (!Types.ObjectId.isValid(item.productId) || !Types.ObjectId.isValid(item.variantId)) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+  }
+
+  const product = await Product.findById(item.productId)
+    .select("_id status variants._id variants.status")
+    .lean();
+
+  if (!product) {
+    return res
+      .status(404)
+      .json({ IsSuccess: false, ErrorMessage: `Product with id '${item.productId}' wasn't found` });
+  }
+
+  if (product.status !== PRODUCT_STATUSES.ACTIVE) {
+    return res.status(400).json({
+      IsSuccess: false,
+      ErrorMessage: `Product with id '${item.productId}' is not active`,
+    });
+  }
+
+  const variant = (product.variants ?? []).find((productVariant) => productVariant?._id?.toString() === item.variantId);
+  if (!variant) {
+    return res.status(404).json({
+      IsSuccess: false,
+      ErrorMessage: `Variant with id '${item.variantId}' wasn't found in product '${item.productId}'`,
+    });
+  }
+
+  if (variant.status !== PRODUCT_STATUSES.ACTIVE) {
+    return res.status(400).json({
+      IsSuccess: false,
+      ErrorMessage: `Variant with id '${item.variantId}' is not active`,
+    });
+  }
+
+  const settings = await settingsService.get();
+  const maxQuantity = settings?.order?.maxProductQuantityInOrder;
+  if (typeof maxQuantity !== "number" || maxQuantity < 1) {
+    return res
+      .status(500)
+      .json({ IsSuccess: false, ErrorMessage: `Order quantity limit is not configured` });
+  }
+
+  if (item.quantity < 1 || item.quantity > maxQuantity) {
+    return res.status(400).json({
+      IsSuccess: false,
+      ErrorMessage: `Product '${item.productId}' variant '${item.variantId}' quantity must be between 1 and ${maxQuantity}`,
+    });
+  }
+}
+
 export async function orderById(req: GetOrderByIdRequestDTO, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
     const id = new Types.ObjectId(req.params.orderId);
@@ -171,23 +250,58 @@ export async function orderValidations(
         return res.status(404).json({ IsSuccess: false, ErrorMessage: `Missing products` });
       }
 
-      const requestedIds = requestedProducts.map((item) => item.id);
-      const uniqueProductIds = new Set(requestedIds);
-      if (uniqueProductIds.size !== requestedIds.length) {
+      const requestedKeys = requestedProducts.map((item) => `${item.productId}:${item.variantId}`);
+      const hasInvalidId = requestedProducts.some(
+        (item) => !Types.ObjectId.isValid(item.productId) || !Types.ObjectId.isValid(item.variantId),
+      );
+      if (hasInvalidId) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+      }
+      const uniqueOrderLineKeys = new Set(requestedKeys);
+      if (uniqueOrderLineKeys.size !== requestedKeys.length) {
         return res
           .status(400)
-          .json({ IsSuccess: false, ErrorMessage: `Duplicate product ids are not allowed` });
+          .json({ IsSuccess: false, ErrorMessage: `Duplicate order product lines are not allowed` });
       }
 
-      const productObjectIds = [...uniqueProductIds].map((productId) => new Types.ObjectId(productId));
-      const existingProducts = await Product.find({ _id: { $in: productObjectIds } }).select("_id").lean();
-      const existingProductIds = new Set(existingProducts.map((product) => product._id.toString()));
+      const uniqueProductIds = [...new Set(requestedProducts.map((item) => item.productId))];
+      const productObjectIds = uniqueProductIds.map((productId) => new Types.ObjectId(productId));
+      const existingProducts = await Product.find({ _id: { $in: productObjectIds } })
+        .select("_id status variants._id variants.status")
+        .lean();
+      const productById = new Map(existingProducts.map((product) => [product._id.toString(), product]));
 
-      const missingProductId = [...uniqueProductIds].find((productId) => !existingProductIds.has(productId));
-      if (missingProductId) {
-        return res
-          .status(404)
-          .json({ IsSuccess: false, ErrorMessage: `Product with id '${missingProductId}' wasn't found` });
+      for (const requestedProduct of requestedProducts) {
+        const product = productById.get(requestedProduct.productId);
+        if (!product) {
+          return res
+            .status(404)
+            .json({ IsSuccess: false, ErrorMessage: `Product with id '${requestedProduct.productId}' wasn't found` });
+        }
+
+        if (product.status !== PRODUCT_STATUSES.ACTIVE) {
+          return res.status(400).json({
+            IsSuccess: false,
+            ErrorMessage: `Product with id '${requestedProduct.productId}' is not active`,
+          });
+        }
+
+        const variant = (product.variants ?? []).find(
+          (productVariant) => productVariant?._id?.toString() === requestedProduct.variantId,
+        );
+        if (!variant) {
+          return res.status(404).json({
+            IsSuccess: false,
+            ErrorMessage: `Variant with id '${requestedProduct.variantId}' wasn't found in product '${requestedProduct.productId}'`,
+          });
+        }
+
+        if (variant.status !== PRODUCT_STATUSES.ACTIVE) {
+          return res.status(400).json({
+            IsSuccess: false,
+            ErrorMessage: `Variant with id '${requestedProduct.variantId}' is not active`,
+          });
+        }
       }
 
       const settings = await settingsService.get();
@@ -202,7 +316,7 @@ export async function orderValidations(
       if (overLimit) {
         return res.status(400).json({
           IsSuccess: false,
-          ErrorMessage: `Product '${overLimit.id}' quantity must be between 1 and ${maxQuantity}`,
+          ErrorMessage: `Product '${overLimit.productId}' variant '${overLimit.variantId}' quantity must be between 1 and ${maxQuantity}`,
         });
       }
     }
@@ -307,6 +421,156 @@ export async function orderUpdateValidations(
   }
 }
 
+export async function orderProductAddValidations(
+  req: AddOrderProductRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const draftValidationError = isDraftOrder(req.order, res);
+    if (draftValidationError) {
+      return draftValidationError;
+    }
+
+    const lineValidationError = await validateRequestedOrderLine(req.body, res);
+    if (lineValidationError) {
+      return lineValidationError;
+    }
+
+    const existingKeys = new Set(
+      (req.order?.products ?? []).map((item) => toOrderLineKey(item.productId.toString(), item.variantId.toString())),
+    );
+    const requestedKey = toOrderLineKey(req.body.productId, req.body.variantId);
+    if (existingKeys.has(requestedKey)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: `Product with Id '${req.body.productId}' and variant '${req.body.variantId}' is already requested`,
+      });
+    }
+
+    next();
+  } catch (e: any) {
+    console.log(e);
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function orderProductReplaceValidations(
+  req: ReplaceOrderProductRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const draftValidationError = isDraftOrder(req.order, res);
+    if (draftValidationError) {
+      return draftValidationError;
+    }
+
+    const { from, to } = req.body as OrderProductReplaceRequestBodyDTO;
+
+    if (!Types.ObjectId.isValid(from.productId) || !Types.ObjectId.isValid(from.variantId)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
+    const lineValidationError = await validateRequestedOrderLine(to, res);
+    if (lineValidationError) {
+      return lineValidationError;
+    }
+
+    const existingKeys = new Set(
+      (req.order?.products ?? []).map((item) => toOrderLineKey(item.productId.toString(), item.variantId.toString())),
+    );
+    const fromKey = toOrderLineKey(from.productId, from.variantId);
+    if (!existingKeys.has(fromKey)) {
+      return res.status(404).json({
+        IsSuccess: false,
+        ErrorMessage: `Product with Id '${from.productId}' and variant '${from.variantId}' is not requested`,
+      });
+    }
+
+    const toKey = toOrderLineKey(to.productId, to.variantId);
+    if (fromKey !== toKey && existingKeys.has(toKey)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: `Product with Id '${to.productId}' and variant '${to.variantId}' is already requested`,
+      });
+    }
+
+    next();
+  } catch (e: any) {
+    console.log(e);
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function orderProductDeleteValidations(
+  req: DeleteOrderProductRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const draftValidationError = isDraftOrder(req.order, res);
+    if (draftValidationError) {
+      return draftValidationError;
+    }
+
+    const { productId, variantId } = req.body as OrderProductDeleteRequestBodyDTO;
+    if (!Types.ObjectId.isValid(productId) || !Types.ObjectId.isValid(variantId)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
+    if ((req.order?.products ?? []).length <= 1) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Cannot delete the last product from order` });
+    }
+
+    const existingKeys = new Set(
+      (req.order?.products ?? []).map((item) => toOrderLineKey(item.productId.toString(), item.variantId.toString())),
+    );
+    const requestedKey = toOrderLineKey(productId, variantId);
+    if (!existingKeys.has(requestedKey)) {
+      return res.status(404).json({
+        IsSuccess: false,
+        ErrorMessage: `Product with Id '${productId}' and variant '${variantId}' is not requested`,
+      });
+    }
+
+    next();
+  } catch (e: any) {
+    console.log(e);
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function orderCustomerReplaceValidations(
+  req: ReplaceOrderCustomerRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const draftValidationError = isDraftOrder(req.order, res);
+    if (draftValidationError) {
+      return draftValidationError;
+    }
+
+    const customerId = req.params.customerId;
+    if (!customerId || !Types.ObjectId.isValid(customerId)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+
+    const customer = await CustomerService.getCustomer(new Types.ObjectId(customerId));
+    if (!customer) {
+      return res
+        .status(404)
+        .json({ IsSuccess: false, ErrorMessage: `Customer with id '${customerId}' wasn't found` });
+    }
+
+    next();
+  } catch (e: any) {
+    console.log(e);
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
 export async function orderReceiveValidations(
   req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderReceiveRequestDTO>,
   res: Response<BaseResponseDTO>,
@@ -334,28 +598,43 @@ export async function orderReceiveValidations(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
     }
 
-    const requestedIds = req.body.products;
-    if (new Set(requestedIds).size !== requestedIds.length) {
+    const requestedItems = req.body.products;
+    const hasInvalidId = requestedItems.some(
+      (item) => !Types.ObjectId.isValid(item.productId) || !Types.ObjectId.isValid(item.variantId),
+    );
+    if (hasInvalidId) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: VALIDATION_ERROR_MESSAGES.BODY });
+    }
+    const receivedLineKeys = requestedItems.map((item) => `${item.productId}:${item.variantId}`);
+    if (new Set(receivedLineKeys).size !== receivedLineKeys.length) {
       return res
         .status(400)
-        .json({ IsSuccess: false, ErrorMessage: `Duplicate product ids are not allowed` });
+        .json({ IsSuccess: false, ErrorMessage: `Duplicate order product lines are not allowed` });
     }
 
-    if (requestedIds.length > order.products.length) {
+    if (requestedItems.length > order.products.length) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: `Incorrect amount of received products` });
     }
 
-    for (const productId of requestedIds) {
-      const position = order.products.find((el) => el.product?._id?.toString() === productId);
+    for (const receivedItem of requestedItems) {
+      const position = order.products.find(
+        (el) => el.productId?.toString() === receivedItem.productId && el.variantId?.toString() === receivedItem.variantId,
+      );
       if (!position) {
         return res
           .status(400)
-          .json({ IsSuccess: false, ErrorMessage: `Product with Id '${productId}' is not requested` });
+          .json({
+            IsSuccess: false,
+            ErrorMessage: `Product with Id '${receivedItem.productId}' and variant '${receivedItem.variantId}' is not requested`,
+          });
       }
       if (position.received) {
         return res
           .status(400)
-          .json({ IsSuccess: false, ErrorMessage: `Product with Id '${productId}' is already received` });
+          .json({
+            IsSuccess: false,
+            ErrorMessage: `Product with Id '${receivedItem.productId}' and variant '${receivedItem.variantId}' is already received`,
+          });
       }
     }
     next();

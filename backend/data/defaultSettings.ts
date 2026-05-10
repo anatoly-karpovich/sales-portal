@@ -1,6 +1,9 @@
 import { ISettings } from "./types/settings.type";
 
 export const DEFAULT_SETTINGS: ISettings = {
+  catalog: {
+    manufacturers: ["Apple", "Samsung", "Google", "Microsoft", "Sony", "Xiaomi", "Amazon", "Tesla"],
+  },
   order: {
     maxProductsInOrder: 5,
     maxProductQuantityInOrder: 10,

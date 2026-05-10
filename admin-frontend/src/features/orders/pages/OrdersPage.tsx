@@ -5,7 +5,6 @@ import { PaginationControls } from '@/components/shared/PaginationControls'
 import { ExportDialog } from '@/components/shared/ExportDialog'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
-import { CreateOrderDialog } from '@/features/orders/components/CreateOrderDialog'
 import { OrdersFilterChips } from '@/features/orders/components/OrdersFilterChips'
 import { OrdersFiltersDialog } from '@/features/orders/components/OrdersFiltersDialog'
 import {
@@ -43,7 +42,7 @@ export function OrdersPage() {
         </Typography>
         <Button
           variant="contained"
-          onClick={() => void state.openCreateDialog()}
+          onClick={() => void state.openCreatePage()}
           disabled={state.isCreateDialogPreloading}
           startIcon={state.isCreateDialogPreloading ? <CircularProgress size={14} color="inherit" /> : null}
           data-testid="orders-list-create-button"
@@ -128,14 +127,6 @@ export function OrdersPage() {
         isSubmitting={state.isReopenPending}
         onCancel={state.closeReopenDialog}
         onConfirm={state.confirmReopen}
-      />
-
-      <CreateOrderDialog
-        key={state.createDialogKey}
-        open={state.createDialogOpen}
-        isSubmitting={state.isCreatePending}
-        onClose={state.closeCreateDialog}
-        onSubmit={state.submitCreateOrder}
       />
     </Stack>
   )

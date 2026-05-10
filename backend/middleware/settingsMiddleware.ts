@@ -17,6 +17,22 @@ type ShippingPayload = {
   };
 };
 
+function validateCatalogManufacturers(manufacturers: unknown): string | null {
+  if (!Array.isArray(manufacturers) || manufacturers.length === 0) {
+    return "Incorrect catalog settings: catalog.manufacturers must be a non-empty array";
+  }
+
+  const normalized = manufacturers.map((item) => (typeof item === "string" ? item.trim().toLowerCase() : ""));
+  if (normalized.some((item) => item.length === 0)) {
+    return "Incorrect catalog settings: manufacturer names must be non-empty strings";
+  }
+  if (new Set(normalized).size !== normalized.length) {
+    return "Incorrect catalog settings: duplicate manufacturers are not allowed";
+  }
+
+  return null;
+}
+
 function normalizePickupLocations(value: unknown): Record<string, unknown> {
   if (value instanceof Map) {
     return Object.fromEntries(value.entries());
@@ -66,6 +82,11 @@ export async function settingsCreateDeliveryConsistency(
   next: NextFunction,
 ) {
   try {
+    const catalogError = validateCatalogManufacturers(req.body?.catalog?.manufacturers);
+    if (catalogError) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: catalogError });
+    }
+
     const error = validateShippingConsistency(req.body.shipping ?? {});
     if (error) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: error });
@@ -82,6 +103,13 @@ export async function settingsUpdateDeliveryConsistency(
   next: NextFunction,
 ) {
   try {
+    if (req.body?.catalog?.manufacturers !== undefined) {
+      const catalogError = validateCatalogManufacturers(req.body.catalog.manufacturers);
+      if (catalogError) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: catalogError });
+      }
+    }
+
     if (!req.body?.shipping) {
       return next();
     }

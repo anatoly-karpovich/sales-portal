@@ -16,6 +16,9 @@
 
 ```json
 {
+  "catalog": {
+    "manufacturers": ["Apple", "Samsung", "Google"]
+  },
   "order": {
     "maxProductsInOrder": 5,
     "maxProductQuantityInOrder": 10
@@ -86,6 +89,7 @@
 ### Create (`POST /api/settings`)
 
 - Requires top-level sections: `order`, `inventory`, `shipping`.
+- Requires top-level sections: `catalog`, `order`, `inventory`, `shipping`.
 - Inside `shipping`, all are required:
   - `processing.cutoffHour`
   - `delivery.pricing`
@@ -102,11 +106,12 @@
   - `pickup.policy.remindBeforeDays >= 0` when provided
 - `shipping.pickup.locations` keys must be valid US state codes.
 - Pickup location `id` values must be unique across all states.
+- `catalog.manufacturers` requires at least one non-empty string.
 
 ### Update (`PATCH /api/settings`)
 
 - Partial payload allowed.
-- At least one of `order`, `inventory`, `shipping` must be present.
+- At least one of `catalog`, `order`, `inventory`, `shipping` must be present.
 - If `shipping` is patched, merged result must still contain:
   - `shipping.processing.cutoffHour`
   - `shipping.delivery.pricing`

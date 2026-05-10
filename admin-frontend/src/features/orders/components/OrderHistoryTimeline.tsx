@@ -17,7 +17,7 @@ import type {
   OrderDelivery,
   OrderHistoryCustomerRef,
   OrderHistoryEntry,
-  OrderProduct,
+  OrderDetailsProduct,
 } from '@/api/modules/orders.api'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
@@ -107,36 +107,56 @@ function resolveReceivedLabel(received: boolean | undefined) {
   return received ? 'Received' : ordersUiText.detailsPage.history.notReceived
 }
 
-function resolveOrderProductId(product: OrderProduct | undefined) {
-  const id = product?.product?._id
-  return typeof id === 'string' && id.trim().length > 0 ? id : null
+function resolveOrderProductKey(product: OrderDetailsProduct | undefined) {
+  const productId = product?.productId
+  const variantId = product?.variantId
+  if (typeof productId !== 'string' || productId.trim().length === 0) return null
+  if (typeof variantId !== 'string' || variantId.trim().length === 0) return null
+  return `${productId}|${variantId}`
 }
 
-function resolveOrderProductName(product: OrderProduct | undefined) {
-  return normalizeText(product?.product?.name)
+function resolveOrderProductName(product: OrderDetailsProduct | undefined) {
+  return normalizeText(product?.name)
 }
 
-function resolveOrderProductLabel(product: OrderProduct | undefined) {
+function resolveOrderProductVariantLabel(product: OrderDetailsProduct | undefined) {
+  if (!product || !product.attributes || typeof product.attributes !== 'object') return ''
+  const parts = Object.values(product.attributes)
+    .map((value) => normalizeText(value))
+    .filter((value) => value !== '-')
+
+  return parts.join(' | ')
+}
+
+function resolveOrderProductDisplayName(product: OrderDetailsProduct | undefined) {
   const name = resolveOrderProductName(product)
-  if (name === '-') {
+  if (name === '-') return '-'
+  const variantLabel = resolveOrderProductVariantLabel(product)
+  if (!variantLabel) return name
+  return `${name} | ${variantLabel}`
+}
+
+function resolveOrderProductLabel(product: OrderDetailsProduct | undefined) {
+  const displayName = resolveOrderProductDisplayName(product)
+  if (displayName === '-') {
     return ordersUiText.detailsPage.history.productLabel
   }
-  return name
+  return displayName
 }
 
-function resolveOrderProductDescriptor(product: OrderProduct | undefined) {
+function resolveOrderProductDescriptor(product: OrderDetailsProduct | undefined) {
   if (!product) return '-'
-  const name = resolveOrderProductName(product)
+  const name = resolveOrderProductDisplayName(product)
   const quantity = typeof product.quantity === 'number' ? product.quantity : '-'
-  return `${name} (${quantity})`
+  return `${name} (x${quantity})`
 }
 
-function buildProductsById(products: OrderProduct[]) {
-  const byId = new Map<string, OrderProduct>()
+function buildProductsById(products: OrderDetailsProduct[]) {
+  const byId = new Map<string, OrderDetailsProduct>()
   products.forEach((product) => {
-    const productId = resolveOrderProductId(product)
-    if (productId) {
-      byId.set(productId, product)
+    const key = resolveOrderProductKey(product)
+    if (key) {
+      byId.set(key, product)
     }
   })
   return byId
@@ -393,7 +413,7 @@ function buildReceivedChanges(
   if (changes.length) return changes
 
   return updatedProducts.map((updatedProduct) => {
-    const productId = resolveOrderProductId(updatedProduct)
+    const productId = resolveOrderProductKey(updatedProduct)
     const previousReceived = productId
       ? previousProductsById.get(productId)?.received
       : undefined
@@ -509,7 +529,7 @@ function HistoryProducts({
   products,
   index,
 }: {
-  products: OrderProduct[]
+  products: OrderDetailsProduct[]
   index: number
 }) {
   if (!products.length) {
@@ -523,7 +543,7 @@ function HistoryProducts({
     >
       {products.map((product, productIndex) => (
         <Box
-          key={`${product.product._id}-${productIndex}`}
+          key={`${product.productId}-${product.variantId}-${productIndex}`}
           component="span"
           sx={{
             px: 1,

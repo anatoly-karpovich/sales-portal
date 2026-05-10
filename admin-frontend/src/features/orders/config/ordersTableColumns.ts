@@ -98,15 +98,17 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
           { sx: { display: 'inline-flex', alignItems: 'center', gap: 0.75 } },
           createElement('span', null, row.delivery.status || '-'),
           row.delivery.isOverdue
-            ? createElement(
-                Tooltip,
-                { title: getOverdueByDaysLabel(row.delivery.overdueByDays) },
-                createElement(ErrorOutlineRoundedIcon, {
-                  color: 'error',
-                  fontSize: 'small',
-                  'data-testid': 'orders-table-delivery-overdue-icon',
-                }),
-              )
+            ? createElement(Tooltip, {
+                title: getOverdueByDaysLabel(row.delivery.overdueByDays),
+                children: createElement(
+                  'span',
+                  { 'data-testid': 'orders-table-delivery-overdue-icon' },
+                  createElement(ErrorOutlineRoundedIcon, {
+                    color: 'error',
+                    fontSize: 'small',
+                  }),
+                ),
+              })
             : null,
         ),
     },

@@ -1,9 +1,11 @@
 # AGENTS Guide: `admin-frontend`
 
 ## 1) Agent role
+
 The agent in this project acts as a senior frontend engineer for an admin SPA.
 
 Primary responsibilities:
+
 - implement and refactor UI and business logic within the existing architecture;
 - keep stack, naming, and code patterns consistent;
 - do not break existing `data-testid` values;
@@ -11,6 +13,7 @@ Primary responsibilities:
 - run required checks before finishing work (`tsc`, `lint`, and `build` when needed).
 
 ## 2) Tech stack and constraints
+
 - React `19`
 - TypeScript `5.9`
 - Vite `7`
@@ -24,12 +27,15 @@ Primary responsibilities:
 - Number formatting: `numeral`
 
 Project constraints:
+
 - Node.js: `>=22.12.0` (see `package.json` and `.nvmrc`)
 - TS config in `tsconfig.app.json` uses `strict: false`, but has `noUnusedLocals` and `noUnusedParameters`.
 - Path alias: `@/* -> src/*` (see `vite.config.ts`, `tsconfig.app.json`).
 
 ## 3) Local commands and quality gates
+
 Main commands:
+
 - `npm run dev` - local development
 - `npm run lint` - ESLint (required before handoff)
 - `npx tsc -p tsconfig.json --noEmit --pretty false` - typecheck (required before handoff)
@@ -37,19 +43,23 @@ Main commands:
 - `npm run format` - Prettier
 
 Formatting rules from `.prettierrc.json`:
+
 - no semicolons
 - single quotes
 - trailing commas: `all`
 - print width: `100`
 
 Note:
+
 - `.husky/pre-commit` currently runs `npm test`, but there is no `test` script in `package.json`.
 - Do not modify hooks unless the task explicitly requires it.
 
 ## 4) Architecture map
+
 Source root: `src`
 
 Top-level source layout:
+
 - `src/main.tsx` - app bootstrap
 - `src/app` - app shell, providers, router
 - `src/api` - HTTP client, API modules, API event bus
@@ -60,14 +70,17 @@ Top-level source layout:
 - `src/utils` - helper utilities
 
 ### 4.1 `app` layer
+
 - `app/App.tsx` - root component, wraps router in providers.
 - `app/providers/AppProviders.tsx` - provider order:
+
 1. `ThemeModeProvider`
 2. `QueryClientProvider`
 3. `SnackbarProvider`
 4. `ApiEventsProvider`
 5. `AuthProvider`
 6. `NotificationsProvider`
+
 - `app/router/AppRouter.tsx` - route tree via `HashRouter`.
 - `app/router/ProtectedRoute.tsx` and `PublicOnlyRoute.tsx` - auth guards.
 - `app/router/AuthRouteFallback.tsx` - loading fallback during auth bootstrap.
@@ -76,6 +89,7 @@ Top-level source layout:
 - `app/config/navigation.ts` - single navigation source.
 
 ### 4.2 `api` layer
+
 - `api/client.ts`
   - `apiClient` uses `VITE_API_BASE_URL`.
   - request interceptor injects bearer token from localStorage key `admin-frontend-access-token`.
@@ -111,9 +125,11 @@ Top-level source layout:
   - `ManagerOrder` shape is shared with manager details "Assigned Orders" table rendering.
 - `api/modules/products.api.ts`
   - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
+  - products list query supports filters `manufacturer[]`, `status[]`, `minPrice`, `maxPrice` and sorting with `variantsCount`.
   - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
 
 ### 4.3 `features` layer
+
 - `features/auth`
   - `AuthContext.tsx` - auth state machine: `initializing | authenticated | unauthenticated`
   - `auth.service.ts` - login/me/logout/bootstrap/localStorage
@@ -132,12 +148,21 @@ Top-level source layout:
   - shipping settings contract is `shipping.delivery.pricing` + `shipping.pickup.{policy,locations}`.
 - `features/products` (most complete module)
   - `pages/ProductsPage.tsx` - list, filters, export, pagination, dialogs
-    - shared chips are prefixed (`Search:`, `Manufacturer:`).
+    - products-only filters modal uses 3 accordions: `Manufacturers`, `Product Status`, `Price`.
+    - only one accordion can be expanded at a time; section header shows `<N> selected` when values exist.
+    - manufacturers source is `settings.catalog.manufacturers`.
+    - price filter uses decimal dot input and validates `min <= max` before apply.
+    - chips are prefixed (`Search:`, `Manufacturer:`, `Status:`, `Price:`).
   - `pages/ProductUpsertPage.tsx`, `ProductCreatePage.tsx`, `ProductEditPage.tsx`
   - `hooks/useProductsPageState.ts` - UI orchestration + query params
   - `hooks/useProductsQuery.ts` - query/mutation layer
   - `config/productsTableColumns.ts` - table schema, sort fields, export fields
-  - `components/ProductForm.tsx`, `ProductDetailsDialog.tsx`, `ProductsTableActionsCell.tsx`
+    - products list includes sortable `Status` and `Variants` columns (`Status -> sortField=status`, `Variants -> sortField=variantsCount`).
+    - list status cell uses product-specific colors:
+      - `Active` -> `primary.main` (blue),
+      - `Archived` -> `warning.main` (yellow-ish),
+      - `Draft` -> `text.primary` (neutral).
+  - `components/ProductForm.tsx`, `ProductsFiltersDialog.tsx`, `ProductsFilterChips.tsx`, `ProductsTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `products.ui-text.ts` - labels, validation text, toast text
 - `features/customers` (implemented in iteration 5)
@@ -165,9 +190,10 @@ Top-level source layout:
       - `Delivery: <deliveryStatus>`
   - `hooks/useOrdersPageState.ts` - list orchestration + create/reopen/export flows.
     - query and export (`filtered`) include both filter arrays: `status[]` and `deliveryStatus[]`.
-    - create dialog opening does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
+    - create action does lightweight existence checks for customers/products via paginated endpoints (`limit: 1`) and does not preload full `/all` datasets.
+    - successful precheck navigates to `#/orders/add` create page.
     - customer precheck requests pass customers-state filter defaults (`state: []`) to satisfy customers API contract.
-  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/comments/manager assignment and pricing preview (`POST /orders/pricing`)
+  - `hooks/useOrdersQuery.ts`, `hooks/ordersQueryKeys.ts` - query/mutation layer for list/details/status/delivery/customer/product options/product details/comments/manager assignment and pricing preview (`POST /orders/pricing`)
   - `config/ordersTableColumns.ts` - columns, sort fields, export fields.
     - list table shows `Status` and `Delivery` as separate columns; `Delivery` displays `order.delivery.status`.
     - export fields include both `delivery` and `deliveryStatus`.
@@ -178,22 +204,36 @@ Top-level source layout:
     - default expanded section on open: `Order Status`;
     - section header shows `<N> selected` only when section has at least one selected value.
   - `components/OrdersFilterChips.tsx` - orders-only chip row for search/status/deliveryStatus filters with per-chip removal
-  - `components/CreateOrderDialog.tsx` - create modal with search-driven pickers:
-    - customer selection uses MUI `Autocomplete` with popper overlay (outside dialog flow), opens on field click, and closes after selection;
-    - selected customer value is shown in the same input field (`name | email`), without separate pencil action;
-    - product rows support `1..5`, duplicates are allowed, and only one active product `Autocomplete` chooser is rendered at a time;
-    - product row click opens editing chooser; delete action is independent and does not trigger edit open;
-    - product row outline/hovers are aligned with outlined-input style for consistent visual affordance;
-    - unavailable products are detected via availability checks and block create action;
-    - total price preview is requested from backend pricing endpoint with debounce after product changes.
+  - `pages/OrderCreatePage.tsx` - dedicated create page at `#/orders/add`:
+    - customer selection uses searchable MUI `Autocomplete`;
+    - left-side form is rendered as a single outlined surface with semantic sections (`Customer`, `Products`, `Delivery Information`) separated by internal borders;
+    - products flow is two-step: parent products list -> variants list;
+    - variants support multi-select and batch add (`Add Selected Variants`);
+    - selected product rows include quantity controls and remove action;
+    - duplicate selected rows by `productId + variantId` are blocked;
+    - delivery section is read-only and sourced from selected customer (empty placeholder before customer selection);
+    - `Delivery Information` header keeps `Draft` status chip inline with the title;
+    - delivery preview uses two read-only cards:
+      - `Delivery Address` (customer address source and address lines);
+      - `Delivery Details` (`Tier`, `Estimated`) sourced from pricing preview response when available;
+    - pricing preview uses debounce after product/quantity changes:
+      - products-only before customer selection;
+      - products + delivery after customer selection;
+    - summary card is sticky and shows animated price transitions (count up/down);
+    - create action redirects to `#/orders/:orderId` on success.
+  - `hooks/useUnsavedChangesGuard.ts` - hash-router compatible unsaved changes prompt for page leave/refresh in create flow.
   - `components/OrdersTableActionsCell.tsx` - icon actions (`Details`, conditional `Reopen`)
-  - `components/EditOrderCustomerDialog.tsx` - draft-only customer reassignment dialog with searchable list
-  - `components/EditOrderProductsDialog.tsx` - draft-only products edit dialog with single searchable chooser, 1..5 rows, duplicates support, unavailable-product guard, and backend pricing preview (products-only or products+current delivery)
-  - `components/AssignManagerDialog.tsx` - assign/edit manager dialog with searchable manager list and save-state guards
+  - `components/OrderDetailsManagerSection.tsx` - manager block with view + draft-only inline edit mode
+    - inline edit uses searchable `Autocomplete` and save/cancel actions in section context (no dialog).
+    - unassign remains explicit and uses shared `ConfirmDialog`.
   - `components/OrderDetailsSummarySection.tsx` - order details header section (back link, order id, assigned manager controls near order number, status actions, metrics cards)
     - when manager is assigned and id is present, assigned manager value is a link to `/managers/:managerId`.
-  - `components/OrderDetailsCustomerSection.tsx` - customer read-only block + draft-only edit trigger
-  - `components/OrderDetailsProductsSection.tsx` - products block + draft edit + receive-mode controls
+  - `components/OrderDetailsCustomerSection.tsx` - customer block with view + draft-only inline edit mode
+    - inline edit uses searchable `Autocomplete` and save/cancel actions in section context (no dialog).
+  - `components/OrderDetailsProductsSection.tsx` - products block with view + draft-only inline edit mode + receive-mode controls
+    - inline edit reuses create-flow UX: parent products -> active variants -> batch add.
+    - selected rows support quantity control and remove action; duplicates by `productId + variantId` are blocked.
+    - inline compact summary includes products count/subtotal, delivery, total and debounced pricing preview.
   - `components/OrderDetailsTabsSection.tsx` - tabs switcher and tab-level composition (`Delivery`, `Order History`, `Comments`)
   - `components/OrderDetailsDeliveryTab.tsx` - delivery tab content:
     - view mode with delivery summary and source chip;
@@ -227,21 +267,21 @@ Top-level source layout:
     - manager names are resolved from history payload (`performer`, `assignedManager`) without extra manager lookup requests.
   - `orders.ui-text.ts` - labels, dialog text, toasts, errors
   - `pages/OrderDetailsPage.tsx` - implemented details page:
-    - page-level orchestration container that wires split sections (`Summary`, `Customer`, `Products`, `Tabs`) and dialogs;
+    - page-level orchestration container that wires split sections (`Summary`, `Manager`, `Customer`, `Products`, `Tabs`) and confirm dialogs where needed;
     - summary/actions (`Cancel`, `Process`, `Reopen`, `Refresh`) + manager assign/edit/unassign controls in header;
     - action visibility/availability is based on `status` and `order.delivery.status`:
       - `Process` is shown only for `Draft`; enabled only when `delivery.status in [Delivery Scheduled, Pickup Scheduled]`;
       - `Cancel` is shown only for `Draft | In Process` with `delivery.status in [Draft, Delivery Scheduled, Pickup Scheduled]`;
       - `Reopen` is shown only for `Canceled`;
-    - read-only customer/products blocks;
+    - customer/products sections default to read-only view mode;
     - manager assignment flow:
-      - if manager is absent: `Click to select manager` trigger opens assignment dialog;
-      - if manager exists: show manager value + edit trigger + unassign trigger;
-      - assign dialog loads managers from `/managers`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
+      - if manager is absent: `Assign` trigger opens inline manager edit mode in section;
+      - if manager exists: show manager value + `Change` trigger + unassign trigger;
+      - inline manager edit loads managers from `/managers`, filters by `firstName`/`lastName`/`username`, and allows only backend-compatible manager roles (`USER`, `ADMIN`);
       - list is sorted A-Z by full name (fallback to username);
       - save is disabled for empty selection or unchanged manager;
       - unassign uses shared `ConfirmDialog`;
-      - assign/unassign success closes modal, shows toast, and refreshes details with skeleton reload;
+      - assign/unassign success returns section to view mode, shows toast, and refreshes details with skeleton reload when needed;
     - receive mode for products:
       - available only when `status = In Process` and `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`;
       - `Receive` CTA only when there are pending (not received) products;
@@ -250,7 +290,11 @@ Top-level source layout:
       - `Select All` uses tri-state behavior (`checked`, `indeterminate`, `unchecked`) for partial selection;
       - `Save` posts selected IDs to `/orders/:orderId/receive`, then refreshes details and exits receive mode;
       - `Cancel` exits receive mode without API call;
-    - draft-only customer/products edit flows;
+    - draft-only inline customer/products edit flows:
+      - customer edit is inline, searchable, and saves via `PATCH /orders/:orderId`;
+      - products edit is inline, uses create-page product picker pattern, and saves via `PATCH /orders/:orderId`;
+      - successful save returns section to view mode;
+      - while manager/customer/products inline edit mode is active, receive mode is disabled/hidden;
     - delivery tab integrated with create/edit flow (`POST /orders/:orderId/delivery`) and success/error toasts;
     - order history tab integrated with timeline renderer and history diff visualization;
     - comments tab integrated with API create/delete;
@@ -281,12 +325,13 @@ Top-level source layout:
     - password change payload always requires `oldPassword` + `newPassword` (including admin flow).
 
 ### 4.4 Shared UI layer
+
 - `components/shared`
   - `DataTable`
   - `SearchToolbar`
     - search apply button is enabled only when search input contains a non-empty value
-  - `FilterDialog` (generic modal, still used by products/customers pages)
-  - `FilterChips` (generic chips, still used by products/customers pages)
+  - `FilterDialog` (generic modal, still used by customers page)
+  - `FilterChips` (generic chips, still used by customers page)
     - supports optional label prefixes for search/filter values (for example `Search: foo`, `State: NY`).
   - `ExportDialog`
   - `PaginationControls`
@@ -294,6 +339,7 @@ Top-level source layout:
 - `components/common/PagePlaceholder.tsx` - reusable placeholder page component.
 
 ### 4.5 Theme, constants, utils
+
 - `theme/ThemeModeProvider.tsx` - light/dark mode and localStorage key `admin-frontend-theme-mode`.
 - `theme/theme.ts` - MUI theme factory.
 - `constants/dictionaries.ts` - manufacturers, countries, statuses, page size options.
@@ -301,12 +347,114 @@ Top-level source layout:
 - `utils/download.ts` - blob download from axios response.
 - `utils/orderStatus.ts` - centralized order status color mapping used across orders/customers/home.
 
-## 5) Routing and access rules
+## 5) Visual Border System (Required)
+
+Borders are used as a structural composition tool, not decoration.
+
+UI composition should rely on:
+
+- spacing;
+- semantic grouping;
+- border hierarchy;
+- restrained contrast.
+
+Avoid relying on:
+
+- heavy shadows;
+- bright backgrounds for separation;
+- excessive color splitting;
+- decorative visual effects.
+
+### 5.1 Surface hierarchy
+
+Use three visual separation levels:
+
+1. Page sections:
+- subtle outer border;
+- low contrast;
+- large grouping containers.
+2. Semantic blocks inside sections:
+- slightly stronger border;
+- used for related operational data.
+3. Interactive/editable elements:
+- strongest border contrast;
+- hover/focus states allowed;
+- visually distinguish actionable areas.
+
+### 5.2 Nested borders
+
+Nested bordered containers are allowed only when they:
+
+- represent semantic grouping;
+- improve scanability;
+- reduce ambiguity.
+
+Avoid nested borders that do not add meaning.
+
+### 5.3 Visual restraint
+
+Avoid:
+
+- heavy shadows;
+- gradients on operational surfaces;
+- excessive background color changes;
+- glowing effects;
+- decorative separators.
+
+Target visual feel:
+
+- operational;
+- calm;
+- dense but readable;
+- enterprise-oriented.
+
+### 5.4 Empty space handling
+
+Avoid large dead spaces by:
+
+- semantic grouping;
+- balanced layouts;
+- contextual blocks.
+
+Do not fill space with decorative elements.
+
+### 5.5 Content presentation
+
+Prefer:
+
+- grouped information blocks;
+- scan-friendly layouts;
+- operational summaries.
+
+Avoid:
+
+- long vertical description lists;
+- raw label/value dumps;
+- form-like read-only sections without grouping.
+
+### 5.6 Implementation rules for this codebase
+
+- Page-level containers should use `Paper variant="outlined"` with restrained border contrast.
+- Semantic sub-blocks should use nested outlined surfaces only when they introduce clear meaning.
+- Interactive/editable zones may use stronger border color and hover/focus border states.
+- Avoid decorative shadows/glow for data surfaces; if emphasis is needed, prefer border and typography weight.
+
+### 5.7 PR/review checklist (UI)
+
+- Is border hierarchy clear across page section, semantic block, and interactive block levels?
+- Does each nested border introduce real semantic grouping?
+- Are decorative effects (heavy shadow/glow/gradient) avoided on operational surfaces?
+- Is read-only content grouped and scan-friendly instead of raw label/value dumps?
+
+## 6) Routing and access rules
+
 Routes:
+
 - Public-only: `/login`
 - Protected:
   - `/home`
   - `/orders`
+  - `/orders/add`
   - `/orders/:orderId`
   - `/products`
   - `/products/add`
@@ -320,14 +468,17 @@ Routes:
   - `/managers/:managerId`
 
 Rules:
+
 - unauthenticated users are redirected to `/login`;
 - authenticated users should not stay on `/login`;
 - while auth state is `initializing`, show `AuthRouteFallback`.
 
-## 6) Where to add new code
+## 7) Where to add new code
+
 Use feature-first structure, but reuse `components/shared` whenever possible.
 
 Recommended flow for a new domain module:
+
 1. add API contract and request functions in `src/api/modules/<entity>.api.ts`;
 2. add React Query hooks in `src/features/<entity>/hooks`;
 3. add table/sort/filter config in `src/features/<entity>/config` when needed;
@@ -337,11 +488,13 @@ Recommended flow for a new domain module:
 7. wire route/nav in `src/app/router/AppRouter.tsx` and `src/app/config/navigation.ts`.
 
 Avoid:
+
 - direct backend calls in page components when a hook/query layer should own that logic;
 - duplicating generic UI already present in `components/shared`;
 - introducing naming patterns that conflict with existing code style.
 
-## 7) State and data flow patterns
+## 8) State and data flow patterns
+
 - Server state: React Query (`useQuery`, `useMutation`).
 - Page UI state: feature-level orchestration hooks (example: `useProductsPageState`).
 - API error toasts: centralized via `ApiEventsProvider` and API event bus.
@@ -352,15 +505,18 @@ Avoid:
   - `indeterminate` when only a subset is selected;
   - `unchecked` when nothing is selected.
 
-## 8) `data-testid` standard (required)
-### 8.1 Core rules
+## 9) `data-testid` standard (required)
+
+### 9.1 Core rules
+
 - Use only `data-testid`.
 - Values must be static and business-meaningful.
 - Do not use random suffixes, UUIDs, timestamps.
 - For repeated items, index-based suffixes are allowed (`-row-0`, `-item-1`).
 - Do not rename existing IDs unless task explicitly requires migration.
 
-### 8.2 Elements that must be covered
+### 9.2 Elements that must be covered
+
 - buttons and icon buttons;
 - links and navigation entries;
 - inputs, selects, checkboxes, radios;
@@ -368,17 +524,20 @@ Avoid:
 - dialogs (container/title/content/actions/close/confirm/cancel);
 - important textual states (title/loading/empty/error/value blocks).
 
-### 8.3 Naming pattern
+### 9.3 Naming pattern
+
 Preferred shape:
+
 - `<scope>-<entity>-<element>`
 - `<scope>-<entity>-row-<index>-<cell>`
 
 Existing scope prefixes to follow:
+
 - `app-shell-*`
 - `login-page-*`
 - `orders-list-*`
 - `orders-table-*`
-- `orders-create-*`
+- `orders-create-page-*`
 - `order-details-*`
 - `products-list-*`
 - `products-upsert-*`
@@ -395,39 +554,47 @@ Existing scope prefixes to follow:
 - `manager-details-*`
 - `change-password-dialog-*`
 
-### 8.4 MUI input specifics
+### 9.4 MUI input specifics
+
 For `TextField`:
+
 - set `data-testid` on the component;
 - also set `inputProps={{ 'data-testid': '<...>-field' }}` for actual input node.
 
 For `TextField select`:
+
 - set `SelectProps={{ inputProps: { 'data-testid': '<...>-field' } }}`;
 - set explicit IDs on `MenuItem` options.
 
 For `Autocomplete`:
+
 - set `data-testid` on the rendered input through `renderInput`;
 - set `inputProps.data-testid` for the actual input node;
 - set deterministic `data-testid` on `renderOption` items (for example by index).
 
-### 8.5 Shared-first rule
+### 9.5 Shared-first rule
+
 If behavior comes from a shared component, add base `data-testid` values in that shared component first.
 Feature-specific IDs should only be added for feature-only business actions or content.
 
-## 9) Current localStorage keys
+## 10) Current localStorage keys
+
 - `admin-frontend-access-token`
 - `admin-frontend-user`
 - `admin-frontend-theme-mode`
 
 Do not change these keys without explicit migration requirements.
 
-## 10) Text management
+## 11) Text management
+
 - Put domain text in `<feature>.ui-text.ts` for that feature.
 - Keep generic shared text near shared components (example: `components/shared/shared.ui-text.ts`).
 - For table empty states, reuse shared copy from `components/shared/shared.ui-text.ts`:
   - base empty: `No records created yet`
   - filtered/criteria empty: `No records found.`
 
-## 11) Number, money, and status formatting
+## 12) Number, money, and status formatting
+
 - Display monetary values with thousands separators in UI.
 - Prefer a shared formatter/helper (for example locale-based `toLocaleString`) instead of ad-hoc string concatenation in components.
 - For order statuses, always use `utils/orderStatus.ts#getOrderStatusColor` (do not inline per-component color logic).
@@ -437,7 +604,8 @@ Do not change these keys without explicit migration requirements.
   - `Completed` -> `success.main`
   - `Canceled` -> `error.main`
 
-## 12) Pre-handoff checklist
+## 13) Pre-handoff checklist
+
 - Ensure code is in correct layer (`api`, `features`, `components/shared`, `app`).
 - Ensure `data-testid` coverage for interactive and validation-critical elements.
 - Ensure existing IDs are not broken.
@@ -447,8 +615,10 @@ Do not change these keys without explicit migration requirements.
 - For larger changes also run:
   - `npm run build`
 
-## 13) Definition of done for agent tasks
+## 14) Definition of done for agent tasks
+
 Task is done when:
+
 - architecture and patterns are respected;
 - business flow and UI behavior are consistent with current modules;
 - automation-oriented `data-testid` values are added/updated correctly;

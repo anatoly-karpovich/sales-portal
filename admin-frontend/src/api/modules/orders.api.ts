@@ -80,18 +80,33 @@ export type OrderProductSnapshot = {
   manufacturer: string
 }
 
-export type OrderProduct = {
+export type OrderListProduct = {
   product: OrderProductSnapshot
+  variant: {
+    _id: string
+  }
   unitPrice: number
   quantity: number
   received: boolean
+}
+
+export type OrderDetailsProduct = {
+  productId: string
+  variantId: string
+  manufacturer: string
+  unitPrice: number
+  quantity: number
+  name: string
+  attributes: Record<string, string>
+  received: boolean
+  imageUrl?: string
 }
 
 export type OrderListItem = {
   _id: string
   status: OrderStatus
   customer: OrderCustomerSnapshot
-  products: OrderProduct[]
+  products: OrderListProduct[]
   delivery: OrderDelivery
   total_price: number
   createdOn: string
@@ -128,7 +143,7 @@ export type OrderHistoryEntry = {
   action?: string
   status?: OrderStatus
   customer?: OrderHistoryCustomerRef
-  products?: OrderProduct[]
+  products?: OrderDetailsProduct[]
   delivery: OrderDelivery
   total_price?: number
   changedOn?: string
@@ -136,8 +151,9 @@ export type OrderHistoryEntry = {
   assignedManager?: OrderAssignedManager | null
 }
 
-export type OrderDetails = Omit<OrderListItem, 'customer'> & {
+export type OrderDetails = Omit<OrderListItem, 'customer' | 'products'> & {
   customer: OrderCustomerDetails
+  products: OrderDetailsProduct[]
   comments: OrderComment[]
   history: OrderHistoryEntry[]
 }
@@ -258,8 +274,10 @@ export type CreateOrderPayload = {
 }
 
 export type OrderProductRequestItem = {
-  id: string
   quantity: number
+  id?: string
+  productId?: string
+  variantId?: string
 }
 
 export type OrderPricingPayload =
@@ -307,7 +325,10 @@ export type OrderCommentDeletePayload = {
 
 export type OrderReceivePayload = {
   orderId: string
-  products: string[]
+  products: Array<{
+    productId: string
+    variantId: string
+  }>
   requestConfig?: ApiRequestConfig
 }
 
@@ -390,7 +411,7 @@ export async function deleteOrderComment(orderId: string, commentId: string, req
 
 export async function receiveOrderProducts(
   orderId: string,
-  products: string[],
+  products: Array<{ productId: string; variantId: string }>,
   requestConfig?: ApiRequestConfig,
 ) {
   const response = await apiClient.post<OrderResponse<OrderDetails>>(

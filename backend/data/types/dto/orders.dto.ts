@@ -3,11 +3,12 @@ import { ORDER_STATUSES } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
 import { ICustomer } from "../customer.type";
 import { IDeliveryUpdatePayload, IPickupUpdatePayload } from "../delivery.type";
-import { IOrder, IOrderCustomerSnapshot, IProductInOrderResponse } from "../order.type";
+import { IOrder, IOrderCustomerSnapshot, IProductInOrder, IProductInOrderResponse } from "../order.type";
 
 export type OrderByIdParamsDTO = { orderId?: string };
 export type OrderPathIdParamsDTO = { orderId?: string };
 export type OrderPathOrderIdParamsDTO = { orderId?: string };
+export type OrderCustomerReplaceParamsDTO = { orderId?: string; customerId?: string };
 export type OrderAssignManagerParamsDTO = { orderId?: string; managerId?: string };
 export type OrderCommentParamsDTO = { orderId?: string; commentId?: string };
 export type OrderSortedQueryDTO = {
@@ -41,8 +42,26 @@ export type OrderExportRequestBodyDTO = {
 };
 
 export type OrderProductRequestItemDTO = {
-  id: string;
+  productId: string;
+  variantId: string;
   quantity: number;
+};
+
+export type OrderReceiveProductRequestItemDTO = {
+  productId: string;
+  variantId: string;
+};
+
+export type OrderProductAddRequestBodyDTO = OrderProductRequestItemDTO;
+
+export type OrderProductDeleteRequestBodyDTO = {
+  productId: string;
+  variantId: string;
+};
+
+export type OrderProductReplaceRequestBodyDTO = {
+  from: OrderProductDeleteRequestBodyDTO;
+  to: OrderProductRequestItemDTO;
 };
 
 export type OrderCreateRequestBodyDTO = {
@@ -66,18 +85,30 @@ export type OrderStatusRequestDTO = {
 };
 
 export type OrderReceiveRequestDTO = {
-  products: string[];
+  products: OrderReceiveProductRequestItemDTO[];
 };
 
 export type OrderCommentCreateRequestDTO = {
   comment: string;
 };
 
-export type OrderDetailsDTO = IOrder<ICustomer, IProductInOrderResponse>;
+export type OrderDetailsDTO = IOrder<ICustomer, IProductInOrder>;
 export type OrderListItemDTO = IOrder<IOrderCustomerSnapshot, IProductInOrderResponse>;
 
 export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateRequestBodyDTO>;
 export type UpdateOrderRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderUpdateRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type AddOrderProductRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderProductAddRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type ReplaceOrderProductRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderProductReplaceRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type DeleteOrderProductRequestDTO = Request<OrderPathIdParamsDTO, unknown, OrderProductDeleteRequestBodyDTO> & {
+  order?: OrderDetailsDTO;
+};
+export type ReplaceOrderCustomerRequestDTO = Request<OrderCustomerReplaceParamsDTO> & {
   order?: OrderDetailsDTO;
 };
 export type DeleteOrderRequestDTO = Request<OrderPathIdParamsDTO> & {

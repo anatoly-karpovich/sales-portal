@@ -1,14 +1,40 @@
 import mongoose from "mongoose";
-import { MANUFACTURERS } from "../data/enums";
+import { PRODUCT_STATUSES } from "../data/enums";
 import { IProductDocument } from "../data/types";
 
-const ProductSchema = new mongoose.Schema({
-  name: { type: String, unique: true, required: true },
-  amount: { type: Number, required: true },
-  price: { type: Number, required: true },
-  manufacturer: { type: String, enum: MANUFACTURERS, required: true },
-  createdOn: { type: Date, required: true},
-  notes: { type: String, required: false },
-}, { versionKey: false });
+const productAttribute = new mongoose.Schema(
+  {
+    key: { type: String, required: true },
+    name: { type: String, required: true },
+    values: [{ type: String, required: true }],
+  },
+  { _id: false, versionKey: false },
+);
+
+const productVariant = new mongoose.Schema(
+  {
+    price: { type: Number, required: true },
+    status: { type: String, enum: PRODUCT_STATUSES, required: true },
+    attributes: { type: Map, of: String, required: true },
+    imageUrl: { type: String, required: false },
+  },
+  { versionKey: false },
+);
+
+const ProductSchema = new mongoose.Schema(
+  {
+    name: { type: String, unique: true, required: true },
+    manufacturer: { type: String, required: true },
+    category: { type: String, required: true },
+    description: { type: String, required: false },
+    imageUrl: { type: String, required: false },
+    status: { type: String, enum: PRODUCT_STATUSES, required: true },
+    attributes: [{ type: productAttribute, required: true }],
+    variants: [{ type: productVariant, required: true }],
+    createdOn: { type: Date, required: true },
+    updatedOn: { type: Date, required: true },
+  },
+  { versionKey: false },
+);
 
 export default mongoose.model<IProductDocument>("Product", ProductSchema);

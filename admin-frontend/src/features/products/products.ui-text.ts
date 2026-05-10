@@ -1,4 +1,4 @@
-type ProductMode = 'create' | 'edit'
+type ProductApiErrorStatus = 400 | 404 | 409 | 500 | 'default'
 
 export const productsUiText = {
   listPage: {
@@ -6,28 +6,74 @@ export const productsUiText = {
     addButton: '+ Add Product',
     filtersTitle: 'Filters',
     emptyStateNoProducts: 'No products created yet.',
+    filterSections: {
+      manufacturer: 'Manufacturers',
+      productStatus: 'Product Status',
+      price: 'Price',
+    },
     chips: {
       searchPrefix: 'Search',
       manufacturerPrefix: 'Manufacturer',
+      statusPrefix: 'Status',
+      pricePrefix: 'Price',
+    },
+    validation: {
+      priceRangeInvalid: 'Minimum price cannot be greater than maximum price.',
+    },
+    fields: {
+      minPrice: 'Min Price',
+      maxPrice: 'Max Price',
+    },
+  },
+  detailsPage: {
+    backToProducts: 'Products',
+    productInfoTitle: 'Product info',
+    productInfoSubtitle: 'Read-only. Click edit to modify.',
+    variantsTitle: 'Variants',
+    variantsSubtitle: 'Manage variants individually',
+    actions: {
+      edit: 'Edit',
+      cancel: 'Cancel',
+      saveProduct: 'Save Product',
+      saveVariant: 'Save Variant',
+      activate: 'Activate Product',
+      archive: 'Archive Product',
+      addVariant: 'Add Variant',
+      removeInvalidVariants: 'Remove Invalid Variants',
+      generateAllCombinations: 'Generate All Combinations',
+      addOneVariant: 'Add One Variant',
+    },
+    status: {
+      draft: 'Draft',
+      active: 'Active',
+      archived: 'Archived',
+    },
+    placeholders: {
+      noVariants: 'No variants yet',
+      noVariantsHelp: 'Add one variant manually or generate all possible combinations from attributes.',
+      useParentImage: 'Uses parent',
+      missingProduct: 'Product is unavailable.',
+      manufacturersUnavailable:
+        'Manufacturers are not configured in settings. Product editing is unavailable.',
+    },
+    dialogs: {
+      deleteVariantTitle: 'Delete Variant',
+      deleteVariantConfirm: 'Yes, Delete',
+      deleteVariantFallback: 'this variant',
+      deleteProductTitle: 'Delete Product',
+      deleteProductConfirm: 'Yes, Delete',
+      activateTitle: 'Activate Product',
+      activateConfirm: 'Activate',
+      archiveTitle: 'Archive Product',
+      archiveConfirm: 'Archive',
+      discardChangesTitle: 'Discard Changes',
+      discardChangesConfirm: 'Discard',
+      discardChangesMessage: 'You have unsaved changes. Do you want to discard them?',
     },
   },
   form: {
     backToProducts: 'Products',
     createTitle: 'Add New Product',
-    editTitlePrefix: 'Edit ',
-    fields: {
-      name: 'Name*',
-      manufacturer: 'Manufacturer*',
-      price: 'Price*',
-      amount: 'Amount*',
-      notes: 'Notes',
-    },
-    actions: {
-      saveCreate: 'Save New Product',
-      saveEdit: 'Save Changes',
-      clear: 'Clear all',
-      delete: 'Delete Product',
-    },
   },
   dialogs: {
     deleteTitle: 'Delete Product',
@@ -41,28 +87,58 @@ export const productsUiText = {
     created: 'Product was successfully created',
     updated: 'Product was successfully updated',
     deleted: 'Product was successfully deleted',
+    statusUpdated: 'Product status updated',
+    variantUpdated: 'Variant was successfully updated',
+    variantDeleted: 'Variant was successfully deleted',
+    saveFailed: 'Unable to update products. Please try again later.',
   },
   errors: {
     missingProductId: 'Product id is missing.',
-  },
-  validation: {
-    nameRequired: 'Name is required',
-    nameInvalid: 'Name must be 3-40 alphanumeric characters with single spaces',
-    amountInvalid: 'Amount must be in range 0-999',
-    priceInvalid: 'Price must be in range 1-99999',
-    manufacturerRequired: 'Manufacturer is required',
-    notesInvalid: 'Notes must be up to 250 chars and cannot contain < or >',
+    api: {
+      badRequest: 'Unable to process request. Check product data and try again.',
+      notFound: 'Product data is outdated. Refresh the page and try again.',
+      conflict: 'Operation conflicts with existing product or order data.',
+      server: 'Server error. Please try again later.',
+      fallback: 'Request failed. Please try again.',
+    },
   },
 } as const
 
-export function getProductFormTitle(mode: ProductMode, productName?: string | null) {
-  if (mode === 'create') {
-    return productsUiText.form.createTitle
+export function getProductApiErrorMessage(status: number | undefined): string {
+  const key: ProductApiErrorStatus =
+    status === 400
+      ? 400
+      : status === 404
+        ? 404
+        : status === 409
+          ? 409
+          : status && status >= 500
+            ? 500
+            : 'default'
+
+  if (key === 400) {
+    return productsUiText.errors.api.badRequest
   }
-  return `${productsUiText.form.editTitlePrefix}${productName ?? ''}`
+  if (key === 404) {
+    return productsUiText.errors.api.notFound
+  }
+  if (key === 409) {
+    return productsUiText.errors.api.conflict
+  }
+  if (key === 500) {
+    return productsUiText.errors.api.server
+  }
+
+  return productsUiText.errors.api.fallback
 }
 
 export function getDeleteProductMessage(productName?: string | null) {
   const safeProductName = productName ?? productsUiText.dialogs.deleteFallbackName
   return `Are you sure you want to delete "${safeProductName}"?`
+}
+
+export function getDeleteVariantMessage(variantName?: string | null) {
+  const safeVariantName =
+    variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
+  return `Are you sure you want to delete "${safeVariantName}"?`
 }

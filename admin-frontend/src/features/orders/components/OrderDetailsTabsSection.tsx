@@ -37,6 +37,7 @@ type OrderDetailsTabsSectionProps = {
   order: OrderDetails
   activeTab: OrderDetailsTab
   onTabChange: (tab: OrderDetailsTab) => void
+  isEmbedded?: boolean
   isDeliveryEditable: boolean
   isDeliverySubmitting: boolean
   onSaveDelivery: (delivery: OrderDeliverySavePayload) => Promise<boolean>
@@ -72,6 +73,7 @@ export function OrderDetailsTabsSection({
   order,
   activeTab,
   onTabChange,
+  isEmbedded = false,
   isDeliveryEditable,
   isDeliverySubmitting,
   onSaveDelivery,
@@ -85,8 +87,8 @@ export function OrderDetailsTabsSection({
   onCreateComment,
   onDeleteComment,
 }: OrderDetailsTabsSectionProps) {
-  return (
-    <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
+  const content = (
+    <>
       <Tabs
         value={activeTab}
         onChange={(_, value: OrderDetailsTab) => onTabChange(value)}
@@ -180,54 +182,74 @@ export function OrderDetailsTabsSection({
               )}
             </Button>
 
-            <Stack spacing={1.25} data-testid="order-details-comments-list">
-              {orderedComments.length === 0 ? (
-                <Typography color="text.secondary" data-testid="order-details-comments-empty">
-                  {ordersUiText.detailsPage.placeholders.noComments}
-                </Typography>
-              ) : null}
+            <Paper
+              variant="outlined"
+              sx={{ p: 1.25, borderColor: 'divider' }}
+              data-testid="order-details-comments-list-container"
+            >
+              <Stack spacing={1.25} data-testid="order-details-comments-list">
+                {orderedComments.length === 0 ? (
+                  <Typography color="text.secondary" data-testid="order-details-comments-empty">
+                    {ordersUiText.detailsPage.placeholders.noComments}
+                  </Typography>
+                ) : null}
 
-              {orderedComments.map((comment, index) => (
-                <Paper
-                  key={comment._id ?? `${comment.createdOn}-${index}`}
-                  variant="outlined"
-                  sx={{ p: 1.5 }}
-                  data-testid={`order-details-comments-item-${index}`}
-                >
-                  <Stack spacing={1}>
-                    <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
-                      <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}>
-                        {comment.text}
-                      </Typography>
-                      <IconButton
-                        color="error"
-                        size="small"
-                        onClick={() => onDeleteComment(comment._id)}
-                        disabled={!comment._id || isCommentDeletePending}
-                        data-testid={`order-details-comments-item-${index}-delete-button`}
-                      >
-                        {isCommentDeletePending && pendingDeleteCommentId === comment._id ? (
-                          <CircularProgress size={16} color="inherit" />
-                        ) : (
-                          <DeleteOutlineRoundedIcon fontSize="small" />
-                        )}
-                      </IconButton>
+                {orderedComments.map((comment, index) => (
+                  <Paper
+                    key={comment._id ?? `${comment.createdOn}-${index}`}
+                    variant="outlined"
+                    sx={{ p: 1.5, borderColor: 'divider' }}
+                    data-testid={`order-details-comments-item-${index}`}
+                  >
+                    <Stack spacing={1}>
+                      <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+                        <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}>
+                          {comment.text}
+                        </Typography>
+                        <IconButton
+                          color="error"
+                          size="small"
+                          onClick={() => onDeleteComment(comment._id)}
+                          disabled={!comment._id || isCommentDeletePending}
+                          data-testid={`order-details-comments-item-${index}-delete-button`}
+                        >
+                          {isCommentDeletePending && pendingDeleteCommentId === comment._id ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2" color="primary.main">
+                          {resolveCommentAuthorName(comment)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDateTime(comment.createdOn)}
+                        </Typography>
+                      </Stack>
                     </Stack>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="body2" color="primary.main">
-                        {resolveCommentAuthorName(comment)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {formatDateTime(comment.createdOn)}
-                      </Typography>
-                    </Stack>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Paper>
           </Stack>
         ) : null}
       </Box>
+    </>
+  )
+
+  if (isEmbedded) {
+    return (
+      <Stack sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
+        {content}
+      </Stack>
+    )
+  }
+
+  return (
+    <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="order-details-tabs-section">
+      {content}
     </Paper>
   )
 }

@@ -1,8 +1,22 @@
 import { customerSchema } from "./customer.schema";
-import { productSchema } from "./product.schema";
+import {
+  productCreateSchema,
+  productPatchSchema,
+  productReplaceSchema,
+  productStatusPatchSchema,
+  productVariantsCreateSchema,
+  productVariantsReplaceSchema,
+  productVariantsValidateSchema,
+  productVariantCreateSchema,
+  productVariantPatchSchema,
+  productVariantStatusPatchSchema,
+} from "./product.schema";
 import {
   orderCreateSchema,
   orderUpdateSchema,
+  orderProductAddSchema,
+  orderProductReplaceSchema,
+  orderProductDeleteSchema,
   orderDeliveryUpdateSchema,
   orderPickupUpdateSchema,
   orderStatusSchema,
@@ -15,9 +29,21 @@ import { settingsCreateSchema, settingsUpdateSchema } from "./settings.schema";
 
 export {
   customerSchema,
-  productSchema,
+  productCreateSchema,
+  productReplaceSchema,
+  productPatchSchema,
+  productStatusPatchSchema,
+  productVariantsCreateSchema,
+  productVariantsReplaceSchema,
+  productVariantsValidateSchema,
+  productVariantCreateSchema,
+  productVariantPatchSchema,
+  productVariantStatusPatchSchema,
   orderCreateSchema,
   orderUpdateSchema,
+  orderProductAddSchema,
+  orderProductReplaceSchema,
+  orderProductDeleteSchema,
   orderDeliveryUpdateSchema,
   orderPickupUpdateSchema,
   orderStatusSchema,

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { downloadBlobResponse } from '@/utils/download'
-import type { Product } from '@/api/modules/products.api'
+import type { Product, ProductStatus } from '@/api/modules/products.api'
 import {
   isProductsSortField,
   type ProductsSortField,
@@ -14,7 +14,7 @@ import {
   useProductsQuery,
 } from '@/features/products/hooks/useProductsQuery'
 import { useManufacturerOptions } from '@/features/products/hooks/useManufacturerOptions'
-import { productsUiText } from '@/features/products/products.ui-text'
+import { getProductApiErrorMessage, productsUiText } from '@/features/products/products.ui-text'
 
 type ExportSubmitPayload = {
   format: 'csv' | 'json'
@@ -22,20 +22,40 @@ type ExportSubmitPayload = {
   fields: string[]
 }
 
+type ProductsFiltersApplyPayload = {
+  manufacturer: string[]
+  status: string[]
+  minPrice: number | null
+  maxPrice: number | null
+}
+
+const PRODUCT_STATUSES: ProductStatus[] = ['Draft', 'Active', 'Archived']
+const PRODUCT_STATUS_SET = new Set<string>(PRODUCT_STATUSES)
+
+function toProductStatusList(values: string[]): ProductStatus[] {
+  return values.filter((value): value is ProductStatus => PRODUCT_STATUS_SET.has(value))
+}
+
+function getErrorStatus(error: unknown) {
+  return (error as { response?: { status?: number } })?.response?.status
+}
+
 export function useProductsPageState() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
-  const manufacturerOptions = useManufacturerOptions()
+  const { options: manufacturerOptions } = useManufacturerOptions()
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
   const [manufacturer, setManufacturer] = useState<string[]>([])
+  const [status, setStatus] = useState<ProductStatus[]>([])
+  const [minPrice, setMinPrice] = useState<number | null>(null)
+  const [maxPrice, setMaxPrice] = useState<number | null>(null)
   const [sortField, setSortField] = useState<ProductsSortField>('createdOn')
   const [sortOrder, setSortOrder] = useState<ProductsSortOrder>('desc')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isTransitionPending, startTransition] = useTransition()
@@ -44,12 +64,15 @@ export function useProductsPageState() {
     () => ({
       search,
       manufacturer,
+      status,
+      ...(minPrice === null ? {} : { minPrice }),
+      ...(maxPrice === null ? {} : { maxPrice }),
       sortField,
       sortOrder,
       page,
       limit,
     }),
-    [search, manufacturer, sortField, sortOrder, page, limit],
+    [search, manufacturer, status, minPrice, maxPrice, sortField, sortOrder, page, limit],
   )
 
   const { data, isLoading, isFetching } = useProductsQuery(query)
@@ -60,14 +83,12 @@ export function useProductsPageState() {
   const total = data?.total ?? 0
   const isTableUpdating = isFetching || isTransitionPending
 
-  const openDetailsDialog = useCallback((product: Product) => {
-    setSelectedProduct(product)
-    setDetailsOpen(true)
-  }, [])
-
-  const closeDetailsDialog = useCallback(() => {
-    setDetailsOpen(false)
-  }, [])
+  const goToProductDetails = useCallback(
+    (productId: string) => {
+      navigate(`/products/${productId}`)
+    },
+    [navigate],
+  )
 
   const openDeleteDialog = useCallback((product: Product) => {
     setSelectedProduct(product)
@@ -93,6 +114,17 @@ export function useProductsPageState() {
 
   const onRemoveManufacturerFilter = useCallback((value: string) => {
     setManufacturer((current) => current.filter((item) => item !== value))
+    setPage(1)
+  }, [])
+
+  const onRemoveStatusFilter = useCallback((value: string) => {
+    setStatus((current) => current.filter((item) => item !== value))
+    setPage(1)
+  }, [])
+
+  const onRemovePriceFilter = useCallback(() => {
+    setMinPrice(null)
+    setMaxPrice(null)
     setPage(1)
   }, [])
 
@@ -127,51 +159,71 @@ export function useProductsPageState() {
 
   const onExportSubmit = useCallback(
     async (payload: ExportSubmitPayload) => {
-      const filters =
-        payload.exportFrom === 'all'
-          ? null
-          : {
-              search,
-              manufacturer,
-              page,
-              limit,
-              sortField,
-              sortOrder,
-            }
+      try {
+        const filters =
+          payload.exportFrom === 'all'
+            ? null
+            : {
+                search,
+                manufacturer,
+                status,
+                ...(minPrice === null ? {} : { minPrice }),
+                ...(maxPrice === null ? {} : { maxPrice }),
+                page,
+                limit,
+                sortField,
+                sortOrder,
+              }
 
-      const response = await exportMutation.mutateAsync({
-        format: payload.format,
-        fields: payload.fields,
-        filters,
-      })
-      downloadBlobResponse(response, `products-export.${payload.format}`)
-      enqueueSnackbar(productsUiText.toasts.exportCompleted, { variant: 'success' })
+        const response = await exportMutation.mutateAsync({
+          format: payload.format,
+          fields: payload.fields,
+          filters,
+        })
+        downloadBlobResponse(response, `products-export.${payload.format}`)
+        enqueueSnackbar(productsUiText.toasts.exportCompleted, { variant: 'success' })
+      } catch (error) {
+        enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+      }
     },
-    [enqueueSnackbar, exportMutation, limit, manufacturer, page, search, sortField, sortOrder],
+    [
+      enqueueSnackbar,
+      exportMutation,
+      limit,
+      manufacturer,
+      maxPrice,
+      minPrice,
+      page,
+      search,
+      sortField,
+      sortOrder,
+      status,
+    ],
   )
 
   const onConfirmDelete = useCallback(async () => {
     if (!selectedProduct) return
-    await deleteMutation.mutateAsync(selectedProduct._id)
-    if (rows.length === 1 && page > 1) {
-      setPage(page - 1)
+    try {
+      await deleteMutation.mutateAsync(selectedProduct._id)
+      if (rows.length === 1 && page > 1) {
+        setPage(page - 1)
+      }
+      enqueueSnackbar(productsUiText.toasts.deletedFromList, { variant: 'success' })
+      setDeleteDialogOpen(false)
+    } catch (error) {
+      enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
     }
-    enqueueSnackbar(productsUiText.toasts.deletedFromList, { variant: 'success' })
-    setDeleteDialogOpen(false)
   }, [deleteMutation, enqueueSnackbar, page, rows.length, selectedProduct])
-
-  const goToProductEdit = useCallback(
-    (productId: string) => {
-      navigate(`/products/${productId}/edit`)
-    },
-    [navigate],
-  )
 
   return {
     search,
     searchDraft,
     manufacturer,
     manufacturerOptions,
+    status,
+    statusOptions: [...PRODUCT_STATUSES],
+    minPrice,
+    maxPrice,
     sortField,
     sortOrder,
     page,
@@ -181,7 +233,6 @@ export function useProductsPageState() {
     selectedProduct,
     filtersOpen,
     exportOpen,
-    detailsOpen,
     deleteDialogOpen,
     isLoading,
     isTableUpdating,
@@ -195,17 +246,20 @@ export function useProductsPageState() {
     onLimitChange,
     onRemoveSearch,
     onRemoveManufacturerFilter,
+    onRemoveStatusFilter,
+    onRemovePriceFilter,
     onExportSubmit,
-    openDetailsDialog,
-    closeDetailsDialog,
     openDeleteDialog,
     closeDeleteDialog,
     onConfirmDelete,
-    applyManufacturerFilters: (values: string[]) => {
-      setManufacturer(values)
+    applyFilters: (values: ProductsFiltersApplyPayload) => {
+      setManufacturer(values.manufacturer)
+      setStatus(toProductStatusList(values.status))
+      setMinPrice(values.minPrice)
+      setMaxPrice(values.maxPrice)
       setPage(1)
       setFiltersOpen(false)
     },
-    goToProductEdit,
+    goToProductDetails,
   }
 }

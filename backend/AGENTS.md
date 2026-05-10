@@ -109,6 +109,14 @@ Products:
 - `GET /products/:productId`
 - `POST /products`
 - `PUT /products/:productId`
+- `PATCH /products/:productId`
+- `PATCH /products/:productId/status`
+- `PUT /products/:productId/variants`
+- `POST /products/:productId/variants`
+- `POST /products/:productId/variants/validate`
+- `PATCH /products/:productId/variants/:variantId`
+- `PATCH /products/:productId/variants/:variantId/status`
+- `DELETE /products/:productId/variants/:variantId`
 - `DELETE /products/:productId`
 - `POST /products/export`
 
@@ -129,12 +137,17 @@ Orders:
 - `GET /orders/:orderId`
 - `POST /orders`
 - `PATCH /orders/:orderId`
+- `POST /orders/:orderId/products`
+- `PATCH /orders/:orderId/products`
+- `DELETE /orders/:orderId/products`
+- `PATCH /orders/:orderId/customer/:customerId`
 - `DELETE /orders/:orderId`
 - `POST /orders/export`
 - `POST /orders/pricing`
 - `PUT /orders/:orderId/status`
 - `POST /orders/:orderId/receive`
-- `POST /orders/:orderId/delivery`
+- `PATCH /orders/:orderId/delivery`
+- `PATCH /orders/:orderId/pickup`
 - `POST /orders/:orderId/comments`
 - `DELETE /orders/:orderId/comments/:commentId`
 - `PUT /orders/:orderId/assign-manager/:managerId`
@@ -198,30 +211,51 @@ When changing request contracts:
 
 Current important constraints:
 
-- Order create/update: `products` is a non-empty array of `{ id: string, quantity: integer }` objects.
-  - Duplicate product `id` values are rejected (`400`).
+- Order create/update: `products` is a non-empty array of `{ productId: string, variantId: string, quantity: integer }` objects.
+  - Duplicate `(productId, variantId)` pairs are rejected (`400`).
   - Each `quantity` must be in `1..settings.order.maxProductQuantityInOrder`. Settings are read on every create/update via `SettingsService.get()`.
   - `maxProductsInOrder` from Settings is currently NOT enforced on the backend (UI cap only).
-  - Backend rejects unknown product `id` (`404`) and missing customer (`404`).
+  - Backend rejects missing customer (`404`), unknown product (`404`), unknown variant in product (`404`), and non-active product/variant (`400`).
   - `POST /orders` creates a default delivery snapshot (`condition=Delivery`, `express=false`, customer address) with `delivery.status=Draft`.
   - On customer change in `PATCH /orders/:orderId`, delivery is reset to the new customer address and `delivery.status=Draft`.
   - `total_price` always includes delivery price.
-- Order receive: `products` is an array of unique product `_id` values to mark as received.
-  - Each id must reference an existing position in the order with `received = false` (otherwise `400`).
-  - Partial receive of a single position by `quantity` is NOT supported — the entire position flips to `received = true`.
+- Order product/customer patch endpoints (`POST/PATCH/DELETE /orders/:orderId/products`, `PATCH /orders/:orderId/customer/:customerId`):
+  - allowed only for `Draft` orders;
+  - add (`POST .../products`) returns `409` when `(productId, variantId)` already exists in order;
+  - replace (`PATCH .../products`) returns `409` when target `(to.productId, to.variantId)` already exists in another order line;
+  - delete (`DELETE .../products`) removes the full line by `(productId, variantId)` and rejects deleting the last line (`400`).
+- Order receive: `products` is an array of unique `{ productId, variantId }` objects to mark as received.
+  - Each pair must reference an existing position in the order with `received = false` (otherwise `400`).
+  - Partial receive of a single position by `quantity` is NOT supported - the entire position flips to `received = true`.
   - `products.length` allowed range is `1..order.products.length`.
 - `PUT /orders/:orderId/status` accepts only: `Draft`, `In Process`, `Canceled` (`Completed` is set automatically by the receive flow).
-- `POST /orders/:orderId/delivery` accepts `condition`, `address`, and conditional `express`:
-  - for `Delivery`: `express` is required;
-  - for `Pickup`: `express=true` is rejected.
+- Delivery endpoints:
+  - `PATCH /orders/:orderId/delivery` accepts `express` + `address`.
+  - `PATCH /orders/:orderId/pickup` accepts `pickupLocationId`.
 - Delivery snapshots in orders/history use `delivery` object with required `status` and `schedule` union:
-  - status values: `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
-  - `Delivery`: `{ express, estimatedDate }`
-  - `Pickup`: `{ availableFromDate, pickupByDate }`
+  - status values: `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
+  - `Delivery`: `{ express, estimatedDays, estimatedDate, startsAt, dueDate }`
+  - `Pickup`: `{ readyInDays, holdForDays, availableFromDate, pickupByDate, startsAt }`
 - `GET /orders` and `POST /orders/export` support filters by both `status` and `deliveryStatus` query/body keys;
   `deliveryStatus` filters are applied to `delivery.status`.
 - Product uniqueness: case-insensitive by trimmed `name`.
+- Product manufacturer must exist in `settings.catalog.manufacturers` (case-insensitive).
+- `GET /products` filters support `manufacturer[]`, `status[]`, `category` (case-insensitive partial match), `minPrice`, `maxPrice` (inclusive; applied to `variants.price`).
+- `GET /products` sorting supports `name`, `price`, `manufacturer`, `category`, `status`, `createdOn`, `variantsCount`; tie-break is `createdOn` descending.
+- `GET /products` list item response includes `createdOn`.
+- Product variants rules:
+  - product must contain at least one variant;
+  - variant attributes must include all product attribute keys;
+  - variant attribute values must belong to corresponding product attribute values;
+  - variant attribute combination must be unique inside product;
+  - variant price is decimal (`> 0`) with up to 2 digits after dot.
+  - `POST /products/:productId/variants`, `PUT /products/:productId/variants`, and `POST /products/:productId/variants/validate` accept `1..200` variants per request.
+  - `PUT /products/:productId/variants` is atomic full replace; removing a variant referenced in orders is rejected with `409`.
+  - `PATCH /products/:productId/status` allows only transitions: `Draft -> Active`, `Active -> Archived`, `Archived -> Active`.
+  - `PATCH /products/:productId/status` with target `Archived` auto-archives all variants.
+  - duplicate-like product conflicts (duplicate name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload) are treated as `409`.
 - Customer uniqueness: case-insensitive by trimmed/lowercased `email`.
+- `POST /settings` and `PATCH /settings` validate `catalog.manufacturers` (non-empty array, no case-insensitive duplicates).
 - `POST /settings` and `PATCH /settings` require `shipping.delivery.pricing` and `shipping.pickup.{policy,locations}`.
 - `shipping.pickup.locations` keys must be valid US states; pickup location `id` values must be unique across all states.
 - Notes/comment textual limits rely on validation helpers and middleware checks.
@@ -232,50 +266,76 @@ DB shape (`Order.products[i]`):
 
 ```
 {
-  product: { _id: ObjectId },
+  productId: ObjectId,
+  variantId: ObjectId,
+  manufacturer: String,
+  name: String,
+  attributes: Map<String, String>,
   unitPrice: Number,
   quantity: Number (>= 1),
-  received: Boolean
+  received: Boolean,
+  imageUrl?: String
 }
 ```
 
-API response shape (`getOrder`, `getSorted`, etc.):
+API response shape for order list (`GET /orders`, `getSorted`):
 
 ```
 {
-  product: { _id: string, name: string, manufacturer: enum },
+  product: { _id: string, name: string },
+  variant: { _id: string },
   unitPrice: number,
   quantity: number,
   received: boolean
 }
 ```
 
-- `name` and `manufacturer` are joined from the live `Product` collection on every read (see `OrderService.enrichProducts`).
-- `unitPrice` is a snapshot of `Product.price` taken at the moment a position is added to the order. On `PUT /orders/:orderId`:
+API response shape for order details (`GET /orders/:orderId`):
+
+```
+{
+  productId: string,
+  variantId: string,
+  manufacturer: string,
+  unitPrice: number,
+  quantity: number,
+  name: string,
+  attributes: Record<string, string>,
+  received: boolean,
+  imageUrl?: string
+}
+```
+
+- product details are stored as snapshot directly in order lines and returned from `GET /orders/:orderId` without live joins to `Product`.
+- `unitPrice` is a snapshot of variant price taken at the moment a position is added to the order. On `PATCH /orders/:orderId`:
   - positions that already existed in the order keep their previous `unitPrice` and `received`,
-  - newly added positions get a fresh `unitPrice` from the current `Product.price`,
+  - newly added positions get a fresh `unitPrice` from the current variant price,
   - `quantity` is always taken from the request payload.
 - `total_price = products subtotal + delivery price` (delivery is always present in order snapshot).
 
-History snapshot (`Order.history[].products[i]`) uses a richer schema (see `productInHistorySnapshot` in `models/order.model.ts`):
+History snapshot (`Order.history[].products[i]`) keeps:
 
 ```
 {
-  product: { _id: ObjectId, name: string, manufacturer: string },
+  productId: ObjectId,
+  variantId: ObjectId,
+  manufacturer: String,
+  name: String,
+  attributes: Map<String, String>,
   unitPrice: number,
   quantity: number,
-  received: boolean
+  received: boolean,
+  imageUrl?: string
 }
 ```
 
-`name` and `manufacturer` are persisted at history-write time so historical entries remain self-contained even if the source `Product` is later renamed or its manufacturer changes. Frontend does not need to re-resolve product details when rendering history.
-
 Settings-driven limits (read each request via `SettingsService.get()`):
-- `settings.order.maxProductQuantityInOrder` — per-position quantity cap, enforced by middleware.
-- `settings.order.maxProductsInOrder` — informational; not enforced by backend.
+- `settings.order.maxProductQuantityInOrder` - per-position quantity cap, enforced by middleware.
+- `settings.order.maxProductsInOrder` - informational; not enforced by backend.
 
-Indexes used for product-deletion guard:
-- Search path is `products.product._id` (when checking `Order.exists(...)` to prevent deletion of a referenced product).
+Indexes used for product-deletion guards:
+- product deletion check path: `products.productId`
+- variant deletion check path: `products.$elemMatch({ productId, variantId })`
 
 ## 9) Core business invariants
 
@@ -283,17 +343,18 @@ Order lifecycle:
 
 - order status and delivery status are separated:
   - order statuses: `Draft`, `In Process`, `Completed`, `Canceled`
-  - delivery statuses: `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
+  - delivery statuses: `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`
 - initial state on create is `Draft` + `delivery.status=Draft` with default `Delivery` snapshot based on customer address (`express=false`);
 - only `Draft` orders can be updated (`PATCH /orders/:orderId`);
+- order line/customer mutation endpoints (`POST/PATCH/DELETE /orders/:orderId/products`, `PATCH /orders/:orderId/customer/:customerId`) are also Draft-only;
 - delivery can be created/edited only while order is `Draft`, and sets delivery status to:
-  - `Delivery Scheduled` for `condition=Delivery`
-  - `Pickup Scheduled` for `condition=Pickup`
-- transition to `In Process` requires delivery status `Delivery Scheduled` or `Pickup Scheduled`;
+  - `Delivery Planned` for delivery endpoint
+  - `Pickup Planned` for pickup endpoint
+- transition to `In Process` requires delivery status `Delivery Planned` or `Pickup Planned`;
 - receiving products is allowed only for `In Process` with delivery status `Delivery Scheduled`, `Pickup Scheduled`, or `Partially Delivered`;
 - partial receive keeps order `In Process` and sets delivery status to `Partially Delivered`;
 - full receive sets order status to `Completed` and delivery status to `Delivered`;
-- cancel is allowed only when order status is `Draft`/`In Process`, delivery status is `Draft`/`Delivery Scheduled`/`Pickup Scheduled`, and no product has `received=true`;
+- cancel is allowed only when order status is `Draft`/`In Process`, delivery status is one of `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, `Pickup Scheduled`, and no product has `received=true`;
 - `Reopen` (`status -> Draft`) is allowed only from `Canceled`, rebuilds default delivery snapshot from current customer address, and sets delivery status to `Draft`.
 
 Order side effects:
@@ -304,7 +365,9 @@ Order side effects:
 
 Deletion guards:
 
-- product cannot be deleted if referenced in any order (check is `Order.exists({ "products.product._id": productId })`);
+- product cannot be deleted if referenced in any order (check is `Order.exists({ "products.productId": productId })`);
+- product variant cannot be deleted if referenced in any order line with same product id and variant id;
+- product variant cannot be deleted if it is the last variant in the product;
 - customer cannot be deleted if referenced in any order;
 - admin user cannot be deleted; non-admin cannot delete other users.
 
@@ -313,6 +376,7 @@ Settings invariants:
 - `Settings` collection is treated as singleton (exactly one document expected).
 - `POST /settings` is intended for initial creation and returns conflict when settings already exist.
 - `PATCH /settings` is the normal update path for existing deployments.
+- `settings.catalog.manufacturers` is required on create and validated on update (non-empty array, no case-insensitive duplicates).
 - `settings.shipping.delivery.pricing` is required and contains pricing zones: `localCity`, `sameState`, `outOfState`.
 - `settings.shipping.pickup.policy` is required (`readyInDays`, `holdForDays`, optional `remindBeforeDays`).
 - `settings.shipping.pickup.locations` is required and must be a US-state keyed pickup map.

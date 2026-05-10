@@ -12,6 +12,19 @@ const orderSettingsRequiredSchema: JSONSchema7 = {
   additionalProperties: false,
 };
 
+const catalogSettingsRequiredSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    manufacturers: {
+      type: "array",
+      minItems: 1,
+      items: { type: "string", minLength: 1 },
+    },
+  },
+  required: ["manufacturers"],
+  additionalProperties: false,
+};
+
 const inventorySettingsRequiredSchema: JSONSchema7 = {
   type: "object",
   properties: {
@@ -134,6 +147,19 @@ const orderSettingsPartialSchema: JSONSchema7 = {
   anyOf: [{ required: ["maxProductsInOrder"] }, { required: ["maxProductQuantityInOrder"] }],
 };
 
+const catalogSettingsPartialSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    manufacturers: {
+      type: "array",
+      minItems: 1,
+      items: { type: "string", minLength: 1 },
+    },
+  },
+  required: ["manufacturers"],
+  additionalProperties: false,
+};
+
 const inventorySettingsPartialSchema: JSONSchema7 = {
   type: "object",
   properties: {
@@ -197,21 +223,23 @@ const shippingSettingsPartialSchema: JSONSchema7 = {
 export const settingsCreateSchema: AllowedSchema = {
   type: "object",
   properties: {
+    catalog: catalogSettingsRequiredSchema,
     order: orderSettingsRequiredSchema,
     inventory: inventorySettingsRequiredSchema,
     shipping: shippingSettingsRequiredSchema,
   },
-  required: ["order", "inventory", "shipping"],
+  required: ["catalog", "order", "inventory", "shipping"],
   additionalProperties: false,
 };
 
 export const settingsUpdateSchema: AllowedSchema = {
   type: "object",
   properties: {
+    catalog: catalogSettingsPartialSchema,
     order: orderSettingsPartialSchema,
     inventory: inventorySettingsPartialSchema,
     shipping: shippingSettingsPartialSchema,
   },
   additionalProperties: false,
-  anyOf: [{ required: ["order"] }, { required: ["inventory"] }, { required: ["shipping"] }],
+  anyOf: [{ required: ["catalog"] }, { required: ["order"] }, { required: ["inventory"] }, { required: ["shipping"] }],
 };

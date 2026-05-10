@@ -2,7 +2,7 @@ import moment from "moment";
 import { DATE_AND_TIME_FORMAT, DATE_FORMAT } from "../data/constants";
 import { ORDER_HISTORY_ACTIONS, ROLES } from "../data/enums";
 import type { ICustomer, IHistory, IOrder, IOrderCustomerSnapshot, IOrderRequest, IProduct } from "../data/types";
-import { IProductInOrder, IProductInOrderResponse } from "../data/types/order.type";
+import { IProductInOrder } from "../data/types/order.type";
 import ProductsService from "../services/products.service";
 import { Request } from "express";
 import jsonwebtoken from "jsonwebtoken";
@@ -20,7 +20,7 @@ export const getTodaysDate = (withTime: boolean) => {
 type HistorySource = {
   status: IHistory["status"];
   customer: Types.ObjectId | string | { _id: Types.ObjectId | string };
-  products: IProductInOrderResponse[];
+  products: IProductInOrder[];
   delivery: IHistory["delivery"];
   total_price: number;
   assignedManager: IHistory["assignedManager"];
@@ -67,12 +67,24 @@ export function createHistoryEntry(
 export async function productsMapping<T extends Pick<IOrderRequest, "products">>(order: T): Promise<IProductInOrder[]> {
   const products = await Promise.all(
     order.products.map(async (item) => {
-      const product = await ProductsService.getProduct(item.id);
+      const product = await ProductsService.getProduct(item.productId);
+      const variant = product?.variants?.find(
+        (productVariant) => productVariant._id?.toString() === item.variantId.toString(),
+      );
+      if (!variant) {
+        throw new Error(`Variant with id '${item.variantId}' was not found in product '${item.productId}'`);
+      }
+      const imageUrl = variant.imageUrl ?? product.imageUrl;
       return {
-        product: { _id: new Types.ObjectId(product._id) },
-        unitPrice: product.price,
+        productId: new Types.ObjectId(item.productId),
+        variantId: new Types.ObjectId(item.variantId),
+        manufacturer: product.manufacturer,
+        unitPrice: variant.price,
         quantity: item.quantity,
+        name: product.name,
+        attributes: variant.attributes,
         received: false,
+        ...(imageUrl && { imageUrl }),
       };
     }),
   );

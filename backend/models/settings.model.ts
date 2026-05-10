@@ -10,6 +10,13 @@ const orderSettings = new mongoose.Schema(
   { _id: false, versionKey: false },
 );
 
+const catalogSettings = new mongoose.Schema(
+  {
+    manufacturers: [{ type: String, required: true }],
+  },
+  { _id: false, versionKey: false },
+);
+
 const inventorySettings = new mongoose.Schema(
   {
     defaultLowStockThreshold: { type: Number, required: true },
@@ -106,6 +113,7 @@ const shippingSettings = new mongoose.Schema(
 
 const settingsModel = new mongoose.Schema(
   {
+    catalog: { type: catalogSettings, required: true },
     order: { type: orderSettings, required: true },
     inventory: { type: inventorySettings, required: true },
     shipping: { type: shippingSettings, required: true },
