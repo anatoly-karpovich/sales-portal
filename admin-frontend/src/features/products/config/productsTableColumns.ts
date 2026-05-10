@@ -105,7 +105,7 @@ export function getProductsTableColumns({
       render: (row) =>
         createElement(
           Typography,
-          { component: 'span', sx: { color: getProductStatusColor(row.status) } },
+          { sx: { color: getProductStatusColor(row.status) } },
           row.status,
         ),
     },
