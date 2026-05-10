@@ -21,7 +21,7 @@ export const ordersUiText = {
     sections: {
       customer: 'Customer',
       products: 'Products',
-      delivery: 'Delivery',
+      delivery: 'Delivery Information',
       summary: 'Order Summary',
       selectedProducts: 'Selected Products',
       parentProducts: 'Parent Products',

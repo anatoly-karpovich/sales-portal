@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { Customer } from '@/api/modules/customers.api'
 import type { Product, ProductVariant } from '@/api/modules/products.api'
-import type { OrderPricingPayload } from '@/api/modules/orders.api'
+import type { OrderDeliveryPricingTier, OrderPricingPayload } from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
 import {
@@ -34,6 +34,7 @@ import { useUnsavedChangesGuard } from '@/features/orders/hooks/useUnsavedChange
 import { ordersUiText } from '@/features/orders/orders.ui-text'
 import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
+import { formatDate } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 
 type CustomerSummary = {
@@ -109,6 +110,30 @@ function buildVariantLabel(variant: ProductVariant, product: Product) {
   }
 
   return variant._id || 'Variant'
+}
+
+function resolveCustomerAddressPrimaryLine(customer: CustomerSummary) {
+  const apartmentPart = typeof customer.apartment === 'number' ? `, Apt ${customer.apartment}` : ''
+  return `${customer.house} ${customer.street}${apartmentPart}`
+}
+
+function resolveCustomerAddressSecondaryLine(customer: CustomerSummary) {
+  return `${customer.city}, ${customer.state} ${customer.zipCode}`
+}
+
+function resolvePricingTierLabel(value: OrderDeliveryPricingTier | null) {
+  switch (value) {
+    case 'local_city':
+      return 'Local City'
+    case 'same_state':
+      return 'Same State'
+    case 'out_of_state':
+      return 'Out Of State'
+    case 'pickup':
+      return 'Pickup'
+    default:
+      return '-'
+  }
 }
 
 function useAnimatedAmount(target: number, durationMs = 360) {
@@ -193,6 +218,8 @@ export function OrderCreatePage() {
   const [pricingTotal, setPricingTotal] = useState<number | null>(null)
   const [pricingProductsSubtotal, setPricingProductsSubtotal] = useState<number | null>(null)
   const [pricingDeliveryPrice, setPricingDeliveryPrice] = useState<number | null>(null)
+  const [pricingDeliveryTier, setPricingDeliveryTier] = useState<OrderDeliveryPricingTier | null>(null)
+  const [pricingEstimatedDate, setPricingEstimatedDate] = useState<string | null>(null)
   const nextRowIdRef = useRef(1)
   const pricingRequestIdRef = useRef(0)
 
@@ -333,6 +360,8 @@ export function OrderCreatePage() {
           setPricingTotal(pricing.totalPrice)
           setPricingProductsSubtotal(pricing.products.subtotal)
           setPricingDeliveryPrice(pricing.delivery.price)
+          setPricingDeliveryTier(pricing.delivery.pricingTier)
+          setPricingEstimatedDate(pricing.delivery.estimatedDate)
           setIsPricingPreviewUnavailable(false)
         })
         .catch(() => {
@@ -340,6 +369,8 @@ export function OrderCreatePage() {
           setPricingTotal(null)
           setPricingProductsSubtotal(null)
           setPricingDeliveryPrice(null)
+          setPricingDeliveryTier(null)
+          setPricingEstimatedDate(null)
           setIsPricingPreviewUnavailable(true)
         })
         .finally(() => {
@@ -376,6 +407,12 @@ export function OrderCreatePage() {
   const summarySubtotalTarget = effectivePricingProductsSubtotal ?? selectedProductsSubtotal
   const summaryDeliveryTarget = selectedCustomer ? (effectivePricingDeliveryPrice ?? 0) : 0
   const summaryTotalTarget = effectivePricingTotal ?? (summarySubtotalTarget + summaryDeliveryTarget)
+  const deliveryTierValue = canRequestPricingPreview
+    ? resolvePricingTierLabel(pricingDeliveryTier)
+    : '-'
+  const deliveryEstimatedValue = canRequestPricingPreview
+    ? (pricingEstimatedDate ? formatDate(pricingEstimatedDate) : '-')
+    : '-'
   const animatedSubtotal = useAnimatedAmount(summarySubtotalTarget)
   const animatedDelivery = useAnimatedAmount(summaryDeliveryTarget)
   const animatedTotal = useAnimatedAmount(summaryTotalTarget)
@@ -583,172 +620,253 @@ export function OrderCreatePage() {
         }}
       >
         <Stack spacing={2}>
-          <Paper sx={{ p: { xs: 2, md: 2.5 } }} data-testid="orders-create-page-customer-section">
-            <Stack spacing={1.25}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {ordersUiText.createPage.sections.customer}
-              </Typography>
+          <Paper
+            variant="outlined"
+            sx={{ borderColor: 'divider', overflow: 'hidden' }}
+            data-testid="orders-create-page-main-form-card"
+          >
+            <Box sx={{ p: { xs: 2, md: 2.5 } }}>
+              <Stack spacing={1.25}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  {ordersUiText.createPage.sections.customer}
+                </Typography>
 
-              <Autocomplete
-                options={customerOptions}
-                value={selectedCustomer}
-                open={isCustomerPickerOpen}
-                disableClearable
-                forcePopupIcon={false}
-                loading={customerOptionsQuery.isLoading || customerOptionsQuery.isFetching}
-                inputValue={
-                  isCustomerPickerOpen
-                    ? customerSearch
-                    : selectedCustomer
-                      ? formatCustomerOption(selectedCustomer)
-                      : ''
-                }
-                filterOptions={(options) => options}
-                getOptionLabel={formatCustomerOption}
-                isOptionEqualToValue={(option, value) => option._id === value._id}
-                onOpen={handleOpenCustomerPicker}
-                onClose={(_, reason) => {
-                  if (reason === 'selectOption') return
-                  handleCloseCustomerPicker()
-                }}
-                onChange={(_, customer) => handleSelectCustomer(customer)}
-                onInputChange={(_, value, reason) => {
-                  if (!isCustomerPickerOpen) return
-                  if (reason === 'reset') return
-                  setCustomerSearch(value)
-                }}
-                noOptionsText={ordersUiText.dialogs.details.editCustomerNoResults}
-                loadingText={ordersUiText.dialogs.details.editCustomerLoading}
-                renderOption={(props, option, state) => {
-                  const { key, ...optionProps } = props
-                  return (
-                    <li
-                      key={key}
-                      {...optionProps}
-                      data-testid={`orders-create-page-customer-item-${state.index}`}
-                    >
-                      <Stack spacing={0.25}>
-                        <Typography
-                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                          data-testid={`orders-create-page-customer-item-${state.index}-name`}
-                        >
-                          {option.name}
-                        </Typography>
+                <Autocomplete
+                  options={customerOptions}
+                  value={selectedCustomer}
+                  open={isCustomerPickerOpen}
+                  disableClearable
+                  forcePopupIcon={false}
+                  loading={customerOptionsQuery.isLoading || customerOptionsQuery.isFetching}
+                  inputValue={
+                    isCustomerPickerOpen
+                      ? customerSearch
+                      : selectedCustomer
+                        ? formatCustomerOption(selectedCustomer)
+                        : ''
+                  }
+                  filterOptions={(options) => options}
+                  getOptionLabel={formatCustomerOption}
+                  isOptionEqualToValue={(option, value) => option._id === value._id}
+                  onOpen={handleOpenCustomerPicker}
+                  onClose={(_, reason) => {
+                    if (reason === 'selectOption') return
+                    handleCloseCustomerPicker()
+                  }}
+                  onChange={(_, customer) => handleSelectCustomer(customer)}
+                  onInputChange={(_, value, reason) => {
+                    if (!isCustomerPickerOpen) return
+                    if (reason === 'reset') return
+                    setCustomerSearch(value)
+                  }}
+                  noOptionsText={ordersUiText.dialogs.details.editCustomerNoResults}
+                  loadingText={ordersUiText.dialogs.details.editCustomerLoading}
+                  renderOption={(props, option, state) => {
+                    const { key, ...optionProps } = props
+                    return (
+                      <li
+                        key={key}
+                        {...optionProps}
+                        data-testid={`orders-create-page-customer-item-${state.index}`}
+                      >
+                        <Stack spacing={0.25}>
+                          <Typography
+                            sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`orders-create-page-customer-item-${state.index}-name`}
+                          >
+                            {option.name}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`orders-create-page-customer-item-${state.index}-email`}
+                          >
+                            {option.email}
+                          </Typography>
+                        </Stack>
+                      </li>
+                    )
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={ordersUiText.createPage.labels.customer}
+                      placeholder={ordersUiText.createPage.placeholders.customerSearch}
+                      disabled={createMutation.isPending}
+                      data-testid="orders-create-page-customer-search-input"
+                      inputProps={{
+                        ...params.inputProps,
+                        'data-testid': 'orders-create-page-customer-search-input-field',
+                        readOnly: !isCustomerPickerOpen,
+                      }}
+                    />
+                  )}
+                />
+              </Stack>
+            </Box>
+
+            <Box
+              sx={{
+                p: { xs: 2, md: 2.5 },
+                borderTop: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  alignItems={{ xs: 'flex-start', md: 'center' }}
+                  justifyContent="space-between"
+                  gap={1.25}
+                >
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {ordersUiText.createPage.sections.products}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddRoundedIcon />}
+                    onClick={handleAddSelectedVariant}
+                    disabled={!canAddSelectedVariant}
+                    data-testid="orders-create-page-add-variant-button"
+                  >
+                    {ordersUiText.createPage.actions.addVariant}
+                  </Button>
+                </Stack>
+
+                {isSettingsPending ? (
+                  <Alert severity="info" data-testid="orders-create-page-settings-loading-alert">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">
+                        {ordersUiText.dialogs.details.editProductsSettingsLoading}
+                      </Typography>
+                    </Stack>
+                  </Alert>
+                ) : null}
+
+                {isSettingsUnavailable ? (
+                  <Alert
+                    severity="warning"
+                    action={
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          void refetchSettings()
+                        }}
+                        data-testid="orders-create-page-settings-retry-button"
+                      >
+                        {ordersUiText.dialogs.details.editProductsRetry}
+                      </Button>
+                    }
+                    data-testid="orders-create-page-settings-error-alert"
+                  >
+                    {ordersUiText.errors.settingsNotFound}
+                  </Alert>
+                ) : null}
+
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gap: 1.5,
+                    gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
+                  }}
+                >
+                  <Paper variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {ordersUiText.createPage.sections.parentProducts}
+                      </Typography>
+                      <TextField
+                        value={parentProductSearch}
+                        onChange={(event) => setParentProductSearch(event.target.value)}
+                        placeholder={ordersUiText.createPage.placeholders.productSearch}
+                        data-testid="orders-create-page-parent-search-input"
+                        inputProps={{
+                          'data-testid': 'orders-create-page-parent-search-input-field',
+                        }}
+                      />
+                      <Stack
+                        spacing={0.75}
+                        sx={{ maxHeight: 320, overflowY: 'auto' }}
+                        data-testid="orders-create-page-parent-products-list"
+                      >
+                        {parentProductsQuery.isFetching ? (
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            data-testid="orders-create-page-parent-products-loading"
+                          >
+                            <CircularProgress size={14} />
+                            <Typography variant="body2" color="text.secondary">
+                              {ordersUiText.dialogs.details.editProductsLoading}
+                            </Typography>
+                          </Stack>
+                        ) : null}
+
+                        {!parentProductsQuery.isFetching && parentProductsWithActiveVariants.length === 0 ? (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            data-testid="orders-create-page-parent-products-empty"
+                          >
+                            {ordersUiText.createPage.placeholders.noParentProducts}
+                          </Typography>
+                        ) : null}
+
+                        {parentProductsWithActiveVariants.map((product, index) => {
+                          const isSelected = selectedParentProduct?._id === product._id
+                          return (
+                            <Paper
+                              key={product._id}
+                              variant="outlined"
+                              onClick={() => handleParentProductSelect(product)}
+                              sx={{
+                                p: 1,
+                                borderColor: isSelected ? 'primary.main' : 'divider',
+                                cursor: createMutation.isPending ? 'default' : 'pointer',
+                                '&:hover': {
+                                  borderColor: isSelected ? 'primary.main' : 'text.primary',
+                                },
+                              }}
+                              data-testid={`orders-create-page-parent-product-item-${index}`}
+                            >
+                              <Stack spacing={0.25}>
+                                <Typography variant="subtitle2">{product.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {product.manufacturer} | {product.category}
+                                </Typography>
+                              </Stack>
+                            </Paper>
+                          )
+                        })}
+                      </Stack>
+                    </Stack>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack spacing={1} data-testid="orders-create-page-variants-section">
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {ordersUiText.createPage.sections.variants}
+                      </Typography>
+
+                      {!selectedParentProduct ? (
                         <Typography
                           variant="body2"
                           color="text.secondary"
-                          sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                          data-testid={`orders-create-page-customer-item-${state.index}-email`}
+                          data-testid="orders-create-page-variants-no-parent-selected"
                         >
-                          {option.email}
+                          {ordersUiText.createPage.placeholders.noParentSelected}
                         </Typography>
-                      </Stack>
-                    </li>
-                  )
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={ordersUiText.createPage.labels.customer}
-                    placeholder={ordersUiText.createPage.placeholders.customerSearch}
-                    disabled={createMutation.isPending}
-                    data-testid="orders-create-page-customer-search-input"
-                    inputProps={{
-                      ...params.inputProps,
-                      'data-testid': 'orders-create-page-customer-search-input-field',
-                      readOnly: !isCustomerPickerOpen,
-                    }}
-                  />
-                )}
-              />
-            </Stack>
-          </Paper>
+                      ) : null}
 
-          <Paper sx={{ p: { xs: 2, md: 2.5 } }} data-testid="orders-create-page-products-section">
-            <Stack spacing={1.5}>
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                alignItems={{ xs: 'flex-start', md: 'center' }}
-                justifyContent="space-between"
-                gap={1.25}
-              >
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {ordersUiText.createPage.sections.products}
-                </Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddRoundedIcon />}
-                  onClick={handleAddSelectedVariant}
-                  disabled={!canAddSelectedVariant}
-                  data-testid="orders-create-page-add-variant-button"
-                >
-                  {ordersUiText.createPage.actions.addVariant}
-                </Button>
-              </Stack>
-
-              {isSettingsPending ? (
-                <Alert severity="info" data-testid="orders-create-page-settings-loading-alert">
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <CircularProgress size={16} />
-                    <Typography variant="body2">
-                      {ordersUiText.dialogs.details.editProductsSettingsLoading}
-                    </Typography>
-                  </Stack>
-                </Alert>
-              ) : null}
-
-              {isSettingsUnavailable ? (
-                <Alert
-                  severity="warning"
-                  action={
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        void refetchSettings()
-                      }}
-                      data-testid="orders-create-page-settings-retry-button"
-                    >
-                      {ordersUiText.dialogs.details.editProductsRetry}
-                    </Button>
-                  }
-                  data-testid="orders-create-page-settings-error-alert"
-                >
-                  {ordersUiText.errors.settingsNotFound}
-                </Alert>
-              ) : null}
-
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 1.5,
-                  gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
-                }}
-              >
-                <Paper variant="outlined" sx={{ p: 1.25 }}>
-                  <Stack spacing={1}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      {ordersUiText.createPage.sections.parentProducts}
-                    </Typography>
-                    <TextField
-                      value={parentProductSearch}
-                      onChange={(event) => setParentProductSearch(event.target.value)}
-                      placeholder={ordersUiText.createPage.placeholders.productSearch}
-                      data-testid="orders-create-page-parent-search-input"
-                      inputProps={{
-                        'data-testid': 'orders-create-page-parent-search-input-field',
-                      }}
-                    />
-                    <Stack
-                      spacing={0.75}
-                      sx={{ maxHeight: 320, overflowY: 'auto' }}
-                      data-testid="orders-create-page-parent-products-list"
-                    >
-                      {parentProductsQuery.isFetching ? (
+                      {selectedParentProduct && parentProductDetailsQuery.isLoading ? (
                         <Stack
                           direction="row"
                           spacing={1}
                           alignItems="center"
-                          data-testid="orders-create-page-parent-products-loading"
+                          data-testid="orders-create-page-variants-loading"
                         >
                           <CircularProgress size={14} />
                           <Typography variant="body2" color="text.secondary">
@@ -757,289 +875,229 @@ export function OrderCreatePage() {
                         </Stack>
                       ) : null}
 
-                      {!parentProductsQuery.isFetching && parentProductsWithActiveVariants.length === 0 ? (
+                      {selectedParentProduct &&
+                      !parentProductDetailsQuery.isLoading &&
+                      variantOptions.length === 0 ? (
                         <Typography
                           variant="body2"
                           color="text.secondary"
-                          data-testid="orders-create-page-parent-products-empty"
+                          data-testid="orders-create-page-variants-empty"
                         >
-                          {ordersUiText.createPage.placeholders.noParentProducts}
+                          {ordersUiText.createPage.placeholders.noVariants}
                         </Typography>
                       ) : null}
 
-                      {parentProductsWithActiveVariants.map((product, index) => {
-                        const isSelected = selectedParentProduct?._id === product._id
-                        return (
-                          <Paper
-                            key={product._id}
-                            variant="outlined"
-                            onClick={() => handleParentProductSelect(product)}
-                            sx={{
-                              p: 1,
-                              borderColor: isSelected ? 'primary.main' : 'divider',
-                              cursor: createMutation.isPending ? 'default' : 'pointer',
-                              '&:hover': {
-                                borderColor: isSelected ? 'primary.main' : 'text.primary',
-                              },
-                            }}
-                            data-testid={`orders-create-page-parent-product-item-${index}`}
-                          >
-                            <Stack spacing={0.25}>
-                              <Typography variant="subtitle2">{product.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {product.manufacturer} | {product.category}
-                              </Typography>
-                            </Stack>
-                          </Paper>
-                        )
-                      })}
-                    </Stack>
-                  </Stack>
-                </Paper>
-
-                <Paper variant="outlined" sx={{ p: 1.25 }}>
-                  <Stack spacing={1} data-testid="orders-create-page-variants-section">
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      {ordersUiText.createPage.sections.variants}
-                    </Typography>
-
-                    {!selectedParentProduct ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid="orders-create-page-variants-no-parent-selected"
-                      >
-                        {ordersUiText.createPage.placeholders.noParentSelected}
-                      </Typography>
-                    ) : null}
-
-                    {selectedParentProduct && parentProductDetailsQuery.isLoading ? (
                       <Stack
-                        direction="row"
-                        spacing={1}
-                        alignItems="center"
-                        data-testid="orders-create-page-variants-loading"
+                        spacing={0.75}
+                        sx={{ maxHeight: 320, overflowY: 'auto' }}
+                        data-testid="orders-create-page-variants-list"
                       >
-                        <CircularProgress size={14} />
-                        <Typography variant="body2" color="text.secondary">
-                          {ordersUiText.dialogs.details.editProductsLoading}
-                        </Typography>
-                      </Stack>
-                    ) : null}
-
-                    {selectedParentProduct &&
-                    !parentProductDetailsQuery.isLoading &&
-                    variantOptions.length === 0 ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid="orders-create-page-variants-empty"
-                      >
-                        {ordersUiText.createPage.placeholders.noVariants}
-                      </Typography>
-                    ) : null}
-
-                    <Stack
-                      spacing={0.75}
-                      sx={{ maxHeight: 320, overflowY: 'auto' }}
-                      data-testid="orders-create-page-variants-list"
-                    >
-                      {variantOptions.map((variant, index) => {
-                        const product = parentProductDetailsQuery.data
-                        const variantId = variant._id
-                        if (!variantId || !product) return null
-                        const isSelected = selectedVariantIds.includes(variantId)
-                        const isAlreadyAdded = selectedRows.some(
-                          (row) => row.productId === product._id && row.variantId === variantId,
-                        )
-                        return (
-                          <Paper
-                            key={variantId}
-                            variant="outlined"
-                            onClick={() =>
-                              setSelectedVariantIds((current) =>
-                                current.includes(variantId)
-                                  ? current.filter((id) => id !== variantId)
-                                  : [...current, variantId],
-                              )
-                            }
-                            sx={{
-                              p: 1,
-                              borderColor: isSelected
-                                ? 'primary.main'
-                                : isAlreadyAdded
-                                  ? 'success.main'
-                                  : 'divider',
-                              cursor: createMutation.isPending ? 'default' : 'pointer',
-                              '&:hover': {
+                        {variantOptions.map((variant, index) => {
+                          const product = parentProductDetailsQuery.data
+                          const variantId = variant._id
+                          if (!variantId || !product) return null
+                          const isSelected = selectedVariantIds.includes(variantId)
+                          const isAlreadyAdded = selectedRows.some(
+                            (row) => row.productId === product._id && row.variantId === variantId,
+                          )
+                          return (
+                            <Paper
+                              key={variantId}
+                              variant="outlined"
+                              onClick={() =>
+                                setSelectedVariantIds((current) =>
+                                  current.includes(variantId)
+                                    ? current.filter((id) => id !== variantId)
+                                    : [...current, variantId],
+                                )
+                              }
+                              sx={{
+                                p: 1,
                                 borderColor: isSelected
                                   ? 'primary.main'
                                   : isAlreadyAdded
                                     ? 'success.main'
-                                    : 'text.primary',
-                              },
-                            }}
-                            data-testid={`orders-create-page-variant-item-${index}`}
-                          >
-                            <Stack spacing={0.25}>
-                              <Typography variant="subtitle2">
-                                {buildVariantLabel(variant, product)}
+                                    : 'divider',
+                                cursor: createMutation.isPending ? 'default' : 'pointer',
+                                '&:hover': {
+                                  borderColor: isSelected
+                                    ? 'primary.main'
+                                    : isAlreadyAdded
+                                      ? 'success.main'
+                                      : 'text.primary',
+                                },
+                              }}
+                              data-testid={`orders-create-page-variant-item-${index}`}
+                            >
+                              <Stack spacing={0.25}>
+                                <Typography variant="subtitle2">
+                                  {buildVariantLabel(variant, product)}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {formatPrice(variant.price)}
+                                </Typography>
+                              </Stack>
+                            </Paper>
+                          )
+                        })}
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                </Box>
+
+                <Paper variant="outlined" sx={{ p: 1.25 }} data-testid="orders-create-page-selected-products-section">
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {ordersUiText.createPage.sections.selectedProducts}
+                    </Typography>
+
+                    {!hasSelectedRows ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        data-testid="orders-create-page-selected-products-empty"
+                      >
+                        {ordersUiText.createPage.placeholders.noSelectedProducts}
+                      </Typography>
+                    ) : null}
+
+                    <Stack spacing={0.75}>
+                      {selectedRows.map((row, index) => (
+                        <Paper
+                          key={row.rowId}
+                          variant="outlined"
+                          sx={{ p: 1 }}
+                          data-testid={`orders-create-page-selected-row-${index}`}
+                        >
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography
+                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                                data-testid={`orders-create-page-selected-row-${index}-summary`}
+                              >
+                                {row.productName} | {row.variantLabel}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {formatPrice(variant.price)}
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                data-testid={`orders-create-page-selected-row-${index}-price`}
+                              >
+                                {formatPrice(row.unitPrice)}
                               </Typography>
-                            </Stack>
-                          </Paper>
-                        )
-                      })}
+                            </Box>
+
+                            <OrderProductQuantityControl
+                              value={row.quantity}
+                              min={1}
+                              max={maxProductQuantityInOrder ?? 1}
+                              disabled={!hasValidSettings || createMutation.isPending}
+                              onChange={(nextValue) => handleQuantityChange(row.rowId, nextValue)}
+                              testIdPrefix={`orders-create-page-selected-row-${index}`}
+                            />
+
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleRemoveRow(row.rowId)}
+                              disabled={createMutation.isPending}
+                              data-testid={`orders-create-page-selected-row-${index}-delete-button`}
+                            >
+                              <DeleteOutlineOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </Paper>
+                      ))}
                     </Stack>
                   </Stack>
                 </Paper>
-              </Box>
-
-              <Paper variant="outlined" sx={{ p: 1.25 }} data-testid="orders-create-page-selected-products-section">
-                <Stack spacing={1}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    {ordersUiText.createPage.sections.selectedProducts}
-                  </Typography>
-
-                  {!hasSelectedRows ? (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      data-testid="orders-create-page-selected-products-empty"
-                    >
-                      {ordersUiText.createPage.placeholders.noSelectedProducts}
-                    </Typography>
-                  ) : null}
-
-                  <Stack spacing={0.75}>
-                    {selectedRows.map((row, index) => (
-                      <Paper
-                        key={row.rowId}
-                        variant="outlined"
-                        sx={{ p: 1 }}
-                        data-testid={`orders-create-page-selected-row-${index}`}
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography
-                              sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                              data-testid={`orders-create-page-selected-row-${index}-summary`}
-                            >
-                              {row.productName} | {row.variantLabel}
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              data-testid={`orders-create-page-selected-row-${index}-price`}
-                            >
-                              {formatPrice(row.unitPrice)}
-                            </Typography>
-                          </Box>
-
-                          <OrderProductQuantityControl
-                            value={row.quantity}
-                            min={1}
-                            max={maxProductQuantityInOrder ?? 1}
-                            disabled={!hasValidSettings || createMutation.isPending}
-                            onChange={(nextValue) => handleQuantityChange(row.rowId, nextValue)}
-                            testIdPrefix={`orders-create-page-selected-row-${index}`}
-                          />
-
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleRemoveRow(row.rowId)}
-                            disabled={createMutation.isPending}
-                            data-testid={`orders-create-page-selected-row-${index}-delete-button`}
-                          >
-                            <DeleteOutlineOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Stack>
-              </Paper>
-            </Stack>
-          </Paper>
-
-          <Paper sx={{ p: { xs: 2, md: 2.5 } }} data-testid="orders-create-page-delivery-section">
-            <Stack spacing={1.25}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {ordersUiText.createPage.sections.delivery}
-                </Typography>
-                <Chip
-                  label={ordersUiText.createPage.labels.deliveryStatus}
-                  color="warning"
-                  variant="outlined"
-                  data-testid="orders-create-page-delivery-status-chip"
-                />
               </Stack>
+            </Box>
 
-              {!selectedCustomer ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  data-testid="orders-create-page-delivery-empty-placeholder"
-                >
-                  {ordersUiText.createPage.placeholders.noDeliveryAddress}
-                </Typography>
-              ) : (
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gap: 1.25,
-                    gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                  }}
-                >
-                  <TextField
-                    label={ordersUiText.createPage.labels.state}
-                    value={selectedCustomer.state}
-                    InputProps={{ readOnly: true }}
-                    data-testid="orders-create-page-delivery-state-input"
-                    inputProps={{ 'data-testid': 'orders-create-page-delivery-state-input-field' }}
+            <Box
+              sx={{
+                p: { xs: 2, md: 2.5 },
+                borderTop: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <Stack spacing={1.25}>
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {ordersUiText.createPage.sections.delivery}
+                  </Typography>
+                  <Chip
+                    label={ordersUiText.createPage.labels.deliveryStatus}
+                    color="warning"
+                    variant="outlined"
+                    data-testid="orders-create-page-delivery-status-chip"
                   />
-                  <TextField
-                    label={ordersUiText.createPage.labels.city}
-                    value={selectedCustomer.city}
-                    InputProps={{ readOnly: true }}
-                    data-testid="orders-create-page-delivery-city-input"
-                    inputProps={{ 'data-testid': 'orders-create-page-delivery-city-input-field' }}
-                  />
-                  <TextField
-                    label={ordersUiText.createPage.labels.street}
-                    value={selectedCustomer.street}
-                    InputProps={{ readOnly: true }}
-                    data-testid="orders-create-page-delivery-street-input"
-                    inputProps={{ 'data-testid': 'orders-create-page-delivery-street-input-field' }}
-                  />
-                  <TextField
-                    label={ordersUiText.createPage.labels.house}
-                    value={selectedCustomer.house}
-                    InputProps={{ readOnly: true }}
-                    data-testid="orders-create-page-delivery-house-input"
-                    inputProps={{ 'data-testid': 'orders-create-page-delivery-house-input-field' }}
-                  />
-                  <TextField
-                    label={ordersUiText.createPage.labels.apartment}
-                    value={selectedCustomer.apartment ?? '-'}
-                    InputProps={{ readOnly: true }}
-                    data-testid="orders-create-page-delivery-apartment-input"
-                    inputProps={{ 'data-testid': 'orders-create-page-delivery-apartment-input-field' }}
-                  />
-                  <TextField
-                    label={ordersUiText.createPage.labels.zipCode}
-                    value={selectedCustomer.zipCode}
-                    InputProps={{ readOnly: true }}
-                    data-testid="orders-create-page-delivery-zip-code-input"
-                    inputProps={{ 'data-testid': 'orders-create-page-delivery-zip-code-input-field' }}
-                  />
-                </Box>
-              )}
-            </Stack>
+                </Stack>
+
+                {!selectedCustomer ? (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    data-testid="orders-create-page-delivery-empty-placeholder"
+                  >
+                    {ordersUiText.createPage.placeholders.noDeliveryAddress}
+                  </Typography>
+                ) : (
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gap: 1.25,
+                      gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
+                    }}
+                  >
+                    <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                      <Stack spacing={0.75}>
+                        <Typography fontWeight={700}>Delivery Address</Typography>
+                        <Chip
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={ordersUiText.detailsPage.placeholders.deliveryAddressSourceCustomer}
+                          sx={{ alignSelf: 'flex-start' }}
+                        />
+                        <Typography>{resolveCustomerAddressPrimaryLine(selectedCustomer)}</Typography>
+                        <Typography>{resolveCustomerAddressSecondaryLine(selectedCustomer)}</Typography>
+                      </Stack>
+                    </Paper>
+
+                    <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.25 } }}>
+                      <Stack spacing={1}>
+                        <Typography fontWeight={700}>Delivery Details</Typography>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gap: 0.75,
+                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+                          }}
+                        >
+                          <Stack spacing={0.25}>
+                            <Typography variant="caption" color="text.secondary">
+                              Tier
+                            </Typography>
+                            <Typography data-testid="orders-create-page-delivery-tier-value">
+                              {deliveryTierValue}
+                            </Typography>
+                          </Stack>
+
+                          <Stack spacing={0.25}>
+                            <Typography variant="caption" color="text.secondary">
+                              Estimated
+                            </Typography>
+                            <Typography data-testid="orders-create-page-delivery-estimated-value">
+                              {deliveryEstimatedValue}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    </Paper>
+                  </Box>
+                )}
+              </Stack>
+            </Box>
           </Paper>
         </Stack>
 

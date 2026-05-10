@@ -206,11 +206,16 @@ Top-level source layout:
   - `components/OrdersFilterChips.tsx` - orders-only chip row for search/status/deliveryStatus filters with per-chip removal
   - `pages/OrderCreatePage.tsx` - dedicated create page at `#/orders/add`:
     - customer selection uses searchable MUI `Autocomplete`;
+    - left-side form is rendered as a single outlined surface with semantic sections (`Customer`, `Products`, `Delivery Information`) separated by internal borders;
     - products flow is two-step: parent products list -> variants list;
     - variants support multi-select and batch add (`Add Selected Variants`);
     - selected product rows include quantity controls and remove action;
     - duplicate selected rows by `productId + variantId` are blocked;
     - delivery section is read-only and sourced from selected customer (empty placeholder before customer selection);
+    - `Delivery Information` header keeps `Draft` status chip inline with the title;
+    - delivery preview uses two read-only cards:
+      - `Delivery Address` (customer address source and address lines);
+      - `Delivery Details` (`Tier`, `Estimated`) sourced from pricing preview response when available;
     - pricing preview uses debounce after product/quantity changes:
       - products-only before customer selection;
       - products + delivery after customer selection;
