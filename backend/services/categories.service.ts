@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { ClientSession, Types } from "mongoose";
 import { ICategoryNode } from "../data/types";
 import { CategoryFlatNodeDTO, CategoryNodeDTO, CategoryNodePathItemDTO } from "../data/types/dto/categories.dto";
 import { getTodaysDate } from "../utils/utils";
@@ -168,14 +168,14 @@ class CategoriesService {
     return { isValid: true };
   }
 
-  private async persistTree(tree: TreeDocument): Promise<TreeDocument> {
+  private async persistTree(tree: TreeDocument, session?: ClientSession): Promise<TreeDocument> {
     const updated = await CategoryTreeModel.findByIdAndUpdate(
       tree._id,
       {
         nodes: tree.nodes,
         updatedOn: getTodaysDate(true),
       },
-      { new: true },
+      { new: true, session },
     )
       .lean()
       .exec();
@@ -184,14 +184,16 @@ class CategoriesService {
 
   async getTree(): Promise<CategoryNodeDTO[]> {
     const tree = await this.getOrCreateTree();
-    this.sortNodesByName(tree.nodes);
-    return tree.nodes.map((node) => this.toNodeDTO(node));
+    const nodes = structuredClone(tree.nodes);
+    this.sortNodesByName(nodes);
+    return nodes.map((node) => this.toNodeDTO(node));
   }
 
   async getFlat(): Promise<CategoryFlatNodeDTO[]> {
     const tree = await this.getOrCreateTree();
-    this.sortNodesByName(tree.nodes);
-    return this.flattenNodes(tree.nodes);
+    const nodes = structuredClone(tree.nodes);
+    this.sortNodesByName(nodes);
+    return this.flattenNodes(nodes);
   }
 
   async getNodeById(categoryId: string): Promise<CategoryNodeDTO | null> {
@@ -415,15 +417,29 @@ class CategoriesService {
 
     const newRootId = targetContext ? targetContext.root._id?.toString?.() ?? "" : sourceNode._id?.toString?.() ?? "";
 
-    if (oldRootId !== newRootId) {
-      const descendantObjectIds = [...descendantIds].map((id) => new Types.ObjectId(id));
-      await Product.updateMany(
-        { categoryId: { $in: descendantObjectIds } },
-        { $set: { rootCategoryId: new Types.ObjectId(newRootId) } },
-      ).exec();
+    let updatedTree: TreeDocument | null = null;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (oldRootId !== newRootId) {
+          const descendantObjectIds = [...descendantIds].map((id) => new Types.ObjectId(id));
+          await Product.updateMany(
+            { categoryId: { $in: descendantObjectIds } },
+            { $set: { rootCategoryId: new Types.ObjectId(newRootId) } },
+            { session },
+          ).exec();
+        }
+
+        updatedTree = await this.persistTree(tree, session);
+      });
+    } finally {
+      await session.endSession();
     }
 
-    const updatedTree = await this.persistTree(tree);
+    if (!updatedTree) {
+      return { error: "Failed to move category", statusCode: 500 };
+    }
+
     const updatedContext = this.findNodeContext(updatedTree.nodes, categoryId);
     return {
       node: updatedContext ? this.toNodeDTO(updatedContext.node) : undefined,
