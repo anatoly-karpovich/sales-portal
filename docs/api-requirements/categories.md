@@ -9,9 +9,7 @@
 | Base path | `/api/categories` |
 | Auth | Required |
 | Persistence model | Singleton document in `CategoryTree` collection |
-| Node statuses | `Active`, `Archived` |
-| Node creation | Always created as `Active` |
-| Settings field | Not used in current model |
+| Category nature | Structural tree nodes without status field |
 
 ## Category Tree Contract
 
@@ -28,7 +26,6 @@ CategoryNode {
   slug: string; // globally unique, case-insensitive
   description?: string;
   imageUrl?: string;
-  status: "Active" | "Archived";
   children: CategoryNode[];
   createdOn: Date;
   updatedOn: Date;
@@ -42,23 +39,11 @@ CategoryNode {
 | GET | `/api/categories/tree` | Returns nested category tree. |
 | GET | `/api/categories/flat` | Returns flattened list with path metadata. |
 | GET | `/api/categories/nodes/:categoryId` | Returns one node by id. |
-| POST | `/api/categories/nodes` | Creates category node (`status` always `Active`). |
+| POST | `/api/categories/nodes` | Creates category node. |
 | PATCH | `/api/categories/nodes/:categoryId` | Updates node fields (`name`, `slug`, `description`, `imageUrl`). |
-| PATCH | `/api/categories/nodes/:categoryId/status` | Changes status (`Active <-> Archived`). |
 | POST | `/api/categories/nodes/:categoryId/move` | Moves node to another parent or root. |
 | DELETE | `/api/categories/nodes/:categoryId` | Deletes node if guards pass. |
 | GET | `/api/categories/nodes/:categoryId/products` | Returns products in node subtree. |
-
-## Query Parameters
-
-### `GET /api/categories/tree`
-- `includeArchived` (optional, default `true`)
-  - `true`: return all nodes
-  - `false`: prune archived branches
-
-### `GET /api/categories/flat`
-- `status` (optional, default `Active`)
-  - `Active`, `Archived`, `All`
 
 ## Validation Rules
 
@@ -67,18 +52,10 @@ CategoryNode {
 - `slug` is optional; when omitted it is generated from `name`.
 - slug must be globally unique (case-insensitive).
 - `parentId` is optional; when provided parent must exist.
-- created node status is always `Active`.
 
 ### Update node
 - node must exist.
 - `slug` (if provided) must remain globally unique.
-- archived nodes can still be edited.
-
-### Status update
-- node must exist.
-- allowed transitions:
-  - `Active -> Archived`
-  - `Archived -> Active`
 
 ### Delete node
 - blocked when node has children.

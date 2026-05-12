@@ -180,7 +180,6 @@ Categories:
 - `GET /categories/nodes/:categoryId`
 - `POST /categories/nodes`
 - `PATCH /categories/nodes/:categoryId`
-- `PATCH /categories/nodes/:categoryId/status`
 - `POST /categories/nodes/:categoryId/move`
 - `GET /categories/nodes/:categoryId/products`
 - `DELETE /categories/nodes/:categoryId`

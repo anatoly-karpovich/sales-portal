@@ -273,14 +273,14 @@ function normalizeVariantsForReplace(params: {
 async function validateNextProductPayload(
   nextProduct: MutableProduct,
   res: Response<BaseResponseDTO>,
-  options: { validateCategoryIsActive: boolean },
+  options: { validateCategoryExists: boolean },
 ): Promise<Response<BaseResponseDTO> | null> {
   if (!Types.ObjectId.isValid(nextProduct.categoryId.toString())) {
     return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
   }
 
-  if (options.validateCategoryIsActive) {
-    const categoryValidation = await CategoriesService.validateCategoryCanBeUsed(nextProduct.categoryId.toString());
+  if (options.validateCategoryExists) {
+    const categoryValidation = await CategoriesService.validateCategoryExists(nextProduct.categoryId.toString());
     if (categoryValidation.isValid === false) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: categoryValidation.error });
     }
@@ -420,7 +420,7 @@ export async function productCreateOrReplaceValidations(
     } as MutableProduct);
 
     const validationResponse = await validateNextProductPayload(normalizedPayload, res, {
-      validateCategoryIsActive: true,
+      validateCategoryExists: true,
     });
     if (validationResponse) {
       return validationResponse;
@@ -461,7 +461,7 @@ export async function productPatchValidations(
     } as MutableProduct);
 
     const validationResponse = await validateNextProductPayload(nextProduct, res, {
-      validateCategoryIsActive: typeof req.body.categoryId === "string",
+      validateCategoryExists: typeof req.body.categoryId === "string",
     });
     if (validationResponse) {
       return validationResponse;
@@ -524,7 +524,7 @@ export async function productVariantPatchValidations(
     });
 
     const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
-      validateCategoryIsActive: false,
+      validateCategoryExists: false,
     });
     if (validationResponse) {
       return validationResponse;
@@ -560,7 +560,7 @@ export async function productVariantsCreateValidations(
     });
 
     const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
-      validateCategoryIsActive: false,
+      validateCategoryExists: false,
     });
     if (validationResponse) {
       return validationResponse;
@@ -614,7 +614,7 @@ export async function productVariantsReplaceValidations(
       variants: normalizedVariants,
     });
     const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
-      validateCategoryIsActive: false,
+      validateCategoryExists: false,
     });
     if (validationResponse) {
       return validationResponse;
@@ -661,7 +661,7 @@ export async function productVariantsValidate(
       variants: normalizedVariants,
     });
     const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
-      validateCategoryIsActive: false,
+      validateCategoryExists: false,
     });
     if (validationResponse) {
       return validationResponse;

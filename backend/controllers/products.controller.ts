@@ -57,7 +57,7 @@ class ProductsController {
   }
 
   private async buildCategoryLookup(): Promise<Map<string, CategoryLookupItem>> {
-    const categories = await CategoriesService.getFlat({ status: "All" });
+    const categories = await CategoriesService.getFlat();
     return new Map(
       categories.map((category) => [
         category._id,

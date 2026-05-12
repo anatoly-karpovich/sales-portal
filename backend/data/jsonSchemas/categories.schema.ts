@@ -1,5 +1,4 @@
 import { AllowedSchema } from "express-json-validator-middleware";
-import { CATEGORY_STATUSES } from "../enums";
 
 export const categoryCreateSchema: AllowedSchema = {
   type: "object",
@@ -23,15 +22,6 @@ export const categoryPatchSchema: AllowedSchema = {
     imageUrl: { type: "string" },
   },
   minProperties: 1,
-  additionalProperties: false,
-};
-
-export const categoryStatusPatchSchema: AllowedSchema = {
-  type: "object",
-  properties: {
-    status: { type: "string", enum: Object.values(CATEGORY_STATUSES) },
-  },
-  required: ["status"],
   additionalProperties: false,
 };
 

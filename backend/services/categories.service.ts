@@ -1,5 +1,4 @@
 import { Types } from "mongoose";
-import { CATEGORY_STATUSES } from "../data/enums";
 import { ICategoryNode } from "../data/types";
 import { CategoryFlatNodeDTO, CategoryNodeDTO, CategoryNodePathItemDTO } from "../data/types/dto/categories.dto";
 import { getTodaysDate } from "../utils/utils";
@@ -21,11 +20,6 @@ type TreeDocument = {
   nodes: MutableCategoryNode[];
   createdOn: string;
   updatedOn: string;
-};
-
-const CATEGORY_STATUS_TRANSITIONS: Record<CATEGORY_STATUSES, CATEGORY_STATUSES[]> = {
-  [CATEGORY_STATUSES.ACTIVE]: [CATEGORY_STATUSES.ARCHIVED],
-  [CATEGORY_STATUSES.ARCHIVED]: [CATEGORY_STATUSES.ACTIVE],
 };
 
 class CategoriesService {
@@ -84,7 +78,6 @@ class CategoriesService {
       slug: node.slug,
       description: node.description,
       imageUrl: node.imageUrl,
-      status: node.status,
       children: (node.children ?? []).map((child) => this.toNodeDTO(child)),
       createdOn: (node.createdOn as any) instanceof Date ? (node.createdOn as any).toISOString() : node.createdOn,
       updatedOn: (node.updatedOn as any) instanceof Date ? (node.updatedOn as any).toISOString() : node.updatedOn,
@@ -108,7 +101,6 @@ class CategoriesService {
         slug: node.slug,
         description: node.description,
         imageUrl: node.imageUrl,
-        status: node.status,
         parentId,
         path: nodePath,
         createdOn: (node.createdOn as any) instanceof Date ? (node.createdOn as any).toISOString() : node.createdOn,
@@ -148,15 +140,6 @@ class CategoriesService {
   private collectDescendantIds(node: MutableCategoryNode): string[] {
     const childIds = (node.children ?? []).flatMap((child) => this.collectDescendantIds(child));
     return [node._id?.toString?.() ?? "", ...childIds].filter(Boolean);
-  }
-
-  private pruneArchived(nodes: MutableCategoryNode[]): MutableCategoryNode[] {
-    return nodes
-      .filter((node) => node.status !== CATEGORY_STATUSES.ARCHIVED)
-      .map((node) => ({
-        ...node,
-        children: this.pruneArchived(node.children ?? []),
-      }));
   }
 
   private sortNodesByName(nodes: MutableCategoryNode[]) {
@@ -199,21 +182,16 @@ class CategoriesService {
     return updated as unknown as TreeDocument;
   }
 
-  async getTree(options: { includeArchived: boolean }): Promise<CategoryNodeDTO[]> {
-    const tree = await this.getOrCreateTree();
-    const nodes = options.includeArchived ? tree.nodes : this.pruneArchived(tree.nodes);
-    this.sortNodesByName(nodes);
-    return nodes.map((node) => this.toNodeDTO(node));
-  }
-
-  async getFlat(options: { status: CATEGORY_STATUSES | "All" }): Promise<CategoryFlatNodeDTO[]> {
+  async getTree(): Promise<CategoryNodeDTO[]> {
     const tree = await this.getOrCreateTree();
     this.sortNodesByName(tree.nodes);
-    const flattened = this.flattenNodes(tree.nodes);
-    if (options.status === "All") {
-      return flattened;
-    }
-    return flattened.filter((node) => node.status === options.status);
+    return tree.nodes.map((node) => this.toNodeDTO(node));
+  }
+
+  async getFlat(): Promise<CategoryFlatNodeDTO[]> {
+    const tree = await this.getOrCreateTree();
+    this.sortNodesByName(tree.nodes);
+    return this.flattenNodes(tree.nodes);
   }
 
   async getNodeById(categoryId: string): Promise<CategoryNodeDTO | null> {
@@ -250,14 +228,11 @@ class CategoriesService {
     return this.collectDescendantIds(context.node);
   }
 
-  async validateCategoryCanBeUsed(categoryId: string): Promise<{ isValid: true } | { isValid: false; error: string }> {
+  async validateCategoryExists(categoryId: string): Promise<{ isValid: true } | { isValid: false; error: string }> {
     const tree = await this.getOrCreateTree();
     const context = this.findNodeContext(tree.nodes, categoryId);
     if (!context) {
       return { isValid: false, error: `Category with id '${categoryId}' wasn't found` };
-    }
-    if (context.node.status !== CATEGORY_STATUSES.ACTIVE) {
-      return { isValid: false, error: `Category with id '${categoryId}' is archived` };
     }
     return { isValid: true };
   }
@@ -301,7 +276,6 @@ class CategoriesService {
       slug: normalizedSlug,
       description: this.normalizeOptionalText(payload.description),
       imageUrl: this.normalizeOptionalText(payload.imageUrl),
-      status: CATEGORY_STATUSES.ACTIVE,
       children: [],
       createdOn: now,
       updatedOn: now,
@@ -361,30 +335,6 @@ class CategoriesService {
 
     context.node.updatedOn = getTodaysDate(true);
     this.sortNodesByName(tree.nodes);
-    const updatedTree = await this.persistTree(tree);
-    const updatedContext = this.findNodeContext(updatedTree.nodes, categoryId);
-    return {
-      node: updatedContext ? this.toNodeDTO(updatedContext.node) : undefined,
-    };
-  }
-
-  async patchStatus(
-    categoryId: string,
-    status: CATEGORY_STATUSES,
-  ): Promise<{ node?: CategoryNodeDTO; error?: string; statusCode?: number }> {
-    const tree = await this.getOrCreateTree();
-    const context = this.findNodeContext(tree.nodes, categoryId);
-    if (!context) {
-      return { error: `Category with id '${categoryId}' wasn't found`, statusCode: 404 };
-    }
-
-    const allowed = CATEGORY_STATUS_TRANSITIONS[context.node.status] ?? [];
-    if (!allowed.includes(status)) {
-      return { error: "Invalid category status transition", statusCode: 400 };
-    }
-
-    context.node.status = status;
-    context.node.updatedOn = getTodaysDate(true);
     const updatedTree = await this.persistTree(tree);
     const updatedContext = this.findNodeContext(updatedTree.nodes, categoryId);
     return {

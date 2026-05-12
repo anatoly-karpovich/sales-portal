@@ -30,7 +30,6 @@ import {
   categoryCreateSchema,
   categoryMoveSchema,
   categoryPatchSchema,
-  categoryStatusPatchSchema,
 } from "./categories.schema";
 
 export {
@@ -61,6 +60,5 @@ export {
   settingsUpdateSchema,
   categoryCreateSchema,
   categoryPatchSchema,
-  categoryStatusPatchSchema,
   categoryMoveSchema,
 };

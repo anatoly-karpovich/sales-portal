@@ -49,7 +49,7 @@ Rules:
 - `POST /api/products/:productId/variants`, `PUT /api/products/:productId/variants`, and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
 - duplicate-like validation conflicts are returned as `409` (duplicate product name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload).
 - non-status endpoints do not accept `status` in payloads; status changes are allowed only via dedicated status endpoints.
-- create/update validates `categoryId` existence and requires category status `Active`.
+- create/update validates `categoryId` existence.
 - `rootCategoryId` is computed by backend from category tree and never trusted from request payload.
 
 ## Endpoints

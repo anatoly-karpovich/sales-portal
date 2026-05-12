@@ -1,6 +1,5 @@
 import mongoose, { Types } from "mongoose";
 import { DocumentResult } from ".";
-import { CATEGORY_STATUSES } from "../enums";
 
 export interface ICategoryNode {
   _id?: Types.ObjectId;
@@ -8,7 +7,6 @@ export interface ICategoryNode {
   slug: string;
   description?: string;
   imageUrl?: string;
-  status: CATEGORY_STATUSES;
   children: ICategoryNode[];
   createdOn: string;
   updatedOn: string;

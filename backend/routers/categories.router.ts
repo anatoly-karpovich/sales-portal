@@ -24,12 +24,6 @@ categoriesRouter.patch(
   schemaMiddleware("categoryPatchSchema"),
   CategoriesController.patchNode.bind(CategoriesController),
 );
-categoriesRouter.patch(
-  "/categories/nodes/:categoryId/status",
-  authmiddleware,
-  schemaMiddleware("categoryStatusPatchSchema"),
-  CategoriesController.patchStatus.bind(CategoriesController),
-);
 categoriesRouter.post(
   "/categories/nodes/:categoryId/move",
   authmiddleware,
@@ -63,14 +57,13 @@ categoriesRouter.delete(
  *         slug: { type: string }
  *     CategoryNode:
  *       type: object
- *       required: [_id, name, slug, status, children, createdOn, updatedOn]
+ *       required: [_id, name, slug, children, createdOn, updatedOn]
  *       properties:
  *         _id: { type: string }
  *         name: { type: string }
  *         slug: { type: string }
  *         description: { type: string }
  *         imageUrl: { type: string }
- *         status: { type: string, enum: [Active, Archived] }
  *         children:
  *           type: array
  *           items:
@@ -80,14 +73,13 @@ categoriesRouter.delete(
  *         updatedOn: { type: string, format: date-time }
  *     CategoryFlatNode:
  *       type: object
- *       required: [_id, name, slug, status, path, createdOn, updatedOn]
+ *       required: [_id, name, slug, path, createdOn, updatedOn]
  *       properties:
  *         _id: { type: string }
  *         name: { type: string }
  *         slug: { type: string }
  *         description: { type: string }
  *         imageUrl: { type: string }
- *         status: { type: string, enum: [Active, Archived] }
  *         parentId: { type: string }
  *         path:
  *           type: array
@@ -112,13 +104,6 @@ categoriesRouter.delete(
  *         slug: { type: string, minLength: 1 }
  *         description: { type: string }
  *         imageUrl: { type: string }
- *     CategoryStatusPatchPayload:
- *       type: object
- *       required: [status]
- *       properties:
- *         status:
- *           type: string
- *           enum: [Active, Archived]
  *     CategoryMovePayload:
  *       type: object
  *       required: [targetParentId]
@@ -170,7 +155,6 @@ categoriesRouter.delete(
  *           _id: "68222e58c511980d79eaaf80"
  *           name: "Laptops"
  *           slug: "laptops"
- *           status: "Active"
  *           children: []
  *           createdOn: "2026-05-13T10:25:00.000Z"
  *           updatedOn: "2026-05-13T10:25:00.000Z"
@@ -204,14 +188,6 @@ categoriesRouter.delete(
  *     tags: [Categories]
  *     security:
  *       - BearerAuth: []
- *     parameters:
- *       - in: query
- *         name: includeArchived
- *         required: false
- *         schema:
- *           type: boolean
- *           default: true
- *         description: Include archived categories in tree response
  *     responses:
  *       200:
  *         description: Categories tree
@@ -233,15 +209,6 @@ categoriesRouter.delete(
  *     tags: [Categories]
  *     security:
  *       - BearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         required: false
- *         schema:
- *           type: string
- *           enum: [Active, Archived, All]
- *           default: Active
- *         description: Filter flat list by status
  *     responses:
  *       200:
  *         description: Flat categories list
@@ -409,51 +376,6 @@ categoriesRouter.delete(
  *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  *       409:
  *         description: Delete guard conflict (node has children or is used by products)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/CategoryApiErrorResponse'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/CategoryApiErrorResponse'
- * /api/categories/nodes/{categoryId}/status:
- *   patch:
- *     summary: Patch category status
- *     tags: [Categories]
- *     parameters:
- *       - in: path
- *         name: categoryId
- *         required: true
- *         schema:
- *           type: string
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CategoryStatusPatchPayload'
- *     responses:
- *       200:
- *         description: Category status updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/CategoryNodeResponse'
- *       400:
- *         description: Validation error or invalid status transition
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/CategoryApiErrorResponse'
- *       401:
- *         description: Unauthorized, missing or invalid token
- *       404:
- *         description: Category not found
  *         content:
  *           application/json:
  *             schema:

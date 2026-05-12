@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { CATEGORY_STATUSES } from "../data/enums";
 import { ICategoryTreeDocument } from "../data/types";
 
 const categoryNodeSchema = new mongoose.Schema(
@@ -8,7 +7,6 @@ const categoryNodeSchema = new mongoose.Schema(
     slug: { type: String, required: true },
     description: { type: String, required: false },
     imageUrl: { type: String, required: false },
-    status: { type: String, enum: Object.values(CATEGORY_STATUSES), required: true },
     createdOn: { type: Date, required: true },
     updatedOn: { type: Date, required: true },
   },
