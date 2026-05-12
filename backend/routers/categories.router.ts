@@ -54,6 +54,13 @@ categoriesRouter.delete(
  *     description: Category tree management
  * components:
  *   schemas:
+ *     CategoryPathItem:
+ *       type: object
+ *       required: [_id, name, slug]
+ *       properties:
+ *         _id: { type: string }
+ *         name: { type: string }
+ *         slug: { type: string }
  *     CategoryNode:
  *       type: object
  *       required: [_id, name, slug, status, children, createdOn, updatedOn]
@@ -68,8 +75,129 @@ categoriesRouter.delete(
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/CategoryNode'
+ *           example: []
  *         createdOn: { type: string, format: date-time }
  *         updatedOn: { type: string, format: date-time }
+ *     CategoryFlatNode:
+ *       type: object
+ *       required: [_id, name, slug, status, path, createdOn, updatedOn]
+ *       properties:
+ *         _id: { type: string }
+ *         name: { type: string }
+ *         slug: { type: string }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         status: { type: string, enum: [Active, Archived] }
+ *         parentId: { type: string }
+ *         path:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CategoryPathItem'
+ *         createdOn: { type: string, format: date-time }
+ *         updatedOn: { type: string, format: date-time }
+ *     CategoryCreatePayload:
+ *       type: object
+ *       required: [name]
+ *       properties:
+ *         name: { type: string, minLength: 1 }
+ *         slug: { type: string, minLength: 1 }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         parentId: { type: string, minLength: 1 }
+ *     CategoryPatchPayload:
+ *       type: object
+ *       minProperties: 1
+ *       properties:
+ *         name: { type: string, minLength: 1 }
+ *         slug: { type: string, minLength: 1 }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *     CategoryStatusPatchPayload:
+ *       type: object
+ *       required: [status]
+ *       properties:
+ *         status:
+ *           type: string
+ *           enum: [Active, Archived]
+ *     CategoryMovePayload:
+ *       type: object
+ *       required: [targetParentId]
+ *       properties:
+ *         targetParentId:
+ *           nullable: true
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *     CategoryTreeResponse:
+ *       type: object
+ *       required: [CategoriesTree, IsSuccess, ErrorMessage]
+ *       properties:
+ *         CategoriesTree:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CategoryNode'
+ *         IsSuccess: { type: boolean, example: true }
+ *         ErrorMessage:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *     CategoryFlatResponse:
+ *       type: object
+ *       required: [Categories, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Categories:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CategoryFlatNode'
+ *         IsSuccess: { type: boolean, example: true }
+ *         ErrorMessage:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *     CategoryNodeResponse:
+ *       type: object
+ *       required: [Category, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Category:
+ *           $ref: '#/components/schemas/CategoryNode'
+ *         IsSuccess: { type: boolean, example: true }
+ *         ErrorMessage:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *       example:
+ *         Category:
+ *           _id: "68222e58c511980d79eaaf80"
+ *           name: "Laptops"
+ *           slug: "laptops"
+ *           status: "Active"
+ *           children: []
+ *           createdOn: "2026-05-13T10:25:00.000Z"
+ *           updatedOn: "2026-05-13T10:25:00.000Z"
+ *         IsSuccess: true
+ *         ErrorMessage: null
+ *     CategoryProductsResponse:
+ *       type: object
+ *       required: [Products, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Products:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProductListItem'
+ *         IsSuccess: { type: boolean, example: true }
+ *         ErrorMessage:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *     CategoryApiErrorResponse:
+ *       type: object
+ *       required: [IsSuccess, ErrorMessage]
+ *       properties:
+ *         IsSuccess:
+ *           type: boolean
+ *           example: false
+ *         ErrorMessage:
+ *           type: string
  * /api/categories/tree:
  *   get:
  *     summary: Get categories tree
@@ -79,8 +207,26 @@ categoriesRouter.delete(
  *     parameters:
  *       - in: query
  *         name: includeArchived
+ *         required: false
  *         schema:
  *           type: boolean
+ *           default: true
+ *         description: Include archived categories in tree response
+ *     responses:
+ *       200:
+ *         description: Categories tree
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryTreeResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/flat:
  *   get:
  *     summary: Get flat categories list
@@ -90,49 +236,312 @@ categoriesRouter.delete(
  *     parameters:
  *       - in: query
  *         name: status
+ *         required: false
  *         schema:
  *           type: string
  *           enum: [Active, Archived, All]
+ *           default: Active
+ *         description: Filter flat list by status
+ *     responses:
+ *       200:
+ *         description: Flat categories list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryFlatResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/nodes:
  *   post:
  *     summary: Create category node
  *     tags: [Categories]
  *     security:
  *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CategoryCreatePayload'
+ *     responses:
+ *       201:
+ *         description: Category node created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryNodeResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Parent category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       409:
+ *         description: Slug conflict
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/nodes/{categoryId}:
  *   get:
  *     summary: Get category node by id
  *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Category node
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryNodeResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  *   patch:
  *     summary: Patch category node
  *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CategoryPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Category node updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryNodeResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       409:
+ *         description: Slug conflict
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  *   delete:
  *     summary: Delete category node
  *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
+ *     responses:
+ *       204:
+ *         description: Category node deleted
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       409:
+ *         description: Delete guard conflict (node has children or is used by products)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/nodes/{categoryId}/status:
  *   patch:
  *     summary: Patch category status
  *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CategoryStatusPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Category status updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryNodeResponse'
+ *       400:
+ *         description: Validation error or invalid status transition
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/nodes/{categoryId}/move:
  *   post:
  *     summary: Move category node
  *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CategoryMovePayload'
+ *     responses:
+ *       200:
+ *         description: Category node moved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryNodeResponse'
+ *       400:
+ *         description: Validation error (self move, cyclic move, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Category or target parent not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/nodes/{categoryId}/products:
  *   get:
  *     summary: Get products in category subtree
  *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         schema:
+ *           type: string
  *     security:
  *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Products in category subtree
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryProductsResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Category not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  */
 
 export default categoriesRouter;
