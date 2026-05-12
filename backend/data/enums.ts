@@ -9,6 +9,11 @@ export enum PRODUCT_STATUSES {
   ARCHIVED = "Archived",
 }
 
+export enum CATEGORY_STATUSES {
+  ACTIVE = "Active",
+  ARCHIVED = "Archived",
+}
+
 export enum ROLES {
   USER = "USER",
   ADMIN = "ADMIN",

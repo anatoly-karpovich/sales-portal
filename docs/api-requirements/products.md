@@ -11,6 +11,7 @@
 | Pagination limits | `limit` clamped to `10..100` |
 | Product statuses | `Draft`, `Active`, `Archived` |
 | Variant statuses | `Draft`, `Active`, `Archived` |
+| Category linkage | `categoryId` + `rootCategoryId` |
 | Ordering rule | Only `Active` product + `Active` variant can be ordered |
 
 ## Product Model
@@ -20,7 +21,8 @@ Product {
   _id: ObjectId;
   name: string;
   manufacturer: string; // must exist in settings.catalog.manufacturers
-  category: string;
+  categoryId: ObjectId; // selected category node
+  rootCategoryId: ObjectId; // top-level category node
   description?: string;
   imageUrl?: string;
   status: "Draft" | "Active" | "Archived";
@@ -47,6 +49,8 @@ Rules:
 - `POST /api/products/:productId/variants`, `PUT /api/products/:productId/variants`, and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
 - duplicate-like validation conflicts are returned as `409` (duplicate product name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload).
 - non-status endpoints do not accept `status` in payloads; status changes are allowed only via dedicated status endpoints.
+- create/update validates `categoryId` existence and requires category status `Active`.
+- `rootCategoryId` is computed by backend from category tree and never trusted from request payload.
 
 ## Endpoints
 
@@ -68,33 +72,6 @@ Rules:
 | DELETE | `/api/products/:productId` | Delete product (`204` on success). |
 | POST | `/api/products/export` | Export products (`csv` or `json`). |
 
-Status transitions:
-- product status: `Draft -> Active`, `Active -> Archived`, `Archived -> Active`;
-- any other transition is rejected (`400`);
-- setting product to `Archived` auto-archives every variant.
-
-Payload rules for non-status endpoints:
-- `POST /api/products`: no `status` in request body; created product and variants default to `Draft`.
-- `PUT /api/products/:productId`: no `status` in request body for product and variants.
-- `PATCH /api/products/:productId`: only parent fields (`name`, `manufacturer`, `category`, `description`, `imageUrl`).
-- `POST /api/products/:productId/variants`: variant payload has no `status`; new variants default to `Draft`.
-- `PATCH /api/products/:productId/variants/:variantId`: payload has no `status`.
-
-Variants replace semantics (`PUT /api/products/:productId/variants`):
-- request body is object payload: `{ attributes?, variants[] }`;
-- atomic full replace of the whole `variants[]` array;
-- existing variants are matched by `_id` (for existing variants `_id` must be provided);
-- payload entries without `_id` are treated as new variants;
-- existing variants missing from payload are treated as removed;
-- if a removed variant is referenced by any order line, backend returns `409` and rejects the whole request.
-- if `attributes` is provided, backend updates `attributes` and `variants` in one atomic operation.
-
-Validate semantics (`POST /api/products/:productId/variants/validate`):
-- request body is object payload: `{ attributes?, variants[] }`;
-- dry-run only, no persistence;
-- validates structure, combinations, duplicates, and prices;
-- does not check order-reference conflicts.
-
 ## List DTO (`GET /api/products`)
 
 ```json
@@ -102,7 +79,9 @@ Validate semantics (`POST /api/products/:productId/variants/validate`):
   "_id": "string",
   "name": "string",
   "manufacturer": "string",
-  "category": "string",
+  "categoryId": "string",
+  "rootCategoryId": "string",
+  "categoryPath": "Electronics / Laptops / Gaming Laptops",
   "status": "Active",
   "createdOn": "2026-05-06T10:00:00.000Z",
   "variantsCount": 3,
@@ -113,16 +92,18 @@ Validate semantics (`POST /api/products/:productId/variants/validate`):
 Sorting:
 - `sortField`: `name | price | manufacturer | category | status | createdOn | variantsCount`
 - `price` sorting is based on `priceRange.min`.
-- `variantsCount` sorting is based on the product `variants.length`.
+- `category` sorting is based on `categoryPath` (case-insensitive).
+- `variantsCount` sorting is based on `product.variants.length`.
 - tie-break for equal primary sort values is always `createdOn desc`.
 
 Filters:
 - `manufacturer` (single/multiple)
 - `status` (single/multiple)
-- `category` (case-insensitive partial match with trim)
+- `categoryId` (exact ObjectId match)
+- `rootCategoryId` (exact ObjectId match)
 - `minPrice` (inclusive, optional)
 - `maxPrice` (inclusive, optional)
-- `search` (name/manufacturer/category)
+- `search` (name/manufacturer)
 - price filters are applied to variant prices (product is included when at least one variant is within the passed bounds).
 
 ## Details DTO (`GET /api/products/:productId`, `/all`)
@@ -132,7 +113,24 @@ Filters:
   "_id": "string",
   "name": "string",
   "manufacturer": "string",
-  "category": "string",
+  "categoryId": "string",
+  "rootCategoryId": "string",
+  "categoryPath": "Electronics / Laptops / Gaming Laptops",
+  "category": {
+    "_id": "string",
+    "name": "Gaming Laptops",
+    "slug": "gaming-laptops",
+    "path": [
+      { "_id": "string", "name": "Electronics", "slug": "electronics" },
+      { "_id": "string", "name": "Laptops", "slug": "laptops" },
+      { "_id": "string", "name": "Gaming Laptops", "slug": "gaming-laptops" }
+    ]
+  },
+  "rootCategory": {
+    "_id": "string",
+    "name": "Electronics",
+    "slug": "electronics"
+  },
   "description": "string",
   "imageUrl": "string",
   "status": "Active",
@@ -153,17 +151,17 @@ Filters:
 ## Export Contract (`POST /api/products/export`)
 
 Allowed fields:
-- `_id`, `name`, `manufacturer`, `category`, `status`,
+- `_id`, `name`, `manufacturer`, `categoryId`, `rootCategoryId`, `categoryPath`, `status`,
 - `variantsCount`, `priceRange`, `attributes`, `variants`,
 - `createdOn`, `updatedOn`.
 
 Supported `filters` keys:
-- `search`, `manufacturer[]`, `status[]`, `category`, `minPrice`, `maxPrice`,
+- `search`, `manufacturer[]`, `status[]`, `categoryId`, `rootCategoryId`, `minPrice`, `maxPrice`,
 - `page`, `limit`, `sortField`, `sortOrder`.
 
 ## Standard Response Envelopes
 
 - Success (entity): `{ Product, IsSuccess: true, ErrorMessage: null }`
 - Success (list): `{ Products, IsSuccess: true, ErrorMessage: null }`
-- Success (sorted list): `{ Products, total, page, limit, search, manufacturer, status, category, minPrice, maxPrice, sorting, IsSuccess: true, ErrorMessage: null }`
+- Success (sorted list): `{ Products, total, page, limit, search, manufacturer, status, categoryId, rootCategoryId, minPrice, maxPrice, sorting, IsSuccess: true, ErrorMessage: null }`
 - Failure: `{ IsSuccess: false, ErrorMessage }`

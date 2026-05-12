@@ -20,6 +20,7 @@ import {
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
 import { SettingsService } from "../services/settings.service.js";
+import CategoriesService from "../services/categories.service.js";
 
 const settingsService = new SettingsService();
 const MAX_VARIANTS_PER_REQUEST = 200;
@@ -48,7 +49,8 @@ type VariantPayloadWithoutStatus = {
 type MutableProduct = {
   name: string;
   manufacturer: string;
-  category: string;
+  categoryId: string | Types.ObjectId;
+  rootCategoryId?: string | Types.ObjectId;
   description?: string;
   imageUrl?: string;
   status: PRODUCT_STATUSES;
@@ -91,12 +93,19 @@ function normalizeAttributes(attributes: MutableProduct["attributes"]) {
   }));
 }
 
+function normalizeCategoryId(value: string | Types.ObjectId) {
+  if (typeof value === "string") {
+    return normalizeText(value);
+  }
+  return value?.toString?.() ?? "";
+}
+
 function normalizeProductPayload(product: MutableProduct): MutableProduct {
   return {
     ...product,
     name: normalizeText(product.name),
     manufacturer: normalizeText(product.manufacturer),
-    category: normalizeText(product.category),
+    categoryId: normalizeCategoryId(product.categoryId),
     description: product.description ? normalizeText(product.description) : product.description,
     imageUrl: product.imageUrl ? normalizeText(product.imageUrl) : product.imageUrl,
     attributes: normalizeAttributes(product.attributes),
@@ -110,7 +119,7 @@ function normalizeProductPayload(product: MutableProduct): MutableProduct {
 }
 
 function validateProductDefinition(product: MutableProduct, allowedManufacturers: string[]): string | null {
-  if (!product.name || !product.manufacturer || !product.category) {
+  if (!product.name || !product.manufacturer || !product.categoryId) {
     return "Incorrect request body";
   }
 
@@ -264,7 +273,19 @@ function normalizeVariantsForReplace(params: {
 async function validateNextProductPayload(
   nextProduct: MutableProduct,
   res: Response<BaseResponseDTO>,
+  options: { validateCategoryIsActive: boolean },
 ): Promise<Response<BaseResponseDTO> | null> {
+  if (!Types.ObjectId.isValid(nextProduct.categoryId.toString())) {
+    return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+  }
+
+  if (options.validateCategoryIsActive) {
+    const categoryValidation = await CategoriesService.validateCategoryCanBeUsed(nextProduct.categoryId.toString());
+    if (categoryValidation.isValid === false) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: categoryValidation.error });
+    }
+  }
+
   const allowedManufacturers = await getAllowedManufacturers();
   const validationError = validateProductDefinition(nextProduct, allowedManufacturers);
   if (!validationError) {
@@ -398,7 +419,9 @@ export async function productCreateOrReplaceValidations(
       variants: normalizedVariants,
     } as MutableProduct);
 
-    const validationResponse = await validateNextProductPayload(normalizedPayload, res);
+    const validationResponse = await validateNextProductPayload(normalizedPayload, res, {
+      validateCategoryIsActive: true,
+    });
     if (validationResponse) {
       return validationResponse;
     }
@@ -407,7 +430,7 @@ export async function productCreateOrReplaceValidations(
       ...req.body,
       name: normalizedPayload.name,
       manufacturer: normalizedPayload.manufacturer,
-      category: normalizedPayload.category,
+      categoryId: normalizedPayload.categoryId as string,
       description: normalizedPayload.description,
       imageUrl: normalizedPayload.imageUrl,
       attributes: normalizedPayload.attributes,
@@ -437,7 +460,9 @@ export async function productPatchValidations(
       variants: product.variants,
     } as MutableProduct);
 
-    const validationResponse = await validateNextProductPayload(nextProduct, res);
+    const validationResponse = await validateNextProductPayload(nextProduct, res, {
+      validateCategoryIsActive: typeof req.body.categoryId === "string",
+    });
     if (validationResponse) {
       return validationResponse;
     }
@@ -447,7 +472,8 @@ export async function productPatchValidations(
       name: typeof req.body.name === "string" ? normalizeText(req.body.name) : req.body.name,
       manufacturer:
         typeof req.body.manufacturer === "string" ? normalizeText(req.body.manufacturer) : req.body.manufacturer,
-      category: typeof req.body.category === "string" ? normalizeText(req.body.category) : req.body.category,
+      categoryId:
+        typeof req.body.categoryId === "string" ? normalizeText(req.body.categoryId) : req.body.categoryId,
       description:
         typeof req.body.description === "string" ? normalizeText(req.body.description) : req.body.description,
       imageUrl: typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
@@ -497,7 +523,9 @@ export async function productVariantPatchValidations(
       variants: nextVariants,
     });
 
-    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
+      validateCategoryIsActive: false,
+    });
     if (validationResponse) {
       return validationResponse;
     }
@@ -531,7 +559,9 @@ export async function productVariantsCreateValidations(
       variants: [...product.variants, ...normalizedVariants],
     });
 
-    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
+      validateCategoryIsActive: false,
+    });
     if (validationResponse) {
       return validationResponse;
     }
@@ -583,7 +613,9 @@ export async function productVariantsReplaceValidations(
       attributes: req.body.attributes ? normalizeAttributes(req.body.attributes as MutableProduct["attributes"]) : product.attributes,
       variants: normalizedVariants,
     });
-    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
+      validateCategoryIsActive: false,
+    });
     if (validationResponse) {
       return validationResponse;
     }
@@ -628,7 +660,9 @@ export async function productVariantsValidate(
       attributes: req.body.attributes ? normalizeAttributes(req.body.attributes as MutableProduct["attributes"]) : product.attributes,
       variants: normalizedVariants,
     });
-    const validationResponse = await validateNextProductPayload(normalizedProduct, res);
+    const validationResponse = await validateNextProductPayload(normalizedProduct, res, {
+      validateCategoryIsActive: false,
+    });
     if (validationResponse) {
       return validationResponse;
     }

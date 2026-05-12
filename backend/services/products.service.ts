@@ -12,6 +12,7 @@ import {
 import Product from "../models/product.model";
 import ExportService from "./export.service";
 import { PRODUCT_STATUSES } from "../data/enums";
+import CategoriesService from "./categories.service";
 
 type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
 type ProductSortOrder = "asc" | "desc";
@@ -20,12 +21,18 @@ type ProductVariantWritePayload = ProductVariantCreateRequestDTO & {
   status?: PRODUCT_STATUSES;
 };
 
+type CategoryLookupItem = {
+  path: string;
+};
+
 class ProductsService {
   private readonly exportableFields = new Set<string>([
     "_id",
     "name",
     "manufacturer",
-    "category",
+    "categoryId",
+    "rootCategoryId",
+    "categoryPath",
     "status",
     "variantsCount",
     "priceRange",
@@ -35,10 +42,21 @@ class ProductsService {
     "updatedOn",
   ]);
 
+  private async resolveRootCategoryId(categoryId: string): Promise<string> {
+    const rootCategoryId = await CategoriesService.getRootCategoryId(categoryId);
+    if (!rootCategoryId) {
+      throw new Error("Category was not found");
+    }
+    return rootCategoryId;
+  }
+
   async create(product: ProductCreateOrReplaceRequestDTO): Promise<IProduct> {
     const createdOn = getTodaysDate(true);
+    const rootCategoryId = await this.resolveRootCategoryId(product.categoryId);
     const createdProduct = await Product.create({
       ...product,
+      categoryId: new Types.ObjectId(product.categoryId),
+      rootCategoryId: new Types.ObjectId(rootCategoryId),
       status: PRODUCT_STATUSES.DRAFT,
       variants: product.variants.map((variant) => ({ ...variant, status: PRODUCT_STATUSES.DRAFT })),
       createdOn,
@@ -53,6 +71,7 @@ class ProductsService {
       return undefined;
     }
 
+    const rootCategoryId = await this.resolveRootCategoryId(payload.categoryId);
     const existingVariantsById = new Map(
       (currentProduct.variants ?? [])
         .map((variant: any) => {
@@ -82,6 +101,8 @@ class ProductsService {
       productId,
       {
         ...payload,
+        categoryId: new Types.ObjectId(payload.categoryId),
+        rootCategoryId: new Types.ObjectId(rootCategoryId),
         status: currentProduct.status,
         variants: nextVariants,
         updatedOn: getTodaysDate(true),
@@ -95,15 +116,20 @@ class ProductsService {
 
   async patch(
     productId: Types.ObjectId,
-    payload: Partial<Pick<IProduct, "name" | "manufacturer" | "category" | "description" | "imageUrl">>,
+    payload: Partial<Pick<IProduct, "name" | "manufacturer" | "description" | "imageUrl">> & { categoryId?: string },
   ): Promise<IProduct> {
-    const updatedProduct = await Product.findByIdAndUpdate(
-      productId,
-      { ...payload, updatedOn: getTodaysDate(true) },
-      { new: true },
-    )
-      .lean()
-      .exec();
+    const updatePayload: Record<string, unknown> = {
+      ...payload,
+      updatedOn: getTodaysDate(true),
+    };
+
+    if (payload.categoryId) {
+      const rootCategoryId = await this.resolveRootCategoryId(payload.categoryId);
+      updatePayload.categoryId = new Types.ObjectId(payload.categoryId);
+      updatePayload.rootCategoryId = new Types.ObjectId(rootCategoryId);
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(productId, updatePayload, { new: true }).lean().exec();
     return this.normalizeProduct(updatedProduct);
   }
 
@@ -341,6 +367,13 @@ class ProductsService {
     return this.normalizeProduct(updatedProduct);
   }
 
+  private async buildCategoryLookup(): Promise<Map<string, CategoryLookupItem>> {
+    const categories = await CategoriesService.getFlat({ status: "All" });
+    return new Map(
+      categories.map((category) => [category._id, { path: category.path.map((item) => item.name).join(" / ") }]),
+    );
+  }
+
   async getSorted(
     filters: IProductFilters,
     sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder },
@@ -349,11 +382,25 @@ class ProductsService {
     const filtered = (await Product.find(this.buildFilter(filters)).lean().exec()).map((product) =>
       this.normalizeProduct(product),
     );
-    const sorted = this.sortProducts(filtered, sortOptions);
+    const categoryLookup = await this.buildCategoryLookup();
+    const sorted = this.sortProducts(filtered, sortOptions, categoryLookup);
     const sliced = sorted
       .slice(pagination.skip, pagination.skip + pagination.limit)
-      .map((product) => this.toListItem(product));
+      .map((product) => this.toListItem(product, categoryLookup));
     return { products: sliced, total: filtered.length };
+  }
+
+  async getListItemsByCategoryIds(categoryIds: string[]): Promise<ProductListItemDTO[]> {
+    if (!categoryIds.length) {
+      return [];
+    }
+    const objectIds = categoryIds.map((id) => new Types.ObjectId(id));
+    const products = (await Product.find({ categoryId: { $in: objectIds } }).lean().exec()).map((product) =>
+      this.normalizeProduct(product),
+    );
+    const categoryLookup = await this.buildCategoryLookup();
+    const sorted = this.sortProducts(products, { sortField: "createdOn", sortOrder: "desc" }, categoryLookup);
+    return sorted.map((product) => this.toListItem(product, categoryLookup));
   }
 
   async getForExport(
@@ -361,7 +408,8 @@ class ProductsService {
       manufacturers?: string[];
       statuses?: PRODUCT_STATUSES[];
       search?: string;
-      category?: string;
+      categoryId?: string;
+      rootCategoryId?: string;
       minPrice?: number;
       maxPrice?: number;
       page?: number;
@@ -374,16 +422,18 @@ class ProductsService {
       manufacturers: filters.manufacturers ?? [],
       statuses: filters.statuses ?? [],
       search: filters.search ?? "",
-      category: filters.category ?? "",
+      categoryId: filters.categoryId,
+      rootCategoryId: filters.rootCategoryId,
       minPrice: filters.minPrice,
       maxPrice: filters.maxPrice,
     });
 
     const products = (await Product.find(filter).lean().exec()).map((product) => this.normalizeProduct(product));
+    const categoryLookup = await this.buildCategoryLookup();
     const sortedProducts = this.sortProducts(products, {
       sortField: filters.sortField ?? "createdOn",
       sortOrder: filters.sortOrder ?? "desc",
-    });
+    }, categoryLookup);
 
     if (
       typeof filters.page === "number" &&
@@ -405,7 +455,8 @@ class ProductsService {
       manufacturers?: string[];
       statuses?: PRODUCT_STATUSES[];
       search?: string;
-      category?: string;
+      categoryId?: string;
+      rootCategoryId?: string;
       minPrice?: number;
       maxPrice?: number;
       page?: number;
@@ -426,7 +477,8 @@ class ProductsService {
       manufacturers: filters?.manufacturers ?? [],
       statuses: filters?.statuses ?? [],
       search: filters?.search ?? "",
-      category: filters?.category ?? "",
+      categoryId: filters?.categoryId,
+      rootCategoryId: filters?.rootCategoryId,
       minPrice: filters?.minPrice,
       maxPrice: filters?.maxPrice,
       page: filters?.page,
@@ -435,14 +487,17 @@ class ProductsService {
       sortOrder: filters?.sortOrder ?? "desc",
     });
 
+    const categoryLookup = await this.buildCategoryLookup();
     const rows = products.map((product) => {
       const normalized = this.normalizeProduct(product);
-      const listItem = this.toListItem(normalized);
+      const listItem = this.toListItem(normalized, categoryLookup);
       return {
         _id: normalized._id?.toString?.() ?? "",
         name: normalized.name,
         manufacturer: normalized.manufacturer,
-        category: normalized.category,
+        categoryId: normalized.categoryId?.toString?.() ?? "",
+        rootCategoryId: normalized.rootCategoryId?.toString?.() ?? "",
+        categoryPath: listItem.categoryPath,
         status: normalized.status,
         variantsCount: listItem.variantsCount,
         priceRange: listItem.priceRange,
@@ -477,6 +532,7 @@ class ProductsService {
   private sortProducts(
     products: IProduct[],
     sortOptions: { sortField: ProductSortField; sortOrder: ProductSortOrder },
+    categoryLookup: Map<string, CategoryLookupItem>,
   ): IProduct[] {
     const sortField = sortOptions.sortField;
     const direction = sortOptions.sortOrder === "asc" ? 1 : -1;
@@ -492,6 +548,10 @@ class ProductsService {
         const ad = new Date(a.createdOn).getTime();
         const bd = new Date(b.createdOn).getTime();
         primaryComparison = (ad - bd) * direction;
+      } else if (sortField === "category") {
+        const categoryA = categoryLookup.get(a.categoryId?.toString?.() ?? "")?.path ?? "";
+        const categoryB = categoryLookup.get(b.categoryId?.toString?.() ?? "")?.path ?? "";
+        primaryComparison = categoryA.localeCompare(categoryB, undefined, { sensitivity: "base" }) * direction;
       } else {
         const av = (a as unknown as Record<string, string>)[sortField] ?? "";
         const bv = (b as unknown as Record<string, string>)[sortField] ?? "";
@@ -512,7 +572,7 @@ class ProductsService {
   }
 
   private buildFilter(filters: IProductFilters): Record<string, unknown> {
-    const { manufacturers, statuses, search, category, minPrice, maxPrice } = filters;
+    const { manufacturers, statuses, search, categoryId, rootCategoryId, minPrice, maxPrice } = filters;
     const filter: Record<string, unknown> = {};
 
     if (manufacturers && manufacturers.length > 0) {
@@ -523,8 +583,12 @@ class ProductsService {
       filter.status = { $in: statuses };
     }
 
-    if (category && category.trim() !== "") {
-      filter.category = { $regex: new RegExp(this.escapeRegex(category.trim()), "i") };
+    if (categoryId && categoryId.trim() !== "") {
+      filter.categoryId = new Types.ObjectId(categoryId.trim());
+    }
+
+    if (rootCategoryId && rootCategoryId.trim() !== "") {
+      filter.rootCategoryId = new Types.ObjectId(rootCategoryId.trim());
     }
 
     if (minPrice !== undefined || maxPrice !== undefined) {
@@ -540,11 +604,7 @@ class ProductsService {
 
     if (search && search.trim() !== "") {
       const searchRegex = new RegExp(search, "i");
-      filter.$or = [
-        { name: { $regex: searchRegex } },
-        { manufacturer: { $regex: searchRegex } },
-        { category: { $regex: searchRegex } },
-      ];
+      filter.$or = [{ name: { $regex: searchRegex } }, { manufacturer: { $regex: searchRegex } }];
     }
 
     return filter;
@@ -561,17 +621,16 @@ class ProductsService {
     };
   }
 
-  private escapeRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-
-  private toListItem(product: IProduct): ProductListItemDTO {
+  private toListItem(product: IProduct, categoryLookup: Map<string, CategoryLookupItem>): ProductListItemDTO {
     const priceRange = this.getPriceRange(product.variants);
+    const categoryPath = categoryLookup.get(product.categoryId?.toString?.() ?? "")?.path ?? "";
     return {
       _id: product._id?.toString?.() ?? "",
       name: product.name,
       manufacturer: product.manufacturer,
-      category: product.category,
+      categoryId: product.categoryId?.toString?.() ?? "",
+      rootCategoryId: product.rootCategoryId?.toString?.() ?? "",
+      categoryPath,
       status: product.status,
       createdOn: product.createdOn,
       variantsCount: product.variants.length,
@@ -624,6 +683,8 @@ class ProductsService {
 
     return {
       ...doc,
+      categoryId: doc.categoryId ? new Types.ObjectId(doc.categoryId) : undefined,
+      rootCategoryId: doc.rootCategoryId ? new Types.ObjectId(doc.rootCategoryId) : undefined,
       attributes: Array.isArray(doc.attributes) ? doc.attributes : [],
       variants: Array.isArray(doc.variants)
         ? doc.variants.map((variant: any) => ({

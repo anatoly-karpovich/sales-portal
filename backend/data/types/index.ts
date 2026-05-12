@@ -17,6 +17,7 @@ import type { IProduct, IProductAttribute, IProductDocument, IProductFilters, IP
 import type { IDeliveryPayload, IDelivery, IDeliveryUpdatePayload, IPickupUpdatePayload } from "./delivery.type";
 import type { DocumentResult } from "./document.type";
 import type { IComment } from "./comments.type";
+import type { ICategoryNode, ICategoryTree, ICategoryTreeDocument } from "./category.type";
 
 export {
   IHistory,
@@ -44,4 +45,7 @@ export {
   ICustomerDocument,
   IProductDocument,
   IComment,
+  ICategoryNode,
+  ICategoryTree,
+  ICategoryTreeDocument,
 };

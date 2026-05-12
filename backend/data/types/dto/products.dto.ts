@@ -16,16 +16,23 @@ export type ProductVariantsReplaceBodyDTO = {
   variants: ProductVariantReplaceRequestDTO[];
 };
 
-export type ProductCreateOrReplaceRequestDTO = Pick<
-  IProduct,
-  "name" | "manufacturer" | "category" | "description" | "imageUrl" | "attributes"
-> & {
+export type ProductCreateOrReplaceRequestDTO = {
+  name: string;
+  manufacturer: string;
+  categoryId: string;
+  description?: string;
+  imageUrl?: string;
+  attributes: IProductAttribute[];
   variants: ProductVariantReplaceRequestDTO[];
 };
 
-export type ProductPatchRequestDTO = Partial<
-  Pick<IProduct, "name" | "manufacturer" | "category" | "description" | "imageUrl">
->;
+export type ProductPatchRequestDTO = Partial<{
+  name: string;
+  manufacturer: string;
+  categoryId: string;
+  description: string;
+  imageUrl: string;
+}>;
 
 export type ProductVariantPatchRequestDTO = Partial<Pick<IProductVariant, "price" | "attributes" | "imageUrl">>;
 export type ProductStatusPatchRequestDTO = {
@@ -35,11 +42,32 @@ export type ProductVariantStatusPatchRequestDTO = {
   status: PRODUCT_STATUSES;
 };
 
+export type ProductCategoryPathItemDTO = {
+  _id: string;
+  name: string;
+  slug: string;
+};
+
+export type ProductCategoryDTO = {
+  _id: string;
+  name: string;
+  slug: string;
+  path: ProductCategoryPathItemDTO[];
+};
+
+export type ProductRootCategoryDTO = {
+  _id: string;
+  name: string;
+  slug: string;
+};
+
 export type ProductListItemDTO = {
   _id: string;
   name: string;
   manufacturer: string;
-  category: string;
+  categoryId: string;
+  rootCategoryId: string;
+  categoryPath: string;
   status: PRODUCT_STATUSES;
   imageUrl?: string;
   createdOn: string;
@@ -54,7 +82,11 @@ export type ProductDetailsDTO = {
   _id: string;
   name: string;
   manufacturer: string;
-  category: string;
+  categoryId: string;
+  rootCategoryId: string;
+  categoryPath: string;
+  category: ProductCategoryDTO | null;
+  rootCategory: ProductRootCategoryDTO | null;
   description?: string;
   imageUrl?: string;
   status: PRODUCT_STATUSES;
@@ -74,7 +106,8 @@ export type ProductsSortedQueryDTO = {
   sortOrder?: "asc" | "desc";
   manufacturer?: string | string[];
   status?: PRODUCT_STATUSES | PRODUCT_STATUSES[];
-  category?: string;
+  categoryId?: string;
+  rootCategoryId?: string;
   minPrice?: string;
   maxPrice?: string;
   page?: string;
@@ -87,7 +120,8 @@ export type ProductExportFiltersDTO = {
   search?: string;
   manufacturer?: string[];
   status?: PRODUCT_STATUSES[];
-  category?: string;
+  categoryId?: string;
+  rootCategoryId?: string;
   minPrice?: number;
   maxPrice?: number;
   page?: number;
@@ -100,7 +134,9 @@ export type ProductExportFieldsDTO =
   | "_id"
   | "name"
   | "manufacturer"
-  | "category"
+  | "categoryId"
+  | "rootCategoryId"
+  | "categoryPath"
   | "status"
   | "variantsCount"
   | "priceRange"
@@ -199,7 +235,8 @@ export type ProductsSortedResponseDTO = BaseResponseDTO & {
   search?: string;
   manufacturer?: string[];
   status?: PRODUCT_STATUSES[];
-  category?: string;
+  categoryId?: string;
+  rootCategoryId?: string;
   minPrice?: number;
   maxPrice?: number;
   sorting?: {

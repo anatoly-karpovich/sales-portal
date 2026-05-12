@@ -15,18 +15,27 @@ import {
   PatchProductRequestDTO,
   PatchProductVariantStatusRequestDTO,
   PatchProductVariantRequestDTO,
-  ReplaceProductVariantsRequestDTO,
   ProductDetailsDTO,
   ProductResponseDTO,
   ProductsResponseDTO,
   ProductsSortedResponseDTO,
+  ProductCategoryPathItemDTO,
+  ReplaceProductVariantsRequestDTO,
   ReplaceProductRequestDTO,
   ValidateProductVariantsRequestDTO,
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
+import CategoriesService from "../services/categories.service.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
+
+type CategoryLookupItem = {
+  _id: string;
+  name: string;
+  slug: string;
+  path: ProductCategoryPathItemDTO[];
+};
 
 class ProductsController {
   private parseOptionalPrice(value: unknown): number | undefined {
@@ -47,13 +56,51 @@ class ProductsController {
     return parsed;
   }
 
-  private toDetailsDTO(product: any): ProductDetailsDTO {
+  private async buildCategoryLookup(): Promise<Map<string, CategoryLookupItem>> {
+    const categories = await CategoriesService.getFlat({ status: "All" });
+    return new Map(
+      categories.map((category) => [
+        category._id,
+        {
+          _id: category._id,
+          name: category.name,
+          slug: category.slug,
+          path: category.path,
+        },
+      ]),
+    );
+  }
+
+  private toDetailsDTO(product: any, categoryLookup: Map<string, CategoryLookupItem>): ProductDetailsDTO {
     const prices = product.variants.map((variant: any) => variant.price);
+    const categoryId = product.categoryId?.toString?.() ?? "";
+    const rootCategoryId = product.rootCategoryId?.toString?.() ?? "";
+    const category = categoryLookup.get(categoryId);
+    const rootCategory = categoryLookup.get(rootCategoryId);
+    const categoryPath = category?.path.map((item) => item.name).join(" / ") ?? "";
+
     return {
       _id: product._id.toString(),
       name: product.name,
       manufacturer: product.manufacturer,
-      category: product.category,
+      categoryId,
+      rootCategoryId,
+      categoryPath,
+      category: category
+        ? {
+            _id: category._id,
+            name: category.name,
+            slug: category.slug,
+            path: category.path,
+          }
+        : null,
+      rootCategory: rootCategory
+        ? {
+            _id: rootCategory._id,
+            name: rootCategory.name,
+            slug: rootCategory.slug,
+          }
+        : null,
       description: product.description,
       imageUrl: product.imageUrl,
       status: product.status,
@@ -74,7 +121,8 @@ class ProductsController {
   async create(req: CreateProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const product = await ProductsService.create(req.body);
-      res.status(201).json({ Product: this.toDetailsDTO(product), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      res.status(201).json({ Product: this.toDetailsDTO(product, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -91,12 +139,24 @@ class ProductsController {
         sortOrder = "desc",
         manufacturer,
         status,
-        category,
+        categoryId,
+        rootCategoryId,
         minPrice,
         maxPrice,
         page = "1",
         limit = MIN_LIMIT,
       } = req.query;
+
+      if (typeof categoryId === "string" && categoryId.trim() !== "" && !Types.ObjectId.isValid(categoryId.trim())) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "categoryId must be a valid ObjectId" });
+      }
+      if (
+        typeof rootCategoryId === "string" &&
+        rootCategoryId.trim() !== "" &&
+        !Types.ObjectId.isValid(rootCategoryId.trim())
+      ) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "rootCategoryId must be a valid ObjectId" });
+      }
 
       const pageNumber = Math.max(parseInt(page), 1);
       const limitNumber = Math.min(Math.max(+limit, MIN_LIMIT), MAX_LIMIT);
@@ -113,7 +173,8 @@ class ProductsController {
         : typeof status === "string" && Object.values(PRODUCT_STATUSES).includes(status as PRODUCT_STATUSES)
           ? [status as PRODUCT_STATUSES]
           : [];
-      const normalizedCategory = typeof category === "string" ? category.trim() : "";
+      const normalizedCategoryId = typeof categoryId === "string" ? categoryId.trim() : "";
+      const normalizedRootCategoryId = typeof rootCategoryId === "string" ? rootCategoryId.trim() : "";
       const parsedMinPrice = this.parseOptionalPrice(minPrice);
       const parsedMaxPrice = this.parseOptionalPrice(maxPrice);
 
@@ -124,7 +185,8 @@ class ProductsController {
       const filters: IProductFilters = {
         manufacturers,
         statuses,
-        category: normalizedCategory,
+        categoryId: normalizedCategoryId,
+        rootCategoryId: normalizedRootCategoryId,
         minPrice: parsedMinPrice,
         maxPrice: parsedMaxPrice,
         search,
@@ -148,7 +210,8 @@ class ProductsController {
         search,
         manufacturer: manufacturers,
         status: statuses,
-        category: normalizedCategory,
+        categoryId: normalizedCategoryId,
+        rootCategoryId: normalizedRootCategoryId,
         minPrice: parsedMinPrice,
         maxPrice: parsedMaxPrice,
         sorting: sortOptions,
@@ -169,7 +232,8 @@ class ProductsController {
       if (!product) {
         return res.status(404).json({ IsSuccess: false, ErrorMessage: "Product was not found" });
       }
-      return res.json({ Product: this.toDetailsDTO(product), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(product, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -178,7 +242,12 @@ class ProductsController {
   async getAll(req: Request, res: Response<ProductsResponseDTO | BaseResponseDTO>) {
     try {
       const products = await ProductsService.getAll();
-      return res.json({ Products: products.map((product) => this.toDetailsDTO(product)), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({
+        Products: products.map((product) => this.toDetailsDTO(product, categoryLookup)),
+        IsSuccess: true,
+        ErrorMessage: null,
+      });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -188,7 +257,8 @@ class ProductsController {
     try {
       const id = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.replace(id, req.body);
-      return res.json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -198,7 +268,8 @@ class ProductsController {
     try {
       const id = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.patch(id, req.body);
-      return res.json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -209,7 +280,8 @@ class ProductsController {
       const productId = new Types.ObjectId(req.params.productId);
       const variantId = new Types.ObjectId(req.params.variantId);
       const updatedProduct = await ProductsService.patchVariant(productId, variantId, req.body);
-      return res.json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -219,7 +291,8 @@ class ProductsController {
     try {
       const productId = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.replaceVariants(productId, req.body);
-      return res.json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -229,7 +302,8 @@ class ProductsController {
     try {
       const productId = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.createVariants(productId, req.body);
-      return res.status(201).json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(201).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -239,7 +313,8 @@ class ProductsController {
     try {
       const productId = new Types.ObjectId(req.params.productId);
       const previewProduct = await ProductsService.previewWithVariants(productId, req.body);
-      return res.status(200).json({ Product: this.toDetailsDTO(previewProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(previewProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -249,7 +324,8 @@ class ProductsController {
     try {
       const productId = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.patchStatus(productId, req.body.status);
-      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -260,7 +336,8 @@ class ProductsController {
       const productId = new Types.ObjectId(req.params.productId);
       const variantId = new Types.ObjectId(req.params.variantId);
       const updatedProduct = await ProductsService.patchVariantStatus(productId, variantId, req.body.status);
-      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct), IsSuccess: true, ErrorMessage: null });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
@@ -290,6 +367,13 @@ class ProductsController {
   async export(req: ExportProductsRequestDTO, res: Response) {
     try {
       const { format, fields, filters } = req.body ?? {};
+      if (filters?.categoryId && !Types.ObjectId.isValid(filters.categoryId)) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "categoryId must be a valid ObjectId" });
+      }
+      if (filters?.rootCategoryId && !Types.ObjectId.isValid(filters.rootCategoryId)) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "rootCategoryId must be a valid ObjectId" });
+      }
+
       const exportResult = await ProductsService.exportProducts({
         format,
         fields: (fields ?? []) as string[],
@@ -298,7 +382,8 @@ class ProductsController {
               manufacturers: filters.manufacturer,
               statuses: filters.status,
               search: filters.search,
-              category: filters.category,
+              categoryId: filters.categoryId,
+              rootCategoryId: filters.rootCategoryId,
               minPrice: filters.minPrice,
               maxPrice: filters.maxPrice,
               page: filters.page,
