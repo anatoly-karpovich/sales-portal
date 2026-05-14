@@ -47,7 +47,6 @@ function buildParentSnapshot(draft: ProductVariantsDraft | null) {
   return {
     name: draft.name.trim(),
     manufacturer: draft.manufacturer.trim(),
-    category: draft.category.trim(),
     description: draft.description.trim(),
     imageUrl: draft.imageUrl.trim(),
   }

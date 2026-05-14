@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import { useCallback, useMemo, useState, type DragEvent } from 'react'
 import { useSnackbar } from 'notistack'
+import { useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { categoriesUiText, getDeleteCategoryMessage } from '@/features/categories/categories.ui-text'
 import { CategoriesChildrenSection } from '@/features/categories/components/CategoriesChildrenSection'
@@ -53,6 +54,7 @@ import {
 
 export function CategoriesPage() {
   const { enqueueSnackbar } = useSnackbar()
+  const [searchParams] = useSearchParams()
   const workspaceQuery = useCategoriesWorkspaceQuery()
   const createMutation = useCreateCategoryNodeMutation()
   const patchMutation = usePatchCategoryNodeMutation()
@@ -90,6 +92,9 @@ export function CategoriesPage() {
 
   const flatById = useMemo(() => new Map(flatNodes.map((item) => [item._id, item])), [flatNodes])
   const treeById = useMemo(() => collectTreeNodeMap(treeNodes), [treeNodes])
+  const querySelectedId = searchParams.get('selectedId')?.trim() ?? ''
+  const selectedIdFromQuery = querySelectedId && flatById.has(querySelectedId) ? querySelectedId : null
+  const selectedCategoryFromQuery = selectedIdFromQuery ? flatById.get(selectedIdFromQuery) ?? null : null
 
   const searchNormalized = search.trim().toLowerCase()
   const matchingNodeIds = useMemo(() => {
@@ -123,7 +128,8 @@ export function CategoriesPage() {
   const displayTree = filteredTree.tree
 
   const effectiveSelectedId =
-    selectedId && flatById.has(selectedId) ? selectedId : flatNodes[0]?._id ?? null
+    selectedIdFromQuery ??
+    (selectedId && flatById.has(selectedId) ? selectedId : flatNodes[0]?._id ?? null)
   const selectedCategory = effectiveSelectedId ? flatById.get(effectiveSelectedId) ?? null : null
   const selectedTreeCategory = effectiveSelectedId ? treeById.get(effectiveSelectedId) ?? null : null
   const selectedChildren = selectedTreeCategory?.children ?? []
@@ -197,9 +203,13 @@ export function CategoriesPage() {
   }, [flatNodes, isInvalidMoveTarget, moveDialog.sourceId])
 
   const effectiveExpandedIds = useMemo(() => {
-    if (expandedIds.size > 0) return expandedIds
-    return new Set(treeNodes.map((item) => item._id))
-  }, [expandedIds, treeNodes])
+    const next =
+      expandedIds.size > 0 ? new Set(expandedIds) : new Set(treeNodes.map((item) => item._id))
+    if (selectedCategoryFromQuery) {
+      selectedCategoryFromQuery.path.forEach((pathItem) => next.add(pathItem._id))
+    }
+    return next
+  }, [expandedIds, selectedCategoryFromQuery, treeNodes])
 
   const moveTargetSelectionError =
     moveSubmitAttempted && moveDialog.mode === 'picker' && !moveDialog.targetParentId

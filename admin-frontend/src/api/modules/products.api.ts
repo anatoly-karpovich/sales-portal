@@ -23,11 +23,32 @@ export type ProductVariant = {
   imageUrl?: string
 }
 
+export type ProductCategoryPathItem = {
+  _id: string
+  name: string
+  slug: string
+}
+
+export type ProductCategoryInfo = {
+  _id: string
+  name: string
+  slug: string
+  path: ProductCategoryPathItem[]
+}
+
+export type ProductRootCategoryInfo = {
+  _id: string
+  name: string
+  slug: string
+}
+
 export type ProductListItem = {
   _id: string
   name: string
   manufacturer: string
-  category: string
+  categoryId: string
+  rootCategoryId: string
+  categoryPath: string
   status: ProductStatus
   variantsCount: number
   priceRange: ProductPriceRange
@@ -35,6 +56,8 @@ export type ProductListItem = {
 }
 
 export type ProductDetails = ProductListItem & {
+  category: ProductCategoryInfo | null
+  rootCategory: ProductRootCategoryInfo | null
   description?: string
   imageUrl?: string
   attributes: ProductAttribute[]
@@ -52,7 +75,7 @@ export type Product = ProductDetails & {
 export type ProductVariantUpsertPayload = {
   name: string
   manufacturer: string
-  category: string
+  categoryId: string
   description?: string
   imageUrl?: string
   attributes: ProductAttribute[]
@@ -62,7 +85,7 @@ export type ProductVariantUpsertPayload = {
 export type ProductParentPatchPayload = Partial<
   Pick<
     ProductVariantUpsertPayload,
-    'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl'
+    'name' | 'manufacturer' | 'categoryId' | 'description' | 'imageUrl'
   >
 >
 
@@ -89,6 +112,8 @@ export type ProductsListResponse = {
   search: string
   manufacturer: string[]
   status?: ProductStatus[]
+  categoryId?: string
+  rootCategoryId?: string
   minPrice?: number
   maxPrice?: number
   sorting: {
@@ -124,6 +149,8 @@ export type ProductExportPayload = {
     search: string
     manufacturer: string[]
     status?: ProductStatus[]
+    categoryId?: string
+    rootCategoryId?: string
     minPrice?: number
     maxPrice?: number
     page: number
@@ -145,6 +172,8 @@ export type ProductsQuery = {
   search: string
   manufacturer: string[]
   status?: ProductStatus[]
+  categoryId?: string
+  rootCategoryId?: string
   minPrice?: number
   maxPrice?: number
   sortField:
@@ -171,12 +200,25 @@ function toPriceRange(value: ProductDetails['priceRange'] | ProductListItem['pri
   }
 }
 
+function toCategoryPath(
+  product: Partial<Pick<ProductDetails, 'categoryPath' | 'category'>>,
+): string {
+  if (typeof product.categoryPath === 'string' && product.categoryPath.trim()) {
+    return product.categoryPath
+  }
+
+  return product.category?.path?.map((item) => item.name).join(' / ') ?? ''
+}
+
 function normalizeProductListItem(item: ProductListItem): Product {
   const priceRange = toPriceRange(item.priceRange)
   return {
     ...item,
-    priceRange,
+    categoryPath: toCategoryPath(item),
     variantsCount: Number(item.variantsCount ?? 0),
+    priceRange,
+    category: null,
+    rootCategory: null,
     attributes: [],
     variants: [],
     updatedOn: item.createdOn,
@@ -190,6 +232,7 @@ function normalizeProductDetails(product: ProductDetails): Product {
 
   return {
     ...product,
+    categoryPath: toCategoryPath(product),
     priceRange,
     variantsCount: Number(product.variantsCount ?? product.variants?.length ?? 0),
     attributes: product.attributes ?? [],

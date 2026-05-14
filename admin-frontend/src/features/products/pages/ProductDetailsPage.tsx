@@ -11,12 +11,12 @@ import type {
   ProductVariantStatus,
 } from '@/api/modules/products.api'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ProductCategorySection } from '@/features/products/components/details/ProductCategorySection'
 import { ProductDetailsHeader } from '@/features/products/components/details/ProductDetailsHeader'
 import { ProductDetailsSkeleton } from '@/features/products/components/details/ProductDetailsSkeleton'
 import { ProductInfoCard } from '@/features/products/components/details/ProductInfoCard'
 import { ProductVariantsSection } from '@/features/products/components/details/ProductVariantsSection'
 import {
-  getProductCategoryError,
   getProductImageUrlError,
   getProductNameError,
 } from '@/features/products/forms/productParentValidation'
@@ -28,6 +28,7 @@ import {
   toVariantTitle,
   validatePrice,
 } from '@/features/products/forms/productVariantsDraft'
+import { useCategoriesWorkspaceQuery } from '@/features/categories/hooks/useCategoriesQuery'
 import { useProductDetailsEditMode } from '@/features/products/hooks/useProductDetailsEditMode'
 import { useManufacturerOptions } from '@/features/products/hooks/useManufacturerOptions'
 import { useProductVariantsDraft } from '@/features/products/hooks/useProductVariantsDraft'
@@ -63,6 +64,7 @@ type PendingConfirmAction =
   | 'archive-product'
   | 'discard-bulk'
   | 'discard-single'
+  | 'discard-category'
   | null
 
 function getErrorStatus(error: unknown) {
@@ -95,6 +97,7 @@ export function ProductDetailsPage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const { productId } = useParams<{ productId: string }>()
+  const categoriesQuery = useCategoriesWorkspaceQuery()
   const {
     options: manufacturerOptions,
     isLoading: isManufacturersLoading,
@@ -113,6 +116,7 @@ export function ProductDetailsPage() {
   const [pendingConfirmAction, setPendingConfirmAction] = useState<PendingConfirmAction>(null)
   const [pendingDeleteVariantId, setPendingDeleteVariantId] = useState<string | null>(null)
   const [singleVariantDraft, setSingleVariantDraft] = useState<VariantEditDraft | null>(null)
+  const [categoryDraftId, setCategoryDraftId] = useState<string | null>(null)
 
   const product = productQuery.data
   const editMode = useProductDetailsEditMode()
@@ -134,6 +138,7 @@ export function ProductDetailsPage() {
   const isReadOnlyMode = editMode.isViewMode
   const isInteractionsLocked = isAnyMutationPending
   const isEditingDisabled = isAnyMutationPending || !hasConfiguredManufacturers
+  const isCategoryEditingDisabled = isAnyMutationPending
 
   const currentStatus = product?.status ?? 'Draft'
   const statusChipColor =
@@ -152,10 +157,17 @@ export function ProductDetailsPage() {
       draftState.draft &&
       !getProductNameError(draftState.draft.name) &&
       draftState.draft.manufacturer.trim().length > 0 &&
-      !getProductCategoryError(draftState.draft.category) &&
       !getProductImageUrlError(draftState.draft.imageUrl, isValidHttpUrl) &&
       validation.parentHasChanges &&
       hasConfiguredManufacturers &&
+      !isInteractionsLocked,
+  )
+
+  const canSaveCategory = Boolean(
+    product &&
+      editMode.isCategoryMode &&
+      categoryDraftId &&
+      categoryDraftId !== product.categoryId &&
       !isInteractionsLocked,
   )
 
@@ -237,6 +249,14 @@ export function ProductDetailsPage() {
     editMode.enterInfoMode()
   }
 
+  const onEnterCategoryEdit = () => {
+    if (!product || !isReadOnlyMode || isInteractionsLocked || categoriesQuery.isLoading || categoriesQuery.isError) {
+      return
+    }
+    setCategoryDraftId(product.categoryId)
+    editMode.enterCategoryMode()
+  }
+
   const onEnterVariantsEdit = () => {
     if (!isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers) return
     draftState.startEditing()
@@ -269,6 +289,18 @@ export function ProductDetailsPage() {
     editMode.exitEditModes()
   }
 
+  const onRequestCancelCategoryEdit = () => {
+    if (!product || !editMode.isCategoryMode) return
+
+    if (categoryDraftId && categoryDraftId !== product.categoryId) {
+      setPendingConfirmAction('discard-category')
+      return
+    }
+
+    setCategoryDraftId(null)
+    editMode.exitEditModes()
+  }
+
   const onRequestCancelSingleEdit = () => {
     if (!singleVariantDraft) return
     if (singleVariantHasChanges) {
@@ -284,6 +316,13 @@ export function ProductDetailsPage() {
 
     if (pendingConfirmAction === 'discard-bulk') {
       draftState.discardChanges()
+      editMode.exitEditModes()
+      setPendingConfirmAction(null)
+      return
+    }
+
+    if (pendingConfirmAction === 'discard-category') {
+      setCategoryDraftId(null)
       editMode.exitEditModes()
       setPendingConfirmAction(null)
       return
@@ -345,13 +384,30 @@ export function ProductDetailsPage() {
         payload: {
           name: draftState.draft.name.trim(),
           manufacturer: draftState.draft.manufacturer.trim(),
-          category: draftState.draft.category.trim(),
           description: draftState.draft.description.trim(),
           imageUrl: draftState.draft.imageUrl.trim(),
         },
       })
       enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
       draftState.discardChanges()
+      editMode.exitEditModes()
+    } catch (error) {
+      enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+    }
+  }
+
+  const onSaveCategory = async () => {
+    if (!product || !categoryDraftId || !canSaveCategory) return
+
+    try {
+      await patchProductMutation.mutateAsync({
+        productId: product._id,
+        payload: {
+          categoryId: categoryDraftId,
+        },
+      })
+      enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
+      setCategoryDraftId(null)
       editMode.exitEditModes()
     } catch (error) {
       enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
@@ -430,7 +486,7 @@ export function ProductDetailsPage() {
     )
   }
 
-  if (productQuery.isLoading || isManufacturersLoading) {
+  if (productQuery.isLoading || isManufacturersLoading || categoriesQuery.isLoading) {
     return <ProductDetailsSkeleton />
   }
 
@@ -482,7 +538,9 @@ export function ProductDetailsPage() {
                 confirmLabel: productsUiText.detailsPage.dialogs.archiveConfirm,
                 confirmColor: 'warning' as const,
               }
-            : pendingConfirmAction === 'discard-bulk' || pendingConfirmAction === 'discard-single'
+            : pendingConfirmAction === 'discard-bulk' ||
+                pendingConfirmAction === 'discard-single' ||
+                pendingConfirmAction === 'discard-category'
               ? {
                   title: productsUiText.detailsPage.dialogs.discardChangesTitle,
                   message: productsUiText.detailsPage.dialogs.discardChangesMessage,
@@ -527,6 +585,24 @@ export function ProductDetailsPage() {
             onChangeField={draftState.updateParentField}
             onSaveInfo={() => void onSaveInfo()}
             onCancelInfo={onRequestCancelBulkEdit}
+          />
+
+          <ProductCategorySection
+            product={product}
+            tree={categoriesQuery.data?.tree ?? []}
+            flat={categoriesQuery.data?.flat ?? []}
+            isCategoryEditMode={editMode.isCategoryMode}
+            isReadOnlyMode={isReadOnlyMode}
+            isEditingDisabled={isCategoryEditingDisabled}
+            isInteractionsLocked={isInteractionsLocked}
+            isCategoriesLoading={categoriesQuery.isLoading}
+            isCategoriesError={categoriesQuery.isError}
+            categoryDraftId={categoryDraftId}
+            canSaveCategory={canSaveCategory}
+            onEnterCategoryMode={onEnterCategoryEdit}
+            onChangeCategoryDraft={setCategoryDraftId}
+            onSaveCategory={() => void onSaveCategory()}
+            onCancelCategory={onRequestCancelCategoryEdit}
           />
 
           <ProductVariantsSection

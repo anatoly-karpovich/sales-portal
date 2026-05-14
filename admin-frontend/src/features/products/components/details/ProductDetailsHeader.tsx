@@ -63,7 +63,7 @@ export function ProductDetailsHeader({
             </Button>
           </Stack>
           <Typography color="text.secondary" data-testid="product-details-page-meta">
-            {product.manufacturer} | {product.category} | Created {formatDate(product.createdOn)} | Updated{' '}
+            {product.manufacturer} | {product.categoryPath || '-'} | Created {formatDate(product.createdOn)} | Updated{' '}
             {formatDate(product.updatedOn)}
           </Typography>
         </Stack>
