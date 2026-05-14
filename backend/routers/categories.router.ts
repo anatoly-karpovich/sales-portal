@@ -5,6 +5,7 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 
 const categoriesRouter = Router();
 
+categoriesRouter.get("/categories", authmiddleware, CategoriesController.getCombined.bind(CategoriesController));
 categoriesRouter.get("/categories/tree", authmiddleware, CategoriesController.getTree.bind(CategoriesController));
 categoriesRouter.get("/categories/flat", authmiddleware, CategoriesController.getFlat.bind(CategoriesController));
 categoriesRouter.get(
@@ -71,6 +72,25 @@ categoriesRouter.delete(
  *           example: []
  *         createdOn: { type: string, format: date-time }
  *         updatedOn: { type: string, format: date-time }
+ *     CategoryTreeNode:
+ *       type: object
+ *       required: [_id, name, slug, children, productsCount, createdOn, updatedOn]
+ *       properties:
+ *         _id: { type: string }
+ *         name: { type: string }
+ *         slug: { type: string }
+ *         description: { type: string }
+ *         imageUrl: { type: string }
+ *         children:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CategoryTreeNode'
+ *           example: []
+ *         productsCount:
+ *           type: integer
+ *           minimum: 0
+ *         createdOn: { type: string, format: date-time }
+ *         updatedOn: { type: string, format: date-time }
  *     CategoryFlatNode:
  *       type: object
  *       required: [_id, name, slug, path, createdOn, updatedOn]
@@ -120,7 +140,24 @@ categoriesRouter.delete(
  *         CategoriesTree:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/CategoryNode'
+ *             $ref: '#/components/schemas/CategoryTreeNode'
+ *         IsSuccess: { type: boolean, example: true }
+ *         ErrorMessage:
+ *           oneOf:
+ *             - type: string
+ *             - type: "null"
+ *     CategoryCombinedResponse:
+ *       type: object
+ *       required: [CategoriesTree, Categories, IsSuccess, ErrorMessage]
+ *       properties:
+ *         CategoriesTree:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CategoryTreeNode'
+ *         Categories:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CategoryFlatNode'
  *         IsSuccess: { type: boolean, example: true }
  *         ErrorMessage:
  *           oneOf:
@@ -182,6 +219,27 @@ categoriesRouter.delete(
  *           example: false
  *         ErrorMessage:
  *           type: string
+ * /api/categories:
+ *   get:
+ *     summary: Get categories tree and flat list
+ *     tags: [Categories]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Combined categories payload
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryCombinedResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  * /api/categories/tree:
  *   get:
  *     summary: Get categories tree

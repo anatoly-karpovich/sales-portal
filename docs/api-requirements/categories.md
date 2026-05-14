@@ -27,6 +27,7 @@ CategoryNode {
   description?: string;
   imageUrl?: string;
   children: CategoryNode[];
+  productsCount: number; // products in this node subtree (node + descendants)
   createdOn: Date;
   updatedOn: Date;
 }
@@ -36,6 +37,7 @@ CategoryNode {
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
+| GET | `/api/categories` | Returns both nested tree and flattened list in a single response. |
 | GET | `/api/categories/tree` | Returns nested category tree. |
 | GET | `/api/categories/flat` | Returns flattened list with path metadata. |
 | GET | `/api/categories/nodes/:categoryId` | Returns one node by id. |

@@ -40,6 +40,11 @@ export type CategoryNodeDTO = {
   updatedOn: string;
 };
 
+export type CategoryTreeNodeDTO = Omit<CategoryNodeDTO, "children"> & {
+  children: CategoryTreeNodeDTO[];
+  productsCount: number;
+};
+
 export type CategoryFlatNodeDTO = {
   _id: string;
   name: string;
@@ -53,10 +58,15 @@ export type CategoryFlatNodeDTO = {
 };
 
 export type CategoryTreeResponseDTO = BaseResponseDTO & {
-  CategoriesTree: CategoryNodeDTO[];
+  CategoriesTree: CategoryTreeNodeDTO[];
 };
 
 export type CategoryFlatResponseDTO = BaseResponseDTO & {
+  Categories: CategoryFlatNodeDTO[];
+};
+
+export type CategoryCombinedResponseDTO = BaseResponseDTO & {
+  CategoriesTree: CategoryTreeNodeDTO[];
   Categories: CategoryFlatNodeDTO[];
 };
 

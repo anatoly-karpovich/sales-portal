@@ -1,6 +1,11 @@
 import mongoose, { ClientSession, Types } from "mongoose";
 import { ICategoryNode } from "../data/types";
-import { CategoryFlatNodeDTO, CategoryNodeDTO, CategoryNodePathItemDTO } from "../data/types/dto/categories.dto";
+import {
+  CategoryFlatNodeDTO,
+  CategoryNodeDTO,
+  CategoryNodePathItemDTO,
+  CategoryTreeNodeDTO,
+} from "../data/types/dto/categories.dto";
 import { getTodaysDate } from "../utils/utils";
 import CategoryTreeModel from "../models/category-tree.model";
 import Product from "../models/product.model";
@@ -23,6 +28,64 @@ type TreeDocument = {
 };
 
 class CategoriesService {
+  private toCategoryIdString(value: unknown): string {
+    if (!value) {
+      return "";
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (value instanceof Types.ObjectId) {
+      return value.toHexString();
+    }
+
+    if (typeof value === "object") {
+      const candidate = value as {
+        $oid?: unknown;
+        toHexString?: () => string;
+        toString?: () => string;
+        type?: string;
+        data?: unknown;
+      };
+
+      if (typeof candidate.$oid === "string") {
+        return candidate.$oid;
+      }
+
+      if (typeof candidate.toHexString === "function") {
+        const asHex = candidate.toHexString();
+        if (asHex && asHex !== "[object Object]") {
+          return asHex;
+        }
+      }
+
+      if (candidate.type === "Buffer" && Array.isArray(candidate.data)) {
+        try {
+          return new Types.ObjectId(Buffer.from(candidate.data)).toHexString();
+        } catch {
+          return "";
+        }
+      }
+    }
+
+    const asAny = value as any;
+    if (Types.ObjectId.isValid(asAny)) {
+      return new Types.ObjectId(asAny).toHexString();
+    }
+
+    const fallback = String(value);
+    return fallback === "[object Object]" ? "" : fallback;
+  }
+
+  private cloneNodes(nodes: MutableCategoryNode[]): MutableCategoryNode[] {
+    return nodes.map((node) => ({
+      ...node,
+      children: this.cloneNodes(node.children ?? []),
+    }));
+  }
+
   private normalizeText(value: string): string {
     return value.trim();
   }
@@ -65,7 +128,7 @@ class CategoriesService {
 
   private toNodePathItem(node: MutableCategoryNode): CategoryNodePathItemDTO {
     return {
-      _id: node._id?.toString?.() ?? "",
+      _id: this.toCategoryIdString(node._id),
       name: node.name,
       slug: node.slug,
     };
@@ -73,7 +136,7 @@ class CategoriesService {
 
   private toNodeDTO(node: MutableCategoryNode): CategoryNodeDTO {
     return {
-      _id: node._id?.toString?.() ?? "",
+      _id: this.toCategoryIdString(node._id),
       name: node.name,
       slug: node.slug,
       description: node.description,
@@ -82,6 +145,42 @@ class CategoriesService {
       createdOn: (node.createdOn as any) instanceof Date ? (node.createdOn as any).toISOString() : node.createdOn,
       updatedOn: (node.updatedOn as any) instanceof Date ? (node.updatedOn as any).toISOString() : node.updatedOn,
     };
+  }
+
+  private toTreeNodeDTO(node: MutableCategoryNode, directProductsCountByCategoryId: Map<string, number>): CategoryTreeNodeDTO {
+    const children = (node.children ?? []).map((child) => this.toTreeNodeDTO(child, directProductsCountByCategoryId));
+    const categoryId = this.toCategoryIdString(node._id);
+    const directProductsCount = directProductsCountByCategoryId.get(categoryId) ?? 0;
+    const descendantsProductsCount = children.reduce((total, child) => total + child.productsCount, 0);
+
+    return {
+      _id: categoryId,
+      name: node.name,
+      slug: node.slug,
+      description: node.description,
+      imageUrl: node.imageUrl,
+      children,
+      productsCount: directProductsCount + descendantsProductsCount,
+      createdOn: (node.createdOn as any) instanceof Date ? (node.createdOn as any).toISOString() : node.createdOn,
+      updatedOn: (node.updatedOn as any) instanceof Date ? (node.updatedOn as any).toISOString() : node.updatedOn,
+    };
+  }
+
+  private async getDirectProductsCountByCategoryId(): Promise<Map<string, number>> {
+    const grouped = await Product.aggregate<{ _id: unknown; count: number }>([
+      { $group: { _id: "$categoryId", count: { $sum: 1 } } },
+    ]).exec();
+
+    const result = new Map<string, number>();
+    for (const item of grouped) {
+      const categoryId = this.toCategoryIdString(item._id);
+      if (!categoryId) {
+        continue;
+      }
+      result.set(categoryId, item.count);
+    }
+
+    return result;
   }
 
   private flattenNodes(
@@ -96,7 +195,7 @@ class CategoriesService {
     return nodes.flatMap((node) => {
       const nodePath = [...path, this.toNodePathItem(node)];
       const current: CategoryFlatNodeDTO = {
-        _id: node._id?.toString?.() ?? "",
+        _id: this.toCategoryIdString(node._id),
         name: node.name,
         slug: node.slug,
         description: node.description,
@@ -107,7 +206,7 @@ class CategoriesService {
         updatedOn: (node.updatedOn as any) instanceof Date ? (node.updatedOn as any).toISOString() : node.updatedOn,
       };
       const children = this.flattenNodes(node.children ?? [], {
-        parentId: node._id?.toString?.(),
+        parentId: this.toCategoryIdString(node._id),
         path: nodePath,
       });
       return [current, ...children];
@@ -122,7 +221,7 @@ class CategoriesService {
   ): NodeContext | null {
     for (const node of nodes) {
       const currentRoot = root ?? node;
-      if (node._id?.toString() === categoryId) {
+      if (this.toCategoryIdString(node._id) === categoryId) {
         return {
           node,
           parent,
@@ -139,7 +238,7 @@ class CategoriesService {
 
   private collectDescendantIds(node: MutableCategoryNode): string[] {
     const childIds = (node.children ?? []).flatMap((child) => this.collectDescendantIds(child));
-    return [node._id?.toString?.() ?? "", ...childIds].filter(Boolean);
+    return [this.toCategoryIdString(node._id), ...childIds].filter(Boolean);
   }
 
   private sortNodesByName(nodes: MutableCategoryNode[]) {
@@ -182,16 +281,17 @@ class CategoriesService {
     return updated as unknown as TreeDocument;
   }
 
-  async getTree(): Promise<CategoryNodeDTO[]> {
+  async getTree(): Promise<CategoryTreeNodeDTO[]> {
     const tree = await this.getOrCreateTree();
-    const nodes = structuredClone(tree.nodes);
+    const nodes = this.cloneNodes(tree.nodes as MutableCategoryNode[]);
     this.sortNodesByName(nodes);
-    return nodes.map((node) => this.toNodeDTO(node));
+    const directProductsCountByCategoryId = await this.getDirectProductsCountByCategoryId();
+    return nodes.map((node) => this.toTreeNodeDTO(node, directProductsCountByCategoryId));
   }
 
   async getFlat(): Promise<CategoryFlatNodeDTO[]> {
     const tree = await this.getOrCreateTree();
-    const nodes = structuredClone(tree.nodes);
+    const nodes = this.cloneNodes(tree.nodes as MutableCategoryNode[]);
     this.sortNodesByName(nodes);
     return this.flattenNodes(nodes);
   }
@@ -218,7 +318,7 @@ class CategoriesService {
     if (!context) {
       return null;
     }
-    return context.root._id?.toString?.() ?? null;
+    return this.toCategoryIdString(context.root._id) || null;
   }
 
   async getDescendantIds(categoryId: string): Promise<string[] | null> {
@@ -291,7 +391,8 @@ class CategoriesService {
     this.sortNodesByName(tree.nodes);
 
     const updatedTree = await this.persistTree(tree);
-    const createdContext = this.findNodeContext(updatedTree.nodes, newNode._id?.toString?.() ?? "");
+    const createdNodeId = this.toCategoryIdString(newNode._id);
+    const createdContext = this.findNodeContext(updatedTree.nodes, createdNodeId);
     return {
       node: createdContext ? this.toNodeDTO(createdContext.node) : undefined,
     };
@@ -364,9 +465,11 @@ class CategoriesService {
     }
 
     if (context.parent) {
-      context.parent.children = context.parent.children.filter((child) => child._id?.toString() !== categoryId);
+      context.parent.children = context.parent.children.filter(
+        (child) => this.toCategoryIdString(child._id) !== categoryId,
+      );
     } else {
-      tree.nodes = tree.nodes.filter((node) => node._id?.toString() !== categoryId);
+      tree.nodes = tree.nodes.filter((node) => this.toCategoryIdString(node._id) !== categoryId);
     }
 
     await this.persistTree(tree);
@@ -397,13 +500,15 @@ class CategoriesService {
       return { error: `Target parent category with id '${targetParentId}' wasn't found`, statusCode: 404 };
     }
 
-    const oldRootId = sourceContext.root._id?.toString?.() ?? "";
+    const oldRootId = this.toCategoryIdString(sourceContext.root._id);
     const sourceNode = sourceContext.node;
 
     if (sourceContext.parent) {
-      sourceContext.parent.children = sourceContext.parent.children.filter((child) => child._id?.toString() !== categoryId);
+      sourceContext.parent.children = sourceContext.parent.children.filter(
+        (child) => this.toCategoryIdString(child._id) !== categoryId,
+      );
     } else {
-      tree.nodes = tree.nodes.filter((node) => node._id?.toString() !== categoryId);
+      tree.nodes = tree.nodes.filter((node) => this.toCategoryIdString(node._id) !== categoryId);
     }
 
     if (targetContext) {
@@ -415,19 +520,27 @@ class CategoriesService {
     sourceNode.updatedOn = getTodaysDate(true);
     this.sortNodesByName(tree.nodes);
 
-    const newRootId = targetContext ? targetContext.root._id?.toString?.() ?? "" : sourceNode._id?.toString?.() ?? "";
+    const newRootId = targetContext
+      ? this.toCategoryIdString(targetContext.root._id)
+      : this.toCategoryIdString(sourceNode._id);
 
     let updatedTree: TreeDocument | null = null;
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         if (oldRootId !== newRootId) {
-          const descendantObjectIds = [...descendantIds].map((id) => new Types.ObjectId(id));
-          await Product.updateMany(
-            { categoryId: { $in: descendantObjectIds } },
-            { $set: { rootCategoryId: new Types.ObjectId(newRootId) } },
-            { session },
-          ).exec();
+          const descendantObjectIds = [...descendantIds]
+            .filter((id) => Types.ObjectId.isValid(id))
+            .map((id) => new Types.ObjectId(id));
+          const rootObjectId = Types.ObjectId.isValid(newRootId) ? new Types.ObjectId(newRootId) : null;
+
+          if (rootObjectId && descendantObjectIds.length > 0) {
+            await Product.updateMany(
+              { categoryId: { $in: descendantObjectIds } },
+              { $set: { rootCategoryId: rootObjectId } },
+              { session },
+            ).exec();
+          }
         }
 
         updatedTree = await this.persistTree(tree, session);

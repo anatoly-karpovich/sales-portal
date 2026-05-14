@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Types } from "mongoose";
 import {
+  CategoryCombinedResponseDTO,
   CategoryFlatResponseDTO,
   CategoryNodeResponseDTO,
   CategoryProductsResponseDTO,
@@ -19,6 +20,15 @@ import CategoriesService from "../services/categories.service";
 import ProductsService from "../services/products.service";
 
 class CategoriesController {
+  async getCombined(req: GetCategoriesTreeRequestDTO, res: Response<CategoryCombinedResponseDTO | BaseResponseDTO>) {
+    try {
+      const [tree, categories] = await Promise.all([CategoriesService.getTree(), CategoriesService.getFlat()]);
+      return res.status(200).json({ CategoriesTree: tree, Categories: categories, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
   async getTree(req: GetCategoriesTreeRequestDTO, res: Response<CategoryTreeResponseDTO | BaseResponseDTO>) {
     try {
       const tree = await CategoriesService.getTree();
