@@ -17,7 +17,7 @@ type Props = {
   isInteractionsLocked: boolean
   onEnterInfoMode: () => void
   onChangeField: (
-    field: 'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl',
+    field: 'name' | 'manufacturer' | 'description' | 'imageUrl',
     value: string,
   ) => void
   onSaveInfo: () => void
@@ -40,7 +40,11 @@ export function ProductInfoCard({
   onCancelInfo,
 }: Props) {
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="product-details-page-product-info-section">
+    <Paper
+      variant="outlined"
+      sx={{ p: { xs: 1.5, md: 2 } }}
+      data-testid="product-details-page-product-info-section"
+    >
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -61,9 +65,6 @@ export function ProductInfoCard({
             </Tooltip>
           </Stack>
         </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {productsUiText.detailsPage.productInfoSubtitle}
-        </Typography>
 
         {isInfoEditMode && draft ? (
           <ProductInfoEditForm
@@ -83,9 +84,6 @@ export function ProductInfoCard({
             </Typography>
             <Typography>
               <strong>Manufacturer:</strong> {product.manufacturer}
-            </Typography>
-            <Typography>
-              <strong>Category:</strong> {product.category}
             </Typography>
             <Typography>
               <strong>Description:</strong> {product.description?.trim() || '-'}

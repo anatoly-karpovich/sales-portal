@@ -19,10 +19,10 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ProductUpsertPayload } from '@/api/modules/products.api'
 import {
-  getProductCategoryError,
   getProductImageUrlError,
   getProductNameError,
 } from '@/features/products/forms/productParentValidation'
+import { ProductCategorySelector } from '@/features/products/components/ProductCategorySelector'
 import type { AttributeDraft, VariantDraft } from '@/features/products/forms/productVariantsDraft'
 import {
   buildPossibleCombinations,
@@ -36,6 +36,7 @@ import {
   parseCommaSeparatedValues,
   validatePrice,
 } from '@/features/products/forms/productVariantsDraft'
+import { useCategoriesWorkspaceQuery } from '@/features/categories/hooks/useCategoriesQuery'
 import { useManufacturerOptions } from '@/features/products/hooks/useManufacturerOptions'
 
 type Props = {
@@ -44,18 +45,22 @@ type Props = {
 }
 
 export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
-  const { options: manufacturerOptions, isLoading: isManufacturersLoading, isConfigured } =
-    useManufacturerOptions()
+  const categoriesQuery = useCategoriesWorkspaceQuery()
+  const {
+    options: manufacturerOptions,
+    isLoading: isManufacturersLoading,
+    isConfigured,
+  } = useManufacturerOptions()
   const [name, setName] = useState('')
   const [manufacturer, setManufacturer] = useState('')
-  const [category, setCategory] = useState('')
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [parentTouched, setParentTouched] = useState({
     name: false,
-    category: false,
     imageUrl: false,
   })
+  const [categoryTouched, setCategoryTouched] = useState(false)
   const [attributes, setAttributes] = useState<AttributeDraft[]>([])
   const [variants, setVariants] = useState<VariantDraft[]>([])
 
@@ -77,10 +82,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
 
     normalizedAttributes.forEach((attribute) => {
       if (!attribute.normalizedName) return
-      counts.set(
-        attribute.normalizedName,
-        (counts.get(attribute.normalizedName) ?? 0) + 1,
-      )
+      counts.set(attribute.normalizedName, (counts.get(attribute.normalizedName) ?? 0) + 1)
     })
 
     return counts
@@ -175,8 +177,9 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     possibleCombinations.length > 0 && variants.length >= possibleCombinations.length
 
   const nameError = getProductNameError(name)
-  const categoryError = getProductCategoryError(category)
   const imageUrlError = getProductImageUrlError(imageUrl, isValidHttpUrl)
+  const categoryError = selectedCategoryId ? '' : 'Category is required.'
+  const hasCategories = (categoriesQuery.data?.flat?.length ?? 0) > 0
 
   const hasAttributeErrors = attributeErrors.size > 0
   const canSave =
@@ -188,9 +191,10 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     variants.length > 0 &&
     invalidVariantsCount === 0 &&
     isConfigured &&
+    hasCategories &&
     !isSubmitting
 
-  if (isManufacturersLoading) {
+  if (isManufacturersLoading || categoriesQuery.isLoading) {
     return (
       <Paper sx={{ p: 3 }} data-testid="products-upsert-manufacturers-loading">
         <Typography>Loading catalog settings...</Typography>
@@ -206,6 +210,28 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
         </Alert>
         <Button component={Link} to="/products" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
           Back to Products
+        </Button>
+      </Stack>
+    )
+  }
+
+  if (categoriesQuery.isError) {
+    return (
+      <Stack spacing={2} data-testid="products-upsert-categories-unavailable">
+        <Alert severity="warning">Unable to load categories. Product creation is unavailable.</Alert>
+        <Button component={Link} to="/products" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+          Back to Products
+        </Button>
+      </Stack>
+    )
+  }
+
+  if (!hasCategories) {
+    return (
+      <Stack spacing={2} data-testid="products-upsert-categories-empty">
+        <Alert severity="warning">Create at least one category before adding products.</Alert>
+        <Button component={Link} to="/categories" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+          Go to Categories
         </Button>
       </Stack>
     )
@@ -397,17 +423,17 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
   }
 
   const handleSave = async () => {
+    setCategoryTouched(true)
     if (!canSave) return
 
     const payload = buildProductUpsertPayloadFromDraft({
       name,
       manufacturer: selectedManufacturer,
-      category,
       description,
       imageUrl,
       attributes,
       variants,
-    })
+    }, selectedCategoryId ?? '')
 
     await onSubmit(payload)
   }
@@ -433,21 +459,42 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
             justifyContent="space-between"
             gap={1.5}
           >
-            <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="products-upsert-form-title">
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700 }}
+              data-testid="products-upsert-form-title"
+            >
               Add New Product
             </Typography>
-            <Chip label="Draft Product" color="warning" variant="outlined" data-testid="products-upsert-create-status-chip" />
+            <Chip
+              label="Draft Product"
+              color="warning"
+              variant="outlined"
+              data-testid="products-upsert-create-status-chip"
+            />
           </Stack>
 
           <Divider />
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="products-upsert-parent-section">
+          <Paper
+            variant="outlined"
+            sx={{ p: { xs: 1.5, md: 2 } }}
+            data-testid="products-upsert-parent-section"
+          >
             <Stack spacing={1.5}>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="products-upsert-parent-title">
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 700 }}
+                  data-testid="products-upsert-parent-title"
+                >
                   Parent product
                 </Typography>
-                <Typography variant="body2" color="text.secondary" data-testid="products-upsert-parent-caption">
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="products-upsert-parent-caption"
+                >
                   Base product information. Variant image overrides parent image when provided.
                 </Typography>
               </Box>
@@ -470,7 +517,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                     }))
                   }
                   error={parentTouched.name && Boolean(nameError)}
-                  helperText={parentTouched.name ? (nameError || ' ') : ' '}
+                  helperText={parentTouched.name ? nameError || ' ' : ' '}
                   data-testid="products-upsert-parent-name-input"
                   inputProps={{ 'data-testid': 'products-upsert-parent-name-input-field' }}
                 />
@@ -501,22 +548,6 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                 </TextField>
 
                 <TextField
-                  label="Category"
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  onBlur={() =>
-                    setParentTouched((current) => ({
-                      ...current,
-                      category: true,
-                    }))
-                  }
-                  error={parentTouched.category && Boolean(categoryError)}
-                  helperText={parentTouched.category ? (categoryError || ' ') : ' '}
-                  data-testid="products-upsert-parent-category-input"
-                  inputProps={{ 'data-testid': 'products-upsert-parent-category-input-field' }}
-                />
-
-                <TextField
                   label="Parent image URL"
                   value={imageUrl}
                   onChange={(event) => setImageUrl(event.target.value)}
@@ -527,7 +558,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                     }))
                   }
                   error={parentTouched.imageUrl && Boolean(imageUrlError)}
-                  helperText={parentTouched.imageUrl ? (imageUrlError || ' ') : ' '}
+                  helperText={parentTouched.imageUrl ? imageUrlError || ' ' : ' '}
                   data-testid="products-upsert-parent-image-url-input"
                   inputProps={{
                     'data-testid': 'products-upsert-parent-image-url-input-field',
@@ -550,7 +581,54 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
             </Stack>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="products-upsert-attributes-section">
+          <Paper
+            variant="outlined"
+            sx={{ p: { xs: 1.5, md: 2 } }}
+            data-testid="products-upsert-category-section"
+          >
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="products-upsert-category-title">
+                  Product category
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="products-upsert-category-caption"
+                >
+                  Select the leaf category where this product should be placed.
+                </Typography>
+              </Box>
+
+              <ProductCategorySelector
+                tree={categoriesQuery.data?.tree ?? []}
+                flat={categoriesQuery.data?.flat ?? []}
+                selectedCategoryId={selectedCategoryId}
+                onChange={(categoryId) => {
+                  setSelectedCategoryId(categoryId)
+                  setCategoryTouched(true)
+                }}
+                disabled={isSubmitting}
+                testIdPrefix="products-upsert-category-selector"
+              />
+
+              {categoryTouched && categoryError ? (
+                <Typography
+                  variant="caption"
+                  color="error"
+                  data-testid="products-upsert-category-validation-error"
+                >
+                  {categoryError}
+                </Typography>
+              ) : null}
+            </Stack>
+          </Paper>
+
+          <Paper
+            variant="outlined"
+            sx={{ p: { xs: 1.5, md: 2 } }}
+            data-testid="products-upsert-attributes-section"
+          >
             <Stack spacing={1.5}>
               <Stack
                 direction={{ xs: 'column', md: 'row' }}
@@ -559,11 +637,20 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                 gap={1.25}
               >
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="products-upsert-attributes-title">
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="products-upsert-attributes-title"
+                  >
                     Attributes
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" data-testid="products-upsert-attributes-caption">
-                    Create unique attributes and available values. Values will be used to build variants.
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    data-testid="products-upsert-attributes-caption"
+                  >
+                    Create unique attributes and available values. Values will be used to build
+                    variants.
                   </Typography>
                 </Box>
 
@@ -579,7 +666,11 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
 
               <Stack spacing={1.25} data-testid="products-upsert-attributes-list">
                 {attributes.length === 0 ? (
-                  <Alert severity="info" data-testid="products-upsert-attributes-empty-alert">
+                  <Alert
+                    severity="info"
+                    data-testid="products-upsert-attributes-empty-alert"
+                    sx={{ background: 'inherit' }}
+                  >
                     Attributes are optional. You can generate a single variant without attributes.
                   </Alert>
                 ) : null}
@@ -673,18 +764,34 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
             </Stack>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="products-upsert-variants-section">
+          <Paper
+            variant="outlined"
+            sx={{ p: { xs: 1.5, md: 2 } }}
+            data-testid="products-upsert-variants-section"
+          >
             <Stack spacing={1.5}>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="products-upsert-variants-title">
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 700 }}
+                  data-testid="products-upsert-variants-title"
+                >
                   Variants
                 </Typography>
-                <Typography variant="body2" color="text.secondary" data-testid="products-upsert-variants-caption">
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="products-upsert-variants-caption"
+                >
                   Each variant has a unique attribute combination. Price is required before save.
                 </Typography>
               </Box>
 
-              <Paper variant="outlined" sx={{ p: 1.5 }} data-testid="products-upsert-variants-summary-bar">
+              <Paper
+                variant="outlined"
+                sx={{ p: 1.5 }}
+                data-testid="products-upsert-variants-summary-bar"
+              >
                 <Stack
                   direction={{ xs: 'column', lg: 'row' }}
                   alignItems={{ xs: 'stretch', lg: 'center' }}
@@ -726,9 +833,7 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
                       variant="contained"
                       onClick={handleGenerateAllCombinations}
                       disabled={
-                        possibleCombinations.length === 0 ||
-                        hasReachedMaxVariants ||
-                        isSubmitting
+                        possibleCombinations.length === 0 || hasReachedMaxVariants || isSubmitting
                       }
                       data-testid="products-upsert-variants-generate-all-button"
                     >
@@ -932,7 +1037,11 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
             >
               Save Product
             </Button>
-            <Button component={Link} to="/products" data-testid="products-upsert-create-cancel-button">
+            <Button
+              component={Link}
+              to="/products"
+              data-testid="products-upsert-create-cancel-button"
+            >
               Cancel
             </Button>
           </Stack>

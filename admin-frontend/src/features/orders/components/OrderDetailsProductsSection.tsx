@@ -49,7 +49,7 @@ type ProductSummary = {
   _id: string
   name: string
   manufacturer: string
-  category: string
+  categoryPath: string
   variantsCount: number
 }
 
@@ -112,7 +112,7 @@ function toProductSummary(product: Product): ProductSummary {
     _id: product._id,
     name: product.name,
     manufacturer: product.manufacturer,
-    category: product.category,
+    categoryPath: product.categoryPath,
     variantsCount: typeof product.variantsCount === 'number' ? product.variantsCount : 0,
   }
 }
@@ -643,7 +643,7 @@ function InlineProductsEditor({
                       <Stack spacing={0.25}>
                         <Typography variant="subtitle2">{product.name}</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {product.manufacturer} | {product.category}
+                          {product.manufacturer} | {product.categoryPath}
                         </Typography>
                       </Stack>
                     </Paper>

@@ -20,7 +20,8 @@ export interface IProduct extends DocumentResult<IProduct> {
   _id?: Types.ObjectId;
   name: string;
   manufacturer: string;
-  category: string;
+  categoryId: Types.ObjectId;
+  rootCategoryId: Types.ObjectId;
   description?: string;
   imageUrl?: string;
   status: PRODUCT_STATUSES;
@@ -37,7 +38,8 @@ export interface IProductDocument extends IProduct, mongoose.Document {
 export interface IProductFilters {
   manufacturers?: string[];
   statuses?: PRODUCT_STATUSES[];
-  category?: string;
+  categoryId?: string;
+  rootCategoryId?: string;
   minPrice?: number;
   maxPrice?: number;
   search: string;

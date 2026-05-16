@@ -28,7 +28,7 @@ export function useProductVariantsDraft(product: Product | null | undefined) {
 
   const updateParentField = useCallback(
     (
-      field: 'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl',
+      field: 'name' | 'manufacturer' | 'description' | 'imageUrl',
       value: string,
     ) => {
       setDraft((current) =>

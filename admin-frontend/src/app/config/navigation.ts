@@ -7,6 +7,7 @@ export const navigationItems: NavigationItem[] = [
   { to: '/home', label: 'Home' },
   { to: '/orders', label: 'Orders' },
   { to: '/products', label: 'Products' },
+  { to: '/categories', label: 'Categories' },
   { to: '/customers', label: 'Customers' },
   { to: '/managers', label: 'Managers' },
 ]

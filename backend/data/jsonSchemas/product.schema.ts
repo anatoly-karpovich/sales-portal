@@ -76,7 +76,7 @@ export const productCreateSchema: AllowedSchema = {
   properties: {
     name: { type: "string", minLength: 1 },
     manufacturer: { type: "string", minLength: 1 },
-    category: { type: "string", minLength: 1 },
+    categoryId: { type: "string", minLength: 1 },
     description: { type: "string" },
     imageUrl: { type: "string" },
     attributes: { type: "array", items: productAttributeSchema },
@@ -86,7 +86,7 @@ export const productCreateSchema: AllowedSchema = {
       items: productVariantSchema,
     },
   },
-  required: ["name", "manufacturer", "category", "attributes", "variants"],
+  required: ["name", "manufacturer", "categoryId", "attributes", "variants"],
   additionalProperties: false,
 };
 
@@ -95,7 +95,7 @@ export const productReplaceSchema: AllowedSchema = {
   properties: {
     name: { type: "string", minLength: 1 },
     manufacturer: { type: "string", minLength: 1 },
-    category: { type: "string", minLength: 1 },
+    categoryId: { type: "string", minLength: 1 },
     description: { type: "string" },
     imageUrl: { type: "string" },
     attributes: { type: "array", items: productAttributeSchema },
@@ -105,7 +105,7 @@ export const productReplaceSchema: AllowedSchema = {
       items: productVariantReplaceSchema,
     },
   },
-  required: ["name", "manufacturer", "category", "attributes", "variants"],
+  required: ["name", "manufacturer", "categoryId", "attributes", "variants"],
   additionalProperties: false,
 } as AllowedSchema;
 
@@ -114,7 +114,7 @@ export const productPatchSchema: AllowedSchema = {
   properties: {
     name: { type: "string", minLength: 1 },
     manufacturer: { type: "string", minLength: 1 },
-    category: { type: "string", minLength: 1 },
+    categoryId: { type: "string", minLength: 1 },
     description: { type: "string" },
     imageUrl: { type: "string" },
   },

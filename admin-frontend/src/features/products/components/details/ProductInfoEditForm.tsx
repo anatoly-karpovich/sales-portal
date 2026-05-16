@@ -1,6 +1,5 @@
 import { Box, Button, MenuItem, Stack, TextField } from '@mui/material'
 import {
-  getProductCategoryError,
   getProductImageUrlError,
   getProductNameError,
 } from '@/features/products/forms/productParentValidation'
@@ -15,7 +14,7 @@ type Props = {
   canSaveInfo: boolean
   isInteractionsLocked: boolean
   onChangeField: (
-    field: 'name' | 'manufacturer' | 'category' | 'description' | 'imageUrl',
+    field: 'name' | 'manufacturer' | 'description' | 'imageUrl',
     value: string,
   ) => void
   onSave: () => void
@@ -33,7 +32,6 @@ export function ProductInfoEditForm({
   onCancel,
 }: Props) {
   const nameError = getProductNameError(draft.name)
-  const categoryError = getProductCategoryError(draft.category)
   const imageUrlError = getProductImageUrlError(draft.imageUrl, isValidHttpUrl)
 
   return (
@@ -65,13 +63,6 @@ export function ProductInfoEditForm({
           ))}
         </TextField>
 
-        <TextField
-          label="Category"
-          value={draft.category}
-          error={Boolean(categoryError)}
-          helperText={categoryError || ' '}
-          onChange={(event) => onChangeField('category', event.target.value)}
-        />
         <TextField
           label="Parent image URL"
           value={draft.imageUrl}

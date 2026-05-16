@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export type ProductDetailsEditMode = 'view' | 'info' | 'variants' | 'single-variant'
+export type ProductDetailsEditMode = 'view' | 'info' | 'category' | 'variants' | 'single-variant'
 
 export function useProductDetailsEditMode() {
   const [mode, setMode] = useState<ProductDetailsEditMode>('view')
@@ -13,6 +13,11 @@ export function useProductDetailsEditMode() {
 
   const enterVariantsMode = () => {
     setMode('variants')
+    setSingleVariantId(null)
+  }
+
+  const enterCategoryMode = () => {
+    setMode('category')
     setSingleVariantId(null)
   }
 
@@ -31,9 +36,11 @@ export function useProductDetailsEditMode() {
     singleVariantId,
     isViewMode: mode === 'view',
     isInfoMode: mode === 'info',
+    isCategoryMode: mode === 'category',
     isVariantsMode: mode === 'variants',
     isSingleVariantMode: mode === 'single-variant',
     enterInfoMode,
+    enterCategoryMode,
     enterVariantsMode,
     enterSingleVariantMode,
     exitEditModes,

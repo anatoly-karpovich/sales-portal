@@ -98,7 +98,7 @@ Top-level source layout:
     - emits API error event unless request has `skipErrorToast: true`.
 - `api/events.ts` - internal event bus for `error` and `unauthorized`.
 - `api/types.ts` - `ApiRequestConfig` extension with `skipErrorToast`.
-- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
+- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `categories`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
   - order model uses split state axes:
@@ -127,6 +127,10 @@ Top-level source layout:
   - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
   - products list query supports filters `manufacturer[]`, `status[]`, `minPrice`, `maxPrice` and sorting with `variantsCount`.
   - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
+- `api/modules/categories.api.ts`
+  - categories workspace contract uses combined payload (`GET /categories`) with `tree + flat`.
+  - tree node includes both `directProductsCount` (products assigned directly) and `productsCount` (subtree total).
+  - create/move category requests are guarded by backend rule: category with direct products cannot become parent.
 
 ### 4.3 `features` layer
 
@@ -146,6 +150,19 @@ Top-level source layout:
 - `features/settings`
   - `hooks/useSettingsQuery.ts`, `hooks/settingsQueryKeys.ts` - global settings query/mutation layer used by customers and orders flows.
   - shipping settings contract is `shipping.delivery.pricing` + `shipping.pickup.{policy,locations}`.
+- `features/categories`
+  - `pages/CategoriesPage.tsx` - categories workspace page at `#/categories`.
+  - `hooks/useCategoriesWorkspaceState.ts` - page-level orchestration hook (selection, search, create/edit/move/delete, dialogs, DnD).
+  - `hooks/useCategoriesQuery.ts` - query/mutation layer (`workspace`, create, patch, move, delete).
+  - `components/*`:
+    - tree panel + recursive tree rows with drag-and-drop;
+    - details header/general info/children blocks;
+    - create form section and move/delete confirmations.
+  - key UX/domain rules:
+    - products can be assigned only to leaf categories (product selector disables non-leaf nodes);
+    - category with direct products cannot receive children (create-child action blocked in UI + backend);
+    - move supports drag-and-drop into another category and explicit move-to-root (including root drop zone);
+    - deep link from product details (`/categories?selectedId=...`) preselects the node on open, but does not lock further selection.
 - `features/products` (most complete module)
   - `pages/ProductsPage.tsx` - list, filters, export, pagination, dialogs
     - products-only filters modal uses 3 accordions: `Manufacturers`, `Product Status`, `Price`.
@@ -456,6 +473,7 @@ Routes:
   - `/orders`
   - `/orders/add`
   - `/orders/:orderId`
+  - `/categories`
   - `/products`
   - `/products/add`
   - `/products/:productId/edit`
@@ -542,6 +560,8 @@ Existing scope prefixes to follow:
 - `products-list-*`
 - `products-upsert-*`
 - `product-details-dialog-*`
+- `categories-page-*`
+- `categories-tree-*`
 - `search-toolbar-*`
 - `filter-dialog-*`
 - `export-dialog-*`
@@ -592,6 +612,8 @@ Do not change these keys without explicit migration requirements.
 - For table empty states, reuse shared copy from `components/shared/shared.ui-text.ts`:
   - base empty: `No records created yet`
   - filtered/criteria empty: `No records found.`
+- For inline informational empty-state messages (for example `No categories yet. Create a root category to start.`), keep background transparent.
+  - Do not apply a dedicated filled background color to such text blocks.
 
 ## 12) Number, money, and status formatting
 

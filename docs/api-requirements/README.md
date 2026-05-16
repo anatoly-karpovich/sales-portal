@@ -11,6 +11,7 @@ This folder mirrors `docs/ui-requirements` but from backend/API perspective.
 - `users.md`
 - `customers.md`
 - `products.md`
+- `categories.md`
 - `orders.md`
 - `orders-flow.md`
 - `settings.md`

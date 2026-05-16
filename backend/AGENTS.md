@@ -40,8 +40,6 @@ Main commands:
 - `npm run build` - required before handoff (compiles TS to `dist`)
 - `npm run dev` - watch mode (`tsc -w`) + `nodemon dist/index.js`
 - `npm start` - production start (`prestart` runs build first)
-- `npm run mongo:migrate:settings:init` - create singleton `settings` document if it does not exist
-- `npm run mongo:migrate:settings:add-core-us-cities` - ensure core US cities and default pickup addresses are synchronized in existing `settings`
 
 Notes:
 
@@ -64,7 +62,7 @@ Startup flow (`index.ts`):
 1. load env via `dotenv`;
 2. create Express app and register middleware/routers;
 3. connect to MongoDB;
-4. run `seed()` (roles + default admin + default `settings` singleton creation);
+4. run `seed()` (roles + default admin + default `settings` singleton creation + empty `CategoryTree` singleton creation);
 5. start HTTP server + initialize Socket.IO;
 6. register Swagger docs endpoint;
 7. start daily notification cleanup cron.
@@ -175,6 +173,17 @@ Settings:
 - `POST /settings`
 - `PATCH /settings`
 
+Categories:
+
+- `GET /categories/tree`
+- `GET /categories/flat`
+- `GET /categories/nodes/:categoryId`
+- `POST /categories/nodes`
+- `PATCH /categories/nodes/:categoryId`
+- `POST /categories/nodes/:categoryId/move`
+- `GET /categories/nodes/:categoryId/products`
+- `DELETE /categories/nodes/:categoryId`
+
 Utility/public:
 
 - `GET /promocodes/:id` (rebates, currently without auth middleware)
@@ -240,7 +249,7 @@ Current important constraints:
   `deliveryStatus` filters are applied to `delivery.status`.
 - Product uniqueness: case-insensitive by trimmed `name`.
 - Product manufacturer must exist in `settings.catalog.manufacturers` (case-insensitive).
-- `GET /products` filters support `manufacturer[]`, `status[]`, `category` (case-insensitive partial match), `minPrice`, `maxPrice` (inclusive; applied to `variants.price`).
+- `GET /products` filters support `manufacturer[]`, `status[]`, `categoryId`, `rootCategoryId`, `minPrice`, `maxPrice` (inclusive; applied to `variants.price`).
 - `GET /products` sorting supports `name`, `price`, `manufacturer`, `category`, `status`, `createdOn`, `variantsCount`; tie-break is `createdOn` descending.
 - `GET /products` list item response includes `createdOn`.
 - Product variants rules:
@@ -447,9 +456,7 @@ Recommended flow for new endpoint/domain behavior:
 When changing persisted defaults that already exist in production data:
 
 1. update defaults source (`data/defaultSettings.ts`);
-2. add a dedicated migration in `mongo/migrations/*`;
-3. add a runnable npm script in `backend/package.json`;
-4. run migration against target DB before relying on new defaults.
+2. align update strategy with current deployment setup and operational constraints.
 
 Avoid:
 
@@ -464,5 +471,5 @@ Avoid:
 - JSON schema, DTO, middleware, and Swagger are aligned with the same contract.
 - Response envelope remains consistent (`IsSuccess`, `ErrorMessage`, domain payload key).
 - Business invariants (status transitions, delete guards, auth checks) are preserved.
-- For existing environments, required migrations were added and documented in scripts.
+- For existing environments, data update strategy is documented when required.
 - No unrelated refactors outside task scope.

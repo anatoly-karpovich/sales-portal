@@ -26,7 +26,6 @@ export type VariantDraft = {
 export type ProductVariantsDraft = {
   name: string
   manufacturer: string
-  category: string
   description: string
   imageUrl: string
   attributes: AttributeDraft[]
@@ -208,7 +207,6 @@ export function toProductVariantsDraft(product: Product): ProductVariantsDraft {
   return {
     name: product.name,
     manufacturer: product.manufacturer,
-    category: product.category,
     description: product.description ?? '',
     imageUrl: product.imageUrl ?? '',
     attributes,
@@ -247,11 +245,14 @@ export function buildVariantsReplacePayloadFromDraft(
   })
 }
 
-export function buildProductUpsertPayloadFromDraft(draft: ProductVariantsDraft): ProductUpsertPayload {
+export function buildProductUpsertPayloadFromDraft(
+  draft: ProductVariantsDraft,
+  categoryId: string,
+): ProductUpsertPayload {
   return {
     name: draft.name.trim(),
     manufacturer: draft.manufacturer.trim(),
-    category: draft.category.trim(),
+    categoryId: categoryId.trim(),
     ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
     ...(draft.imageUrl.trim() ? { imageUrl: draft.imageUrl.trim() } : {}),
     attributes: buildAttributesPayloadFromDraft(draft),

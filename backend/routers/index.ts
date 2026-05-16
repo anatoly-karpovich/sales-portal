@@ -13,6 +13,7 @@ import rebatesRouter from "./rebates.router";
 import managersRouter from "./managers.router";
 import settingsRouter from "./settings.router";
 import pricingRouter from "./pricing.router";
+import categoriesRouter from "./categories.router";
 
 export {
   authRouter,
@@ -30,4 +31,5 @@ export {
   rebatesRouter,
   settingsRouter,
   pricingRouter,
+  categoriesRouter,
 };

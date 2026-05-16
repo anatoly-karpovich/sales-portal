@@ -25,7 +25,8 @@ const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, unique: true, required: true },
     manufacturer: { type: String, required: true },
-    category: { type: String, required: true },
+    categoryId: { type: mongoose.SchemaTypes.ObjectId, required: true },
+    rootCategoryId: { type: mongoose.SchemaTypes.ObjectId, required: true },
     description: { type: String, required: false },
     imageUrl: { type: String, required: false },
     status: { type: String, enum: PRODUCT_STATUSES, required: true },
@@ -36,5 +37,8 @@ const ProductSchema = new mongoose.Schema(
   },
   { versionKey: false },
 );
+
+ProductSchema.index({ categoryId: 1 });
+ProductSchema.index({ rootCategoryId: 1 });
 
 export default mongoose.model<IProductDocument>("Product", ProductSchema);
