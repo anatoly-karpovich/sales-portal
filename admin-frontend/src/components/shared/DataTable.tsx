@@ -116,6 +116,7 @@ export function DataTable<Row>({
                     width: 'fit-content',
                     px: 1.25,
                     py: 0.25,
+                    border: 'none',
                     '& .MuiAlert-icon': {
                       py: 0,
                       my: 'auto',

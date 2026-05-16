@@ -241,6 +241,13 @@ export function useCategoriesWorkspaceState() {
     })
   }
 
+  const selectCategoryWithPathExpansion = (categoryId: string | null) => {
+    if (categoryId) {
+      expandByPathIds(flatById.get(categoryId)?.path.map((pathItem) => pathItem._id) ?? [])
+    }
+    selectCategory(categoryId)
+  }
+
   const isCreateChildBlocked = (categoryId: string) =>
     (treeById.get(categoryId)?.directProductsCount ?? 0) > 0
 
@@ -259,7 +266,7 @@ export function useCategoriesWorkspaceState() {
       enqueueSnackbar(categoriesUiText.details.createChildBlockedDirectProducts, { variant: 'warning' })
       return
     }
-    selectCategory(normalizedParentId)
+    selectCategoryWithPathExpansion(normalizedParentId)
     setMode('create-child')
     setCreateParentId(normalizedParentId)
     setCreateForm(EMPTY_FORM)
@@ -602,7 +609,7 @@ export function useCategoriesWorkspaceState() {
     effectiveExpandedIds,
     selectedAddChildBlocked,
     isMoveToRootDisabled,
-    setSelectedId: selectCategory,
+    setSelectedId: selectCategoryWithPathExpansion,
     setCreateParentId,
     setEditDraftByCategoryId,
     openCreateRoot,

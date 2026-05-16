@@ -22,7 +22,8 @@ import ProductsService from "../services/products.service";
 class CategoriesController {
   async getCombined(req: GetCategoriesTreeRequestDTO, res: Response<CategoryCombinedResponseDTO | BaseResponseDTO>) {
     try {
-      const [tree, categories] = await Promise.all([CategoriesService.getTree(), CategoriesService.getFlat()]);
+      const tree = await CategoriesService.getTree();
+      const categories = await CategoriesService.getFlat();
       return res.status(200).json({ CategoriesTree: tree, Categories: categories, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
@@ -164,3 +165,5 @@ class CategoriesController {
 }
 
 export default new CategoriesController();
+
+

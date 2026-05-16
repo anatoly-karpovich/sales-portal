@@ -14,6 +14,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { useEffect, useRef } from 'react'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { categoriesUiText, getDeleteCategoryMessage } from '@/features/categories/categories.ui-text'
 import { CategoriesChildrenSection } from '@/features/categories/components/CategoriesChildrenSection'
@@ -25,6 +26,20 @@ import { useCategoriesWorkspaceState } from '@/features/categories/hooks/useCate
 
 export function CategoriesPage() {
   const state = useCategoriesWorkspaceState()
+  const createChildContainerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!state.isCreatingChild) return
+
+    const timeoutId = window.setTimeout(() => {
+      createChildContainerRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 60)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [state.isCreatingChild, state.selectedCategory?._id])
 
   const renderDetailsContent = () => {
     if (state.isCreatingRoot) {
@@ -102,6 +117,7 @@ export function CategoriesPage() {
             createImageUrlError={state.createErrors.imageUrl}
             canCreate={state.canCreate}
             isCreatePending={state.createMutation.isPending}
+            createChildContainerRef={createChildContainerRef}
             onOpenCreateChild={() => state.openCreateChild(selectedCategory._id)}
             onSelectChild={(childId) => {
               state.setSelectedId(childId)

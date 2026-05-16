@@ -1,4 +1,6 @@
-import { Alert, Button, Chip, Paper, Stack, TextField, Typography } from '@mui/material'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import { Button, Chip, Paper, Stack, TextField, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import type { DragEvent } from 'react'
 import type { CategoryNode } from '@/api/modules/categories.api'
 import { categoriesUiText } from '@/features/categories/categories.ui-text'
@@ -85,9 +87,16 @@ export function CategoriesTreePanel({
         sx={{ p: 1.5, maxHeight: { xs: 420, lg: 'calc(100vh - 290px)' }, overflowY: 'auto' }}
       >
         {displayTree.length === 0 ? (
-          <Alert severity="info" data-testid="categories-page-tree-empty-state">
-            {categoriesUiText.tree.empty}
-          </Alert>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ py: 0.75, px: 0.25 }}
+            data-testid="categories-page-tree-empty-state"
+          >
+            <InfoOutlinedIcon fontSize="small" color="info" />
+            <Typography variant="body2">{categoriesUiText.tree.empty}</Typography>
+          </Stack>
         ) : (
           <Stack spacing={0.4} data-testid="categories-page-tree-list">
             {displayTree.map((node) => (
@@ -115,26 +124,31 @@ export function CategoriesTreePanel({
             ))}
           </Stack>
         )}
-        <Paper
-          variant="outlined"
-          onDragOver={onRootDragOver}
-          onDrop={onRootDrop}
-          sx={{
-            p: 1.25,
-            textAlign: 'center',
-            borderStyle: 'dashed',
-            borderColor: isRootDragOver ? 'primary.main' : 'divider',
-            bgcolor: isRootDragOver ? 'action.hover' : 'transparent',
-          }}
-          data-testid="categories-page-root-drop-zone"
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Drop here to move as root category
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Drag a category node into this zone
-          </Typography>
-        </Paper>
+        {draggedId ? (
+          <Paper
+            variant="outlined"
+            onDragOver={onRootDragOver}
+            onDrop={onRootDrop}
+            sx={(theme) => ({
+              p: 1.25,
+              textAlign: 'center',
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              borderColor: isRootDragOver ? 'success.main' : 'info.main',
+              bgcolor: isRootDragOver
+                ? alpha(theme.palette.success.main, 0.2)
+                : alpha(theme.palette.info.main, 0.12),
+            })}
+            data-testid="categories-page-root-drop-zone"
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Drop here to move as root category
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Drag a category node into this zone
+            </Typography>
+          </Paper>
+        ) : null}
 
         <Button
           variant="outlined"

@@ -38,4 +38,7 @@ const ProductSchema = new mongoose.Schema(
   { versionKey: false },
 );
 
+ProductSchema.index({ categoryId: 1 });
+ProductSchema.index({ rootCategoryId: 1 });
+
 export default mongoose.model<IProductDocument>("Product", ProductSchema);

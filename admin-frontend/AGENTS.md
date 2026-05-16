@@ -612,6 +612,8 @@ Do not change these keys without explicit migration requirements.
 - For table empty states, reuse shared copy from `components/shared/shared.ui-text.ts`:
   - base empty: `No records created yet`
   - filtered/criteria empty: `No records found.`
+- For inline informational empty-state messages (for example `No categories yet. Create a root category to start.`), keep background transparent.
+  - Do not apply a dedicated filled background color to such text blocks.
 
 ## 12) Number, money, and status formatting
 

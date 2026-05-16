@@ -5,7 +5,6 @@ import managerModel from "../models/manager.model";
 import SettingsModel from "../models/settings.model";
 import roleModel from "../models/role.model";
 import managersService from "../services/managers.service";
-import CategoriesService from "../services/categories.service";
 import { getTodaysDate } from "../utils/utils";
 
 async function seedDefaultSettings() {
@@ -41,5 +40,4 @@ export async function seed() {
   }
 
   await seedDefaultSettings();
-  await CategoriesService.ensureTreeExists();
 }

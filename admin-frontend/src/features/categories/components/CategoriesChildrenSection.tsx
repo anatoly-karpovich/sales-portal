@@ -1,4 +1,5 @@
 import { Alert, Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material'
+import type { RefObject } from 'react'
 import type { CategoryNode } from '@/api/modules/categories.api'
 import { categoriesUiText } from '@/features/categories/categories.ui-text'
 import { CategoriesCreateFormSection } from '@/features/categories/components/CategoriesCreateFormSection'
@@ -19,6 +20,7 @@ type CategoriesChildrenSectionProps = {
   createImageUrlError: string
   canCreate: boolean
   isCreatePending: boolean
+  createChildContainerRef?: RefObject<HTMLDivElement | null>
   onOpenCreateChild: () => void
   onSelectChild: (childId: string) => void
   onCreateFormChange: (next: CategoryFormState) => void
@@ -41,6 +43,7 @@ export function CategoriesChildrenSection({
   createImageUrlError,
   canCreate,
   isCreatePending,
+  createChildContainerRef,
   onOpenCreateChild,
   onSelectChild,
   onCreateFormChange,
@@ -70,7 +73,7 @@ export function CategoriesChildrenSection({
         </Tooltip>
       ) : null}
 
-      {selectedChildren.length === 0 ? (
+      {selectedChildren.length === 0 && !isAddChildDisabled ? (
         <Alert
           severity="info"
           sx={{ bgcolor: 'transparent' }}
@@ -78,7 +81,7 @@ export function CategoriesChildrenSection({
         >
           {categoriesUiText.details.noChildrenPrefix} {selectedCategoryName}.
         </Alert>
-      ) : (
+      ) : selectedChildren.length > 0 ? (
         <Box
           sx={{
             display: 'grid',
@@ -111,10 +114,10 @@ export function CategoriesChildrenSection({
             </Paper>
           ))}
         </Box>
-      )}
+      ) : null}
 
       {isCreateChildMode ? (
-        <Paper variant="outlined" sx={{ p: 2 }}>
+        <Paper variant="outlined" sx={{ p: 2 }} ref={createChildContainerRef}>
           <CategoriesCreateFormSection
             testId="categories-page-create-child-mode"
             title={categoriesUiText.details.sections.createChild}

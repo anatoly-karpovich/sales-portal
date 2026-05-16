@@ -1,24 +1,31 @@
 import mongoose, { Types } from "mongoose";
 import { DocumentResult } from ".";
 
-export interface ICategoryNode {
+export interface ICategoryPathItem {
+  _id: Types.ObjectId;
+  name: string;
+  slug: string;
+}
+
+export interface ICategory extends DocumentResult<ICategory> {
   _id?: Types.ObjectId;
   name: string;
   slug: string;
+  slugLower: string;
   description?: string;
   imageUrl?: string;
-  children: ICategoryNode[];
+  parentId: Types.ObjectId | null;
+  rootId: Types.ObjectId;
+  depth: number;
+  ancestors: Types.ObjectId[];
+  path: ICategoryPathItem[];
+  pathSlugs: string[];
+  childrenCount: number;
+  isLeaf: boolean;
   createdOn: string;
   updatedOn: string;
 }
 
-export interface ICategoryTree extends DocumentResult<ICategoryTree> {
-  _id?: Types.ObjectId;
-  nodes: ICategoryNode[];
-  createdOn: string;
-  updatedOn: string;
-}
-
-export interface ICategoryTreeDocument extends ICategoryTree, mongoose.Document {
+export interface ICategoryDocument extends ICategory, mongoose.Document {
   _id?: Types.ObjectId;
 }
