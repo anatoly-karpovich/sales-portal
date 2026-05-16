@@ -42,6 +42,7 @@ export type CategoryNodeDTO = {
 
 export type CategoryTreeNodeDTO = Omit<CategoryNodeDTO, "children"> & {
   children: CategoryTreeNodeDTO[];
+  directProductsCount: number;
   productsCount: number;
 };
 

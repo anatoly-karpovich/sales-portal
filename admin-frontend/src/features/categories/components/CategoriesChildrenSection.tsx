@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import type { CategoryNode } from '@/api/modules/categories.api'
 import { categoriesUiText } from '@/features/categories/categories.ui-text'
 import { CategoriesCreateFormSection } from '@/features/categories/components/CategoriesCreateFormSection'
@@ -9,6 +9,8 @@ type CategoriesChildrenSectionProps = {
   selectedCategoryName: string
   selectedPathLabel: string
   isActionsLocked: boolean
+  isAddChildDisabled: boolean
+  addChildDisabledReason: string
   isCreateChildMode: boolean
   createForm: CategoryFormState
   shouldShowCreateNameError: boolean
@@ -29,6 +31,8 @@ export function CategoriesChildrenSection({
   selectedCategoryName,
   selectedPathLabel,
   isActionsLocked,
+  isAddChildDisabled,
+  addChildDisabledReason,
   isCreateChildMode,
   createForm,
   shouldShowCreateNameError,
@@ -52,12 +56,19 @@ export function CategoriesChildrenSection({
         <Button
           variant="outlined"
           onClick={onOpenCreateChild}
-          disabled={isActionsLocked}
+          disabled={isActionsLocked || isAddChildDisabled}
           data-testid="categories-page-details-add-child-button"
         >
           {categoriesUiText.details.actions.addChild}
         </Button>
       </Stack>
+      {isAddChildDisabled ? (
+        <Tooltip title={addChildDisabledReason}>
+          <Typography variant="caption" color="text.secondary" data-testid="categories-page-add-child-disabled-reason">
+            {addChildDisabledReason}
+          </Typography>
+        </Tooltip>
+      ) : null}
 
       {selectedChildren.length === 0 ? (
         <Alert

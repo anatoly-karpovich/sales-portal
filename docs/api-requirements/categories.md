@@ -26,6 +26,7 @@ CategoryNode {
   slug: string; // globally unique, case-insensitive
   description?: string;
   imageUrl?: string;
+  directProductsCount: number; // products assigned directly to this node only
   children: CategoryNode[];
   productsCount: number; // products in this node subtree (node + descendants)
   createdOn: Date;
@@ -54,6 +55,7 @@ CategoryNode {
 - `slug` is optional; when omitted it is generated from `name`.
 - slug must be globally unique (case-insensitive).
 - `parentId` is optional; when provided parent must exist.
+- creation is blocked when `parentId` points to a category with direct products (`directProductsCount > 0`).
 
 ### Update node
 - node must exist.
@@ -67,6 +69,7 @@ CategoryNode {
 - source node must exist.
 - target parent (if provided) must exist.
 - cannot move node into itself or into its own subtree.
+- move is blocked when target parent has direct products (`directProductsCount > 0`).
 - when root section changes, affected products keep `categoryId` and get recalculated `rootCategoryId`.
 
 ## Subtree Product Endpoint

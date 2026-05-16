@@ -11,6 +11,7 @@ type CategoriesTreeNodeRowProps = {
   node: CategoryNode
   depth: number
   actionButtonsDisabled: boolean
+  addChildBlockedReason: string
   selectedId: string | null
   expandedIds: Set<string>
   forceExpandedIds: Set<string>
@@ -31,6 +32,7 @@ export function CategoriesTreeNodeRow({
   node,
   depth,
   actionButtonsDisabled,
+  addChildBlockedReason,
   selectedId,
   expandedIds,
   forceExpandedIds,
@@ -52,6 +54,7 @@ export function CategoriesTreeNodeRow({
   const isDragOver = dragOverId === node._id
   const isDragging = draggedId === node._id
   const showRowActions = !actionButtonsDisabled && isSelected
+  const isAddChildBlocked = (node.directProductsCount ?? 0) > 0
 
   return (
     <Box>
@@ -165,12 +168,12 @@ export function CategoriesTreeNodeRow({
           </Typography>
         </Stack>
 
-        <Tooltip title="Add child category">
+        <Tooltip title={isAddChildBlocked ? addChildBlockedReason : 'Add child category'}>
           <span>
             <IconButton
               size="small"
               className="categories-tree-row-action"
-              disabled={actionButtonsDisabled}
+              disabled={actionButtonsDisabled || isAddChildBlocked}
               onClick={(event) => {
                 event.stopPropagation()
                 onAddChild(node._id)
@@ -218,6 +221,7 @@ export function CategoriesTreeNodeRow({
               node={child}
               depth={depth + 1}
               actionButtonsDisabled={actionButtonsDisabled}
+              addChildBlockedReason={addChildBlockedReason}
               selectedId={selectedId}
               expandedIds={expandedIds}
               forceExpandedIds={forceExpandedIds}

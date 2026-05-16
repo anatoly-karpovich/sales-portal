@@ -17,6 +17,7 @@ export type MoveDialogState = {
   open: boolean
   sourceId: string | null
   targetParentId: string | null
+  targetKind: 'unset' | 'root' | 'category'
   mode: 'picker' | 'confirm'
 }
 

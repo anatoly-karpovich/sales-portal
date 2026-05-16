@@ -8,6 +8,7 @@ type CategoriesDetailsHeaderProps = {
   selectedCategory: CategoryFlatNode
   selectedPath: CategoryFlatNode['path']
   selectedChildrenCount: number
+  selectedDirectProductsCount: number
   selectedProductsCount: number
   selectedPathLabel: string
   canDelete: boolean
@@ -22,6 +23,7 @@ export function CategoriesDetailsHeader({
   selectedCategory,
   selectedPath,
   selectedChildrenCount,
+  selectedDirectProductsCount,
   selectedProductsCount,
   selectedPathLabel,
   canDelete,
@@ -31,6 +33,8 @@ export function CategoriesDetailsHeader({
   onMove,
   onDelete,
 }: CategoriesDetailsHeaderProps) {
+  const isLeaf = selectedChildrenCount === 0
+
   return (
     <Stack
       direction={{ xs: 'column', md: 'row' }}
@@ -60,11 +64,7 @@ export function CategoriesDetailsHeader({
           </Typography>
           <Chip
             size="small"
-            label={
-              selectedChildrenCount > 0
-                ? categoriesUiText.details.parentBadge
-                : categoriesUiText.details.leafBadge
-            }
+            label={isLeaf ? categoriesUiText.details.leafBadge : categoriesUiText.details.parentBadge}
           />
         </Stack>
         <Stack
@@ -77,10 +77,21 @@ export function CategoriesDetailsHeader({
         >
           <Typography variant="body2">
             <Typography component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              Products:
+              {isLeaf
+                ? categoriesUiText.details.usage.directProducts
+                : categoriesUiText.details.usage.subtreeProducts}
+              :
             </Typography>{' '}
-            {selectedProductsCount} products
+            {isLeaf ? selectedDirectProductsCount : selectedProductsCount} products
           </Typography>
+          {!isLeaf ? (
+            <Typography variant="body2">
+              <Typography component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                {categoriesUiText.details.usage.directProducts}:
+              </Typography>{' '}
+              {selectedDirectProductsCount} products
+            </Typography>
+          ) : null}
           <Typography variant="body2">
             <Typography component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
               {categoriesUiText.details.usage.rootCategory}:

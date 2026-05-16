@@ -38,6 +38,8 @@ export const categoriesUiText = {
     parentRootLabel: 'Root category',
     noChildrenPrefix: 'No child categories yet. Use "Add child" to create the next level under',
     usage: {
+      directProducts: 'Direct products',
+      subtreeProducts: 'Subtree products',
       rootCategory: 'Root category',
       depth: 'Depth',
       fullPath: 'Full path',
@@ -48,6 +50,8 @@ export const categoriesUiText = {
       deleteBlockedChildren: 'Has child categories',
       deleteBlockedProducts: 'Used by products',
     },
+    createChildBlockedDirectProducts:
+      'Cannot add child category because this category already has direct products.',
     create: {
       submit: 'Create category',
       cancel: 'Cancel',
@@ -69,6 +73,7 @@ export const categoriesUiText = {
     moveTargetLabel: 'Target parent',
     moveTargetPlaceholder: 'Select target parent',
     moveTargetRequired: 'Target parent is required.',
+    moveTargetRootOption: 'Root category',
   },
   validation: {
     nameRequired: 'Name is required.',

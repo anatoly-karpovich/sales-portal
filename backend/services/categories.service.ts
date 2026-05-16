@@ -160,6 +160,7 @@ class CategoriesService {
       description: node.description,
       imageUrl: node.imageUrl,
       children,
+      directProductsCount,
       productsCount: directProductsCount + descendantsProductsCount,
       createdOn: (node.createdOn as any) instanceof Date ? (node.createdOn as any).toISOString() : node.createdOn,
       updatedOn: (node.updatedOn as any) instanceof Date ? (node.updatedOn as any).toISOString() : node.updatedOn,
@@ -369,6 +370,16 @@ class CategoriesService {
       if (!parentContext) {
         return { error: `Parent category with id '${payload.parentId}' wasn't found`, statusCode: 404 };
       }
+
+      const directProductsCountByCategoryId = await this.getDirectProductsCountByCategoryId();
+      const parentCategoryId = this.toCategoryIdString(parentContext.node._id);
+      const parentDirectProductsCount = directProductsCountByCategoryId.get(parentCategoryId) ?? 0;
+      if (parentDirectProductsCount > 0) {
+        return {
+          error: "Cannot create child category: parent category has direct products assigned",
+          statusCode: 409,
+        };
+      }
     }
 
     const now = getTodaysDate(true);
@@ -498,6 +509,18 @@ class CategoriesService {
     const targetContext = targetParentId ? this.findNodeContext(tree.nodes, targetParentId) : null;
     if (targetParentId && !targetContext) {
       return { error: `Target parent category with id '${targetParentId}' wasn't found`, statusCode: 404 };
+    }
+
+    if (targetContext) {
+      const directProductsCountByCategoryId = await this.getDirectProductsCountByCategoryId();
+      const targetCategoryId = this.toCategoryIdString(targetContext.node._id);
+      const targetDirectProductsCount = directProductsCountByCategoryId.get(targetCategoryId) ?? 0;
+      if (targetDirectProductsCount > 0) {
+        return {
+          error: "Cannot move category under target parent: target parent has direct products assigned",
+          statusCode: 409,
+        };
+      }
     }
 
     const oldRootId = this.toCategoryIdString(sourceContext.root._id);

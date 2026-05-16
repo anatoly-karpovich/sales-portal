@@ -74,7 +74,7 @@ categoriesRouter.delete(
  *         updatedOn: { type: string, format: date-time }
  *     CategoryTreeNode:
  *       type: object
- *       required: [_id, name, slug, children, productsCount, createdOn, updatedOn]
+ *       required: [_id, name, slug, children, directProductsCount, productsCount, createdOn, updatedOn]
  *       properties:
  *         _id: { type: string }
  *         name: { type: string }
@@ -86,6 +86,9 @@ categoriesRouter.delete(
  *           items:
  *             $ref: '#/components/schemas/CategoryTreeNode'
  *           example: []
+ *         directProductsCount:
+ *           type: integer
+ *           minimum: 0
  *         productsCount:
  *           type: integer
  *           minimum: 0
@@ -316,7 +319,7 @@ categoriesRouter.delete(
  *             schema:
  *               $ref: '#/components/schemas/CategoryApiErrorResponse'
  *       409:
- *         description: Slug conflict
+ *         description: Slug conflict or parent has direct products assigned
  *         content:
  *           application/json:
  *             schema:
@@ -471,6 +474,12 @@ categoriesRouter.delete(
  *               $ref: '#/components/schemas/CategoryNodeResponse'
  *       400:
  *         description: Validation error (self move, cyclic move, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CategoryApiErrorResponse'
+ *       409:
+ *         description: Target parent has direct products assigned
  *         content:
  *           application/json:
  *             schema:

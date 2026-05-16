@@ -13,6 +13,7 @@ export type CategoryNode = {
   slug: string
   description?: string
   imageUrl?: string
+  directProductsCount?: number
   productsCount?: number
   children: CategoryNode[]
   createdOn: string
@@ -110,6 +111,7 @@ function normalizeCategoryNode(node: CategoryNode): CategoryNode {
   return {
     ...node,
     _id: normalizeId(node._id),
+    directProductsCount: Number(node.directProductsCount ?? 0),
     productsCount: Number(node.productsCount ?? 0),
     children: (node.children ?? []).map(normalizeCategoryNode),
   }

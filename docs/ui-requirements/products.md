@@ -88,3 +88,5 @@ All mutations return `{ IsSuccess, ErrorMessage }`; surface this output via toas
 - Keep Save buttons disabled whenever validation fails or the form matches the stored data.
 - After deleting, recalculate pagination so the list never shows an empty page.
 - Edit view should always rely on the same Delete confirmation flow as the list to provide a consistent experience.
+- Product category selection must allow only leaf categories; non-leaf categories are visible but not selectable.
+- Category links from product details should open `#/categories?selectedId=<categoryId>` and preselect that node in categories workspace.

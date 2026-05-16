@@ -9,6 +9,7 @@ type CategoriesTreePanelProps = {
   flatNodesCount: number
   search: string
   onSearchChange: (value: string) => void
+  addChildBlockedReason: string
   displayTree: CategoryNode[]
   effectiveSelectedId: string | null
   effectiveExpandedIds: Set<string>
@@ -25,6 +26,9 @@ type CategoriesTreePanelProps = {
   onDragEnd: () => void
   onDragOver: (categoryId: string, event: DragEvent<HTMLDivElement>) => void
   onDrop: (categoryId: string, event: DragEvent<HTMLDivElement>) => void
+  onRootDragOver: (event: DragEvent<HTMLDivElement>) => void
+  onRootDrop: (event: DragEvent<HTMLDivElement>) => void
+  isRootDragOver: boolean
   onOpenCreateRoot: () => void
 }
 
@@ -32,6 +36,7 @@ export function CategoriesTreePanel({
   flatNodesCount,
   search,
   onSearchChange,
+  addChildBlockedReason,
   displayTree,
   effectiveSelectedId,
   effectiveExpandedIds,
@@ -48,6 +53,9 @@ export function CategoriesTreePanel({
   onDragEnd,
   onDragOver,
   onDrop,
+  onRootDragOver,
+  onRootDrop,
+  isRootDragOver,
   onOpenCreateRoot,
 }: CategoriesTreePanelProps) {
   return (
@@ -88,6 +96,7 @@ export function CategoriesTreePanel({
                 node={node}
                 depth={0}
                 actionButtonsDisabled={areActionsLocked}
+                addChildBlockedReason={addChildBlockedReason}
                 selectedId={effectiveSelectedId}
                 expandedIds={effectiveExpandedIds}
                 forceExpandedIds={forcedExpandedIds}
@@ -106,6 +115,26 @@ export function CategoriesTreePanel({
             ))}
           </Stack>
         )}
+        <Paper
+          variant="outlined"
+          onDragOver={onRootDragOver}
+          onDrop={onRootDrop}
+          sx={{
+            p: 1.25,
+            textAlign: 'center',
+            borderStyle: 'dashed',
+            borderColor: isRootDragOver ? 'primary.main' : 'divider',
+            bgcolor: isRootDragOver ? 'action.hover' : 'transparent',
+          }}
+          data-testid="categories-page-root-drop-zone"
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Drop here to move as root category
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Drag a category node into this zone
+          </Typography>
+        </Paper>
 
         <Button
           variant="outlined"
