@@ -62,7 +62,7 @@ Startup flow (`index.ts`):
 1. load env via `dotenv`;
 2. create Express app and register middleware/routers;
 3. connect to MongoDB;
-4. run `seed()` (roles + default admin + default `settings` singleton creation + empty `CategoryTree` singleton creation);
+4. run `seed()` (roles + default admin + default `settings` singleton creation);
 5. start HTTP server + initialize Socket.IO;
 6. register Swagger docs endpoint;
 7. start daily notification cleanup cron.

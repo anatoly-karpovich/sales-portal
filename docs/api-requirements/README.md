@@ -23,5 +23,7 @@ These docs are aligned to current backend implementation in:
 - `backend/routers/*`
 - `backend/controllers/*`
 - `backend/middleware/*`
+- `backend/services/*`
+- `backend/models/*`
 - `backend/data/jsonSchemas/*`
 - `backend/data/types/dto/*`

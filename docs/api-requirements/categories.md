@@ -1,6 +1,6 @@
 # Categories Module - API Requirements
 
-> Purpose: manage product categories as a singleton tree with nested nodes.
+> Purpose: manage product categories as a hierarchical catalog with stable API contracts for admin frontend.
 
 ## Quick Facts
 
@@ -8,29 +8,65 @@
 | --- | --- |
 | Base path | `/api/categories` |
 | Auth | Required |
-| Persistence model | Singleton document in `CategoryTree` collection |
+| Persistence model | One category = one document in `Category` collection (`parentId/rootId/ancestors/path`) |
 | Category nature | Structural tree nodes without status field |
+| Read optimization | In-memory TTL cache for tree/flat responses (service-level) |
 
-## Category Tree Contract
+## Persistence Shape (Backend Internal)
 
 ```ts
-CategoryTree {
-  nodes: CategoryNode[];
+Category {
+  _id: ObjectId;
+  name: string;
+  slug: string;
+  slugLower: string; // unique, case-insensitive guard
+  description?: string;
+  imageUrl?: string;
+
+  parentId: ObjectId | null;
+  rootId: ObjectId;
+  depth: number;
+  ancestors: ObjectId[]; // from root to parent
+  path: { _id: ObjectId; name: string; slug: string }[]; // from root to self
+  pathSlugs: string[];
+
+  childrenCount: number;
+  isLeaf: boolean;
   createdOn: Date;
   updatedOn: Date;
 }
+```
 
-CategoryNode {
-  _id: ObjectId;
+Notes:
+- `productsCount` (subtree) and `directProductsCount` are calculated on read and returned in tree DTO.
+- Product index guards rely on `Product.categoryId` and `Product.rootCategoryId`.
+
+## API DTO Contract
+
+```ts
+CategoryTreeNode {
+  _id: string;
   name: string;
-  slug: string; // globally unique, case-insensitive
+  slug: string;
   description?: string;
   imageUrl?: string;
-  directProductsCount: number; // products assigned directly to this node only
-  children: CategoryNode[];
-  productsCount: number; // products in this node subtree (node + descendants)
-  createdOn: Date;
-  updatedOn: Date;
+  directProductsCount: number;
+  productsCount: number;
+  children: CategoryTreeNode[];
+  createdOn: string;
+  updatedOn: string;
+}
+
+CategoryFlatNode {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  parentId?: string;
+  path: { _id: string; name: string; slug: string }[];
+  createdOn: string;
+  updatedOn: string;
 }
 ```
 
@@ -38,15 +74,15 @@ CategoryNode {
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| GET | `/api/categories` | Returns both nested tree and flattened list in a single response. |
-| GET | `/api/categories/tree` | Returns nested category tree. |
-| GET | `/api/categories/flat` | Returns flattened list with path metadata. |
-| GET | `/api/categories/nodes/:categoryId` | Returns one node by id. |
-| POST | `/api/categories/nodes` | Creates category node. |
+| GET | `/api/categories` | Returns combined payload with both nested tree and flat list. |
+| GET | `/api/categories/tree` | Returns nested category tree (`directProductsCount` + `productsCount`). |
+| GET | `/api/categories/flat` | Returns flattened list with `path` metadata. |
+| GET | `/api/categories/nodes/:categoryId` | Returns one category subtree node by id. |
+| POST | `/api/categories/nodes` | Creates a category node (root or child). |
 | PATCH | `/api/categories/nodes/:categoryId` | Updates node fields (`name`, `slug`, `description`, `imageUrl`). |
-| POST | `/api/categories/nodes/:categoryId/move` | Moves node to another parent or root. |
+| POST | `/api/categories/nodes/:categoryId/move` | Moves node to another parent or to root (`targetParentId: null`). |
 | DELETE | `/api/categories/nodes/:categoryId` | Deletes node if guards pass. |
-| GET | `/api/categories/nodes/:categoryId/products` | Returns products in node subtree. |
+| GET | `/api/categories/nodes/:categoryId/products` | Returns products in selected node subtree. |
 
 ## Validation Rules
 
@@ -55,11 +91,12 @@ CategoryNode {
 - `slug` is optional; when omitted it is generated from `name`.
 - slug must be globally unique (case-insensitive).
 - `parentId` is optional; when provided parent must exist.
-- creation is blocked when `parentId` points to a category with direct products (`directProductsCount > 0`).
+- creation is blocked when parent has direct products (`directProductsCount > 0`).
 
 ### Update node
 - node must exist.
 - `slug` (if provided) must remain globally unique.
+- when `name` or `slug` changes, `path/pathSlugs` are updated for the entire subtree.
 
 ### Delete node
 - blocked when node has children.
