@@ -242,6 +242,13 @@ class OrderService {
         });
       });
 
+      await this.notificationService.create({
+        managerId: performerdId,
+        orderId: orderId.toString(),
+        type: "newOrder",
+        message: NOTIFICATIONS.newOrder(orderId.toString()),
+      });
+
       return this.getOrder(orderId);
     } finally {
       await session.endSession();
@@ -729,7 +736,7 @@ class OrderService {
             managerId: updatedOrder.assignedManager._id.toString(),
             orderId: updatedOrder._id.toString(),
             type: "productsChanged",
-            message: NOTIFICATIONS.productsChanged,
+            message: NOTIFICATIONS.productsChanged(updatedOrder._id.toString()),
           });
         }
         if (changed.customer) {
@@ -737,7 +744,7 @@ class OrderService {
             managerId: updatedOrder.assignedManager._id.toString(),
             orderId: updatedOrder._id.toString(),
             type: "customerChanged",
-            message: NOTIFICATIONS.customerChanged,
+            message: NOTIFICATIONS.customerChanged(updatedOrder._id.toString()),
           });
         }
       }
@@ -910,7 +917,7 @@ class OrderService {
       managerId: updatedOrder.assignedManager._id.toString(),
       orderId: updatedOrder._id.toString(),
       type: "assigned",
-      message: NOTIFICATIONS.assigned,
+      message: NOTIFICATIONS.assigned(updatedOrder._id.toString()),
     });
 
     return this.getOrder(updatedOrder._id);
@@ -943,7 +950,7 @@ class OrderService {
         managerId: previousAssignee._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "unassigned",
-        message: NOTIFICATIONS.unassigned,
+        message: NOTIFICATIONS.unassigned(updatedOrder._id.toString()),
       });
     }
 

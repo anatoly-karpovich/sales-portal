@@ -1,13 +1,10 @@
 import InventoryService from "../services/inventory.service";
-import { SettingsService } from "../services/settings.service";
+
+export const DEFAULT_RESERVATION_CRON_INTERVAL_MS = 5 * 60 * 1000;
 
 let reservationInterval: NodeJS.Timeout | null = null;
 
-export const startReservationExpirationJob = async () => {
-  const settingsService = new SettingsService();
-  const settings = await settingsService.get();
-  const intervalMs = settings?.reservations?.cronIntervalMs ?? 5 * 60 * 1000;
-
+export const startReservationExpirationJob = async (intervalMs: number = DEFAULT_RESERVATION_CRON_INTERVAL_MS) => {
   if (reservationInterval) {
     clearInterval(reservationInterval);
   }

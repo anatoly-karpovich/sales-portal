@@ -36,6 +36,11 @@
 - Reservation document represents active reservation aggregate for one `orderId`.
 - On `In Process` transition reservation is released (removed), and reserved stock impact is removed.
 - On cancel/reopen/edit flows reservation may be removed/recreated; reserved stock is recalculated from reservation documents.
+- On `Canceled -> Draft` reopen:
+  - product snapshots are rebuilt from current product/variant data;
+  - product/variant must exist and be `Active`;
+  - reservation is recreated with `Admin Draft` TTL in current manager-authenticated flow;
+  - if reopen validation/reservation fails, status remains `Canceled`.
 - Inventory `reserved/available/summary` response fields are derived read-model values, not persisted canonical state.
 
 ## Endpoints
@@ -60,7 +65,7 @@
 | POST | `/api/orders/:orderId/comments` | Add comment. |
 | DELETE | `/api/orders/:orderId/comments/:commentId` | Delete comment (`204`). |
 | PUT | `/api/orders/:orderId/assign-manager/:managerId` | Assign manager. |
-| PUT | `/api/orders/:orderId/unassign-manager` | Unassign manager. |
+| PUT | `/api/orders/:orderId/unassign-manager` | Unassign manager (Draft only). |
 
 ## Order Product Line Contracts
 
@@ -131,6 +136,17 @@ Rules:
 Notes:
 - order details use a persisted product snapshot from the order document (no live product join required);
 - order list/export keep the list-oriented line references (`product._id`, `variant._id`) in response/export columns.
+- on reopen (`Canceled -> Draft`), product snapshots in order lines are refreshed from current product/variant values.
+
+## Manager Assignment Rules
+
+- `PUT /api/orders/:orderId/status` with target `In Process` auto-assigns current performer when `assignedManager` is empty.
+- Auto-assign appends history before processing entry: first `Manager Assigned`, then `Order processing started`.
+- `PUT /api/orders/:orderId/unassign-manager` is allowed only for `Draft` orders.
+
+## Order Notification Side Effects
+
+- On `POST /api/orders`, `newOrder` notification is created for the authenticated creator.
 
 ## Export Contract (`POST /api/orders/export`)
 

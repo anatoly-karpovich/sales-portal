@@ -3,6 +3,7 @@ import {
   INVENTORY_ADJUSTMENT_TYPES,
   INVENTORY_RECORD_STATUSES,
   INVENTORY_STATUSES,
+  NOTIFICATIONS,
   ORDER_HISTORY_ACTIONS,
   ORDER_STATUSES,
   PRODUCT_STATUSES,
@@ -26,6 +27,7 @@ import Product from "../models/product.model";
 import Order from "../models/order.model";
 import Manager from "../models/manager.model";
 import { SettingsService } from "./settings.service";
+import { NotificationService } from "./notification.service";
 
 function createHttpError(message: string, statusCode: number): Error & { statusCode: number } {
   const error = new Error(message) as Error & { statusCode: number };
@@ -55,6 +57,7 @@ type ReservationReleaseParams = {
 
 class InventoryService {
   private settingsService = new SettingsService();
+  private notificationService = new NotificationService();
 
   private getNowString() {
     return getTodaysDate(true);
@@ -978,6 +981,7 @@ class InventoryService {
 
     for (const reservationRef of toExpire) {
       const session = await mongoose.startSession();
+      let cancellationNotificationTarget: { managerId: string; orderId: string } | null = null;
       try {
         await session.withTransaction(async () => {
           const systemAdmin = await this.getSystemAdminManager(session);
@@ -1025,8 +1029,26 @@ class InventoryService {
           );
 
           await Order.findByIdAndUpdate(order._id, nextOrder, { session }).exec();
+          if (order.assignedManager?._id) {
+            cancellationNotificationTarget = {
+              managerId: order.assignedManager._id.toString(),
+              orderId: order._id.toString(),
+            };
+          }
           expired += 1;
         });
+        if (cancellationNotificationTarget) {
+          await this.notificationService.create({
+            managerId: cancellationNotificationTarget.managerId,
+            orderId: cancellationNotificationTarget.orderId,
+            type: "statusChanged",
+            message: NOTIFICATIONS.statusChanged({
+              status: ORDER_STATUSES.CANCELED,
+              orderId: cancellationNotificationTarget.orderId,
+              reason: "reservationExpired",
+            }),
+          });
+        }
       } finally {
         await session.endSession();
       }

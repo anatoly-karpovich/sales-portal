@@ -140,7 +140,7 @@ class OrderDeliveryService {
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "deliveryUpdated",
-        message: NOTIFICATIONS.deliveryUpdated,
+        message: NOTIFICATIONS.deliveryUpdated(updatedOrder._id.toString()),
       });
     }
 

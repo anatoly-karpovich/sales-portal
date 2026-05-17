@@ -242,11 +242,16 @@ Current important constraints:
   - add (`POST .../products`) returns `409` when `(productId, variantId)` already exists in order;
   - replace (`PATCH .../products`) returns `409` when target `(to.productId, to.variantId)` already exists in another order line;
   - delete (`DELETE .../products`) removes the full line by `(productId, variantId)` and rejects deleting the last line (`400`).
+- `PUT /orders/:orderId/unassign-manager` is allowed only for `Draft` orders.
 - Order receive: `products` is an array of unique `{ productId, variantId }` objects to mark as received.
   - Each pair must reference an existing position in the order with `received = false` (otherwise `400`).
   - Partial receive of a single position by `quantity` is NOT supported - the entire position flips to `received = true`.
   - `products.length` allowed range is `1..order.products.length`.
 - `PUT /orders/:orderId/status` accepts only: `Draft`, `In Process`, `Canceled` (`Completed` is set automatically by the receive flow).
+  - `Draft -> In Process` auto-assigns performer as `assignedManager` when order has no assignee.
+  - auto-assign history order is strict: `Manager Assigned` first, then `Order processing started`.
+  - `Canceled -> Draft` (reopen) rebuilds product snapshots from current product/variant data, validates product+variant existence and `Active` state, and recreates draft reservation using configured draft TTL.
+  - if reopen validation or reservation fails, transaction is rolled back and order remains `Canceled`.
 - Delivery endpoints:
   - `PATCH /orders/:orderId/delivery` accepts `express` + `address`.
   - `PATCH /orders/:orderId/pickup` accepts `pickupLocationId`.
@@ -335,6 +340,7 @@ API response shape for order details (`GET /orders/:orderId`):
   - positions that already existed in the order keep their previous `unitPrice` and `received`,
   - newly added positions get a fresh `unitPrice` from the current variant price,
   - `quantity` is always taken from the request payload.
+- on `Canceled -> Draft` reopen, all order lines are refreshed from current product/variant snapshot (`unitPrice`, display fields, attributes, image) and `received` is reset to `false`.
 - `total_price = products subtotal + delivery price` (delivery is always present in order snapshot).
 
 History snapshot (`Order.history[].products[i]`) keeps:
@@ -375,11 +381,13 @@ Order lifecycle:
   - `Delivery Planned` for delivery endpoint
   - `Pickup Planned` for pickup endpoint
 - transition to `In Process` requires delivery status `Delivery Planned` or `Pickup Planned`;
+- if `assignedManager` is missing during `Draft -> In Process`, performer is auto-assigned before processing history entry is added;
 - receiving products is allowed only for `In Process` with delivery status `Delivery Scheduled`, `Pickup Scheduled`, or `Partially Delivered`;
 - partial receive keeps order `In Process` and sets delivery status to `Partially Delivered`;
 - full receive sets order status to `Completed` and delivery status to `Delivered`;
 - cancel is allowed only when order status is `Draft`/`In Process`, delivery status is one of `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, `Pickup Scheduled`, and no product has `received=true`;
-- `Reopen` (`status -> Draft`) is allowed only from `Canceled`, rebuilds default delivery snapshot from current customer address, and sets delivery status to `Draft`.
+- `Reopen` (`status -> Draft`) is allowed only from `Canceled`, rebuilds default delivery snapshot from current customer address, refreshes product snapshots, recreates draft reservation, and sets delivery status to `Draft`.
+- `PUT /orders/:orderId/unassign-manager` is allowed only for `Draft`.
 
 Order side effects:
 
@@ -438,6 +446,7 @@ Notification flow:
 - persisted in `Notification` collection with `expiresAt`;
 - `NotificationService.create` also emits socket event `new_notification` to user room;
 - socket rooms use `userId` as room name.
+- reservation-expiration auto-cancel of a `Draft` order sends `statusChanged` notification (Canceled) to assigned manager, if assignee exists.
 
 Socket auth:
 

@@ -110,15 +110,39 @@ export enum ORDER_HISTORY_ACTIONS {
 }
 
 export const NOTIFICATIONS = {
-  statusChanged: (status: ORDER_STATUSES) => `Status has been updated to "${status}" in order.`,
-  customerChanged: `Customer has been changed in order.`,
-  productsChanged: `Products have been updated in order.`,
-  deliveryUpdated: `Delivery details have been added or updated in order.`,
-  productsDelivered: `Products have been marked as delivered in order.`,
-  managerChanged: `You have been reassigned to order.`,
-  commentAdded: `A new comment has been added to order.`,
-  newOrder: `A new order has been created`,
-  commentDeleted: `A comment has been deleted from order`,
-  assigned: `You have been assigned to order`,
-  unassigned: `You have been unassigned from order`,
+  statusChanged: ({
+    status,
+    orderId,
+    reason,
+  }: {
+    status: ORDER_STATUSES;
+    orderId: string;
+    reason?: "manualCancel" | "reservationExpired";
+  }) => {
+    switch (status) {
+      case ORDER_STATUSES.IN_PROCESS:
+        return `Order #${orderId} is now in process.`;
+      case ORDER_STATUSES.CANCELED:
+        if (reason === "reservationExpired") {
+          return `Order #${orderId} was canceled because the product reservation expired.`;
+        }
+        return `Order #${orderId} was canceled by a manager.`;
+      case ORDER_STATUSES.DRAFT:
+        return `Order #${orderId} was reopened and moved back to draft.`;
+      case ORDER_STATUSES.COMPLETED:
+        return `Order #${orderId} was completed.`;
+      default:
+        return `Order #${orderId} status was updated to "${status}".`;
+    }
+  },
+  customerChanged: (orderId: string) => `Customer information for order #${orderId} was updated.`,
+  productsChanged: (orderId: string) => `Order #${orderId} product list was updated.`,
+  deliveryUpdated: (orderId: string) => `Delivery details for order #${orderId} were updated.`,
+  productsDelivered: (orderId: string) => `Product receipt was recorded for order #${orderId}.`,
+  managerChanged: (orderId: string) => `The assigned manager for order #${orderId} was changed.`,
+  commentAdded: (orderId: string) => `A new comment was added to order #${orderId}.`,
+  newOrder: (orderId: string) => `A new order #${orderId} was created.`,
+  commentDeleted: (orderId: string) => `A comment was deleted from order #${orderId}.`,
+  assigned: (orderId: string) => `You were assigned to order #${orderId}.`,
+  unassigned: (orderId: string) => `You were unassigned from order #${orderId}.`,
 } as const;

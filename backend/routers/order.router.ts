@@ -3,6 +3,7 @@ import OrderController from "../controllers/order.controller.js";
 import { authmiddleware } from "../middleware/authmiddleware.js";
 import {
   orderById,
+  orderManagerUnassignValidations,
   orderCustomerReplaceValidations,
   orderProductAddValidations,
   orderProductDeleteValidations,
@@ -88,6 +89,7 @@ orderRouter.put(
   "/orders/:orderId/unassign-manager",
   authmiddleware,
   orderById,
+  orderManagerUnassignValidations,
   OrderController.unassignManager.bind(OrderController),
 );
 

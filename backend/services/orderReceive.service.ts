@@ -136,14 +136,17 @@ class OrderReceiveService {
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "productsDelivered",
-        message: NOTIFICATIONS.productsDelivered,
+        message: NOTIFICATIONS.productsDelivered(updatedOrder._id.toString()),
       });
       if (updatedOrder.status === ORDER_STATUSES.COMPLETED) {
         await this.notificationService.create({
           managerId: updatedOrder.assignedManager._id.toString(),
           orderId: updatedOrder._id.toString(),
           type: "statusChanged",
-          message: NOTIFICATIONS.statusChanged(updatedOrder.status),
+          message: NOTIFICATIONS.statusChanged({
+            status: updatedOrder.status,
+            orderId: updatedOrder._id.toString(),
+          }),
         });
       }
     }

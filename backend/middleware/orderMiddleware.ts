@@ -571,6 +571,26 @@ export async function orderCustomerReplaceValidations(
   }
 }
 
+export async function orderManagerUnassignValidations(
+  req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"]>,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const order = req.order;
+    if (!order) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Order with id '${req.params.orderId}' wasn't found` });
+    }
+    if (order.status !== ORDER_STATUSES.DRAFT) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: `Invalid order status` });
+    }
+    next();
+  } catch (e: any) {
+    console.log(e);
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
 export async function orderReceiveValidations(
   req: OrderRequestWithEntityDTO<GetOrderByIdRequestDTO["params"], OrderReceiveRequestDTO>,
   res: Response<BaseResponseDTO>,

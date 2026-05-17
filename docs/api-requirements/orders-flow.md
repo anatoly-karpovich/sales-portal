@@ -33,13 +33,13 @@ On `POST /api/orders`:
 | --- | --- | --- | --- |
 | `Draft + Draft` | `Draft + Delivery Planned` | `PATCH /api/orders/:orderId/delivery` | valid delivery payload |
 | `Draft + Draft` | `Draft + Pickup Planned` | `PATCH /api/orders/:orderId/pickup` | active `pickupLocationId` in settings |
-| `Draft + Delivery Planned` | `In Process + Delivery Scheduled` | `PUT /api/orders/:orderId/status` (`In Process`) | finalize schedule by cutoff, calculate `startsAt` and `dueDate` |
-| `Draft + Pickup Planned` | `In Process + Pickup Scheduled` | `PUT /api/orders/:orderId/status` (`In Process`) | finalize schedule by cutoff, calculate `startsAt`, `availableFromDate`, `pickupByDate` |
+| `Draft + Delivery Planned` | `In Process + Delivery Scheduled` | `PUT /api/orders/:orderId/status` (`In Process`) | finalize schedule by cutoff, calculate `startsAt` and `dueDate`; if `assignedManager` is empty, auto-assign performer |
+| `Draft + Pickup Planned` | `In Process + Pickup Scheduled` | `PUT /api/orders/:orderId/status` (`In Process`) | finalize schedule by cutoff, calculate `startsAt`, `availableFromDate`, `pickupByDate`; if `assignedManager` is empty, auto-assign performer |
 | `In Process + Delivery Scheduled/Pickup Scheduled` | `In Process + Partially Delivered` | `POST /api/orders/:orderId/receive` (subset) | receive allowed for scheduled/partial statuses |
 | `In Process + Delivery Scheduled/Pickup Scheduled` | `Completed + Delivered` | `POST /api/orders/:orderId/receive` (all positions) | all positions become received |
 | `In Process + Partially Delivered` | `Completed + Delivered` | `POST /api/orders/:orderId/receive` (remaining positions) | same receive endpoint |
 | `Draft/In Process` + `Draft/Delivery Planned/Pickup Planned/Delivery Scheduled/Pickup Scheduled` | `Canceled` | `PUT /api/orders/:orderId/status` (`Canceled`) | blocked if any product already received |
-| `Canceled + any delivery status` | `Draft + Draft` | `PUT /api/orders/:orderId/status` (`Draft`) | delivery resets to default draft snapshot |
+| `Canceled + any delivery status` | `Draft + Draft` | `PUT /api/orders/:orderId/status` (`Draft`) | rebuild product snapshots from current product/variant data; validate product/variant existence+`Active`; recreate reservation; delivery resets to default draft snapshot |
 
 ## Schedule Finalization
 
@@ -64,6 +64,7 @@ Pickup finalization:
 - `Completed` cannot be set directly via status endpoint.
 - `PATCH /api/orders/:orderId/delivery` and `PATCH /api/orders/:orderId/pickup` are blocked outside `Draft`.
 - `PUT ... status=In Process` is blocked when order already has `status=In Process` (returns `400`).
+- `PUT /api/orders/:orderId/unassign-manager` is blocked unless order status is `Draft`.
 - `POST /api/orders/:orderId/receive` is blocked unless:
   - `status = In Process`
   - `delivery.status in Delivery Scheduled | Pickup Scheduled | Partially Delivered`
@@ -73,5 +74,7 @@ Pickup finalization:
 - Reservation document/items are the canonical source of reserved stock.
 - Transition `Draft -> In Process` releases/removes reservation and removes reserve impact.
 - Transition to `Canceled` releases/removes reservation by flow rules.
+- Transition `Canceled -> Draft` recreates reservation for reopened order (`Admin Draft` TTL for current manager-authenticated flow).
 - Expired reservation is released/removed by cron flow.
+- If reservation expiration auto-cancels a `Draft` order, assigned manager receives `statusChanged` notification (same type as manual cancel).
 - Inventory-level `reserved`, `available`, and aggregate statuses are derived read-model values and must be calculated from reservation documents.
