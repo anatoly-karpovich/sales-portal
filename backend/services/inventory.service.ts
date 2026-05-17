@@ -562,8 +562,8 @@ class InventoryService {
           throw createHttpError("Quantity cannot be negative", 400);
         }
 
-        if (!variant.allowSellingOutOfStock && afterQuantity < beforeReserved) {
-          throw createHttpError("Quantity cannot be lower than reserved amount", 400);
+        if (afterQuantity < beforeReserved) {
+          throw createHttpError("Quantity cannot be lower than reserved amount", 409);
         }
 
         const nextVariants = (inventory.variants ?? []).map((item: any) =>
@@ -910,15 +910,16 @@ class InventoryService {
 
       const reservedBefore = beforeVariant.reserved ?? 0;
       const quantityBefore = beforeVariant.quantity;
-      const quantityAfter = quantityBefore - line.quantity;
-      if (quantityAfter < 0) {
-        throw createHttpError("Not enough stock", 409);
-      }
-
       const key = this.getReservationVariantKey(line.productId, line.variantId);
       const reservedFromOrder = reservationItemsByKey.get(key) ?? 0;
-      const reservedToConsume = Math.min(line.quantity, reservedFromOrder, reservedBefore);
-      const reservedAfter = Math.max(0, reservedBefore - reservedToConsume);
+      const stockQuantityToSell = Math.min(reservedFromOrder, reservedBefore, quantityBefore);
+      const quantityAfter = quantityBefore - stockQuantityToSell;
+      const reservedAfter = Math.max(0, reservedBefore - stockQuantityToSell);
+
+      if (stockQuantityToSell <= 0) {
+        continue;
+      }
+
       const nextVariant = this.buildVariantUpdate(beforeVariant as any, {
         quantity: quantityAfter,
         reserved: reservedAfter,
@@ -947,7 +948,7 @@ class InventoryService {
           productId: line.productId,
           variantId: line.variantId,
           type: INVENTORY_ADJUSTMENT_TYPES.SALE,
-          quantityChange: -line.quantity,
+          quantityChange: -stockQuantityToSell,
           quantityBefore,
           quantityAfter,
           reservedBefore,
@@ -959,7 +960,7 @@ class InventoryService {
       );
 
       if (reservedFromOrder > 0) {
-        const nextReservedFromOrder = Math.max(0, reservedFromOrder - reservedToConsume);
+        const nextReservedFromOrder = Math.max(0, reservedFromOrder - stockQuantityToSell);
         reservationItemsByKey.set(key, nextReservedFromOrder);
       }
     }

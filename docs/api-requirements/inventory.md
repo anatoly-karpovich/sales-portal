@@ -57,7 +57,7 @@ Manual adjustments (`POST /adjustments`):
 - allowed types: `Manual Increase`, `Manual Decrease`, `Manual Correction`, `Damage`, `Return`
 - update stock quantity;
 - must keep inventory invariants valid;
-- if `allowSellingOutOfStock = false`, quantity cannot go below reserved amount.
+- quantity cannot go below reserved amount (independent of `allowSellingOutOfStock`).
 
 Reservation and ordering rules:
 - `Reserve` updates `Inventory.reserved/available` and reservation items;
@@ -68,7 +68,7 @@ Reservation and ordering rules:
 Reservation-driven adjustments:
 - `Reserve` is created when reservation is created.
 - `Release`/`Expired Reservation` is created when active reservation is released/expired.
-- `Sale` is created on receive flow and decreases both `quantity` and `reserved` for consumed locked stock.
+- `Sale` is created on receive flow and decreases both `quantity` and `reserved` only for stock-covered (reserved) part.
 
 Important:
 - reservation lifecycle is still tracked by reservation document mutations (`upsert`, `item update`, `delete reservation`);

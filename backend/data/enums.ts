@@ -62,13 +62,6 @@ export enum RESERVATION_TYPES {
   CUSTOMER_PAYMENT = "Customer Payment",
 }
 
-export enum RESERVATION_STATUSES {
-  ACTIVE = "Active",
-  EXPIRED = "Expired",
-  RELEASED = "Released",
-  COMPLETED = "Completed",
-}
-
 export enum VALIDATION_ERROR_MESSAGES {
   CUSTOMER_NAME = `Customer's name should contain only 1-40 alphabetical characters and one space between`,
   CITY = `City's name should contain only 1-20 alphabetical characters and one space between`,

@@ -418,8 +418,9 @@ Settings invariants:
 Inventory/reservation invariants:
 
 - `quantity >= 0`, `reserved >= 0`, `available >= 0`, and `available = max(quantity - reserved, 0)`.
-- Manual stock adjustments must keep the invariants above; when `allowSellingOutOfStock=false`, quantity cannot go below reserved.
+- Manual stock adjustments must keep the invariants above; quantity cannot go below reserved regardless of `allowSellingOutOfStock`.
 - `Reserve`, `Release`, `Expired Reservation`, and `Sale` adjustments are event records that reflect inventory/reservation transitions.
+- `Sale` adjustments reflect only the stock-covered (reserved) part consumed on receive.
 - Inventory list/details responses may expose derived summary fields, but business rules must use canonical inventory fields for numeric decisions.
 
 ## 10) Auth, tokens, and permissions

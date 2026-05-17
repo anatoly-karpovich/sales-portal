@@ -473,7 +473,7 @@ inventoryRouter.get(
  *             schema:
  *               $ref: '#/components/schemas/InventoryResponse'
  *       400:
- *         description: Validation error or business rule violation
+ *         description: Validation error
  *         content:
  *           application/json:
  *             schema:
