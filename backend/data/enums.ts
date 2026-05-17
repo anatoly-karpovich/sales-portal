@@ -31,6 +31,43 @@ export enum DELIVERY_STATUSES {
   DELIVERED = "Delivered",
 }
 
+export enum INVENTORY_STATUSES {
+  IN_STOCK = "In Stock",
+  LOW_STOCK = "Low Stock",
+  OUT_OF_STOCK = "Out Of Stock",
+  NOT_TRACKED = "Not Tracked",
+}
+
+export enum INVENTORY_RECORD_STATUSES {
+  ACTIVE = "Active",
+  ARCHIVED = "Archived",
+}
+
+export enum INVENTORY_ADJUSTMENT_TYPES {
+  INITIAL_STOCK = "Initial Stock",
+  MANUAL_INCREASE = "Manual Increase",
+  MANUAL_DECREASE = "Manual Decrease",
+  MANUAL_CORRECTION = "Manual Correction",
+  RESERVE = "Reserve",
+  RELEASE = "Release",
+  SALE = "Sale",
+  RETURN = "Return",
+  DAMAGE = "Damage",
+  EXPIRED_RESERVATION = "Expired Reservation",
+}
+
+export enum RESERVATION_TYPES {
+  ADMIN_DRAFT = "Admin Draft",
+  CUSTOMER_PAYMENT = "Customer Payment",
+}
+
+export enum RESERVATION_STATUSES {
+  ACTIVE = "Active",
+  EXPIRED = "Expired",
+  RELEASED = "Released",
+  COMPLETED = "Completed",
+}
+
 export enum VALIDATION_ERROR_MESSAGES {
   CUSTOMER_NAME = `Customer's name should contain only 1-40 alphabetical characters and one space between`,
   CITY = `City's name should contain only 1-20 alphabetical characters and one space between`,

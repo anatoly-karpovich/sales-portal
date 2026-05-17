@@ -10,6 +10,12 @@ export const DEFAULT_SETTINGS: ISettings = {
   },
   inventory: {
     defaultLowStockThreshold: 5,
+    allowSellingOutOfStockByDefault: false,
+  },
+  reservations: {
+    adminDraftReservationTtlMs: 24 * 60 * 60 * 1000,
+    customerPaymentReservationTtlMs: 15 * 60 * 1000,
+    cronIntervalMs: 5 * 60 * 1000,
   },
   shipping: {
     processing: {

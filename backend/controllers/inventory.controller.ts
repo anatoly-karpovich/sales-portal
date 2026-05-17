@@ -1,0 +1,239 @@
+import { Response } from "express";
+import { Types } from "mongoose";
+import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils";
+import { BaseResponseDTO } from "../data/types/dto/common.dto";
+import {
+  CreateInventoryAdjustmentRequestDTO,
+  GetInventoryAdjustmentsByProductRequestDTO,
+  GetInventoryAdjustmentsByVariantRequestDTO,
+  GetInventoryByProductRequestDTO,
+  GetInventoryListRequestDTO,
+  InventoryAdjustmentsResponseDTO,
+  InventoryResponseDTO,
+  InventoriesResponseDTO,
+  PatchInventoryVariantSettingsRequestDTO,
+} from "../data/types/dto/inventory.dto";
+import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES } from "../data/enums";
+import InventoryService from "../services/inventory.service";
+
+const MIN_LIMIT = 10;
+const MAX_LIMIT = 100;
+
+class InventoryController {
+  async getList(req: GetInventoryListRequestDTO, res: Response<InventoriesResponseDTO | BaseResponseDTO>) {
+    try {
+      const page = Math.max(parseInt(req.query.page ?? "1", 10), 1);
+      const limit = Math.min(Math.max(parseInt(req.query.limit ?? `${MIN_LIMIT}`, 10), MIN_LIMIT), MAX_LIMIT);
+      const skip = (page - 1) * limit;
+
+      const manufacturers = Array.isArray(req.query.manufacturer)
+        ? req.query.manufacturer
+        : req.query.manufacturer
+          ? [req.query.manufacturer]
+          : [];
+      const inventoryStatus = (Array.isArray(req.query.inventoryStatus)
+        ? req.query.inventoryStatus
+        : req.query.inventoryStatus
+          ? [req.query.inventoryStatus]
+          : []
+      ).filter((status): status is INVENTORY_STATUSES => Object.values(INVENTORY_STATUSES).includes(status as INVENTORY_STATUSES));
+      const lowStockOnly = req.query.lowStockOnly === "true";
+      const outOfStockOnly = req.query.outOfStockOnly === "true";
+      const includeArchived = req.query.includeArchived === "true";
+      const sortField =
+        req.query.sortField && ["totalAvailable", "totalReserved", "updatedOn", "lowStockVariantsCount", "outOfStockVariantsCount"].includes(req.query.sortField)
+          ? req.query.sortField
+          : "updatedOn";
+      const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
+
+      const { inventories, total } = await InventoryService.getList(
+        {
+          search: req.query.search ?? "",
+          manufacturers,
+          categoryId: req.query.categoryId?.trim() || undefined,
+          rootCategoryId: req.query.rootCategoryId?.trim() || undefined,
+          inventoryStatus,
+          lowStockOnly,
+          outOfStockOnly,
+          includeArchived,
+        },
+        {
+          sortField: sortField as "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount",
+          sortOrder,
+        },
+        { skip, limit },
+      );
+
+      return res.status(200).json({
+        Inventories: inventories as any,
+        total,
+        page,
+        limit,
+        search: req.query.search ?? "",
+        manufacturer: manufacturers,
+        categoryId: req.query.categoryId?.trim() || undefined,
+        rootCategoryId: req.query.rootCategoryId?.trim() || undefined,
+        inventoryStatus,
+        lowStockOnly,
+        outOfStockOnly,
+        includeArchived,
+        sorting: {
+          sortField: sortField as "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount",
+          sortOrder,
+        },
+        IsSuccess: true,
+        ErrorMessage: null,
+      });
+    } catch (e: any) {
+      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async getByProductId(req: GetInventoryByProductRequestDTO, res: Response<InventoryResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const inventory = await InventoryService.getByProductId(productId);
+      return res.status(200).json({ Inventory: inventory as any, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async createAdjustment(
+    req: CreateInventoryAdjustmentRequestDTO,
+    res: Response<InventoryResponseDTO | BaseResponseDTO>,
+  ) {
+    try {
+      const managerData = getDataDataFromToken(getTokenFromRequest(req as any));
+      const updatedInventory = await InventoryService.adjustStock(
+        {
+          productId: new Types.ObjectId(req.body.productId),
+          variantId: new Types.ObjectId(req.body.variantId),
+          type: req.body.type as
+            | INVENTORY_ADJUSTMENT_TYPES.MANUAL_INCREASE
+            | INVENTORY_ADJUSTMENT_TYPES.MANUAL_DECREASE
+            | INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION
+            | INVENTORY_ADJUSTMENT_TYPES.DAMAGE
+            | INVENTORY_ADJUSTMENT_TYPES.RETURN,
+          quantity: req.body.quantity,
+          reason: req.body.reason,
+          comment: req.body.comment,
+        },
+        managerData.id,
+      );
+
+      return res.status(200).json({ Inventory: updatedInventory as any, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async patchVariantSettings(
+    req: PatchInventoryVariantSettingsRequestDTO,
+    res: Response<InventoryResponseDTO | BaseResponseDTO>,
+  ) {
+    try {
+      const updated = await InventoryService.updateVariantSettings(
+        new Types.ObjectId(req.params.productId),
+        new Types.ObjectId(req.params.variantId),
+        {
+          lowStockThreshold: req.body.lowStockThreshold,
+          allowSellingOutOfStock: req.body.allowSellingOutOfStock,
+        },
+      );
+      return res.status(200).json({ Inventory: updated as any, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async getProductAdjustments(
+    req: GetInventoryAdjustmentsByProductRequestDTO,
+    res: Response<InventoryAdjustmentsResponseDTO | BaseResponseDTO>,
+  ) {
+    try {
+      const page = Math.max(parseInt(req.query.page ?? "1", 10), 1);
+      const limit = Math.min(Math.max(parseInt(req.query.limit ?? `${MIN_LIMIT}`, 10), MIN_LIMIT), MAX_LIMIT);
+      const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
+      const typeFilter = (Array.isArray(req.query.type) ? req.query.type : req.query.type ? [req.query.type] : []).filter(
+        (type): type is INVENTORY_ADJUSTMENT_TYPES => Object.values(INVENTORY_ADJUSTMENT_TYPES).includes(type as INVENTORY_ADJUSTMENT_TYPES),
+      );
+
+      const { adjustments, total } = await InventoryService.getAdjustmentsByProduct(
+        new Types.ObjectId(req.params.productId),
+        {
+          page,
+          limit,
+          sortOrder,
+          type: typeFilter,
+          orderId: req.query.orderId,
+          reservationId: req.query.reservationId,
+          createdBy: req.query.createdBy,
+          fromDate: req.query.fromDate,
+          toDate: req.query.toDate,
+        },
+      );
+
+      return res.status(200).json({
+        Adjustments: adjustments as any,
+        total,
+        page,
+        limit,
+        sortOrder,
+        IsSuccess: true,
+        ErrorMessage: null,
+      });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async getVariantAdjustments(
+    req: GetInventoryAdjustmentsByVariantRequestDTO,
+    res: Response<InventoryAdjustmentsResponseDTO | BaseResponseDTO>,
+  ) {
+    try {
+      const page = Math.max(parseInt(req.query.page ?? "1", 10), 1);
+      const limit = Math.min(Math.max(parseInt(req.query.limit ?? `${MIN_LIMIT}`, 10), MIN_LIMIT), MAX_LIMIT);
+      const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
+      const typeFilter = (Array.isArray(req.query.type) ? req.query.type : req.query.type ? [req.query.type] : []).filter(
+        (type): type is INVENTORY_ADJUSTMENT_TYPES => Object.values(INVENTORY_ADJUSTMENT_TYPES).includes(type as INVENTORY_ADJUSTMENT_TYPES),
+      );
+
+      const { adjustments, total } = await InventoryService.getAdjustmentsByVariant(
+        new Types.ObjectId(req.params.productId),
+        new Types.ObjectId(req.params.variantId),
+        {
+          page,
+          limit,
+          sortOrder,
+          type: typeFilter,
+          orderId: req.query.orderId,
+          reservationId: req.query.reservationId,
+          createdBy: req.query.createdBy,
+          fromDate: req.query.fromDate,
+          toDate: req.query.toDate,
+        },
+      );
+
+      return res.status(200).json({
+        Adjustments: adjustments as any,
+        total,
+        page,
+        limit,
+        sortOrder,
+        IsSuccess: true,
+        ErrorMessage: null,
+      });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+}
+
+export default new InventoryController();

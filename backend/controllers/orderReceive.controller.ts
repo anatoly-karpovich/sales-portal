@@ -21,7 +21,8 @@ class OrderReceiveController {
       const updatedOrder = await orderReceiveService.receiveProducts(orderId, products, managerData.id, req.order);
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 }

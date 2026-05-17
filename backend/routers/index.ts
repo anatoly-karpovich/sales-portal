@@ -14,6 +14,7 @@ import managersRouter from "./managers.router";
 import settingsRouter from "./settings.router";
 import pricingRouter from "./pricing.router";
 import categoriesRouter from "./categories.router";
+import inventoryRouter from "./inventory.router";
 
 export {
   authRouter,
@@ -32,4 +33,5 @@ export {
   settingsRouter,
   pricingRouter,
   categoriesRouter,
+  inventoryRouter,
 };

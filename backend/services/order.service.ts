@@ -12,8 +12,16 @@ import {
   IProductInOrderResponse,
 } from "../data/types";
 import { Types } from "mongoose";
+import mongoose from "mongoose";
 import { createHistoryEntry, productsMapping, getTodaysDate } from "../utils/utils";
-import { DELIVERY, DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
+import {
+  DELIVERY,
+  DELIVERY_STATUSES,
+  NOTIFICATIONS,
+  ORDER_HISTORY_ACTIONS,
+  ORDER_STATUSES,
+  RESERVATION_TYPES,
+} from "../data/enums";
 import _ from "lodash";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
@@ -22,11 +30,14 @@ import { OrderDetailsDTO, OrderExportFormatDTO, OrderListItemDTO } from "../data
 import { ICommentAuthor } from "../data/types/comments.type";
 import { PricingService } from "./pricing.service";
 import { IDeliveryPayload } from "../data/types/delivery.type";
+import InventoryService from "./inventory.service";
+import { SettingsService } from "./settings.service";
 
 const pricingService = new PricingService();
 
 class OrderService {
   private notificationService = new NotificationService();
+  private settingsService = new SettingsService();
   private readonly exportableFields = new Set<string>([
     "status",
     "deliveryStatus",
@@ -44,6 +55,12 @@ class OrderService {
       email: customer.email,
       name: customer.name,
     };
+  }
+
+  private async getDraftReservationExpiryDate(): Promise<Date> {
+    const settings = await this.settingsService.get();
+    const ttlMs = settings?.reservations?.adminDraftReservationTtlMs ?? 24 * 60 * 60 * 1000;
+    return new Date(Date.now() + ttlMs);
   }
 
   private createHttpError(message: string, statusCode: number): Error & { statusCode: number } {
@@ -174,38 +191,61 @@ class OrderService {
   }
 
   async create(order: IOrderRequest, performerdId: string): Promise<OrderDetailsDTO> {
-    const products = await productsMapping(order);
-    const performer = await managersService.getManager(performerdId);
-    const customer = await CustomerService.getCustomer(order.customer);
-    const customerSnapshot = this.buildCustomerSnapshot(customer);
-    const defaultDelivery = this.buildDefaultDraftDeliveryPayload(customer);
-    const prices = await pricingService.calculateOrderTotals({ products, delivery: defaultDelivery });
+    const session = await mongoose.startSession();
 
-    if (!prices.deliverySnapshot) {
-      throw new Error("Failed to build default delivery snapshot");
+    try {
+      const products = await productsMapping(order);
+      const performer = await managersService.getManager(performerdId);
+      const customer = await CustomerService.getCustomer(order.customer);
+      const customerSnapshot = this.buildCustomerSnapshot(customer);
+      const defaultDelivery = this.buildDefaultDraftDeliveryPayload(customer);
+      const prices = await pricingService.calculateOrderTotals({ products, delivery: defaultDelivery });
+
+      if (!prices.deliverySnapshot) {
+        throw new Error("Failed to build default delivery snapshot");
+      }
+
+      const orderId = new Types.ObjectId();
+      const newOrder: IOrder<IOrderCustomerSnapshot> = {
+        _id: orderId,
+        status: ORDER_STATUSES.DRAFT,
+        customer: customerSnapshot,
+        products,
+        delivery: {
+          ...prices.deliverySnapshot,
+          status: DELIVERY_STATUSES.DRAFT,
+        },
+        total_price: prices.totalPrice,
+        createdOn: getTodaysDate(true),
+        history: [],
+        comments: [],
+        assignedManager: null,
+      };
+
+      newOrder.history.unshift(
+        createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer),
+      );
+
+      await session.withTransaction(async () => {
+        await Order.create([newOrder], { session });
+        await InventoryService.reserveItems({
+          orderId,
+          items: order.products.map((item) => ({
+            productId: new Types.ObjectId(item.productId),
+            variantId: new Types.ObjectId(item.variantId),
+            quantity: item.quantity,
+          })),
+          reservationType: RESERVATION_TYPES.ADMIN_DRAFT,
+          managerId: performerdId,
+          expiresAt: await this.getDraftReservationExpiryDate(),
+          session,
+        });
+      });
+
+      return this.getOrder(orderId);
+    } finally {
+      await session.endSession();
     }
-
-    const newOrder: IOrder<IOrderCustomerSnapshot> = {
-      status: ORDER_STATUSES.DRAFT,
-      customer: customerSnapshot,
-      products,
-      delivery: {
-        ...prices.deliverySnapshot,
-        status: DELIVERY_STATUSES.DRAFT,
-      },
-      total_price: prices.totalPrice,
-      createdOn: getTodaysDate(true),
-      history: [],
-      comments: [],
-      assignedManager: null,
-    };
-
-    newOrder.history.unshift(
-      createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer),
-    );
-    const createdOrder = await Order.create(newOrder);
-
-    return this.getOrder(createdOrder._id);
   }
 
   async getAll(): Promise<OrderListItemDTO[]> {
@@ -546,133 +586,166 @@ class OrderService {
     performerId: string,
     currentOrder: OrderDetailsDTO,
   ): Promise<OrderDetailsDTO> {
-    const nextCustomer = order.customer
-      ? await CustomerService.getCustomer(order.customer)
-      : (currentOrder.customer as ICustomer);
+    const session = await mongoose.startSession();
+    try {
+      const nextCustomer = order.customer
+        ? await CustomerService.getCustomer(order.customer)
+        : (currentOrder.customer as ICustomer);
 
-    const currentProducts: IProductInOrder[] = currentOrder.products.map((item) => ({ ...item }));
+      const currentProducts: IProductInOrder[] = currentOrder.products.map((item) => ({ ...item }));
+      const nextProducts: IProductInOrder[] = await this.mergeProductsForUpdate(currentProducts, order.products);
 
-    const nextProducts: IProductInOrder[] = await this.mergeProductsForUpdate(currentProducts, order.products);
+      const manager = await managersService.getManager(performerId);
+      const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
+      const isCustomerChanged = Boolean(
+        order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString()),
+      );
 
-    const manager = await managersService.getManager(performerId);
-    const customerSnapshot = this.buildCustomerSnapshot(nextCustomer);
-    const isCustomerChanged = Boolean(order.customer && !_.isEqual(order.customer.toString(), currentOrder.customer._id.toString()));
+      let nextDelivery = currentOrder.delivery;
+      let totalPrice = 0;
 
-    let nextDelivery = currentOrder.delivery;
-    let totalPrice = 0;
-
-    if (isCustomerChanged) {
-      const defaultDeliveryPayload = this.buildDefaultDraftDeliveryPayload(nextCustomer);
-      const pricesWithDraftDelivery = await pricingService.calculateOrderTotals({
-        products: nextProducts,
-        delivery: defaultDeliveryPayload,
-      });
-
-      if (!pricesWithDraftDelivery.deliverySnapshot) {
-        throw new Error("Failed to build default delivery snapshot");
-      }
-
-      nextDelivery = {
-        ...pricesWithDraftDelivery.deliverySnapshot,
-        status: DELIVERY_STATUSES.DRAFT,
-      };
-      totalPrice = pricesWithDraftDelivery.totalPrice;
-    } else {
-      const currentLinesCount = currentProducts.length;
-      const nextLinesCount = nextProducts.length;
-
-      if (currentLinesCount !== nextLinesCount) {
-        const recalculatedDeliveryPrice = pricingService.recalculateDeliveryPriceByLines({
-          currentDelivery: currentOrder.delivery,
-          currentLinesCount,
-          nextLinesCount,
+      if (isCustomerChanged) {
+        const defaultDeliveryPayload = this.buildDefaultDraftDeliveryPayload(nextCustomer);
+        const pricesWithDraftDelivery = await pricingService.calculateOrderTotals({
+          products: nextProducts,
+          delivery: defaultDeliveryPayload,
         });
+
+        if (!pricesWithDraftDelivery.deliverySnapshot) {
+          throw new Error("Failed to build default delivery snapshot");
+        }
 
         nextDelivery = {
-          ...currentOrder.delivery,
-          price: recalculatedDeliveryPrice,
+          ...pricesWithDraftDelivery.deliverySnapshot,
+          status: DELIVERY_STATUSES.DRAFT,
         };
+        totalPrice = pricesWithDraftDelivery.totalPrice;
+      } else {
+        const currentLinesCount = currentProducts.length;
+        const nextLinesCount = nextProducts.length;
+
+        if (currentLinesCount !== nextLinesCount) {
+          const recalculatedDeliveryPrice = pricingService.recalculateDeliveryPriceByLines({
+            currentDelivery: currentOrder.delivery,
+            currentLinesCount,
+            nextLinesCount,
+          });
+
+          nextDelivery = {
+            ...currentOrder.delivery,
+            price: recalculatedDeliveryPrice,
+          };
+        }
+
+        const pricesWithoutDelivery = await pricingService.calculateOrderTotals({ products: nextProducts });
+        totalPrice = pricesWithoutDelivery.productsSubtotal + nextDelivery.price;
       }
 
-      const pricesWithoutDelivery = await pricingService.calculateOrderTotals({ products: nextProducts });
-      totalPrice = pricesWithoutDelivery.productsSubtotal + nextDelivery.price;
-    }
+      const newOrder: IOrder<IOrderCustomerSnapshot> = {
+        _id: orderId,
+        status: ORDER_STATUSES.DRAFT,
+        customer: customerSnapshot,
+        products: nextProducts,
+        delivery: nextDelivery,
+        total_price: totalPrice,
+        history: currentOrder.history,
+        createdOn: currentOrder.createdOn,
+        comments: currentOrder.comments,
+        assignedManager: currentOrder.assignedManager,
+      };
 
-    const newOrder: IOrder<IOrderCustomerSnapshot> = {
-      status: ORDER_STATUSES.DRAFT,
-      customer: customerSnapshot,
-      products: nextProducts,
-      delivery: nextDelivery,
-      total_price: totalPrice,
-      history: currentOrder.history,
-      createdOn: currentOrder.createdOn,
-      comments: currentOrder.comments,
-      assignedManager: currentOrder.assignedManager,
-    };
+      const changed = { products: false, customer: false };
+      const nextHistoryProducts = nextProducts.map((item) => ({ ...item }));
+      const currentHistoryProducts = currentOrder.products.map((item) => ({ ...item }));
 
-    const changed = { products: false, customer: false };
+      if (order.products) {
+        const requested = order.products.map((item) => ({
+          productId: item.productId.toString(),
+          variantId: item.variantId.toString(),
+          quantity: item.quantity,
+        }));
+        const currentTuples = currentProducts.map((item) => ({
+          productId: item.productId.toString(),
+          variantId: item.variantId.toString(),
+          quantity: item.quantity,
+        }));
+        if (!_.isEqual(requested, currentTuples)) {
+          changed.products = true;
+          const historyEntrySource = {
+            ..._.cloneDeep(newOrder),
+            products: nextHistoryProducts,
+            customer: this.buildCustomerSnapshot(currentOrder.customer as ICustomer),
+          };
+          newOrder.history.unshift(
+            createHistoryEntry(historyEntrySource, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager),
+          );
+        }
+      }
 
-    const nextHistoryProducts = nextProducts.map((item) => ({ ...item }));
-    const currentHistoryProducts = currentOrder.products.map((item) => ({ ...item }));
-
-    if (order.products) {
-      const requested = order.products.map((item) => ({
-        productId: item.productId.toString(),
-        variantId: item.variantId.toString(),
-        quantity: item.quantity,
-      }));
-      const currentTuples = currentProducts.map((item) => ({
-        productId: item.productId.toString(),
-        variantId: item.variantId.toString(),
-        quantity: item.quantity,
-      }));
-      if (!_.isEqual(requested, currentTuples)) {
-        changed.products = true;
+      if (isCustomerChanged) {
+        changed.customer = true;
         const historyEntrySource = {
           ..._.cloneDeep(newOrder),
-          products: nextHistoryProducts,
-          customer: this.buildCustomerSnapshot(currentOrder.customer as ICustomer),
+          products: currentHistoryProducts,
         };
-        newOrder.history.unshift(
-          createHistoryEntry(historyEntrySource, ORDER_HISTORY_ACTIONS.REQUIRED_PRODUCTS_CHANGED, manager),
-        );
+        newOrder.history.unshift(createHistoryEntry(historyEntrySource, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
       }
-    }
 
-    if (isCustomerChanged) {
-      changed.customer = true;
-      const historyEntrySource = {
-        ..._.cloneDeep(newOrder),
-        products: currentHistoryProducts,
-      };
-      newOrder.history.unshift(createHistoryEntry(historyEntrySource, ORDER_HISTORY_ACTIONS.CUSTOMER_CHANGED, manager));
-    }
+      await session.withTransaction(async () => {
+        if (changed.products) {
+          await InventoryService.releaseReservationByOrder({
+            orderId,
+            managerId: performerId,
+            session,
+          });
+          await InventoryService.reserveItems({
+            orderId,
+            items: nextProducts.map((item) => ({
+              productId: new Types.ObjectId(item.productId),
+              variantId: new Types.ObjectId(item.variantId),
+              quantity: item.quantity,
+            })),
+            reservationType: RESERVATION_TYPES.ADMIN_DRAFT,
+            managerId: performerId,
+            expiresAt: await this.getDraftReservationExpiryDate(),
+            session,
+          });
+        }
 
-    const updatedOrder = await Order.findByIdAndUpdate(orderId, newOrder, { new: true });
-    if (!updatedOrder) {
-      throw new Error("Order not found");
-    }
+        const updatedOrder = await Order.findByIdAndUpdate(orderId, newOrder, { new: true, session }).lean().exec();
+        if (!updatedOrder) {
+          throw new Error("Order not found");
+        }
+      });
 
-    if (updatedOrder.assignedManager) {
-      if (changed.products) {
-        await this.notificationService.create({
-          managerId: updatedOrder.assignedManager._id.toString(),
-          orderId: updatedOrder._id.toString(),
-          type: "productsChanged",
-          message: NOTIFICATIONS.productsChanged,
-        });
+      const updatedOrder = await Order.findById(orderId).lean().exec();
+      if (!updatedOrder) {
+        throw new Error("Order not found");
       }
-      if (changed.customer) {
-        await this.notificationService.create({
-          managerId: updatedOrder.assignedManager._id.toString(),
-          orderId: updatedOrder._id.toString(),
-          type: "customerChanged",
-          message: NOTIFICATIONS.customerChanged,
-        });
-      }
-    }
 
-    return this.getOrder(updatedOrder._id);
+      if (updatedOrder.assignedManager) {
+        if (changed.products) {
+          await this.notificationService.create({
+            managerId: updatedOrder.assignedManager._id.toString(),
+            orderId: updatedOrder._id.toString(),
+            type: "productsChanged",
+            message: NOTIFICATIONS.productsChanged,
+          });
+        }
+        if (changed.customer) {
+          await this.notificationService.create({
+            managerId: updatedOrder.assignedManager._id.toString(),
+            orderId: updatedOrder._id.toString(),
+            type: "customerChanged",
+            message: NOTIFICATIONS.customerChanged,
+          });
+        }
+      }
+
+      return this.getOrder(orderId);
+    } finally {
+      await session.endSession();
+    }
   }
 
   async addProduct(

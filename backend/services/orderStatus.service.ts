@@ -1,12 +1,13 @@
 import Order from "../models/order.model";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { DELIVERY, DELIVERY_STATUSES, NOTIFICATIONS, ORDER_HISTORY_ACTIONS, ORDER_STATUSES } from "../data/enums";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
 import { PricingService } from "./pricing.service";
+import InventoryService from "./inventory.service";
 
 class OrderStatusService {
   private notificationService = new NotificationService();
@@ -76,7 +77,29 @@ class OrderStatusService {
     newOrder.history.unshift(
       createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
     );
-    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (status === ORDER_STATUSES.IN_PROCESS) {
+          await InventoryService.completeReservationByOrder(orderId, session);
+        } else if (status === ORDER_STATUSES.CANCELED) {
+          await InventoryService.releaseReservationByOrder({
+            orderId,
+            managerId: performerId,
+            session,
+          });
+        }
+
+        const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true, session });
+        if (!updatedOrder) {
+          throw new Error("Order not found");
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    const updatedOrder = await Order.findById(orderId).lean().exec();
     if (!updatedOrder) {
       throw new Error("Order not found");
     }
