@@ -63,81 +63,50 @@ class InventoryService {
     return getTodaysDate(true);
   }
 
-  private getReservationVariantKey(productId: Types.ObjectId, variantId: Types.ObjectId) {
-    return `${productId.toString()}:${variantId.toString()}`;
-  }
-
   private toInventoryRecordStatus(productVariantStatus: PRODUCT_STATUSES): INVENTORY_RECORD_STATUSES {
     return productVariantStatus === PRODUCT_STATUSES.ARCHIVED
       ? INVENTORY_RECORD_STATUSES.ARCHIVED
       : INVENTORY_RECORD_STATUSES.ACTIVE;
   }
 
-  private getReservedQuantityForVariant(
-    productId: Types.ObjectId,
-    variantId: Types.ObjectId,
-    reservedByVariant: Map<string, number>,
-  ) {
-    return reservedByVariant.get(this.getReservationVariantKey(productId, variantId)) ?? 0;
+  private getReservationVariantKey(productId: Types.ObjectId | string, variantId: Types.ObjectId | string) {
+    return `${productId.toString()}:${variantId.toString()}`;
   }
 
-  private async getReservedQuantitiesByVariant(productIds?: Types.ObjectId[], session?: ClientSession) {
-    const pipeline: any[] = [];
+  private normalizeVariantQuantities(variant: Pick<IInventoryVariant, "quantity" | "reserved">) {
+    const quantity = Math.max(0, variant.quantity ?? 0);
+    const reserved = Math.max(0, variant.reserved ?? 0);
+    const available = Math.max(quantity - reserved, 0);
 
-    if (productIds?.length) {
-      pipeline.push({
-        $match: {
-          "items.productId": { $in: productIds },
-        },
-      });
-    }
+    return { quantity, reserved, available };
+  }
 
-    pipeline.push(
-      { $unwind: "$items" },
-      ...(productIds?.length
-        ? [
-            {
-              $match: {
-                "items.productId": { $in: productIds },
-              },
-            },
-          ]
-        : []),
-      {
-        $group: {
-          _id: {
-            productId: "$items.productId",
-            variantId: "$items.variantId",
-          },
-          reserved: { $sum: "$items.quantity" },
-        },
-      },
-    );
+  private buildVariantUpdate(
+    variant: IInventoryVariant & Record<string, any>,
+    next: Partial<Pick<IInventoryVariant, "quantity" | "reserved" | "lowStockThreshold" | "allowSellingOutOfStock" | "status">>,
+  ) {
+    const normalized = this.normalizeVariantQuantities({
+      quantity: next.quantity ?? variant.quantity,
+      reserved: next.reserved ?? variant.reserved,
+    });
 
-    const aggregate = Reservation.aggregate(pipeline);
-    if (session) {
-      aggregate.session(session);
-    }
-
-    const rows = await aggregate.exec();
-    const reservedByVariant = new Map<string, number>();
-    for (const row of rows) {
-      const productId = new Types.ObjectId(row._id.productId);
-      const variantId = new Types.ObjectId(row._id.variantId);
-      reservedByVariant.set(this.getReservationVariantKey(productId, variantId), row.reserved ?? 0);
-    }
-
-    return reservedByVariant;
+    return {
+      ...variant,
+      quantity: normalized.quantity,
+      reserved: normalized.reserved,
+      available: normalized.available,
+      lowStockThreshold: next.lowStockThreshold ?? variant.lowStockThreshold,
+      allowSellingOutOfStock: next.allowSellingOutOfStock ?? variant.allowSellingOutOfStock,
+      status: next.status ?? variant.status,
+      updatedOn: this.getNowString(),
+    };
   }
 
   recalculateVariantStatus(
-    variant: Pick<IInventoryVariantReadModel, "status" | "allowSellingOutOfStock" | "available" | "lowStockThreshold">,
+    variant: Pick<IInventoryVariantReadModel, "status" | "available" | "lowStockThreshold">,
   ): INVENTORY_STATUSES {
     if (variant.status === INVENTORY_RECORD_STATUSES.ARCHIVED) {
       return INVENTORY_STATUSES.NOT_TRACKED;
-    }
-    if (variant.allowSellingOutOfStock) {
-      return INVENTORY_STATUSES.IN_STOCK;
     }
     if (variant.available <= 0) {
       return INVENTORY_STATUSES.OUT_OF_STOCK;
@@ -191,23 +160,21 @@ class InventoryService {
 
   private buildReadModelInventory(
     inventory: IInventory & Record<string, any>,
-    reservedByVariant: Map<string, number>,
   ): IInventoryReadModel {
-    const productId = new Types.ObjectId(inventory.productId);
-
     const variants = (inventory.variants ?? []).map((variant: any) => {
-      const variantId = new Types.ObjectId(variant.variantId);
-      const reserved = this.getReservedQuantityForVariant(productId, variantId, reservedByVariant);
-      const available = (variant.quantity ?? 0) - reserved;
+      const normalized = this.normalizeVariantQuantities({
+        quantity: variant.quantity ?? 0,
+        reserved: variant.reserved ?? 0,
+      });
       const readVariant: IInventoryVariantReadModel = {
         ...variant,
-        variantId,
-        reserved,
-        available,
+        variantId: new Types.ObjectId(variant.variantId),
+        quantity: normalized.quantity,
+        reserved: normalized.reserved,
+        available: normalized.available,
         stockStatus: this.recalculateVariantStatus({
           status: variant.status,
-          allowSellingOutOfStock: variant.allowSellingOutOfStock,
-          available,
+          available: normalized.available,
           lowStockThreshold: variant.lowStockThreshold,
         }),
       };
@@ -262,9 +229,7 @@ class InventoryService {
       return undefined;
     }
 
-    const productId = new Types.ObjectId(inventory.productId);
-    const reservedByVariant = await this.getReservedQuantitiesByVariant([productId], session);
-    return this.buildReadModelInventory(inventory as unknown as IInventory, reservedByVariant);
+    return this.buildReadModelInventory(inventory as unknown as IInventory);
   }
 
   async createForProduct(product: IProduct, session?: ClientSession): Promise<IInventory> {
@@ -282,6 +247,8 @@ class InventoryService {
     const variants: IInventoryVariant[] = (product.variants ?? []).map((variant) => ({
       variantId: new Types.ObjectId(variant._id),
       quantity: 0,
+      reserved: 0,
+      available: 0,
       lowStockThreshold: settings.inventory.defaultLowStockThreshold,
       allowSellingOutOfStock: settings.inventory.allowSellingOutOfStockByDefault,
       status: this.toInventoryRecordStatus(variant.status),
@@ -325,6 +292,8 @@ class InventoryService {
         return {
           variantId: new Types.ObjectId(variant._id),
           quantity: 0,
+          reserved: 0,
+          available: 0,
           lowStockThreshold: settings.inventory.defaultLowStockThreshold,
           allowSellingOutOfStock: settings.inventory.allowSellingOutOfStockByDefault,
           status: this.toInventoryRecordStatus(variant.status),
@@ -332,10 +301,17 @@ class InventoryService {
         };
       }
 
+      const normalized = this.normalizeVariantQuantities({
+        quantity: existing.quantity ?? 0,
+        reserved: existing.reserved ?? 0,
+      });
+
       return {
         ...existing,
         variantId: new Types.ObjectId(existing.variantId),
-        quantity: existing.quantity,
+        quantity: normalized.quantity,
+        reserved: normalized.reserved,
+        available: normalized.available,
         lowStockThreshold: existing.lowStockThreshold,
         allowSellingOutOfStock: existing.allowSellingOutOfStock,
         status: this.toInventoryRecordStatus(variant.status),
@@ -368,8 +344,7 @@ class InventoryService {
       ? await this.syncWithProductVariants(product as unknown as IProduct)
       : await this.createForProduct(product as unknown as IProduct);
 
-    const reservedByVariant = await this.getReservedQuantitiesByVariant([productId]);
-    return this.buildReadModelInventory(synced as IInventory & Record<string, any>, reservedByVariant);
+    return this.buildReadModelInventory(synced as IInventory & Record<string, any>);
   }
 
   async getList(
@@ -420,7 +395,6 @@ class InventoryService {
     }
 
     const inventories = await Inventory.find(inventoryFilter).lean().exec();
-    const reservedByVariant = await this.getReservedQuantitiesByVariant(productIds);
     const productById = new Map(products.map((product) => [product._id.toString(), product]));
 
     const normalized = inventories
@@ -430,7 +404,7 @@ class InventoryService {
           return null;
         }
 
-        const readModelInventory = this.buildReadModelInventory(inventory as IInventory & Record<string, any>, reservedByVariant);
+        const readModelInventory = this.buildReadModelInventory(inventory as IInventory & Record<string, any>);
 
         return {
           ...readModelInventory,
@@ -561,10 +535,8 @@ class InventoryService {
       await session.withTransaction(async () => {
         const { inventory, variant } = await this.getInventoryVariant(payload.productId, payload.variantId, session);
         inventoryId = new Types.ObjectId(inventory._id);
-        const reservedByVariant = await this.getReservedQuantitiesByVariant([payload.productId], session);
-
         const beforeQuantity = variant.quantity;
-        const beforeReserved = this.getReservedQuantityForVariant(payload.productId, payload.variantId, reservedByVariant);
+        const beforeReserved = variant.reserved ?? 0;
 
         let afterQuantity = beforeQuantity;
         let quantityChange = 0;
@@ -586,17 +558,17 @@ class InventoryService {
           afterQuantity = payload.quantity;
         }
 
+        if (afterQuantity < 0) {
+          throw createHttpError("Quantity cannot be negative", 400);
+        }
+
         if (!variant.allowSellingOutOfStock && afterQuantity < beforeReserved) {
           throw createHttpError("Quantity cannot be lower than reserved amount", 400);
         }
 
         const nextVariants = (inventory.variants ?? []).map((item: any) =>
           item.variantId.toString() === payload.variantId.toString()
-            ? {
-                ...item,
-                quantity: afterQuantity,
-                updatedOn: this.getNowString(),
-              }
+            ? this.buildVariantUpdate(item, { quantity: afterQuantity, reserved: beforeReserved })
             : item,
         );
 
@@ -638,8 +610,7 @@ class InventoryService {
       if (!updated) {
         throw createHttpError("Inventory was not found after update", 500);
       }
-      const reservedByVariant = await this.getReservedQuantitiesByVariant([payload.productId]);
-      return this.buildReadModelInventory(updated as IInventory & Record<string, any>, reservedByVariant);
+      return this.buildReadModelInventory(updated as IInventory & Record<string, any>);
     } finally {
       await session.endSession();
     }
@@ -654,20 +625,17 @@ class InventoryService {
     },
   ): Promise<IInventoryReadModel> {
     const { inventory, variant } = await this.getInventoryVariant(productId, variantId);
-    const reservedByVariant = await this.getReservedQuantitiesByVariant([productId]);
-    const reserved = this.getReservedQuantityForVariant(productId, variantId, reservedByVariant);
+    const reserved = variant.reserved ?? 0;
     const nextAllowSelling = payload.allowSellingOutOfStock ?? variant.allowSellingOutOfStock;
 
     if (!nextAllowSelling && variant.quantity < reserved) {
-      throw createHttpError("Quantity cannot be lower than reserved amount", 400);
+      throw createHttpError("Quantity cannot be lower than reserved amount", 409);
     }
 
-    const nextVariant = {
-      ...variant,
+    const nextVariant = this.buildVariantUpdate(variant as any, {
       lowStockThreshold: payload.lowStockThreshold ?? variant.lowStockThreshold,
       allowSellingOutOfStock: nextAllowSelling,
-      updatedOn: this.getNowString(),
-    };
+    });
 
     const nextVariants = (inventory.variants ?? []).map((item: any) =>
       item.variantId.toString() === variantId.toString() ? nextVariant : item,
@@ -688,7 +656,7 @@ class InventoryService {
       throw createHttpError("Inventory was not updated", 500);
     }
 
-    return this.buildReadModelInventory(updated as IInventory & Record<string, any>, reservedByVariant);
+    return this.buildReadModelInventory(updated as IInventory & Record<string, any>);
   }
 
   private async getOrCreateInventoryByProductId(productId: Types.ObjectId, session: ClientSession) {
@@ -710,29 +678,22 @@ class InventoryService {
     items: ReserveItemsInput;
     reservationType: RESERVATION_TYPES;
     managerId: string;
-    expiresAt: Date;
+    expiresAt: Date | null;
     session: ClientSession;
-  }): Promise<IReservation> {
+  }): Promise<IReservation | null> {
     const { orderId, items, reservationType, managerId, expiresAt, session } = params;
 
     const existingReservation = await Reservation.findOne({ orderId }).session(session).lean().exec();
-    const productIds = [...new Set(
-      [...items, ...(existingReservation?.items ?? [])].map((item) => item.productId.toString()),
-    )].map((id) => new Types.ObjectId(id));
-
-    const reservedByVariant = await this.getReservedQuantitiesByVariant(productIds, session);
-
-    if (existingReservation) {
-      for (const item of existingReservation.items ?? []) {
-        const key = this.getReservationVariantKey(new Types.ObjectId(item.productId), new Types.ObjectId(item.variantId));
-        const current = reservedByVariant.get(key) ?? 0;
-        reservedByVariant.set(key, Math.max(0, current - item.quantity));
-      }
+    const existingItemsByKey = new Map<string, number>();
+    for (const item of existingReservation?.items ?? []) {
+      const key = this.getReservationVariantKey(item.productId, item.variantId);
+      existingItemsByKey.set(key, (existingItemsByKey.get(key) ?? 0) + item.quantity);
     }
 
     const reservationIdForAdjustments = existingReservation
       ? new Types.ObjectId(existingReservation._id)
       : new Types.ObjectId();
+    const nextReservationItems: Array<{ productId: Types.ObjectId; variantId: Types.ObjectId; quantity: number }> = [];
 
     for (const item of items) {
       const inventory = await this.getOrCreateInventoryByProductId(item.productId, session);
@@ -744,15 +705,34 @@ class InventoryService {
         throw createHttpError(`Variant with id '${item.variantId.toString()}' is not active in inventory`, 400);
       }
 
-      const beforeReserved = this.getReservedQuantityForVariant(item.productId, item.variantId, reservedByVariant);
-      const afterReserved = beforeReserved + item.quantity;
-      const availableBefore = variant.quantity - beforeReserved;
+      const key = this.getReservationVariantKey(item.productId, item.variantId);
+      const previouslyReservedByOrder = existingItemsByKey.get(key) ?? 0;
+      const beforeReserved = variant.reserved ?? 0;
+      const baseReservedWithoutOrder = Math.max(0, beforeReserved - previouslyReservedByOrder);
+      const availableBefore = Math.max((variant.quantity ?? 0) - baseReservedWithoutOrder, 0);
 
       if (!variant.allowSellingOutOfStock && availableBefore < item.quantity) {
         throw createHttpError("Not enough stock", 409);
       }
 
-      reservedByVariant.set(this.getReservationVariantKey(item.productId, item.variantId), afterReserved);
+      const reservedQuantity = variant.allowSellingOutOfStock ? Math.min(item.quantity, availableBefore) : item.quantity;
+      const afterReserved = baseReservedWithoutOrder + reservedQuantity;
+      const nextVariant = this.buildVariantUpdate(variant as any, { reserved: afterReserved });
+
+      const nextVariants = (inventory.variants ?? []).map((v: any) =>
+        v.variantId.toString() === item.variantId.toString() ? nextVariant : v,
+      );
+
+      await Inventory.findByIdAndUpdate(
+        inventory._id,
+        {
+          variants: nextVariants,
+          updatedOn: this.getNowString(),
+        },
+        { session },
+      )
+        .lean()
+        .exec();
 
       await this.createAdjustment(
         {
@@ -771,6 +751,21 @@ class InventoryService {
         },
         session,
       );
+
+      if (reservedQuantity > 0) {
+        nextReservationItems.push({
+          productId: new Types.ObjectId(item.productId),
+          variantId: new Types.ObjectId(item.variantId),
+          quantity: reservedQuantity,
+        });
+      }
+    }
+
+    if (nextReservationItems.length === 0) {
+      if (existingReservation) {
+        await Reservation.deleteOne({ _id: existingReservation._id }).session(session).exec();
+      }
+      return null;
     }
 
     const now = this.getNowString();
@@ -779,7 +774,7 @@ class InventoryService {
       {
         $set: {
           type: reservationType,
-          items,
+          items: nextReservationItems,
           expiresAt,
           updatedOn: now,
         },
@@ -804,11 +799,6 @@ class InventoryService {
       return null;
     }
 
-    const productIds = [...new Set((reservation.items ?? []).map((item: any) => item.productId.toString()))].map(
-      (id) => new Types.ObjectId(id),
-    );
-    const reservedByVariant = await this.getReservedQuantitiesByVariant(productIds, session);
-
     for (const item of reservation.items ?? []) {
       const inventory = await Inventory.findOne({ productId: item.productId }).session(session).lean().exec();
       if (!inventory) {
@@ -822,9 +812,23 @@ class InventoryService {
 
       const productId = new Types.ObjectId(item.productId);
       const variantId = new Types.ObjectId(item.variantId);
-      const beforeReserved = this.getReservedQuantityForVariant(productId, variantId, reservedByVariant);
+      const beforeReserved = variant.reserved ?? 0;
       const afterReserved = Math.max(0, beforeReserved - item.quantity);
-      reservedByVariant.set(this.getReservationVariantKey(productId, variantId), afterReserved);
+      const nextVariant = this.buildVariantUpdate(variant as any, { reserved: afterReserved });
+      const nextVariants = (inventory.variants ?? []).map((v: any) =>
+        v.variantId.toString() === variantId.toString() ? nextVariant : v,
+      );
+
+      await Inventory.findByIdAndUpdate(
+        inventory._id,
+        {
+          variants: nextVariants,
+          updatedOn: this.getNowString(),
+        },
+        { session },
+      )
+        .lean()
+        .exec();
 
       await this.createAdjustment(
         {
@@ -857,22 +861,25 @@ class InventoryService {
       .exec();
   }
 
-  async completeReservationByOrder(orderId: Types.ObjectId, session: ClientSession, managerId?: string) {
-    let resolvedManagerId = managerId;
-    if (!resolvedManagerId) {
-      const systemAdmin = await this.getSystemAdminManager(session);
-      if (!systemAdmin?._id) {
-        return;
-      }
-      resolvedManagerId = systemAdmin._id.toString();
+  async markReservationAsOrderProcessing(orderId: Types.ObjectId, session: ClientSession) {
+    const reservation = await Reservation.findOne({ orderId }).session(session).lean().exec();
+    if (!reservation) {
+      return null;
     }
 
-    await this.releaseReservationByOrder({
-      orderId,
-      managerId: resolvedManagerId,
-      session,
-      type: INVENTORY_ADJUSTMENT_TYPES.RELEASE,
-    });
+    const updated = await Reservation.findByIdAndUpdate(
+      reservation._id,
+      {
+        type: RESERVATION_TYPES.ORDER_PROCESSING,
+        expiresAt: null,
+        updatedOn: this.getNowString(),
+      },
+      { new: true, session },
+    )
+      .lean()
+      .exec();
+
+    return updated as unknown as IReservation | null;
   }
 
   async applySaleForOrderLines(params: {
@@ -882,6 +889,12 @@ class InventoryService {
     session: ClientSession;
   }) {
     const { orderId, lines, managerId, session } = params;
+    const reservation = await Reservation.findOne({ orderId }).session(session).lean().exec();
+    const reservationItemsByKey = new Map<string, number>();
+    for (const item of reservation?.items ?? []) {
+      const key = this.getReservationVariantKey(item.productId, item.variantId);
+      reservationItemsByKey.set(key, (reservationItemsByKey.get(key) ?? 0) + item.quantity);
+    }
 
     for (const line of lines) {
       const inventory = await this.getOrCreateInventoryByProductId(line.productId, session);
@@ -895,22 +908,25 @@ class InventoryService {
         );
       }
 
-      const reservedByVariant = await this.getReservedQuantitiesByVariant([line.productId], session);
-      const reservedBefore = this.getReservedQuantityForVariant(line.productId, line.variantId, reservedByVariant);
+      const reservedBefore = beforeVariant.reserved ?? 0;
       const quantityBefore = beforeVariant.quantity;
       const quantityAfter = quantityBefore - line.quantity;
-
-      if (!beforeVariant.allowSellingOutOfStock && quantityAfter < reservedBefore) {
+      if (quantityAfter < 0) {
         throw createHttpError("Not enough stock", 409);
       }
 
+      const key = this.getReservationVariantKey(line.productId, line.variantId);
+      const reservedFromOrder = reservationItemsByKey.get(key) ?? 0;
+      const reservedToConsume = Math.min(line.quantity, reservedFromOrder, reservedBefore);
+      const reservedAfter = Math.max(0, reservedBefore - reservedToConsume);
+      const nextVariant = this.buildVariantUpdate(beforeVariant as any, {
+        quantity: quantityAfter,
+        reserved: reservedAfter,
+      });
+
       const nextVariants = (inventory.variants ?? []).map((variant: any) =>
         variant.variantId.toString() === line.variantId.toString()
-          ? {
-              ...variant,
-              quantity: quantityAfter,
-              updatedOn: this.getNowString(),
-            }
+          ? nextVariant
           : variant,
       );
 
@@ -934,13 +950,50 @@ class InventoryService {
           quantityChange: -line.quantity,
           quantityBefore,
           quantityAfter,
-          reservedBefore: reservedBefore,
-          reservedAfter: reservedBefore,
+          reservedBefore,
+          reservedAfter,
           orderId,
           createdBy: new Types.ObjectId(managerId),
         },
         session,
       );
+
+      if (reservedFromOrder > 0) {
+        const nextReservedFromOrder = Math.max(0, reservedFromOrder - reservedToConsume);
+        reservationItemsByKey.set(key, nextReservedFromOrder);
+      }
+    }
+
+    if (reservation) {
+      const nextReservationItems = (reservation.items ?? [])
+        .map((item) => {
+          const key = this.getReservationVariantKey(item.productId, item.variantId);
+          const nextQuantity = reservationItemsByKey.get(key) ?? item.quantity;
+          if (nextQuantity <= 0) {
+            return null;
+          }
+          return {
+            productId: new Types.ObjectId(item.productId),
+            variantId: new Types.ObjectId(item.variantId),
+            quantity: nextQuantity,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+      if (nextReservationItems.length === 0) {
+        await Reservation.deleteOne({ _id: reservation._id }).session(session).exec();
+      } else {
+        await Reservation.findByIdAndUpdate(
+          reservation._id,
+          {
+            items: nextReservationItems,
+            updatedOn: this.getNowString(),
+          },
+          { session },
+        )
+          .lean()
+          .exec();
+      }
     }
   }
 
@@ -968,7 +1021,7 @@ class InventoryService {
 
   async expireReservations() {
     const now = new Date();
-    const toExpire = await Reservation.find({ expiresAt: { $lte: now } })
+    const toExpire = await Reservation.find({ expiresAt: { $ne: null, $lte: now } })
       .select("_id")
       .lean()
       .exec();
@@ -994,18 +1047,27 @@ class InventoryService {
             return;
           }
 
+          const order = await Order.findById(reservation.orderId).session(session).lean().exec();
+          if (!order) {
+            console.error(
+              `[reservation-expiration] orphan reservation ${reservation._id.toString()} for missing order ${reservation.orderId.toString()}`,
+            );
+            return;
+          }
+
+          if (order.status !== ORDER_STATUSES.DRAFT) {
+            console.error(
+              `[reservation-expiration] skipping non-draft reservation ${reservation._id.toString()} for order ${order._id.toString()} status=${order.status} type=${reservation.type} expiresAt=${reservation.expiresAt}`,
+            );
+            return;
+          }
+
           await this.releaseReservationByOrder({
             orderId: new Types.ObjectId(reservation.orderId),
             managerId: systemAdmin._id.toString(),
             session,
             type: INVENTORY_ADJUSTMENT_TYPES.EXPIRED_RESERVATION,
           });
-
-          const order = await Order.findById(reservation.orderId).session(session).lean().exec();
-          if (!order || order.status !== ORDER_STATUSES.DRAFT) {
-            expired += 1;
-            return;
-          }
 
           const nextOrder = {
             ...order,

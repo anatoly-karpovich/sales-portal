@@ -27,17 +27,20 @@
 
 Canonical fields:
 - stock quantity: `Inventory.variants[].quantity`
-- reservation quantity: `Reservation.items[].quantity` from active reservation documents (one reservation aggregate per order)
+- reservation quantity: `Inventory.variants[].reserved`
+- available quantity: `Inventory.variants[].available`
 
-Derived read-model cache (non-canonical):
-- `Inventory.variants[].reserved`
-- `Inventory.variants[].available`
+Derived read-model fields:
 - `Inventory.variants[].stockStatus`
 - parent summary: `totalReserved`, `totalAvailable`, `inventoryStatus`, `lowStockVariantsCount`, `outOfStockVariantsCount`
 
 Rule:
-- any conflict is resolved in favor of canonical sources above (`quantity` + active reservations);
-- cached fields must be treated as projection/optimization only.
+- reservation documents explain lock ownership/lifecycle for orders and can be non-expiring (`Order Processing`) or expiring (`Admin Draft`/`Customer Payment`);
+- inventory numeric invariants must hold:
+  - `quantity >= 0`
+  - `reserved >= 0`
+  - `available >= 0`
+  - `available = max(quantity - reserved, 0)`
 
 ## Read Contract Notes
 
@@ -45,28 +48,31 @@ Rule:
 - variant-level `reserved` and `available`;
 - parent-level summary totals/status.
 
-These values are calculated from:
-- persisted variant quantity;
-- active reservation aggregate per `productId + variantId`.
-
 `available` formula:
-- `available = quantity - reservedActive`
+- `available = max(quantity - reserved, 0)`
 
 ## Adjustment and Reservation Semantics
 
 Manual adjustments (`POST /adjustments`):
 - allowed types: `Manual Increase`, `Manual Decrease`, `Manual Correction`, `Damage`, `Return`
 - update stock quantity;
-- must not violate `quantity >= reservedActive` when `allowSellingOutOfStock = false`.
+- must keep inventory invariants valid;
+- if `allowSellingOutOfStock = false`, quantity cannot go below reserved amount.
+
+Reservation and ordering rules:
+- `Reserve` updates `Inventory.reserved/available` and reservation items;
+- `allowSellingOutOfStock = true` allows creating/updating orders with partial reserve;
+- shortage is not reserved in inventory and is treated as order-level business obligation;
+- `Draft -> In Process` converts reservation to non-expiring (`type=Order Processing`, `expiresAt=null`) without changing inventory quantities.
 
 Reservation-driven adjustments:
 - `Reserve` is created when reservation is created.
 - `Release`/`Expired Reservation` is created when active reservation is released/expired.
-- `Sale` is created on receive flow and decreases quantity.
+- `Sale` is created on receive flow and decreases both `quantity` and `reserved` for consumed locked stock.
 
 Important:
-- reservation source-of-truth changes are document/item mutations (`upsert`, `item update`, `delete reservation`);
-- inventory read values are computed from current reservation documents and variant quantity.
+- reservation lifecycle is still tracked by reservation document mutations (`upsert`, `item update`, `delete reservation`);
+- inventory read values come directly from persisted inventory variant fields.
 
 ## Filters and Sorting (`GET /api/inventory`)
 

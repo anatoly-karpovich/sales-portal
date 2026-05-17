@@ -11,6 +11,8 @@ import type { DocumentResult } from "./document.type";
 export interface IInventoryVariant {
   variantId: Types.ObjectId;
   quantity: number;
+  reserved: number;
+  available: number;
   lowStockThreshold: number;
   allowSellingOutOfStock: boolean;
   status: INVENTORY_RECORD_STATUSES;
@@ -54,8 +56,6 @@ export interface IInventoryAdjustmentDocument extends IInventoryAdjustment, Docu
 }
 
 export interface IInventoryVariantReadModel extends IInventoryVariant {
-  reserved: number;
-  available: number;
   stockStatus: INVENTORY_STATUSES;
 }
 
@@ -80,7 +80,7 @@ export interface IReservation extends DocumentResult<IReservation> {
   orderId: Types.ObjectId;
   type: RESERVATION_TYPES;
   items: IReservationItem[];
-  expiresAt: string;
+  expiresAt: string | null;
   createdOn: string;
   updatedOn: string;
 }

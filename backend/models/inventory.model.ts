@@ -5,7 +5,9 @@ import { IInventoryDocument } from "../data/types";
 const inventoryVariantSchema = new mongoose.Schema(
   {
     variantId: { type: mongoose.SchemaTypes.ObjectId, required: true },
-    quantity: { type: Number, required: true },
+    quantity: { type: Number, required: true, min: 0 },
+    reserved: { type: Number, required: true, min: 0 },
+    available: { type: Number, required: true, min: 0 },
     lowStockThreshold: { type: Number, required: true, min: 0 },
     allowSellingOutOfStock: { type: Boolean, required: true },
     status: { type: String, enum: Object.values(INVENTORY_RECORD_STATUSES), required: true },

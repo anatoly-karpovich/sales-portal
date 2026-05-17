@@ -284,10 +284,12 @@ Current important constraints:
 - Notes/comment textual limits rely on validation helpers and middleware checks.
 - Inventory source-of-truth split:
   - canonical stock: `Inventory.variants[].quantity`
-  - canonical reserve: reservation documents/items (`Reservation` aggregate by `orderId`)
-  - `Inventory.variants[].reserved`, `available`, `stockStatus`, and parent summary fields are derived read-model values.
+  - canonical reserve: `Inventory.variants[].reserved`
+  - canonical available: `Inventory.variants[].available`
+  - reservation documents explain lock ownership/lifecycle by `orderId` and may be expiring (`Admin Draft`/`Customer Payment`) or non-expiring (`Order Processing`).
+  - `stockStatus` and parent summary fields are derived read-model values.
 - Inventory service logic must resolve conflicts in favor of canonical sources above.
-- Reservation document/item mutations (`upsert/update/delete`) are the source-of-truth events for reserve impact.
+- Reservation document/item mutations (`upsert/update/delete`) are lifecycle events and must stay consistent with inventory numeric fields.
 
 ## 8.1) Order products structure
 
@@ -415,10 +417,10 @@ Settings invariants:
 
 Inventory/reservation invariants:
 
-- `available` is derived as `quantity - reservedActive`.
-- Manual stock adjustments must enforce `quantity >= reservedActive` when `allowSellingOutOfStock=false`.
-- `Reserve`, `Release`, `Expired Reservation`, and `Sale` adjustments are event records; they do not change the source-of-truth split.
-- Inventory list/details responses may expose derived summary fields, but business rules must not treat them as canonical state.
+- `quantity >= 0`, `reserved >= 0`, `available >= 0`, and `available = max(quantity - reserved, 0)`.
+- Manual stock adjustments must keep the invariants above; when `allowSellingOutOfStock=false`, quantity cannot go below reserved.
+- `Reserve`, `Release`, `Expired Reservation`, and `Sale` adjustments are event records that reflect inventory/reservation transitions.
+- Inventory list/details responses may expose derived summary fields, but business rules must use canonical inventory fields for numeric decisions.
 
 ## 10) Auth, tokens, and permissions
 

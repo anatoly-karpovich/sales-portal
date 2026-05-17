@@ -16,7 +16,7 @@ const reservationSchema = new mongoose.Schema(
     orderId: { type: mongoose.SchemaTypes.ObjectId, required: true, index: true },
     type: { type: String, enum: Object.values(RESERVATION_TYPES), required: true },
     items: [{ type: reservationItemSchema, required: true }],
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: false, default: null, index: true },
     createdOn: { type: Date, required: true },
     updatedOn: { type: Date, required: true },
   },

@@ -85,10 +85,13 @@ inventoryRouter.get(
  *           type: string
  *         quantity:
  *           type: integer
+ *           minimum: 0
  *         reserved:
  *           type: integer
+ *           minimum: 0
  *         available:
  *           type: integer
+ *           minimum: 0
  *         lowStockThreshold:
  *           type: integer
  *           minimum: 0
@@ -475,6 +478,12 @@ inventoryRouter.get(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       409:
+ *         description: Business conflict (for example insufficient stock or invalid invariant transition)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
  *       401:
  *         description: Unauthorized, missing or invalid token
  *       404:
@@ -524,6 +533,12 @@ inventoryRouter.get(
  *               $ref: '#/components/schemas/InventoryResponse'
  *       400:
  *         description: Validation error or invalid path params
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       409:
+ *         description: Business conflict (for example disabling out-of-stock selling when quantity is below reserved)
  *         content:
  *           application/json:
  *             schema:
