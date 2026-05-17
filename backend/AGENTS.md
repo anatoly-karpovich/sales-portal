@@ -184,6 +184,15 @@ Categories:
 - `GET /categories/nodes/:categoryId/products`
 - `DELETE /categories/nodes/:categoryId`
 
+Inventory:
+
+- `GET /inventory`
+- `GET /inventory/products/:productId`
+- `POST /inventory/adjustments`
+- `PATCH /inventory/products/:productId/variants/:variantId/settings`
+- `GET /inventory/products/:productId/adjustments`
+- `GET /inventory/products/:productId/variants/:variantId/adjustments`
+
 Utility/public:
 
 - `GET /promocodes/:id` (rebates, currently without auth middleware)
@@ -268,6 +277,12 @@ Current important constraints:
 - `POST /settings` and `PATCH /settings` require `shipping.delivery.pricing` and `shipping.pickup.{policy,locations}`.
 - `shipping.pickup.locations` keys must be valid US states; pickup location `id` values must be unique across all states.
 - Notes/comment textual limits rely on validation helpers and middleware checks.
+- Inventory source-of-truth split:
+  - canonical stock: `Inventory.variants[].quantity`
+  - canonical reserve: reservation documents/items (`Reservation` aggregate by `orderId`)
+  - `Inventory.variants[].reserved`, `available`, `stockStatus`, and parent summary fields are derived read-model values.
+- Inventory service logic must resolve conflicts in favor of canonical sources above.
+- Reservation document/item mutations (`upsert/update/delete`) are the source-of-truth events for reserve impact.
 
 ## 8.1) Order products structure
 
@@ -389,6 +404,13 @@ Settings invariants:
 - `settings.shipping.delivery.pricing` is required and contains pricing zones: `localCity`, `sameState`, `outOfState`.
 - `settings.shipping.pickup.policy` is required (`readyInDays`, `holdForDays`, optional `remindBeforeDays`).
 - `settings.shipping.pickup.locations` is required and must be a US-state keyed pickup map.
+
+Inventory/reservation invariants:
+
+- `available` is derived as `quantity - reservedActive`.
+- Manual stock adjustments must enforce `quantity >= reservedActive` when `allowSellingOutOfStock=false`.
+- `Reserve`, `Release`, `Expired Reservation`, and `Sale` adjustments are event records; they do not change the source-of-truth split.
+- Inventory list/details responses may expose derived summary fields, but business rules must not treat them as canonical state.
 
 ## 10) Auth, tokens, and permissions
 

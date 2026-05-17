@@ -67,3 +67,11 @@ Pickup finalization:
 - `POST /api/orders/:orderId/receive` is blocked unless:
   - `status = In Process`
   - `delivery.status in Delivery Scheduled | Pickup Scheduled | Partially Delivered`
+
+## Reservation-to-Inventory Rules
+
+- Reservation document/items are the canonical source of reserved stock.
+- Transition `Draft -> In Process` releases/removes reservation and removes reserve impact.
+- Transition to `Canceled` releases/removes reservation by flow rules.
+- Expired reservation is released/removed by cron flow.
+- Inventory-level `reserved`, `available`, and aggregate statuses are derived read-model values and must be calculated from reservation documents.

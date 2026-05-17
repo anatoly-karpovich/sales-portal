@@ -53,4 +53,685 @@ inventoryRouter.get(
   InventoryController.getVariantAdjustments.bind(InventoryController),
 );
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Inventory
+ *     description: Inventory tracking and stock adjustments
+ * components:
+ *   schemas:
+ *     InventoryProductSnapshot:
+ *       type: object
+ *       required: [_id, name, manufacturer, categoryId, rootCategoryId, status]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         name:
+ *           type: string
+ *         manufacturer:
+ *           type: string
+ *         categoryId:
+ *           type: string
+ *         rootCategoryId:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [Draft, Active, Archived]
+ *     InventoryVariant:
+ *       type: object
+ *       required: [variantId, quantity, reserved, available, lowStockThreshold, allowSellingOutOfStock, stockStatus, status, updatedOn]
+ *       properties:
+ *         variantId:
+ *           type: string
+ *         quantity:
+ *           type: integer
+ *         reserved:
+ *           type: integer
+ *         available:
+ *           type: integer
+ *         lowStockThreshold:
+ *           type: integer
+ *           minimum: 0
+ *         allowSellingOutOfStock:
+ *           type: boolean
+ *         stockStatus:
+ *           type: string
+ *           enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
+ *         status:
+ *           type: string
+ *           enum: [Active, Archived]
+ *         updatedOn:
+ *           type: string
+ *           format: date-time
+ *     InventoryItem:
+ *       type: object
+ *       required: [productId, totalQuantity, totalReserved, totalAvailable, inventoryStatus, lowStockVariantsCount, outOfStockVariantsCount, variants, status, createdOn, updatedOn]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         productId:
+ *           type: string
+ *         totalQuantity:
+ *           type: integer
+ *         totalReserved:
+ *           type: integer
+ *         totalAvailable:
+ *           type: integer
+ *         inventoryStatus:
+ *           type: string
+ *           enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
+ *         lowStockVariantsCount:
+ *           type: integer
+ *         outOfStockVariantsCount:
+ *           type: integer
+ *         variants:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryVariant'
+ *         status:
+ *           type: string
+ *           enum: [Active, Archived]
+ *         createdOn:
+ *           type: string
+ *           format: date-time
+ *         updatedOn:
+ *           type: string
+ *           format: date-time
+ *         product:
+ *           $ref: '#/components/schemas/InventoryProductSnapshot'
+ *     InventoryResponse:
+ *       type: object
+ *       required: [Inventory, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Inventory:
+ *           $ref: '#/components/schemas/InventoryItem'
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *     InventoryListResponse:
+ *       type: object
+ *       required: [Inventories, total, page, limit, search, manufacturer, inventoryStatus, lowStockOnly, outOfStockOnly, includeArchived, sorting, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Inventories:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryItem'
+ *         total:
+ *           type: number
+ *         page:
+ *           type: number
+ *         limit:
+ *           type: number
+ *         search:
+ *           type: string
+ *         manufacturer:
+ *           type: array
+ *           items:
+ *             type: string
+ *         categoryId:
+ *           type: string
+ *           nullable: true
+ *         rootCategoryId:
+ *           type: string
+ *           nullable: true
+ *         inventoryStatus:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
+ *         lowStockOnly:
+ *           type: boolean
+ *         outOfStockOnly:
+ *           type: boolean
+ *         includeArchived:
+ *           type: boolean
+ *         sorting:
+ *           type: object
+ *           required: [sortField, sortOrder]
+ *           properties:
+ *             sortField:
+ *               type: string
+ *               enum: [totalAvailable, totalReserved, updatedOn, lowStockVariantsCount, outOfStockVariantsCount]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *     InventoryManualAdjustmentType:
+ *       type: string
+ *       enum: [Manual Increase, Manual Decrease, Manual Correction, Damage, Return]
+ *     InventoryAdjustmentType:
+ *       type: string
+ *       enum: [Initial Stock, Manual Increase, Manual Decrease, Manual Correction, Reserve, Release, Sale, Return, Damage, Expired Reservation]
+ *     InventoryAdjustment:
+ *       type: object
+ *       required: [inventoryId, productId, variantId, type, quantityChange, quantityBefore, quantityAfter, reservedBefore, reservedAfter, createdBy, createdOn]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         inventoryId:
+ *           type: string
+ *         productId:
+ *           type: string
+ *         variantId:
+ *           type: string
+ *         type:
+ *           $ref: '#/components/schemas/InventoryAdjustmentType'
+ *         quantityChange:
+ *           type: integer
+ *         quantityBefore:
+ *           type: integer
+ *         quantityAfter:
+ *           type: integer
+ *         reservedBefore:
+ *           type: integer
+ *         reservedAfter:
+ *           type: integer
+ *         reason:
+ *           type: string
+ *           nullable: true
+ *         comment:
+ *           type: string
+ *           nullable: true
+ *         orderId:
+ *           type: string
+ *           nullable: true
+ *         reservationId:
+ *           type: string
+ *           nullable: true
+ *         createdBy:
+ *           type: string
+ *         createdOn:
+ *           type: string
+ *           format: date-time
+ *     InventoryAdjustmentsListResponse:
+ *       type: object
+ *       required: [Adjustments, total, page, limit, sortOrder, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Adjustments:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryAdjustment'
+ *         total:
+ *           type: number
+ *         page:
+ *           type: number
+ *         limit:
+ *           type: number
+ *         sortOrder:
+ *           type: string
+ *           enum: [asc, desc]
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
+ *     InventoryVariantSettingsPatchPayload:
+ *       type: object
+ *       additionalProperties: false
+ *       properties:
+ *         lowStockThreshold:
+ *           type: integer
+ *           minimum: 0
+ *         allowSellingOutOfStock:
+ *           type: boolean
+ *       anyOf:
+ *         - required: [lowStockThreshold]
+ *         - required: [allowSellingOutOfStock]
+ *     InventoryAdjustmentCreatePayload:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [productId, variantId, type, quantity]
+ *       properties:
+ *         productId:
+ *           type: string
+ *         variantId:
+ *           type: string
+ *         type:
+ *           $ref: '#/components/schemas/InventoryManualAdjustmentType'
+ *         quantity:
+ *           type: integer
+ *           minimum: 1
+ *         reason:
+ *           type: string
+ *         comment:
+ *           type: string
+ *     InventoryErrorResponse:
+ *       type: object
+ *       required: [IsSuccess, ErrorMessage]
+ *       properties:
+ *         IsSuccess:
+ *           type: boolean
+ *           example: false
+ *         ErrorMessage:
+ *           type: string
+ *
+ * /api/inventory:
+ *   get:
+ *     summary: Get paginated inventory list
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by product name or manufacturer
+ *       - in: query
+ *         name: manufacturer
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *         style: form
+ *         explode: true
+ *         description: Filter by manufacturer
+ *       - in: query
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *         description: Product category id
+ *       - in: query
+ *         name: rootCategoryId
+ *         schema:
+ *           type: string
+ *         description: Root category id
+ *       - in: query
+ *         name: inventoryStatus
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
+ *         style: form
+ *         explode: true
+ *         description: Filter by inventory status
+ *       - in: query
+ *         name: lowStockOnly
+ *         schema:
+ *           type: boolean
+ *         description: Return only records with at least one low stock variant
+ *       - in: query
+ *         name: outOfStockOnly
+ *         schema:
+ *           type: boolean
+ *         description: Return only records with at least one out of stock variant
+ *       - in: query
+ *         name: includeArchived
+ *         schema:
+ *           type: boolean
+ *         description: Include archived inventory records
+ *       - in: query
+ *         name: sortField
+ *         schema:
+ *           type: string
+ *           enum: [totalAvailable, totalReserved, updatedOn, lowStockVariantsCount, outOfStockVariantsCount]
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: string
+ *           example: "1"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: string
+ *           example: "10"
+ *     responses:
+ *       200:
+ *         description: Inventory list fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryListResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/products/{productId}:
+ *   get:
+ *     summary: Get inventory details by product id
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product id
+ *     responses:
+ *       200:
+ *         description: Inventory details fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryResponse'
+ *       400:
+ *         description: Invalid path params
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/adjustments:
+ *   post:
+ *     summary: Create manual inventory adjustment
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InventoryAdjustmentCreatePayload'
+ *     responses:
+ *       200:
+ *         description: Inventory adjusted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryResponse'
+ *       400:
+ *         description: Validation error or business rule violation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product, variant, or inventory was not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/products/{productId}/variants/{variantId}/settings:
+ *   patch:
+ *     summary: Update inventory variant settings
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product id
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Variant id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InventoryVariantSettingsPatchPayload'
+ *     responses:
+ *       200:
+ *         description: Variant settings updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryResponse'
+ *       400:
+ *         description: Validation error or invalid path params
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product, variant, or inventory was not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/products/{productId}/adjustments:
+ *   get:
+ *     summary: Get product inventory adjustments history
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product id
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryAdjustmentType'
+ *         style: form
+ *         explode: true
+ *         description: Filter by adjustment type
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         description: Filter by order id
+ *       - in: query
+ *         name: reservationId
+ *         schema:
+ *           type: string
+ *         description: Filter by reservation id
+ *       - in: query
+ *         name: createdBy
+ *         schema:
+ *           type: string
+ *         description: Filter by manager id
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include adjustments created on or after this date-time
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include adjustments created on or before this date-time
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: string
+ *           example: "1"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: string
+ *           example: "10"
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *     responses:
+ *       200:
+ *         description: Adjustments history fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryAdjustmentsListResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/products/{productId}/variants/{variantId}/adjustments:
+ *   get:
+ *     summary: Get variant inventory adjustments history
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product id
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Variant id
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryAdjustmentType'
+ *         style: form
+ *         explode: true
+ *         description: Filter by adjustment type
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         description: Filter by order id
+ *       - in: query
+ *         name: reservationId
+ *         schema:
+ *           type: string
+ *         description: Filter by reservation id
+ *       - in: query
+ *         name: createdBy
+ *         schema:
+ *           type: string
+ *         description: Filter by manager id
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include adjustments created on or after this date-time
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include adjustments created on or before this date-time
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: string
+ *           example: "1"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: string
+ *           example: "10"
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *     responses:
+ *       200:
+ *         description: Adjustments history fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryAdjustmentsListResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product or variant not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ */
+
 export default inventoryRouter;

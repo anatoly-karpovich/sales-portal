@@ -4,7 +4,6 @@ import {
   INVENTORY_ADJUSTMENT_TYPES,
   INVENTORY_RECORD_STATUSES,
   INVENTORY_STATUSES,
-  RESERVATION_STATUSES,
   RESERVATION_TYPES,
 } from "../enums";
 import type { DocumentResult } from "./document.type";
@@ -12,11 +11,8 @@ import type { DocumentResult } from "./document.type";
 export interface IInventoryVariant {
   variantId: Types.ObjectId;
   quantity: number;
-  reserved: number;
-  available: number;
   lowStockThreshold: number;
   allowSellingOutOfStock: boolean;
-  stockStatus: INVENTORY_STATUSES;
   status: INVENTORY_RECORD_STATUSES;
   updatedOn: string;
 }
@@ -24,12 +20,6 @@ export interface IInventoryVariant {
 export interface IInventory extends DocumentResult<IInventory> {
   _id?: Types.ObjectId;
   productId: Types.ObjectId;
-  totalQuantity: number;
-  totalReserved: number;
-  totalAvailable: number;
-  inventoryStatus: INVENTORY_STATUSES;
-  lowStockVariantsCount: number;
-  outOfStockVariantsCount: number;
   variants: IInventoryVariant[];
   status: INVENTORY_RECORD_STATUSES;
   createdOn: string;
@@ -63,6 +53,22 @@ export interface IInventoryAdjustmentDocument extends IInventoryAdjustment, Docu
   _id: Types.ObjectId;
 }
 
+export interface IInventoryVariantReadModel extends IInventoryVariant {
+  reserved: number;
+  available: number;
+  stockStatus: INVENTORY_STATUSES;
+}
+
+export interface IInventoryReadModel extends IInventory {
+  totalQuantity: number;
+  totalReserved: number;
+  totalAvailable: number;
+  inventoryStatus: INVENTORY_STATUSES;
+  lowStockVariantsCount: number;
+  outOfStockVariantsCount: number;
+  variants: IInventoryVariantReadModel[];
+}
+
 export interface IReservationItem {
   productId: Types.ObjectId;
   variantId: Types.ObjectId;
@@ -73,7 +79,6 @@ export interface IReservation extends DocumentResult<IReservation> {
   _id?: Types.ObjectId;
   orderId: Types.ObjectId;
   type: RESERVATION_TYPES;
-  status: RESERVATION_STATUSES;
   items: IReservationItem[];
   expiresAt: string;
   createdOn: string;

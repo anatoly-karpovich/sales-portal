@@ -1,11 +1,10 @@
 import { Request } from "express";
 import {
   INVENTORY_ADJUSTMENT_TYPES,
-  INVENTORY_RECORD_STATUSES,
   INVENTORY_STATUSES,
 } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
-import { IInventory, IInventoryAdjustment } from "../inventory.type";
+import { IInventoryAdjustment, IInventoryReadModel } from "../inventory.type";
 
 export type InventoryListQueryDTO = {
   search?: string;
@@ -62,7 +61,7 @@ export type InventoryAdjustmentListQueryDTO = {
   sortOrder?: "asc" | "desc";
 };
 
-export type InventoryWithMetaDTO = IInventory & {
+export type InventoryWithMetaDTO = IInventoryReadModel & {
   product: {
     _id: string;
     name: string;

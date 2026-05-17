@@ -30,6 +30,14 @@
 - `Partially Delivered`
 - `Delivered`
 
+## Inventory Reservation Contract
+
+- `Reservation` is the canonical source of reserved quantity while order is in reservation-driven stages.
+- Reservation document represents active reservation aggregate for one `orderId`.
+- On `In Process` transition reservation is released (removed), and reserved stock impact is removed.
+- On cancel/reopen/edit flows reservation may be removed/recreated; reserved stock is recalculated from reservation documents.
+- Inventory `reserved/available/summary` response fields are derived read-model values, not persisted canonical state.
+
 ## Endpoints
 
 | Method | Endpoint | Description |

@@ -81,7 +81,7 @@ class OrderStatusService {
     try {
       await session.withTransaction(async () => {
         if (status === ORDER_STATUSES.IN_PROCESS) {
-          await InventoryService.completeReservationByOrder(orderId, session);
+          await InventoryService.completeReservationByOrder(orderId, session, performerId);
         } else if (status === ORDER_STATUSES.CANCELED) {
           await InventoryService.releaseReservationByOrder({
             orderId,
