@@ -4,7 +4,11 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const notification = Router();
 
-notification.get("/notifications", authmiddleware, NotificationController.getNotifications.bind(NotificationController));
+notification.get(
+  "/notifications",
+  authmiddleware,
+  NotificationController.getNotifications.bind(NotificationController),
+);
 notification.patch(
   "/notifications/:notificationId/read",
   authmiddleware,
@@ -180,4 +184,3 @@ notification.patch(
  */
 
 export default notification;
-

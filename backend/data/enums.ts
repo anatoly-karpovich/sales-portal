@@ -144,5 +144,6 @@ export const NOTIFICATIONS = {
   newOrder: (orderId: string) => `A new order #${orderId} was created.`,
   commentDeleted: (orderId: string) => `A comment was deleted from order #${orderId}.`,
   assigned: (orderId: string) => `You were assigned to order #${orderId}.`,
+  assignedAutomatically: (orderId: string) => `You were automatically assigned to order #${orderId}.`,
   unassigned: (orderId: string) => `You were unassigned from order #${orderId}.`,
 } as const;

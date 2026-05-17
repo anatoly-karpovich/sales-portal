@@ -115,6 +115,7 @@ class OrderStatusService {
       status: status as ORDER_STATUSES,
     };
     const historyActions: ORDER_HISTORY_ACTIONS[] = [];
+    let wasAutoAssigned = false;
     if (status === ORDER_STATUSES.IN_PROCESS) {
       if (currentOrder.status === ORDER_STATUSES.IN_PROCESS) {
         const error = new Error("Order is already in process") as Error & { statusCode: number };
@@ -135,6 +136,7 @@ class OrderStatusService {
           throw new Error("Performer manager was not found");
         }
         newOrder.assignedManager = manager;
+        wasAutoAssigned = true;
         historyActions.push(ORDER_HISTORY_ACTIONS.MANAGER_ASSIGNED);
       }
       historyActions.push(ORDER_HISTORY_ACTIONS.PROCESSED);
@@ -171,13 +173,8 @@ class OrderStatusService {
     }
 
     for (let index = historyActions.length - 1; index >= 0; index -= 1) {
-      // TODO(types): widen createHistoryEntry input contract to accept current order aggregate type.
       newOrder.history.unshift(
-        createHistoryEntry(
-          newOrder as unknown as Parameters<typeof createHistoryEntry>[0],
-          historyActions[index],
-          manager,
-        ),
+        createHistoryEntry(newOrder, historyActions[index], manager),
       );
     }
     const session = await mongoose.startSession();
@@ -225,6 +222,14 @@ class OrderStatusService {
       throw new Error("Order not found");
     }
     if (updatedOrder.assignedManager) {
+      if (wasAutoAssigned) {
+        await this.notificationService.create({
+          managerId: updatedOrder.assignedManager._id.toString(),
+          orderId: updatedOrder._id.toString(),
+          type: "assigned",
+          message: NOTIFICATIONS.assignedAutomatically(updatedOrder._id.toString()),
+        });
+      }
       await this.notificationService.create({
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
