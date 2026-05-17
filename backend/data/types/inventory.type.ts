@@ -69,6 +69,23 @@ export interface IInventoryReadModel extends IInventory {
   variants: IInventoryVariantReadModel[];
 }
 
+export interface IInventoryListItem {
+  _id: string;
+  productId: string;
+  product: {
+    _id: string;
+    name: string;
+    manufacturer: string;
+    status: string;
+  };
+  status: INVENTORY_RECORD_STATUSES;
+  inventoryStatus: INVENTORY_STATUSES;
+  variantsCount: number;
+  lowStockVariantsCount: number;
+  outOfStockVariantsCount: number;
+  updatedOn: string;
+}
+
 export interface IReservationItem {
   productId: Types.ObjectId;
   variantId: Types.ObjectId;

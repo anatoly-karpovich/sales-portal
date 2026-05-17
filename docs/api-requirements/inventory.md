@@ -44,9 +44,13 @@ Rule:
 
 ## Read Contract Notes
 
-`GET /api/inventory` and `GET /api/inventory/products/:productId` return:
-- variant-level `reserved` and `available`;
-- parent-level summary totals/status.
+`GET /api/inventory` returns lightweight list items:
+- `_id`, `productId`, `product{_id,name,manufacturer,status}`
+- `status`, `inventoryStatus`
+- `variantsCount`, `lowStockVariantsCount`, `outOfStockVariantsCount`
+- `updatedOn`
+
+`GET /api/inventory/products/:productId` returns detailed inventory with variants.
 
 `available` formula:
 - `available = max(quantity - reserved, 0)`
@@ -80,16 +84,13 @@ Important:
 Filters:
 - `search` (product name/manufacturer)
 - `manufacturer[]`
-- `categoryId`
-- `rootCategoryId`
+- `productStatus[]` (`Draft | Active | Archived`)
 - `inventoryStatus[]`
-- `lowStockOnly`
-- `outOfStockOnly`
-- `includeArchived`
 
 Sorting:
-- `sortField`: `totalAvailable | totalReserved | updatedOn | lowStockVariantsCount | outOfStockVariantsCount`
+- `sortField`: `updatedOn | inventoryStatus | product.name | manufacturer`
 - `sortOrder`: `asc | desc`
+- for `inventoryStatus` sorting, severity order is `Out Of Stock -> Low Stock -> In Stock -> Not Tracked` (use `desc` to keep `Out Of Stock` on top).
 
 ## Validation Rules
 

@@ -1,23 +1,20 @@
 import { Request } from "express";
 import {
   INVENTORY_ADJUSTMENT_TYPES,
+  PRODUCT_STATUSES,
   INVENTORY_STATUSES,
 } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
-import { IInventoryAdjustment, IInventoryReadModel } from "../inventory.type";
+import { IInventoryAdjustment, IInventoryListItem, IInventoryReadModel } from "../inventory.type";
 
 export type InventoryListQueryDTO = {
   search?: string;
   manufacturer?: string | string[];
-  categoryId?: string;
-  rootCategoryId?: string;
+  productStatus?: PRODUCT_STATUSES | PRODUCT_STATUSES[];
   inventoryStatus?: INVENTORY_STATUSES | INVENTORY_STATUSES[];
-  lowStockOnly?: string;
-  outOfStockOnly?: string;
-  includeArchived?: string;
   page?: string;
   limit?: string;
-  sortField?: "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount";
+  sortField?: "updatedOn" | "inventoryStatus" | "product.name" | "manufacturer";
   sortOrder?: "asc" | "desc";
 };
 
@@ -62,7 +59,7 @@ export type InventoryAdjustmentListQueryDTO = {
 };
 
 export type InventoryWithMetaDTO = IInventoryReadModel & {
-  product: {
+  product?: {
     _id: string;
     name: string;
     manufacturer: string;
@@ -94,20 +91,16 @@ export type InventoryResponseDTO = BaseResponseDTO & {
 };
 
 export type InventoriesResponseDTO = BaseResponseDTO & {
-  Inventories: InventoryWithMetaDTO[];
+  Inventories: IInventoryListItem[];
   total: number;
   page: number;
   limit: number;
   search: string;
   manufacturer: string[];
-  categoryId?: string;
-  rootCategoryId?: string;
+  productStatus: PRODUCT_STATUSES[];
   inventoryStatus: INVENTORY_STATUSES[];
-  lowStockOnly: boolean;
-  outOfStockOnly: boolean;
-  includeArchived: boolean;
   sorting: {
-    sortField: "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount";
+    sortField: "updatedOn" | "inventoryStatus" | "product.name" | "manufacturer";
     sortOrder: "asc" | "desc";
   };
 };

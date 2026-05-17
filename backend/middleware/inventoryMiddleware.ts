@@ -1,6 +1,6 @@
 import { NextFunction, Response } from "express";
 import { Types } from "mongoose";
-import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES } from "../data/enums";
+import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES, PRODUCT_STATUSES } from "../data/enums";
 import { BaseResponseDTO } from "../data/types/dto/common.dto";
 import {
   CreateInventoryAdjustmentRequestDTO,
@@ -97,18 +97,23 @@ export async function inventoryAdjustmentValidation(
 
 export function inventoryListValidation(req: any, res: Response<BaseResponseDTO>, next: NextFunction) {
   try {
-    const { categoryId, rootCategoryId, inventoryStatus } = req.query;
-    if (typeof categoryId === "string" && categoryId.trim() && !Types.ObjectId.isValid(categoryId.trim())) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: "categoryId must be a valid ObjectId" });
-    }
-    if (typeof rootCategoryId === "string" && rootCategoryId.trim() && !Types.ObjectId.isValid(rootCategoryId.trim())) {
-      return res.status(400).json({ IsSuccess: false, ErrorMessage: "rootCategoryId must be a valid ObjectId" });
-    }
-
+    const { inventoryStatus, productStatus, sortField } = req.query;
     const statuses = Array.isArray(inventoryStatus) ? inventoryStatus : inventoryStatus ? [inventoryStatus] : [];
     const invalid = statuses.some((status) => !Object.values(INVENTORY_STATUSES).includes(status as INVENTORY_STATUSES));
     if (invalid) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid inventoryStatus filter value" });
+    }
+
+    const productStatuses = Array.isArray(productStatus) ? productStatus : productStatus ? [productStatus] : [];
+    const invalidProductStatus = productStatuses.some(
+      (status) => !Object.values(PRODUCT_STATUSES).includes(status as PRODUCT_STATUSES),
+    );
+    if (invalidProductStatus) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid productStatus filter value" });
+    }
+
+    if (sortField && !["updatedOn", "inventoryStatus", "product.name", "manufacturer"].includes(sortField)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid sortField value" });
     }
 
     next();

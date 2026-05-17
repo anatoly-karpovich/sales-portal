@@ -1,18 +1,19 @@
 import mongoose, { ClientSession, Types } from "mongoose";
 import {
+  PRODUCT_STATUSES,
   INVENTORY_ADJUSTMENT_TYPES,
   INVENTORY_RECORD_STATUSES,
   INVENTORY_STATUSES,
   NOTIFICATIONS,
   ORDER_HISTORY_ACTIONS,
   ORDER_STATUSES,
-  PRODUCT_STATUSES,
   RESERVATION_TYPES,
   ROLES,
 } from "../data/enums";
 import type {
   IInventory,
   IInventoryAdjustment,
+  IInventoryListItem,
   IInventoryReadModel,
   IInventoryVariant,
   IInventoryVariantReadModel,
@@ -117,7 +118,9 @@ class InventoryService {
     return INVENTORY_STATUSES.IN_STOCK;
   }
 
-  private recalculateInventoryStatus(variants: IInventoryVariantReadModel[]): INVENTORY_STATUSES {
+  private recalculateInventoryStatus(
+    variants: Array<Pick<IInventoryVariantReadModel, "status" | "stockStatus">>,
+  ): INVENTORY_STATUSES {
     const tracked = variants.filter((variant) => variant.status === INVENTORY_RECORD_STATUSES.ACTIVE);
     if (tracked.length === 0) {
       return INVENTORY_STATUSES.NOT_TRACKED;
@@ -351,15 +354,11 @@ class InventoryService {
     filters: {
       search: string;
       manufacturers: string[];
-      categoryId?: string;
-      rootCategoryId?: string;
+      productStatus: PRODUCT_STATUSES[];
       inventoryStatus: INVENTORY_STATUSES[];
-      lowStockOnly: boolean;
-      outOfStockOnly: boolean;
-      includeArchived: boolean;
     },
     sorting: {
-      sortField: "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount";
+      sortField: "updatedOn" | "inventoryStatus" | "product.name" | "manufacturer";
       sortOrder: "asc" | "desc";
     },
     pagination: { skip: number; limit: number },
@@ -368,11 +367,8 @@ class InventoryService {
     if (filters.manufacturers.length > 0) {
       productFilter.manufacturer = { $in: filters.manufacturers };
     }
-    if (filters.categoryId) {
-      productFilter.categoryId = new Types.ObjectId(filters.categoryId);
-    }
-    if (filters.rootCategoryId) {
-      productFilter.rootCategoryId = new Types.ObjectId(filters.rootCategoryId);
+    if (filters.productStatus.length > 0) {
+      productFilter.status = { $in: filters.productStatus };
     }
     if (filters.search.trim()) {
       const searchRegex = new RegExp(filters.search.trim(), "i");
@@ -380,7 +376,7 @@ class InventoryService {
     }
 
     const products = await Product.find(productFilter)
-      .select("_id name manufacturer categoryId rootCategoryId status")
+      .select("_id name manufacturer status")
       .lean()
       .exec();
 
@@ -389,33 +385,56 @@ class InventoryService {
     }
 
     const productIds = products.map((product) => new Types.ObjectId(product._id));
-    const inventoryFilter: Record<string, unknown> = { productId: { $in: productIds } };
-    if (!filters.includeArchived) {
-      inventoryFilter.status = INVENTORY_RECORD_STATUSES.ACTIVE;
-    }
-
-    const inventories = await Inventory.find(inventoryFilter).lean().exec();
+    const inventories = await Inventory.find({ productId: { $in: productIds } }).lean().exec();
     const productById = new Map(products.map((product) => [product._id.toString(), product]));
 
     const normalized = inventories
-      .map((inventory: any) => {
+      .map((inventory: any): IInventoryListItem | null => {
         const product = productById.get(inventory.productId.toString());
         if (!product) {
           return null;
         }
 
-        const readModelInventory = this.buildReadModelInventory(inventory as IInventory & Record<string, any>);
+        const variants = (inventory.variants ?? []).map((variant: any) => {
+          const normalizedVariant = this.normalizeVariantQuantities({
+            quantity: variant.quantity ?? 0,
+            reserved: variant.reserved ?? 0,
+          });
+          const stockStatus = this.recalculateVariantStatus({
+            status: variant.status,
+            available: normalizedVariant.available,
+            lowStockThreshold: variant.lowStockThreshold,
+          });
+          return {
+            status: variant.status,
+            stockStatus,
+          };
+        });
+
+        const activeVariants = variants.filter((variant) => variant.status === INVENTORY_RECORD_STATUSES.ACTIVE);
+        const lowStockVariantsCount = activeVariants.filter(
+          (variant) => variant.stockStatus === INVENTORY_STATUSES.LOW_STOCK,
+        ).length;
+        const outOfStockVariantsCount = activeVariants.filter(
+          (variant) => variant.stockStatus === INVENTORY_STATUSES.OUT_OF_STOCK,
+        ).length;
+        const inventoryStatus = this.recalculateInventoryStatus(activeVariants);
 
         return {
-          ...readModelInventory,
+          _id: inventory._id.toString(),
+          productId: inventory.productId.toString(),
           product: {
             _id: product._id.toString(),
             name: product.name,
             manufacturer: product.manufacturer,
-            categoryId: product.categoryId.toString(),
-            rootCategoryId: product.rootCategoryId.toString(),
             status: product.status,
           },
+          status: inventory.status,
+          inventoryStatus,
+          variantsCount: (inventory.variants ?? []).length,
+          lowStockVariantsCount,
+          outOfStockVariantsCount,
+          updatedOn: inventory.updatedOn,
         };
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -424,31 +443,32 @@ class InventoryService {
       if (filters.inventoryStatus.length > 0 && !filters.inventoryStatus.includes(inventory.inventoryStatus)) {
         return false;
       }
-      if (filters.lowStockOnly && inventory.lowStockVariantsCount <= 0) {
-        return false;
-      }
-      if (filters.outOfStockOnly && inventory.outOfStockVariantsCount <= 0) {
-        return false;
-      }
       return true;
     });
 
+    const inventoryStatusRank: Record<INVENTORY_STATUSES, number> = {
+      [INVENTORY_STATUSES.OUT_OF_STOCK]: 4,
+      [INVENTORY_STATUSES.LOW_STOCK]: 3,
+      [INVENTORY_STATUSES.IN_STOCK]: 2,
+      [INVENTORY_STATUSES.NOT_TRACKED]: 1,
+    };
     const sortDirection = sorting.sortOrder === "asc" ? 1 : -1;
     filtered.sort((a, b) => {
       const sortField = sorting.sortField;
-      const left = (a as any)[sortField];
-      const right = (b as any)[sortField];
-
       let comparison = 0;
-      if (typeof left === "number" && typeof right === "number") {
-        comparison = left - right;
-      } else {
-        comparison = String(left).localeCompare(String(right));
+      if (sortField === "updatedOn") {
+        comparison = new Date(a.updatedOn).getTime() - new Date(b.updatedOn).getTime();
+      } else if (sortField === "inventoryStatus") {
+        comparison = inventoryStatusRank[a.inventoryStatus] - inventoryStatusRank[b.inventoryStatus];
+      } else if (sortField === "product.name") {
+        comparison = a.product.name.localeCompare(b.product.name);
+      } else if (sortField === "manufacturer") {
+        comparison = a.product.manufacturer.localeCompare(b.product.manufacturer);
       }
 
-      if (comparison === 0 && sortField !== "updatedOn") {
-        const leftUpdatedOn = new Date((a as any).updatedOn).getTime();
-        const rightUpdatedOn = new Date((b as any).updatedOn).getTime();
+      if (comparison === 0) {
+        const leftUpdatedOn = new Date(a.updatedOn).getTime();
+        const rightUpdatedOn = new Date(b.updatedOn).getTime();
         return rightUpdatedOn - leftUpdatedOn;
       }
 

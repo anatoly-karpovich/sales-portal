@@ -62,7 +62,7 @@ inventoryRouter.get(
  *   schemas:
  *     InventoryProductSnapshot:
  *       type: object
- *       required: [_id, name, manufacturer, categoryId, rootCategoryId, status]
+ *       required: [_id, name, manufacturer, status]
  *       properties:
  *         _id:
  *           type: string
@@ -70,13 +70,34 @@ inventoryRouter.get(
  *           type: string
  *         manufacturer:
  *           type: string
- *         categoryId:
- *           type: string
- *         rootCategoryId:
- *           type: string
  *         status:
  *           type: string
  *           enum: [Draft, Active, Archived]
+ *     InventoryListItem:
+ *       type: object
+ *       required: [_id, productId, product, status, inventoryStatus, variantsCount, lowStockVariantsCount, outOfStockVariantsCount, updatedOn]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         productId:
+ *           type: string
+ *         product:
+ *           $ref: '#/components/schemas/InventoryProductSnapshot'
+ *         status:
+ *           type: string
+ *           enum: [Active, Archived]
+ *         inventoryStatus:
+ *           type: string
+ *           enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
+ *         variantsCount:
+ *           type: integer
+ *         lowStockVariantsCount:
+ *           type: integer
+ *         outOfStockVariantsCount:
+ *           type: integer
+ *         updatedOn:
+ *           type: string
+ *           format: date-time
  *     InventoryVariant:
  *       type: object
  *       required: [variantId, quantity, reserved, available, lowStockThreshold, allowSellingOutOfStock, stockStatus, status, updatedOn]
@@ -155,12 +176,12 @@ inventoryRouter.get(
  *           nullable: true
  *     InventoryListResponse:
  *       type: object
- *       required: [Inventories, total, page, limit, search, manufacturer, inventoryStatus, lowStockOnly, outOfStockOnly, includeArchived, sorting, IsSuccess, ErrorMessage]
+ *       required: [Inventories, total, page, limit, search, manufacturer, productStatus, inventoryStatus, sorting, IsSuccess, ErrorMessage]
  *       properties:
  *         Inventories:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/InventoryItem'
+ *             $ref: '#/components/schemas/InventoryListItem'
  *         total:
  *           type: number
  *         page:
@@ -173,30 +194,23 @@ inventoryRouter.get(
  *           type: array
  *           items:
  *             type: string
- *         categoryId:
- *           type: string
- *           nullable: true
- *         rootCategoryId:
- *           type: string
- *           nullable: true
+ *         productStatus:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [Draft, Active, Archived]
  *         inventoryStatus:
  *           type: array
  *           items:
  *             type: string
  *             enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
- *         lowStockOnly:
- *           type: boolean
- *         outOfStockOnly:
- *           type: boolean
- *         includeArchived:
- *           type: boolean
  *         sorting:
  *           type: object
  *           required: [sortField, sortOrder]
  *           properties:
  *             sortField:
  *               type: string
- *               enum: [totalAvailable, totalReserved, updatedOn, lowStockVariantsCount, outOfStockVariantsCount]
+ *               enum: [updatedOn, inventoryStatus, product.name, manufacturer]
  *             sortOrder:
  *               type: string
  *               enum: [asc, desc]
@@ -336,15 +350,15 @@ inventoryRouter.get(
  *         explode: true
  *         description: Filter by manufacturer
  *       - in: query
- *         name: categoryId
+ *         name: productStatus
  *         schema:
- *           type: string
- *         description: Product category id
- *       - in: query
- *         name: rootCategoryId
- *         schema:
- *           type: string
- *         description: Root category id
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [Draft, Active, Archived]
+ *         style: form
+ *         explode: true
+ *         description: Filter by product status
  *       - in: query
  *         name: inventoryStatus
  *         schema:
@@ -356,25 +370,11 @@ inventoryRouter.get(
  *         explode: true
  *         description: Filter by inventory status
  *       - in: query
- *         name: lowStockOnly
- *         schema:
- *           type: boolean
- *         description: Return only records with at least one low stock variant
- *       - in: query
- *         name: outOfStockOnly
- *         schema:
- *           type: boolean
- *         description: Return only records with at least one out of stock variant
- *       - in: query
- *         name: includeArchived
- *         schema:
- *           type: boolean
- *         description: Include archived inventory records
- *       - in: query
  *         name: sortField
  *         schema:
  *           type: string
- *           enum: [totalAvailable, totalReserved, updatedOn, lowStockVariantsCount, outOfStockVariantsCount]
+ *           enum: [updatedOn, inventoryStatus, product.name, manufacturer]
+ *         description: Sort field (`inventoryStatus` uses severity order Out Of Stock -> Low Stock -> In Stock -> Not Tracked)
  *       - in: query
  *         name: sortOrder
  *         schema:

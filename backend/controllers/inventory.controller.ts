@@ -13,7 +13,7 @@ import {
   InventoriesResponseDTO,
   PatchInventoryVariantSettingsRequestDTO,
 } from "../data/types/dto/inventory.dto";
-import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES } from "../data/enums";
+import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES, PRODUCT_STATUSES } from "../data/enums";
 import InventoryService from "../services/inventory.service";
 
 const MIN_LIMIT = 10;
@@ -31,17 +31,20 @@ class InventoryController {
         : req.query.manufacturer
           ? [req.query.manufacturer]
           : [];
+      const productStatus = (Array.isArray(req.query.productStatus)
+        ? req.query.productStatus
+        : req.query.productStatus
+          ? [req.query.productStatus]
+          : []
+      ).filter((status): status is PRODUCT_STATUSES => Object.values(PRODUCT_STATUSES).includes(status as PRODUCT_STATUSES));
       const inventoryStatus = (Array.isArray(req.query.inventoryStatus)
         ? req.query.inventoryStatus
         : req.query.inventoryStatus
           ? [req.query.inventoryStatus]
           : []
       ).filter((status): status is INVENTORY_STATUSES => Object.values(INVENTORY_STATUSES).includes(status as INVENTORY_STATUSES));
-      const lowStockOnly = req.query.lowStockOnly === "true";
-      const outOfStockOnly = req.query.outOfStockOnly === "true";
-      const includeArchived = req.query.includeArchived === "true";
       const sortField =
-        req.query.sortField && ["totalAvailable", "totalReserved", "updatedOn", "lowStockVariantsCount", "outOfStockVariantsCount"].includes(req.query.sortField)
+        req.query.sortField && ["updatedOn", "inventoryStatus", "product.name", "manufacturer"].includes(req.query.sortField)
           ? req.query.sortField
           : "updatedOn";
       const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
@@ -50,15 +53,11 @@ class InventoryController {
         {
           search: req.query.search ?? "",
           manufacturers,
-          categoryId: req.query.categoryId?.trim() || undefined,
-          rootCategoryId: req.query.rootCategoryId?.trim() || undefined,
+          productStatus,
           inventoryStatus,
-          lowStockOnly,
-          outOfStockOnly,
-          includeArchived,
         },
         {
-          sortField: sortField as "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount",
+          sortField: sortField as "updatedOn" | "inventoryStatus" | "product.name" | "manufacturer",
           sortOrder,
         },
         { skip, limit },
@@ -71,14 +70,10 @@ class InventoryController {
         limit,
         search: req.query.search ?? "",
         manufacturer: manufacturers,
-        categoryId: req.query.categoryId?.trim() || undefined,
-        rootCategoryId: req.query.rootCategoryId?.trim() || undefined,
+        productStatus,
         inventoryStatus,
-        lowStockOnly,
-        outOfStockOnly,
-        includeArchived,
         sorting: {
-          sortField: sortField as "totalAvailable" | "totalReserved" | "updatedOn" | "lowStockVariantsCount" | "outOfStockVariantsCount",
+          sortField: sortField as "updatedOn" | "inventoryStatus" | "product.name" | "manufacturer",
           sortOrder,
         },
         IsSuccess: true,
