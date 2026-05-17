@@ -9,9 +9,10 @@ type Props = {
   onSearchDraftChange: (value: string) => void
   onSearchApply: () => void
   onOpenFilters: () => void
-  onOpenExport: () => void
+  onOpenExport?: () => void
   isSearching?: boolean
   disableFilterButton?: boolean
+  showExportButton?: boolean
 }
 
 export function SearchToolbar({
@@ -19,9 +20,10 @@ export function SearchToolbar({
   onSearchDraftChange,
   onSearchApply,
   onOpenFilters,
-  onOpenExport,
+  onOpenExport = () => {},
   isSearching = false,
   disableFilterButton = false,
+  showExportButton = true,
 }: Props) {
   const canApplySearch = Boolean(searchDraft.trim())
 
@@ -60,10 +62,14 @@ export function SearchToolbar({
       >
         Filter
       </Button>
-      <Box sx={{ flexGrow: 1 }} />
-      <Button variant="contained" startIcon={<DownloadIcon />} onClick={onOpenExport} data-testid="search-toolbar-export-button">
-        Export
-      </Button>
+      {showExportButton ? (
+        <>
+          <Box sx={{ flexGrow: 1 }} />
+          <Button variant="contained" startIcon={<DownloadIcon />} onClick={onOpenExport} data-testid="search-toolbar-export-button">
+            Export
+          </Button>
+        </>
+      ) : null}
     </Stack>
   )
 }
