@@ -69,6 +69,7 @@ Reservation-driven adjustments:
 - `Reserve` is created when reservation is created.
 - `Release`/`Expired Reservation` is created when active reservation is released/expired.
 - `Sale` is created on receive flow and decreases both `quantity` and `reserved` only for stock-covered (reserved) part.
+- Backorder-only receive may produce no `Sale` adjustment for that order line.
 
 Important:
 - reservation lifecycle is still tracked by reservation document mutations (`upsert`, `item update`, `delete reservation`);
