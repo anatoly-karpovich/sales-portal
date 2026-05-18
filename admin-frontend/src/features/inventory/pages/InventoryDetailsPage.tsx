@@ -1,8 +1,21 @@
-﻿import KeyboardBackspaceRoundedIcon from '@mui/icons-material/KeyboardBackspaceRounded'
+﻿import { useState } from 'react'
+import KeyboardBackspaceRoundedIcon from '@mui/icons-material/KeyboardBackspaceRounded'
 import { Alert, Box, Button, Chip, Paper, Skeleton, Stack, Typography } from '@mui/material'
+import { useSnackbar } from 'notistack'
 import { Link, useParams } from 'react-router-dom'
-import type { InventoryRecordStatus, InventoryStatus } from '@/api/modules/inventory.api'
-import { useInventoryDetailsQuery } from '@/features/inventory/hooks/useInventoryQuery'
+import type {
+  InventoryManualAdjustmentType,
+  InventoryRecordStatus,
+  InventoryStatus,
+  InventoryVariantSettingsPatchPayload,
+} from '@/api/modules/inventory.api'
+import { InventoryAdjustDialog } from '@/features/inventory/components/InventoryAdjustDialog'
+import { InventorySettingsDialog } from '@/features/inventory/components/InventorySettingsDialog'
+import {
+  useInventoryAdjustStockMutation,
+  useInventoryDetailsQuery,
+  useInventoryUpdateVariantSettingsMutation,
+} from '@/features/inventory/hooks/useInventoryQuery'
 import { inventoryUiText } from '@/features/inventory/inventory.ui-text'
 import { useProductQuery } from '@/features/products/hooks/useProductsQuery'
 import { formatDateTime } from '@/utils/date'
@@ -75,9 +88,14 @@ function InventoryDetailsSkeleton() {
 
 export function InventoryDetailsPage() {
   const { productId } = useParams<{ productId: string }>()
+  const { enqueueSnackbar } = useSnackbar()
+  const [selectedAdjustVariantId, setSelectedAdjustVariantId] = useState<string | null>(null)
+  const [selectedSettingsVariantId, setSelectedSettingsVariantId] = useState<string | null>(null)
 
   const inventoryQuery = useInventoryDetailsQuery(productId ?? '', Boolean(productId))
   const productQuery = useProductQuery(productId ?? '', Boolean(productId))
+  const adjustStockMutation = useInventoryAdjustStockMutation()
+  const updateSettingsMutation = useInventoryUpdateVariantSettingsMutation()
 
   if (!productId) {
     return (
@@ -115,6 +133,50 @@ export function InventoryDetailsPage() {
   const productAttributeNamesByKey = new Map(
     (product.attributes ?? []).map((attribute) => [attribute.key, attribute.name]),
   )
+  const variantContexts = inventory.variants.map((variant) => {
+    const productVariant = productVariantsById.get(variant.variantId)
+    const variantAttributesLabel = resolveVariantAttributesLabel(productVariant?.attributes)
+    const variantAttributeEntries = resolveVariantAttributeEntries(
+      productVariant?.attributes,
+      productAttributeNamesByKey,
+    )
+    const displayName = variantAttributesLabel
+      ? `${product.name} | ${variantAttributesLabel}`
+      : product.name
+
+    return {
+      variant,
+      displayName,
+      variantAttributeEntries,
+    }
+  })
+  const selectedAdjustVariantContext =
+    selectedAdjustVariantId === null
+      ? null
+      : variantContexts.find((context) => context.variant.variantId === selectedAdjustVariantId) ?? null
+  const selectedSettingsVariantContext =
+    selectedSettingsVariantId === null
+      ? null
+      : variantContexts.find((context) => context.variant.variantId === selectedSettingsVariantId) ?? null
+
+  const handleAdjustSubmit = async (payload: {
+    productId: string
+    variantId: string
+    type: InventoryManualAdjustmentType
+    quantity: number
+    reason?: string
+    comment?: string
+  }) => {
+    await adjustStockMutation.mutateAsync(payload)
+    setSelectedAdjustVariantId(null)
+    enqueueSnackbar(inventoryUiText.detailsPage.toasts.adjustmentSaved, { variant: 'success' })
+  }
+
+  const handleSettingsSubmit = async (payload: InventoryVariantSettingsPatchPayload) => {
+    await updateSettingsMutation.mutateAsync(payload)
+    setSelectedSettingsVariantId(null)
+    enqueueSnackbar(inventoryUiText.detailsPage.toasts.settingsSaved, { variant: 'success' })
+  }
 
   return (
     <Stack spacing={2.5} data-testid="inventory-details-page">
@@ -282,17 +344,7 @@ export function InventoryDetailsPage() {
                   },
                 }}
               >
-                {inventory.variants.map((variant, index) => {
-                  const productVariant = productVariantsById.get(variant.variantId)
-                  const variantAttributesLabel = resolveVariantAttributesLabel(productVariant?.attributes)
-                  const variantAttributeEntries = resolveVariantAttributeEntries(
-                    productVariant?.attributes,
-                    productAttributeNamesByKey,
-                  )
-                  const displayName = variantAttributesLabel
-                    ? `${product.name} | ${variantAttributesLabel}`
-                    : product.name
-
+                {variantContexts.map(({ variant, displayName, variantAttributeEntries }, index) => {
                   return (
                     <Paper
                       key={`${variant.variantId}-${index}`}
@@ -373,14 +425,14 @@ export function InventoryDetailsPage() {
                           <Stack direction="row" spacing={1}>
                             <Button
                               variant="contained"
-                              disabled
+                              onClick={() => setSelectedAdjustVariantId(variant.variantId)}
                               data-testid={`inventory-details-page-variant-row-${index}-adjust-button`}
                             >
                               {inventoryUiText.detailsPage.actions.adjust}
                             </Button>
                             <Button
                               variant="outlined"
-                              disabled
+                              onClick={() => setSelectedSettingsVariantId(variant.variantId)}
                               data-testid={`inventory-details-page-variant-row-${index}-settings-button`}
                             >
                               {inventoryUiText.detailsPage.actions.settings}
@@ -479,6 +531,37 @@ export function InventoryDetailsPage() {
           </Box>
         </Stack>
       </Paper>
+
+      {selectedAdjustVariantContext ? (
+        <InventoryAdjustDialog
+          key={selectedAdjustVariantContext.variant.variantId}
+          open
+          productId={productId}
+          variant={selectedAdjustVariantContext.variant}
+          variantDisplayName={selectedAdjustVariantContext.displayName}
+          manufacturer={product.manufacturer}
+          attributeLabels={selectedAdjustVariantContext.variantAttributeEntries.map((entry) => entry.label)}
+          isSubmitting={adjustStockMutation.isPending}
+          onClose={() => setSelectedAdjustVariantId(null)}
+          onSubmit={handleAdjustSubmit}
+        />
+      ) : null}
+
+      {selectedSettingsVariantContext ? (
+        <InventorySettingsDialog
+          key={selectedSettingsVariantContext.variant.variantId}
+          open
+          productId={productId}
+          variant={selectedSettingsVariantContext.variant}
+          variantDisplayName={selectedSettingsVariantContext.displayName}
+          manufacturer={product.manufacturer}
+          attributeLabels={selectedSettingsVariantContext.variantAttributeEntries.map((entry) => entry.label)}
+          isSubmitting={updateSettingsMutation.isPending}
+          onClose={() => setSelectedSettingsVariantId(null)}
+          onSubmit={handleSettingsSubmit}
+        />
+      ) : null}
     </Stack>
   )
 }
+

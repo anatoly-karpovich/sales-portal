@@ -3,6 +3,14 @@ import { apiClient } from '@/api/client'
 export type InventoryStatus = 'In Stock' | 'Low Stock' | 'Out Of Stock' | 'Not Tracked'
 export type InventoryRecordStatus = 'Active' | 'Archived'
 export type ProductStatus = 'Draft' | 'Active' | 'Archived'
+export const INVENTORY_MANUAL_ADJUSTMENT_TYPES = [
+  'Manual Increase',
+  'Manual Decrease',
+  'Manual Correction',
+  'Damage',
+  'Return',
+] as const
+export type InventoryManualAdjustmentType = (typeof INVENTORY_MANUAL_ADJUSTMENT_TYPES)[number]
 
 export type InventoryListItem = {
   _id: string
@@ -93,6 +101,22 @@ type InventoryDetailsResponse = {
   ErrorMessage: string | null
 }
 
+export type InventoryAdjustmentCreatePayload = {
+  productId: string
+  variantId: string
+  type: InventoryManualAdjustmentType
+  quantity: number
+  reason?: string
+  comment?: string
+}
+
+export type InventoryVariantSettingsPatchPayload = {
+  productId: string
+  variantId: string
+  lowStockThreshold?: number
+  allowSellingOutOfStock?: boolean
+}
+
 export async function getInventory(query: InventoryQuery) {
   const response = await apiClient.get<InventoryListResponse>('/inventory', {
     params: {
@@ -108,5 +132,21 @@ export async function getInventory(query: InventoryQuery) {
 
 export async function getInventoryByProductId(productId: string) {
   const response = await apiClient.get<InventoryDetailsResponse>(`/inventory/products/${productId}`)
+  return response.data.Inventory
+}
+
+export async function createInventoryAdjustment(payload: InventoryAdjustmentCreatePayload) {
+  const response = await apiClient.post<InventoryDetailsResponse>('/inventory/adjustments', payload)
+  return response.data.Inventory
+}
+
+export async function updateInventoryVariantSettings(payload: InventoryVariantSettingsPatchPayload) {
+  const response = await apiClient.patch<InventoryDetailsResponse>(
+    `/inventory/products/${payload.productId}/variants/${payload.variantId}/settings`,
+    {
+      lowStockThreshold: payload.lowStockThreshold,
+      allowSellingOutOfStock: payload.allowSellingOutOfStock,
+    },
+  )
   return response.data.Inventory
 }
