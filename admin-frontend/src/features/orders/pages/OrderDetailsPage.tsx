@@ -64,6 +64,7 @@ export function OrderDetailsPage() {
     orderedComments,
     assignedManagerDisplayValue,
     isManagerAssigned,
+    isManagerEditable,
     isManagerActionPending,
     isCustomerEditable,
     isProductsEditable,
@@ -228,6 +229,7 @@ export function OrderDetailsPage() {
                     order={order}
                     assignedManagerDisplayValue={assignedManagerDisplayValue}
                     isManagerAssigned={isManagerAssigned}
+                    isManagerEditable={isManagerEditable}
                     isManagerActionPending={isManagerActionPending}
                     isManagerEditMode={isManagerEditMode}
                     isEmbedded

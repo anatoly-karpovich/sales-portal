@@ -18,6 +18,7 @@ type OrderDetailsManagerSectionProps = {
   order: OrderDetails
   assignedManagerDisplayValue: string
   isManagerAssigned: boolean
+  isManagerEditable: boolean
   isManagerActionPending: boolean
   isManagerEditMode: boolean
   isEmbedded?: boolean
@@ -220,6 +221,7 @@ export function OrderDetailsManagerSection({
   order,
   assignedManagerDisplayValue,
   isManagerAssigned,
+  isManagerEditable,
   isManagerActionPending,
   isManagerEditMode,
   isEmbedded = false,
@@ -241,7 +243,7 @@ export function OrderDetailsManagerSection({
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {ordersUiText.detailsPage.labels.assignedManager}
         </Typography>
-        {!isManagerEditMode ? (
+        {!isManagerEditMode && isManagerEditable ? (
           <Stack direction="row" spacing={1}>
             <Button
               variant="text"
@@ -288,15 +290,12 @@ export function OrderDetailsManagerSection({
             }}
             data-testid="order-details-assigned-manager-value"
           >
-            <Typography component="span" sx={{ fontStyle: 'italic' }}>
+            <Typography component="span">
               {assignedManagerDisplayValue}
             </Typography>
           </Button>
         ) : (
-          <Typography
-            sx={{ fontStyle: 'italic' }}
-            data-testid="order-details-assigned-manager-value"
-          >
+          <Typography data-testid="order-details-assigned-manager-value">
             {assignedManagerDisplayValue}
           </Typography>
         )
@@ -306,7 +305,7 @@ export function OrderDetailsManagerSection({
             {ordersUiText.detailsPage.history.notAssigned}
           </Typography>
           <Typography color="text.secondary" variant="body2">
-            Select manager before processing
+            {ordersUiText.detailsPage.placeholders.managerAutoAssignOnProcess}
           </Typography>
         </Stack>
       )}

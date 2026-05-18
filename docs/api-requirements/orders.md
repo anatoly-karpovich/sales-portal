@@ -177,6 +177,10 @@ Line-level state:
 - `Consumed` when order is `Completed` and no active reservation (terminal line state; split is restored from `Sale` adjustments for this order line);
 - `Released` when order is `Canceled` and no active reservation (terminal line state; `directOrderQuantity = 0`).
 
+Partially delivered behavior:
+- for lines with `received=true`, split is derived from `Sale` adjustments of this order line and line state is `Consumed`;
+- for lines with `received=false`, split is derived from active reservation items.
+
 Notes:
 - backend returns only canonical state fields (`state`, `type`, `expiresAt`) and quantities;
 - UI label mapping (for example `Temporary Lock -> Reserved (Temporary)`) is frontend-owned;

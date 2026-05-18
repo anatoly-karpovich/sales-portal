@@ -20,6 +20,7 @@ import type {
   OrderDelivery,
   OrderDetails,
   OrderDetailsProduct,
+  OrderInventoryReservationLine,
   OrderProductRequestItem,
 } from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
@@ -61,6 +62,37 @@ type SelectedVariantRow = {
   variantLabel: string
   unitPrice: number
   quantity: number
+}
+
+type OrderProductInventoryReservationView = {
+  reservedFromStock: number | null
+  directOrder: number | null
+  inventoryStatus: string
+  isDataMismatch: boolean
+}
+
+const PRODUCTS_TABLE_COLUMNS_EDIT = 'minmax(240px, 1.5fr) 80px 110px 150px'
+const PRODUCTS_TABLE_COLUMNS_VIEW =
+  'minmax(240px, 1.5fr) 80px 110px 90px 90px 150px 150px'
+
+function StatusChip({
+  label,
+  color,
+  testId,
+}: {
+  label: string
+  color: 'default' | 'success'
+  testId: string
+}) {
+  return (
+    <Chip
+      label={label}
+      color={color}
+      variant="outlined"
+      sx={{ '& .MuiChip-label': { fontSize: '0.95rem' } }}
+      data-testid={testId}
+    />
+  )
 }
 
 type OrderDetailsProductsSectionProps = {
@@ -139,6 +171,18 @@ function toSelectedRows(products: OrderDetailsProduct[]) {
     unitPrice: product.unitPrice,
     quantity: product.quantity,
   }))
+}
+
+function buildInventoryReservationLineKey(productId: string, variantId: string) {
+  return `${productId}|${variantId}`
+}
+
+function buildInventoryReservationLinesMap(lines: OrderInventoryReservationLine[] | undefined) {
+  const map = new Map<string, OrderInventoryReservationLine>()
+  for (const line of lines ?? []) {
+    map.set(buildInventoryReservationLineKey(line.productId, line.variantId), line)
+  }
+  return map
 }
 
 function normalizeRequestedProducts(items: OrderProductRequestItem[]) {
@@ -934,6 +978,39 @@ export function OrderDetailsProductsSection({
   onToggleReceiveProduct,
 }: OrderDetailsProductsSectionProps) {
   const rootSx = { overflow: 'hidden' }
+  const inventoryReservationLinesMap = useMemo(
+    () => buildInventoryReservationLinesMap(order.inventoryReservation?.lines),
+    [order.inventoryReservation?.lines],
+  )
+  const inventoryReservationByProductRow = useMemo<OrderProductInventoryReservationView[]>(
+    () =>
+      order.products.map((product) => {
+        const line = inventoryReservationLinesMap.get(
+          buildInventoryReservationLineKey(product.productId, product.variantId),
+        )
+
+        if (!line) {
+          return {
+            reservedFromStock: null,
+            directOrder: null,
+            inventoryStatus: ordersUiText.detailsPage.placeholders.inventoryDataMismatch,
+            isDataMismatch: true,
+          }
+        }
+
+        return {
+          reservedFromStock: line.reservedQuantity,
+          directOrder: line.directOrderQuantity,
+          inventoryStatus: line.state,
+          isDataMismatch: false,
+        }
+      }),
+    [inventoryReservationLinesMap, order.products],
+  )
+  const hasInventoryReservationDataMismatch = inventoryReservationByProductRow.some(
+    (line) => line.isDataMismatch,
+  )
+  const tableGridColumns = isProductsEditMode ? PRODUCTS_TABLE_COLUMNS_EDIT : PRODUCTS_TABLE_COLUMNS_VIEW
 
   const content = (
     <Stack spacing={0}>
@@ -1000,172 +1077,173 @@ export function OrderDetailsProductsSection({
         </Stack>
       </Box>
 
-      <Box data-testid="order-details-products-table">
-        <Box
-          sx={{
-            px: { xs: 1.5, md: 2.5 },
-            py: 1.25,
-            borderTop: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: 'minmax(0, 1fr) auto',
-              md: 'minmax(300px, 1.6fr) 120px 140px 180px',
-            },
-            gap: 1.5,
-            color: 'text.secondary',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
+      {hasInventoryReservationDataMismatch && !isProductsEditMode ? (
+        <Alert
+          severity="warning"
+          sx={{ mx: { xs: 1.5, md: 2.5 }, mb: 1 }}
+          data-testid="order-details-products-inventory-mismatch-alert"
         >
-          <Typography>Product</Typography>
-          <Typography sx={{ display: { xs: 'none', md: 'block' } }}>Quantity</Typography>
-          <Typography sx={{ display: { xs: 'none', md: 'block' } }}>Unit Price</Typography>
-          <Stack direction="row" spacing={0.5} justifyContent="flex-start" alignItems="center">
-            {!isProductsEditMode && isReceiveModeVisible ? (
-              <Checkbox
-                size="small"
-                checked={isSelectAllChecked}
-                indeterminate={isSelectAllIndeterminate}
-                disabled={!hasPendingProductsToReceive || isReceiveSavePending}
-                onChange={onToggleSelectAllReceive}
-                data-testid="order-details-products-receive-select-all-checkbox"
-              />
+          {ordersUiText.detailsPage.placeholders.inventoryDataMismatchBanner}
+        </Alert>
+      ) : null}
+
+      <Box sx={{ overflowX: 'auto' }} data-testid="order-details-products-table">
+        <Box sx={{ minWidth: isProductsEditMode ? 640 : 920 }}>
+          <Box
+            sx={{
+              px: { xs: 1.5, md: 2.5 },
+              py: 1.25,
+              borderTop: 1,
+              borderBottom: 1,
+              borderColor: 'divider',
+              display: 'grid',
+              gridTemplateColumns: tableGridColumns,
+              gap: 1.5,
+              color: 'text.secondary',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            <Typography>Product</Typography>
+            <Typography>Quantity</Typography>
+            <Typography>Unit Price</Typography>
+            {!isProductsEditMode ? (
+              <>
+                <Typography>{ordersUiText.detailsPage.labels.reservedFromStock}</Typography>
+                <Typography>{ordersUiText.detailsPage.labels.directOrder}</Typography>
+                <Typography>{ordersUiText.detailsPage.labels.inventoryStatus}</Typography>
+              </>
             ) : null}
-            <Typography color="text.secondary">Status</Typography>
-          </Stack>
-        </Box>
-
-        {!isProductsEditMode && order.products.length
-          ? order.products.map((product, index) => {
-              const displayRow = displayRows[index]
-              return (
-                <Box
-                  key={`${product.productId}-${product.variantId}-${index}`}
-                  sx={{
-                    px: { xs: 1.5, md: 2.5 },
-                    py: 1.5,
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    display: 'grid',
-                    gridTemplateColumns: {
-                      xs: 'minmax(0, 1fr) auto',
-                      md: 'minmax(300px, 1.6fr) 120px 140px 180px',
-                    },
-                    gap: 1.5,
-                    alignItems: 'center',
-                  }}
-                  data-testid={`order-details-products-row-${index}`}
-                >
-                  <Stack direction="row" spacing={1.25} minWidth={0} alignItems="center">
-                    <Box
-                      component="img"
-                      src={displayRow?.imageUrl}
-                      alt={displayRow?.displayName ?? product.name}
-                      sx={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 1.5,
-                        border: 1,
-                        borderColor: 'divider',
-                        objectFit: 'cover',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography
-                        sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
-                        data-testid={`order-details-products-row-${index}-name`}
-                      >
-                        {displayRow?.displayName ?? product.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ overflowWrap: 'anywhere' }}
-                        data-testid={`order-details-products-row-${index}-manufacturer`}
-                      >
-                        {displayRow?.manufacturer ?? product.manufacturer ?? '-'}
-                      </Typography>
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        sx={{ mt: 0.5, display: { xs: 'flex', md: 'none' } }}
-                      >
-                        <Typography data-testid={`order-details-products-row-${index}-amount`}>
-                          Qty: {product.quantity}
-                        </Typography>
-                        <Typography data-testid={`order-details-products-row-${index}-price`}>
-                          {formatPrice(product.unitPrice)}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  </Stack>
-
-                  <Typography
-                    sx={{ display: { xs: 'none', md: 'block' } }}
-                    data-testid={`order-details-products-row-${index}-amount`}
-                  >
-                    {product.quantity}
-                  </Typography>
-                  <Typography
-                    sx={{ display: { xs: 'none', md: 'block' } }}
-                    data-testid={`order-details-products-row-${index}-price`}
-                  >
-                    {formatPrice(product.unitPrice)}
-                  </Typography>
-
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    alignItems="center"
-                    justifyContent="flex-start"
-                  >
-                    {isReceiveModeVisible ? (
-                      <Checkbox
-                        size="small"
-                        checked={
-                          product.received || selectedReceivePendingRowIndices.includes(index)
-                        }
-                        disabled={product.received || isReceiveSavePending}
-                        onChange={() => onToggleReceiveProduct(index)}
-                        data-testid={`order-details-products-row-${index}-receive-checkbox`}
-                      />
-                    ) : null}
-                    <Chip
-                      label={product.received ? 'Received' : 'Not Received'}
-                      color={product.received ? 'success' : 'default'}
-                      variant="outlined"
-                      sx={{
-                        display: { xs: 'none', md: 'inline-flex' },
-                        '& .MuiChip-label': { fontSize: '0.95rem' },
-                      }}
-                    />
-                    <Typography
-                      color={product.received ? 'success.main' : 'text.secondary'}
-                      sx={{ display: { xs: 'block', md: 'none' } }}
-                      data-testid={
-                        isReceiveModeVisible
-                          ? `order-details-products-row-${index}-receive-state`
-                          : `order-details-products-row-${index}-received`
-                      }
-                    >
-                      {product.received ? 'Received' : 'Not Received'}
-                    </Typography>
-                  </Stack>
-                </Box>
-              )
-            })
-          : null}
-
-        {!isProductsEditMode && !order.products.length ? (
-          <Box sx={{ p: 2.5 }}>
-            <Typography color="text.secondary" data-testid="order-details-products-empty">
-              -
-            </Typography>
+            <Stack direction="row" spacing={0.5} justifyContent="flex-start" alignItems="center">
+              {!isProductsEditMode && isReceiveModeVisible ? (
+                <Checkbox
+                  size="small"
+                  checked={isSelectAllChecked}
+                  indeterminate={isSelectAllIndeterminate}
+                  disabled={!hasPendingProductsToReceive || isReceiveSavePending}
+                  onChange={onToggleSelectAllReceive}
+                  data-testid="order-details-products-receive-select-all-checkbox"
+                />
+              ) : null}
+              <Typography color="text.secondary">{ordersUiText.detailsPage.labels.delivery}</Typography>
+            </Stack>
           </Box>
-        ) : null}
+
+          {!isProductsEditMode && order.products.length
+            ? order.products.map((product, index) => {
+                const displayRow = displayRows[index]
+                const reservationLine = inventoryReservationByProductRow[index]
+                const inventoryStatusLabel =
+                  reservationLine?.inventoryStatus ??
+                  ordersUiText.detailsPage.placeholders.inventoryDataMismatch
+
+                return (
+                  <Box
+                    key={`${product.productId}-${product.variantId}-${index}`}
+                    sx={{
+                      px: { xs: 1.5, md: 2.5 },
+                      py: 1.5,
+                      borderBottom: 1,
+                      borderColor: 'divider',
+                      display: 'grid',
+                      gridTemplateColumns: tableGridColumns,
+                      gap: 1.5,
+                      alignItems: 'center',
+                    }}
+                    data-testid={`order-details-products-row-${index}`}
+                  >
+                    <Stack direction="row" spacing={1.25} minWidth={0} alignItems="center">
+                      <Box
+                        component="img"
+                        src={displayRow?.imageUrl}
+                        alt={displayRow?.displayName ?? product.name}
+                        sx={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 1.5,
+                          border: 1,
+                          borderColor: 'divider',
+                          objectFit: 'cover',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
+                          data-testid={`order-details-products-row-${index}-name`}
+                        >
+                          {displayRow?.displayName ?? product.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ overflowWrap: 'anywhere' }}
+                          data-testid={`order-details-products-row-${index}-manufacturer`}
+                        >
+                          {displayRow?.manufacturer ?? product.manufacturer ?? '-'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Typography data-testid={`order-details-products-row-${index}-amount`}>
+                      {product.quantity}
+                    </Typography>
+                    <Typography data-testid={`order-details-products-row-${index}-price`}>
+                      {formatPrice(product.unitPrice)}
+                    </Typography>
+                    <Typography data-testid={`order-details-products-row-${index}-reserved`}>
+                      {reservationLine?.reservedFromStock ?? '—'}
+                    </Typography>
+                    <Typography data-testid={`order-details-products-row-${index}-direct-order`}>
+                      {reservationLine?.directOrder ?? '—'}
+                    </Typography>
+                    <Typography
+                      color={reservationLine?.isDataMismatch ? 'error.main' : 'text.primary'}
+                      data-testid={`order-details-products-row-${index}-inventory-status`}
+                    >
+                      {inventoryStatusLabel}
+                    </Typography>
+
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      alignItems="center"
+                      justifyContent="flex-start"
+                    >
+                      {isReceiveModeVisible ? (
+                        <Checkbox
+                          size="small"
+                          checked={
+                            product.received || selectedReceivePendingRowIndices.includes(index)
+                          }
+                          disabled={product.received || isReceiveSavePending}
+                          onChange={() => onToggleReceiveProduct(index)}
+                          data-testid={`order-details-products-row-${index}-receive-checkbox`}
+                        />
+                      ) : null}
+                      <StatusChip
+                        label={product.received ? 'Received' : 'Not Received'}
+                        color={product.received ? 'success' : 'default'}
+                        testId={
+                          isReceiveModeVisible
+                            ? `order-details-products-row-${index}-receive-state`
+                            : `order-details-products-row-${index}-received`
+                        }
+                      />
+                    </Stack>
+                  </Box>
+                )
+              })
+            : null}
+
+          {!isProductsEditMode && !order.products.length ? (
+            <Box sx={{ p: 2.5 }}>
+              <Typography color="text.secondary" data-testid="order-details-products-empty">
+                -
+              </Typography>
+            </Box>
+          ) : null}
+        </Box>
       </Box>
 
       {isProductsEditMode ? (

@@ -63,6 +63,11 @@ export const ordersUiText = {
       orderNumber: 'Order number',
       assignedManager: 'Assigned Manager',
       orderStatus: 'Order Status',
+      inventoryReservation: 'Inventory Reservation',
+      inventoryStatus: 'Inventory',
+      reservedFromStock: 'Reserved',
+      directOrder: 'Direct order',
+      expiresAt: 'Expires at',
       totalPrice: 'Total Price',
       deliveryPrice: 'Delivery Price',
       pricingPreview: 'Pricing Preview',
@@ -74,6 +79,13 @@ export const ordersUiText = {
       deliveryAddress: 'Delivery Address',
       orderHistory: 'Order History',
       comments: 'Comments',
+      reservationStateTemporary: 'Reserved (Temporary)',
+      reservationStateProcessing: 'Reserved (In Progress)',
+      reservationStateNoLock: 'Not Reserved',
+      reservationStateConsumed: 'Consumed',
+      reservationStateReleased: 'Released',
+      expiresInPrefix: 'in',
+      lessThanOneMinute: 'less than 1m',
     },
     tabs: {
       delivery: 'Delivery',
@@ -127,6 +139,11 @@ export const ordersUiText = {
       commentAuthorFallback: 'AQA Manager',
       selectAll: 'Select All',
       noComments: 'No comments yet.',
+      inventoryDataMismatch: 'Data mismatch',
+      inventoryDataMismatchBanner:
+        'Inventory reservation lines are inconsistent with order lines.',
+      managerAutoAssignOnProcess:
+        'If manager is not assigned, it will be assigned automatically when order moves to In Process.',
     },
     fields: {
       customer: {
@@ -176,7 +193,8 @@ export const ordersUiText = {
       cancelMessage: 'Are you sure you want to cancel the order?',
       cancelConfirm: 'Yes, Cancel',
       processTitle: 'Process Order',
-      processMessage: 'Are you sure you want to process the order?',
+      processMessage:
+        'Are you sure you want to process the order? If manager is not assigned, it will be assigned automatically to the manager who starts processing.',
       processConfirm: 'Yes, Process',
       reopenTitle: 'Reopen Order',
       reopenMessage: 'Are you sure you want to reopen the order?',
@@ -258,6 +276,7 @@ export const ordersUiText = {
     unassignManagerFailed: 'Unable to unassign manager. Please try again later.',
     commentCreateFailed: 'Failed to post comment. Please try again later.',
     commentDeleteFailed: 'Failed to delete comment. Please try again later.',
+    inventoryReservationUnavailable: 'Inventory reservation is unavailable.',
   },
   validation: {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',

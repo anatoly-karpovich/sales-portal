@@ -186,25 +186,29 @@ class OrderService {
       hasActiveReservation,
       expiresAt,
     });
+    const hasReceivedLines = (order.products as IProductInOrder[]).some((line) => Boolean(line.received));
     const consumedFromStockByLine =
-      summaryState === "Consumed" && !hasActiveReservation
+      (summaryState === "Consumed" && !hasActiveReservation) || hasReceivedLines
         ? await this.getConsumedFromStockByLine(order._id)
         : new Map<string, number>();
     const allowSellingOutOfStockByLine = await this.getAllowSellingOutOfStockByLine(order.products as IProductInOrder[]);
 
-    const lines = (order.products as IProductInOrder[]).map((line) => {
+    const lines: InventoryReservationDTO["lines"] = (order.products as IProductInOrder[]).map(
+      (line): InventoryReservationDTO["lines"][number] => {
       const productId = line.productId.toString();
       const variantId = line.variantId.toString();
       const key = `${productId}:${variantId}`;
       const orderedQuantity = Math.max(line.quantity ?? 0, 0);
+      const consumedFromStock = Math.min(
+        Math.max(consumedFromStockByLine.get(key) ?? 0, 0),
+        orderedQuantity,
+      );
       const isTerminalWithoutReservation =
         !hasActiveReservation &&
         (summaryState === "Consumed" || summaryState === "Released");
       if (isTerminalWithoutReservation) {
-        const consumedFromStock = Math.min(
-          Math.max(consumedFromStockByLine.get(key) ?? 0, 0),
-          orderedQuantity,
-        );
+        const terminalLineState: InventoryReservationLineStateDTO =
+          summaryState === "Consumed" ? "Consumed" : "Released";
         const directOrderQuantity = summaryState === "Consumed"
           ? Math.max(orderedQuantity - consumedFromStock, 0)
           : 0;
@@ -214,9 +218,21 @@ class OrderService {
           orderedQuantity,
           reservedQuantity: summaryState === "Consumed" ? consumedFromStock : 0,
           directOrderQuantity,
-          state: summaryState,
+          state: terminalLineState,
         };
       }
+
+      if (line.received) {
+        return {
+          productId,
+          variantId,
+          orderedQuantity,
+          reservedQuantity: consumedFromStock,
+          directOrderQuantity: Math.max(orderedQuantity - consumedFromStock, 0),
+          state: "Consumed",
+        };
+      }
+
       const rawReserved = Math.max(reservationItemsByLine.get(key) ?? 0, 0);
       const reservedQuantity = Math.min(rawReserved, orderedQuantity);
       const directOrderQuantity = Math.max(orderedQuantity - reservedQuantity, 0);

@@ -121,6 +121,7 @@ export function useOrderDetailsPageState() {
       setIsCustomerEditMode(false)
       setIsProductsEditMode(false)
       setIsManagerEditMode(false)
+      setIsManagerUnassignDialogOpen(false)
     }
 
     if (
@@ -301,7 +302,7 @@ export function useOrderDetailsPageState() {
   }
 
   const handleSaveAssignedManager = async (nextManagerId: string) => {
-    if (!orderId || !nextManagerId) return false
+    if (!orderId || !nextManagerId || order?.status !== 'Draft') return false
 
     try {
       await assignOrderManagerMutation.mutateAsync({
@@ -326,7 +327,7 @@ export function useOrderDetailsPageState() {
   }
 
   const handleOpenManagerUnassignDialog = () => {
-    if (!order?.assignedManager) return
+    if (!order?.assignedManager || order.status !== 'Draft') return
     setIsManagerUnassignDialogOpen(true)
   }
 
@@ -564,6 +565,7 @@ export function useOrderDetailsPageState() {
 
   const assignedManagerValue = resolveAssignedManagerName(order?.assignedManager ?? null)
   const isManagerAssigned = Boolean(order?.assignedManager)
+  const isManagerEditable = order?.status === 'Draft'
   const isManagerActionPending =
     assignOrderManagerMutation.isPending || unassignOrderManagerMutation.isPending
   const isCustomerEditable = order?.status === 'Draft'
@@ -641,6 +643,7 @@ export function useOrderDetailsPageState() {
     orderedComments,
     assignedManagerDisplayValue: assignedManagerValue,
     isManagerAssigned,
+    isManagerEditable,
     isManagerActionPending,
     isCustomerEditable,
     isProductsEditable,

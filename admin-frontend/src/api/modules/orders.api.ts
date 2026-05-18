@@ -102,6 +102,45 @@ export type OrderDetailsProduct = {
   imageUrl?: string
 }
 
+export type OrderInventoryReservationSummaryState =
+  | 'Temporary Lock'
+  | 'Processing Lock'
+  | 'No Active Lock'
+  | 'Consumed'
+  | 'Released'
+
+export type OrderInventoryReservationSummaryType =
+  | 'Admin Draft'
+  | 'Customer Draft'
+  | 'Order Processing'
+  | null
+
+export type OrderInventoryReservationLineState =
+  | 'Fully Reserved'
+  | 'Partially Reserved'
+  | 'Direct Order'
+  | 'No Active Lock'
+  | 'Consumed'
+  | 'Released'
+
+export type OrderInventoryReservationLine = {
+  productId: string
+  variantId: string
+  orderedQuantity: number
+  reservedQuantity: number
+  directOrderQuantity: number
+  state: OrderInventoryReservationLineState
+}
+
+export type OrderInventoryReservation = {
+  summary: {
+    state: OrderInventoryReservationSummaryState
+    expiresAt: string | null
+    type: OrderInventoryReservationSummaryType
+  }
+  lines: OrderInventoryReservationLine[]
+}
+
 export type OrderListItem = {
   _id: string
   status: OrderStatus
@@ -156,6 +195,7 @@ export type OrderDetails = Omit<OrderListItem, 'customer' | 'products'> & {
   products: OrderDetailsProduct[]
   comments: OrderComment[]
   history: OrderHistoryEntry[]
+  inventoryReservation: OrderInventoryReservation
 }
 
 export type OrderPricingResult = {
