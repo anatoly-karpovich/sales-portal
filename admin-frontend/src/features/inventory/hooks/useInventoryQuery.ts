@@ -10,6 +10,7 @@ import {
   updateInventoryVariantSettings,
 } from '@/api/modules/inventory.api'
 import { inventoryQueryKeys } from '@/features/inventory/hooks/inventoryQueryKeys'
+import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 
 export function useInventoryQuery(query: InventoryQuery) {
   return useQuery({
@@ -38,6 +39,7 @@ export function useInventoryAdjustStockMutation() {
         updatedInventory,
       )
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
     },
   })
 }
@@ -54,6 +56,7 @@ export function useInventoryUpdateVariantSettingsMutation() {
         updatedInventory,
       )
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
     },
   })
 }

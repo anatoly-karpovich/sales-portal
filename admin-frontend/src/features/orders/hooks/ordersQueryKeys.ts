@@ -17,6 +17,8 @@ export const ordersQueryKeys = {
     [...ORDERS_QUERY_KEY_BASE, 'product-options', search] as const,
   productDetails: (productId: string) =>
     [...ORDERS_QUERY_KEY_BASE, 'product-details', productId] as const,
+  inventoryDetails: (productId: string) =>
+    [...ORDERS_QUERY_KEY_BASE, 'inventory-details', productId] as const,
   productAvailability: (productId: string) =>
     [...ORDERS_QUERY_KEY_BASE, 'product-availability', productId] as const,
 }

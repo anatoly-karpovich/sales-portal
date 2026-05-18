@@ -1,6 +1,7 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   Alert,
   Autocomplete,
@@ -22,6 +23,11 @@ import type { Product, ProductVariant } from '@/api/modules/products.api'
 import type { OrderDeliveryPricingTier, OrderPricingPayload } from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
 import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
+import {
+  isInventoryVariantOrderable,
+  useOrderInventoryValidation,
+  type OrderInventoryValidationWarningCode,
+} from '@/features/orders/hooks/useOrderInventoryValidation'
 import {
   useCreateOrderMutation,
   useOrderCustomerOptionsQuery,
@@ -95,8 +101,8 @@ function formatCustomerOption(customer: CustomerSummary) {
   return `${customer.name} | ${customer.email}`
 }
 
-function clampQuantity(value: number, max: number) {
-  return Math.min(Math.max(value, 1), max)
+function clampQuantity(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 function isVariantActive(variant: ProductVariant) {
@@ -133,6 +139,30 @@ function resolvePricingTierLabel(value: OrderDeliveryPricingTier | null) {
       return 'Pickup'
     default:
       return '-'
+  }
+}
+
+function resolveDirectOrderLabel(isAllowed: boolean | null) {
+  if (isAllowed === null) return '-'
+  return isAllowed ? 'Allowed' : 'Blocked'
+}
+
+function resolveInventoryWarningMessage(code: OrderInventoryValidationWarningCode | null) {
+  switch (code) {
+    case 'variant_unavailable_create':
+      return ordersUiText.validation.inventoryVariantUnavailable
+    case 'out_of_stock_blocked':
+      return ordersUiText.validation.inventoryOutOfStockBlocked
+    case 'quantity_exceeds_available':
+      return ordersUiText.validation.inventoryQuantityExceedsAvailable
+    case 'missing_inventory_snapshot':
+      return ordersUiText.validation.inventoryMissingSnapshot
+    case 'missing_catalog_snapshot':
+      return ordersUiText.validation.catalogMissingSnapshot
+    case 'inactive_snapshot':
+      return ordersUiText.validation.inactiveSnapshot
+    default:
+      return null
   }
 }
 
@@ -305,21 +335,77 @@ export function OrderCreatePage() {
     selectedParentProduct?._id ?? '',
     Boolean(selectedParentProduct),
   )
+  const {
+    isReferenceDataLoading,
+    inventoryById,
+    productById,
+    validatedRows,
+  } = useOrderInventoryValidation({
+    rows: selectedRows.map((row) => ({
+      rowId: row.rowId,
+      productId: row.productId,
+      variantId: row.variantId,
+      quantity: row.quantity,
+    })),
+    mode: 'create',
+    maxProductQuantityInOrder: maxProductQuantityInOrder ?? null,
+    enabled: hasValidSettings,
+    includeProductIds: selectedParentProduct?._id ? [selectedParentProduct._id] : [],
+  })
+  const selectedRowsValidationById = useMemo(
+    () => new Map(validatedRows.map((row) => [row.rowId, row])),
+    [validatedRows],
+  )
+  const selectedParentInventory = useMemo(
+    () => (selectedParentProduct ? (inventoryById.get(selectedParentProduct._id) ?? null) : null),
+    [inventoryById, selectedParentProduct],
+  )
+  const selectedParentProductData = useMemo(
+    () =>
+      selectedParentProduct
+        ? (productById.get(selectedParentProduct._id) ?? parentProductDetailsQuery.data ?? null)
+        : null,
+    [parentProductDetailsQuery.data, productById, selectedParentProduct],
+  )
   const variantOptions = useMemo(() => {
     const product = parentProductDetailsQuery.data
     if (!product) return []
     return product.variants.filter(isVariantActive)
   }, [parentProductDetailsQuery.data])
+  const orderableVariantOptions = useMemo(() => {
+    if (!selectedParentProductData || !selectedParentInventory) return []
+    return variantOptions.filter((variant) => {
+      if (!variant._id) return false
+      return isInventoryVariantOrderable({
+        product: selectedParentProductData,
+        inventory: selectedParentInventory,
+        variantId: variant._id,
+      })
+    })
+  }, [selectedParentInventory, selectedParentProductData, variantOptions])
+  const orderableVariantIdsSet = useMemo(
+    () => new Set(orderableVariantOptions.map((variant) => variant._id).filter(Boolean) as string[]),
+    [orderableVariantOptions],
+  )
+  const selectedOrderableVariantIds = useMemo(
+    () => selectedVariantIds.filter((variantId) => orderableVariantIdsSet.has(variantId)),
+    [orderableVariantIdsSet, selectedVariantIds],
+  )
   const normalizedRows = useMemo(() => {
-    if (!hasValidSettings || !maxProductQuantityInOrder) return []
+    if (!hasValidSettings) return []
     return selectedRows.map((row) => ({
       productId: row.productId,
       variantId: row.variantId,
-      quantity: clampQuantity(row.quantity, maxProductQuantityInOrder),
+      quantity: row.quantity,
     }))
-  }, [hasValidSettings, maxProductQuantityInOrder, selectedRows])
+  }, [hasValidSettings, selectedRows])
+  const hasInventoryValidationErrors = validatedRows.some((row) => row.isSubmitBlocked)
 
-  const canRequestPricingPreview = hasValidSettings && normalizedRows.length > 0
+  const canRequestPricingPreview =
+    hasValidSettings &&
+    normalizedRows.length > 0 &&
+    !hasInventoryValidationErrors &&
+    !isReferenceDataLoading
 
   useEffect(() => {
     if (!canRequestPricingPreview) {
@@ -424,7 +510,7 @@ export function OrderCreatePage() {
     const rowsLeft = (maxProductsInOrder ?? 0) - selectedRows.length
     if (rowsLeft <= 0) return 0
 
-    const selectedIdsSet = new Set(selectedVariantIds)
+    const selectedIdsSet = new Set(selectedOrderableVariantIds)
     const existingIdsSet = new Set(
       selectedRows
         .filter((row) => row.productId === selectedParentProduct._id)
@@ -432,7 +518,7 @@ export function OrderCreatePage() {
     )
 
     let count = 0
-    for (const variant of variantOptions) {
+    for (const variant of orderableVariantOptions) {
       if (!variant._id) continue
       if (!selectedIdsSet.has(variant._id)) continue
       if (existingIdsSet.has(variant._id)) continue
@@ -441,19 +527,28 @@ export function OrderCreatePage() {
     }
 
     return count
-  }, [maxProductsInOrder, selectedParentProduct, selectedRows, selectedVariantIds, variantOptions])
+  }, [
+    maxProductsInOrder,
+    orderableVariantOptions,
+    selectedParentProduct,
+    selectedRows,
+    selectedOrderableVariantIds,
+  ])
   const canAddSelectedVariant =
     Boolean(selectedParentProduct) &&
-    selectedVariantIds.length > 0 &&
+    selectedOrderableVariantIds.length > 0 &&
     canAddSelectedVariantsCount > 0 &&
     canAddMoreRows &&
+    !isReferenceDataLoading &&
     !createMutation.isPending
 
   const canSubmit =
     !createMutation.isPending &&
     hasValidSettings &&
     Boolean(selectedCustomer) &&
-    selectedRows.length > 0
+    selectedRows.length > 0 &&
+    !hasInventoryValidationErrors &&
+    !isReferenceDataLoading
 
   const handleOpenCustomerPicker = () => {
     if (createMutation.isPending) return
@@ -482,7 +577,7 @@ export function OrderCreatePage() {
   const handleAddSelectedVariant = () => {
     if (!selectedParentProduct || !parentProductDetailsQuery.data) return
     if (!canAddMoreRows) return
-    const selectedIdsSet = new Set(selectedVariantIds)
+    const selectedIdsSet = new Set(selectedOrderableVariantIds)
     if (selectedIdsSet.size === 0) return
 
     const existingIdsSet = new Set(
@@ -494,7 +589,7 @@ export function OrderCreatePage() {
     const rowsLeft = (maxProductsInOrder ?? 0) - selectedRows.length
     if (rowsLeft <= 0) return
 
-    const variantsToAdd = variantOptions
+    const variantsToAdd = orderableVariantOptions
       .filter(
         (variant) =>
           typeof variant._id === 'string' &&
@@ -532,27 +627,29 @@ export function OrderCreatePage() {
 
   const handleQuantityChange = (rowId: number, quantity: number) => {
     if (!hasValidSettings || !maxProductQuantityInOrder) return
+    const rowValidation = selectedRowsValidationById.get(rowId)
+    const rowMax = Math.max(rowValidation?.maxQuantity ?? maxProductQuantityInOrder, 1)
 
     setSelectedRows((current) =>
       current.map((row) =>
         row.rowId === rowId
-          ? { ...row, quantity: clampQuantity(quantity, maxProductQuantityInOrder) }
+          ? { ...row, quantity: clampQuantity(quantity, 1, rowMax) }
           : row,
       ),
     )
   }
 
   const handleCreateOrder = useCallback(async () => {
-    if (!canSubmit || !selectedCustomer || !hasValidSettings || !maxProductQuantityInOrder) return
+    if (!canSubmit || !selectedCustomer || !hasValidSettings) return
 
-    const payload = {
-      customer: selectedCustomer._id,
-      products: selectedRows.map((row) => ({
-        productId: row.productId,
-        variantId: row.variantId,
-        quantity: clampQuantity(row.quantity, maxProductQuantityInOrder),
-      })),
-    }
+      const payload = {
+        customer: selectedCustomer._id,
+        products: selectedRows.map((row) => ({
+          quantity: row.quantity,
+          productId: row.productId,
+          variantId: row.variantId,
+        })),
+      }
 
     const createdOrder = await createMutation.mutateAsync(payload)
     enqueueSnackbar(ordersUiText.toasts.created, { variant: 'success' })
@@ -562,7 +659,6 @@ export function OrderCreatePage() {
     createMutation,
     enqueueSnackbar,
     hasValidSettings,
-    maxProductQuantityInOrder,
     navigate,
     selectedCustomer,
     selectedRows,
@@ -866,7 +962,8 @@ export function OrderCreatePage() {
                         </Typography>
                       ) : null}
 
-                      {selectedParentProduct && parentProductDetailsQuery.isLoading ? (
+                      {selectedParentProduct &&
+                      (parentProductDetailsQuery.isLoading || isReferenceDataLoading) ? (
                         <Stack
                           direction="row"
                           spacing={1}
@@ -882,7 +979,8 @@ export function OrderCreatePage() {
 
                       {selectedParentProduct &&
                       !parentProductDetailsQuery.isLoading &&
-                      variantOptions.length === 0 ? (
+                      !isReferenceDataLoading &&
+                      orderableVariantOptions.length === 0 ? (
                         <Typography
                           variant="body2"
                           color="text.secondary"
@@ -897,10 +995,13 @@ export function OrderCreatePage() {
                         sx={{ maxHeight: 320, overflowY: 'auto' }}
                         data-testid="orders-create-page-variants-list"
                       >
-                        {variantOptions.map((variant, index) => {
+                        {orderableVariantOptions.map((variant, index) => {
                           const product = parentProductDetailsQuery.data
                           const variantId = variant._id
                           if (!variantId || !product) return null
+                          const inventoryVariant = selectedParentInventory?.variants.find(
+                            (candidate) => candidate.variantId === variantId,
+                          )
                           const isSelected = selectedVariantIds.includes(variantId)
                           const isAlreadyAdded = selectedRows.some(
                             (row) => row.productId === product._id && row.variantId === variantId,
@@ -939,7 +1040,12 @@ export function OrderCreatePage() {
                                   {buildVariantLabel(variant, product)}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                  {formatPrice(variant.price)}
+                                  {formatPrice(variant.price)} • {ordersUiText.createPage.labels.available}:{' '}
+                                  {inventoryVariant?.available ?? '-'} •{' '}
+                                  {ordersUiText.createPage.labels.directOrder}:{' '}
+                                  {resolveDirectOrderLabel(
+                                    inventoryVariant?.allowSellingOutOfStock ?? null,
+                                  )}
                                 </Typography>
                               </Stack>
                             </Paper>
@@ -971,51 +1077,87 @@ export function OrderCreatePage() {
                     ) : null}
 
                     <Stack spacing={0.75}>
-                      {selectedRows.map((row, index) => (
-                        <Paper
-                          key={row.rowId}
-                          variant="outlined"
-                          sx={{ p: 1 }}
-                          data-testid={`orders-create-page-selected-row-${index}`}
-                        >
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography
-                                sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                                data-testid={`orders-create-page-selected-row-${index}-summary`}
-                              >
-                                {row.productName} | {row.variantLabel}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                data-testid={`orders-create-page-selected-row-${index}-price`}
-                              >
-                                {formatPrice(row.unitPrice)}
-                              </Typography>
-                            </Box>
+                      {selectedRows.map((row, index) => {
+                        const rowValidation = selectedRowsValidationById.get(row.rowId)
+                        const rowMax = Math.max(rowValidation?.maxQuantity ?? maxProductQuantityInOrder ?? 1, 1)
+                        const warningMessage = resolveInventoryWarningMessage(
+                          rowValidation?.warningCode ?? null,
+                        )
+                        const hasWarning = Boolean(warningMessage)
 
-                            <OrderProductQuantityControl
-                              value={row.quantity}
-                              min={1}
-                              max={maxProductQuantityInOrder ?? 1}
-                              disabled={!hasValidSettings || createMutation.isPending}
-                              onChange={(nextValue) => handleQuantityChange(row.rowId, nextValue)}
-                              testIdPrefix={`orders-create-page-selected-row-${index}`}
-                            />
+                        return (
+                          <Paper
+                            key={row.rowId}
+                            variant="outlined"
+                            sx={{ p: 1, borderColor: hasWarning ? 'warning.main' : 'divider' }}
+                            data-testid={`orders-create-page-selected-row-${index}`}
+                          >
+                            <Stack spacing={0.75}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography
+                                    sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                                    data-testid={`orders-create-page-selected-row-${index}-summary`}
+                                  >
+                                    {row.productName} | {row.variantLabel}
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    data-testid={`orders-create-page-selected-row-${index}-price`}
+                                  >
+                                    {formatPrice(row.unitPrice)} •{' '}
+                                    {ordersUiText.createPage.labels.availableInStock}:{' '}
+                                    {rowValidation?.available ?? '-'} |{' '}
+                                    {ordersUiText.createPage.labels.reservedFromStock}:{' '}
+                                    {rowValidation?.reservedFromStock ?? '-'} |{' '}
+                                    {ordersUiText.createPage.labels.directOrder}:{' '}
+                                    {rowValidation?.directOrder ?? '-'}
+                                  </Typography>
+                                </Box>
 
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleRemoveRow(row.rowId)}
-                              disabled={createMutation.isPending}
-                              data-testid={`orders-create-page-selected-row-${index}-delete-button`}
-                            >
-                              <DeleteOutlineOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </Stack>
-                        </Paper>
-                      ))}
+                                <OrderProductQuantityControl
+                                  value={row.quantity}
+                                  min={1}
+                                  max={rowMax}
+                                  disabled={
+                                    !hasValidSettings ||
+                                    createMutation.isPending ||
+                                    isReferenceDataLoading
+                                  }
+                                  onChange={(nextValue) => handleQuantityChange(row.rowId, nextValue)}
+                                  testIdPrefix={`orders-create-page-selected-row-${index}`}
+                                />
+
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleRemoveRow(row.rowId)}
+                                  disabled={createMutation.isPending}
+                                  data-testid={`orders-create-page-selected-row-${index}-delete-button`}
+                                >
+                                  <DeleteOutlineOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Stack>
+
+                              {hasWarning ? (
+                                <Stack
+                                  direction="row"
+                                  spacing={0.75}
+                                  alignItems="center"
+                                  sx={{ color: 'warning.main' }}
+                                  data-testid={`orders-create-page-selected-row-${index}-warning`}
+                                >
+                                  <WarningAmberRoundedIcon fontSize="small" />
+                                  <Typography variant="caption" color="inherit">
+                                    {warningMessage}
+                                  </Typography>
+                                </Stack>
+                              ) : null}
+                            </Stack>
+                          </Paper>
+                        )
+                      })}
                     </Stack>
                   </Stack>
                 </Paper>

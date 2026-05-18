@@ -47,6 +47,10 @@ export const ordersUiText = {
       productsSubtotal: 'Products subtotal',
       deliveryPrice: 'Delivery',
       totalPrice: 'Total',
+      availableInStock: 'Available in stock',
+      available: 'Available',
+      reservedFromStock: 'Reserved from stock',
+      directOrder: 'Direct order',
       state: 'State',
       city: 'City',
       street: 'Street',
@@ -280,6 +284,18 @@ export const ordersUiText = {
   },
   validation: {
     commentsInvalid: 'Comment should be in range 1-250 and without < or > symbols',
+    inventoryVariantUnavailable:
+      'Variant is unavailable for ordering. Remove this line and select another variant.',
+    inventoryOutOfStockBlocked:
+      'Variant cannot be sold without stock. Increase is blocked until inventory is available.',
+    inventoryQuantityExceedsAvailable:
+      'Quantity exceeds available inventory. Reduce quantity or remove the line.',
+    inventoryMissingSnapshot:
+      'Variant is missing in inventory. You can only decrease quantity or remove the line.',
+    catalogMissingSnapshot:
+      'Variant is missing in catalog. You can only decrease quantity or remove the line.',
+    inactiveSnapshot:
+      'Variant is inactive. You can only decrease quantity or remove the line.',
     deliveryCityInvalid:
       "City's name should contain only 1-20 alphabetical characters and one space between",
     deliveryStreetInvalid:
