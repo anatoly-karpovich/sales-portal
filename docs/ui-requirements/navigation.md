@@ -6,7 +6,7 @@
 
 | Section | Content |
 | --- | --- |
-| Brand and links | Brand label "Sales Portal" plus links defined in `navigationMenuOptions` (Home, Orders, Categories, Products, Customers, Managers). Each link calls `sideMenuClickHandler` and highlights the active item via `activateNavigationMenuItem`. |
+| Brand and links | Brand label "Sales Portal" plus links defined in `navigationMenuOptions` (Home, Orders, Categories, Products, Inventory, Customers, Managers). Each link calls `sideMenuClickHandler` and highlights the active item via `activateNavigationMenuItem`. |
 | Utilities | Notification bell with badge (`#notification-bell`), theme toggle button (`#theme-toggle`), user menu linking to the manager profile, and a sign-out icon. |
 | Responsiveness | Collapses into a hamburger menu that opens the mobile off-canvas. |
 

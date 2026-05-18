@@ -98,7 +98,7 @@ Top-level source layout:
     - emits API error event unless request has `skipErrorToast: true`.
 - `api/events.ts` - internal event bus for `error` and `unauthorized`.
 - `api/types.ts` - `ApiRequestConfig` extension with `skipErrorToast`.
-- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `categories`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
+- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `categories`, `inventory`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
   - order model uses split state axes:
@@ -131,6 +131,13 @@ Top-level source layout:
   - categories workspace contract uses combined payload (`GET /categories`) with `tree + flat`.
   - tree node includes both `directProductsCount` (products assigned directly) and `productsCount` (subtree total).
   - create/move category requests are guarded by backend rule: category with direct products cannot become parent.
+- `api/modules/inventory.api.ts`
+  - inventory module contract includes list/details and variant-level update flows.
+  - implemented requests:
+    - `getInventory()` (`GET /inventory`) with filters by `search`, `manufacturer[]`, `productStatus[]`, `inventoryStatus[]`.
+    - `getInventoryByProductId()` (`GET /inventory/products/:productId`) for product inventory details.
+    - `createInventoryAdjustment()` (`POST /inventory/adjustments`) for manual stock adjustments.
+    - `updateInventoryVariantSettings()` (`PATCH /inventory/products/:productId/variants/:variantId/settings`) for threshold/direct-order settings.
 
 ### 4.3 `features` layer
 
@@ -182,6 +189,25 @@ Top-level source layout:
   - `components/ProductForm.tsx`, `ProductsFiltersDialog.tsx`, `ProductsFilterChips.tsx`, `ProductsTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `products.ui-text.ts` - labels, validation text, toast text
+- `features/inventory`
+  - `pages/InventoryPage.tsx` - global inventory list (`#/inventory`) with search, filters, sorting, and pagination.
+  - `pages/InventoryDetailsPage.tsx` - product inventory details (`#/products/:productId/inventory`) with summary cards and per-variant cards.
+  - `hooks/useInventoryPageState.ts` - list orchestration + query params.
+  - `hooks/useInventoryQuery.ts` - query/mutation layer for list/details, stock adjustment, and variant settings updates.
+  - `components/InventoryFiltersDialog.tsx`, `InventoryFilterChips.tsx` - inventory-only filters UX.
+  - `components/InventoryAdjustDialog.tsx` - variant adjustment modal:
+    - current-state cards (`Quantity`, `Reserved`, `Available`) use neutral outlined borders;
+    - fields: `Adjustment Type`, `Adjustment Amount` / `New Quantity`, optional `Reason`, optional `Comment`;
+    - `Comment` max length is `250`;
+    - preview block includes `Quantity`, `Available`, `Reserved`, `Change`;
+    - save is blocked for invalid payloads (non-integer/<=0, negative result, `quantityAfter < reserved`);
+    - footer action order is `Save Adjustment` then `Cancel`.
+  - `components/InventorySettingsDialog.tsx` - variant settings modal:
+    - current-state cards (`Quantity`, `Reserved`, `Available`) use neutral outlined borders;
+    - fields: `Low Stock Threshold`, `Direct Order` (`Allowed`/`Blocked`);
+    - preview block includes only `Threshold` and `Direct Order` cards;
+    - footer action order is `Save Settings` then `Cancel`.
+  - `inventory.ui-text.ts` - labels, validation text, toast text.
 - `features/customers` (implemented in iteration 5)
   - `pages/CustomersPage.tsx` - list, filters, export, pagination, delete flow
     - list table columns: `Email`, `Name`, `State`, `City`, `Created On`, `Actions`.
@@ -473,9 +499,11 @@ Routes:
   - `/orders`
   - `/orders/add`
   - `/orders/:orderId`
+  - `/inventory`
   - `/categories`
   - `/products`
   - `/products/add`
+  - `/products/:productId/inventory`
   - `/products/:productId/edit`
   - `/customers`
   - `/customers/add`
@@ -560,6 +588,10 @@ Existing scope prefixes to follow:
 - `products-list-*`
 - `products-upsert-*`
 - `product-details-dialog-*`
+- `inventory-list-*`
+- `inventory-details-page-*`
+- `inventory-adjust-dialog-*`
+- `inventory-settings-dialog-*`
 - `categories-page-*`
 - `categories-tree-*`
 - `search-toolbar-*`
