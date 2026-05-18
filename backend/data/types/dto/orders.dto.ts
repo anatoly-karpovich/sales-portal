@@ -92,7 +92,44 @@ export type OrderCommentCreateRequestDTO = {
   comment: string;
 };
 
-export type OrderDetailsDTO = IOrder<ICustomer, IProductInOrder>;
+export type InventoryReservationSummaryStateDTO =
+  | "Temporary Lock"
+  | "Processing Lock"
+  | "No Active Lock"
+  | "Consumed"
+  | "Released";
+
+export type InventoryReservationLineStateDTO =
+  | "Fully Reserved"
+  | "Partially Reserved"
+  | "Direct Order"
+  | "No Active Lock"
+  | "Consumed"
+  | "Released";
+
+export type InventoryReservationSummaryDTO = {
+  state: InventoryReservationSummaryStateDTO;
+  expiresAt: string | null;
+  type: "Admin Draft" | "Customer Draft" | "Order Processing" | null;
+};
+
+export type InventoryReservationLineDTO = {
+  productId: string;
+  variantId: string;
+  orderedQuantity: number;
+  reservedQuantity: number;
+  directOrderQuantity: number;
+  state: InventoryReservationLineStateDTO;
+};
+
+export type InventoryReservationDTO = {
+  summary: InventoryReservationSummaryDTO;
+  lines: InventoryReservationLineDTO[];
+};
+
+export type OrderDetailsDTO = IOrder<ICustomer, IProductInOrder> & {
+  inventoryReservation: InventoryReservationDTO;
+};
 export type OrderListItemDTO = IOrder<IOrderCustomerSnapshot, IProductInOrderResponse>;
 
 export type CreateOrderRequestDTO = Request<OrderByIdParamsDTO, unknown, OrderCreateRequestBodyDTO>;

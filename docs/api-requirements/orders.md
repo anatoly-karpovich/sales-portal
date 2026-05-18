@@ -138,6 +138,50 @@ Notes:
 - order list/export keep the list-oriented line references (`product._id`, `variant._id`) in response/export columns.
 - on reopen (`Canceled -> Draft`), product snapshots in order lines are refreshed from current product/variant values.
 
+## Order Details Inventory Reservation (`GET /api/orders/:orderId`)
+
+`Order` response includes computed `inventoryReservation` block:
+
+```json
+{
+  "summary": {
+    "state": "Temporary Lock",
+    "expiresAt": "2026-05-18T12:34:56.000Z",
+    "type": "Admin Draft"
+  },
+  "lines": [
+    {
+      "productId": "64f100000000000000000001",
+      "variantId": "64f100000000000000000101",
+      "orderedQuantity": 5,
+      "reservedQuantity": 2,
+      "directOrderQuantity": 3,
+      "state": "Partially Reserved"
+    }
+  ]
+}
+```
+
+Summary state:
+- `Temporary Lock` when active reservation has `expiresAt`;
+- `Processing Lock` when active reservation exists and `expiresAt = null`;
+- `Consumed` when no active reservation and order is `Completed`;
+- `Released` when no active reservation and order is `Canceled`;
+- `No Active Lock` otherwise.
+
+Line-level state:
+- `Fully Reserved` when `reservedQuantity === orderedQuantity`;
+- `Partially Reserved` when `0 < reservedQuantity < orderedQuantity`;
+- `Direct Order` when `reservedQuantity === 0`, `directOrderQuantity > 0`, and inventory variant allows selling out of stock;
+- `No Active Lock` as fallback when reservation is missing/inconsistent for a line.
+- `Consumed` when order is `Completed` and no active reservation (terminal line state; split is restored from `Sale` adjustments for this order line);
+- `Released` when order is `Canceled` and no active reservation (terminal line state; `directOrderQuantity = 0`).
+
+Notes:
+- backend returns only canonical state fields (`state`, `type`, `expiresAt`) and quantities;
+- UI label mapping (for example `Temporary Lock -> Reserved (Temporary)`) is frontend-owned;
+- reservation data is composed dynamically from `Reservation` + `Inventory` and is not stored in `Order`.
+
 ## Manager Assignment Rules
 
 - `PUT /api/orders/:orderId/status` with target `In Process` auto-assigns current performer when `assignedManager` is empty.

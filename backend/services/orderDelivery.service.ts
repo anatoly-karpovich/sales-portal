@@ -130,7 +130,8 @@ class OrderDeliveryService {
       createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
     );
 
-    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
+    const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, persistedOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");
     }

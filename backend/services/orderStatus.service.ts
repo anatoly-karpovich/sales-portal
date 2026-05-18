@@ -208,7 +208,8 @@ class OrderStatusService {
           });
         }
 
-        const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true, session });
+        const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+        const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, persistedOrder, { new: true, session });
         if (!updatedOrder) {
           throw new Error("Order not found");
         }

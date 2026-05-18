@@ -34,7 +34,8 @@ class OrderCommentsService {
       comments: [...currentOrder.comments, comment],
     };
 
-    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
+    const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, persistedOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");
     }

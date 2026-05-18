@@ -117,7 +117,8 @@ class OrderReceiveService {
           session,
         });
 
-        const updatedOrder = await Order.findByIdAndUpdate(orderId, orderForUpdate, { new: true, session });
+        const { inventoryReservation: _inventoryReservation, ...persistedOrder } = orderForUpdate;
+        const updatedOrder = await Order.findByIdAndUpdate(orderId, persistedOrder, { new: true, session });
         if (!updatedOrder) {
           throw new Error("Order not found");
         }

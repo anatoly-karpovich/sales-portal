@@ -212,6 +212,51 @@ orderRouter.put(
  *           type: boolean
  *         imageUrl:
  *           type: string
+ *     InventoryReservationSummary:
+ *       type: object
+ *       required: [state, expiresAt, type]
+ *       properties:
+ *         state:
+ *           type: string
+ *           enum: [Temporary Lock, Processing Lock, No Active Lock, Consumed, Released]
+ *         expiresAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *         type:
+ *           type: string
+ *           enum: [Admin Draft, Customer Draft, Order Processing]
+ *           nullable: true
+ *     InventoryReservationLine:
+ *       type: object
+ *       required: [productId, variantId, orderedQuantity, reservedQuantity, directOrderQuantity, state]
+ *       properties:
+ *         productId:
+ *           type: string
+ *         variantId:
+ *           type: string
+ *         orderedQuantity:
+ *           type: integer
+ *           minimum: 0
+ *         reservedQuantity:
+ *           type: integer
+ *           minimum: 0
+ *         directOrderQuantity:
+ *           type: integer
+ *           minimum: 0
+ *         state:
+ *           type: string
+ *           enum: [Fully Reserved, Partially Reserved, Direct Order, No Active Lock, Consumed, Released]
+ *     InventoryReservation:
+ *       type: object
+ *       required: [summary, lines]
+ *       properties:
+ *         summary:
+ *           $ref: '#/components/schemas/InventoryReservationSummary'
+ *         lines:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryReservationLine'
  *     DeliveryAddress:
  *       type: object
  *       required: [state, city, street, house, zipCode]
@@ -391,7 +436,7 @@ orderRouter.put(
  *           nullable: true
  *     OrderDetails:
  *       type: object
- *       required: [_id, status, customer, products, delivery, total_price, createdOn]
+ *       required: [_id, status, customer, products, delivery, total_price, createdOn, inventoryReservation]
  *       properties:
  *         _id:
  *           type: string
@@ -424,6 +469,8 @@ orderRouter.put(
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/OrderHistoryEntry'
+ *         inventoryReservation:
+ *           $ref: '#/components/schemas/InventoryReservation'
  *     OrdersListResponse:
  *       type: object
  *       required: [Orders, total, page, limit, search, status, deliveryStatus, sorting, IsSuccess, ErrorMessage]

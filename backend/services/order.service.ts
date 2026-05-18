@@ -1,4 +1,7 @@
 import Order from "../models/order.model";
+import Inventory from "../models/inventory.model";
+import InventoryAdjustment from "../models/inventoryAdjustment.model";
+import Reservation from "../models/reservation.model";
 import CustomerService from "./customer.service";
 import {
   IOrder,
@@ -18,6 +21,7 @@ import {
   DELIVERY,
   DELIVERY_STATUSES,
   NOTIFICATIONS,
+  INVENTORY_ADJUSTMENT_TYPES,
   ORDER_HISTORY_ACTIONS,
   ORDER_STATUSES,
   RESERVATION_TYPES,
@@ -26,7 +30,14 @@ import _ from "lodash";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import ExportService from "./export.service";
-import { OrderDetailsDTO, OrderExportFormatDTO, OrderListItemDTO } from "../data/types/dto/orders.dto";
+import {
+  InventoryReservationDTO,
+  InventoryReservationLineStateDTO,
+  InventoryReservationSummaryStateDTO,
+  OrderDetailsDTO,
+  OrderExportFormatDTO,
+  OrderListItemDTO,
+} from "../data/types/dto/orders.dto";
 import { ICommentAuthor } from "../data/types/comments.type";
 import { PricingService } from "./pricing.service";
 import { IDeliveryPayload } from "../data/types/delivery.type";
@@ -67,6 +78,197 @@ class OrderService {
     const error = new Error(message) as Error & { statusCode: number };
     error.statusCode = statusCode;
     return error;
+  }
+
+  private toReservationLineState(params: {
+    orderedQuantity: number;
+    reservedQuantity: number;
+    directOrderQuantity: number;
+    allowSellingOutOfStock: boolean | undefined;
+  }): InventoryReservationLineStateDTO {
+    const { orderedQuantity, reservedQuantity, directOrderQuantity, allowSellingOutOfStock } = params;
+
+    if (reservedQuantity === orderedQuantity && orderedQuantity > 0) {
+      return "Fully Reserved";
+    }
+    if (reservedQuantity > 0 && reservedQuantity < orderedQuantity) {
+      return "Partially Reserved";
+    }
+    if (reservedQuantity === 0 && directOrderQuantity > 0) {
+      return allowSellingOutOfStock ? "Direct Order" : "No Active Lock";
+    }
+    return "No Active Lock";
+  }
+
+  private toReservationSummaryState(params: {
+    status: ORDER_STATUSES;
+    hasActiveReservation: boolean;
+    expiresAt: string | null;
+  }): InventoryReservationSummaryStateDTO {
+    const { status, hasActiveReservation, expiresAt } = params;
+
+    if (hasActiveReservation) {
+      return expiresAt ? "Temporary Lock" : "Processing Lock";
+    }
+    if (status === ORDER_STATUSES.COMPLETED) {
+      return "Consumed";
+    }
+    if (status === ORDER_STATUSES.CANCELED) {
+      return "Released";
+    }
+    return "No Active Lock";
+  }
+
+  private toIsoDateString(value: unknown): string | null {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value.toISOString();
+    }
+    const parsed = new Date(value as string);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  private async getAllowSellingOutOfStockByLine(products: IProductInOrder[]): Promise<Map<string, boolean>> {
+    const productIds = [
+      ...new Set(products.map((item) => item.productId?.toString()).filter((value): value is string => Boolean(value))),
+    ].map((value) => new Types.ObjectId(value));
+
+    if (productIds.length === 0) {
+      return new Map();
+    }
+
+    const inventories = await Inventory.find({ productId: { $in: productIds } })
+      .select("productId variants.variantId variants.allowSellingOutOfStock")
+      .lean()
+      .exec();
+
+    const allowByLineKey = new Map<string, boolean>();
+    for (const inventory of inventories as Array<{
+      productId: Types.ObjectId;
+      variants?: Array<{ variantId: Types.ObjectId; allowSellingOutOfStock?: boolean }>;
+    }>) {
+      const productId = inventory.productId?.toString?.();
+      if (!productId) {
+        continue;
+      }
+      for (const variant of inventory.variants ?? []) {
+        const variantId = variant.variantId?.toString?.();
+        if (!variantId) {
+          continue;
+        }
+        allowByLineKey.set(`${productId}:${variantId}`, Boolean(variant.allowSellingOutOfStock));
+      }
+    }
+
+    return allowByLineKey;
+  }
+
+  private async buildInventoryReservation(
+    order: Pick<IOrder, "status" | "products"> & { _id: Types.ObjectId },
+  ): Promise<InventoryReservationDTO> {
+    const reservation = await Reservation.findOne({ orderId: order._id })
+      .select("type items expiresAt")
+      .lean()
+      .exec();
+
+    const reservationItemsByLine = new Map<string, number>();
+    for (const item of (reservation?.items ?? []) as Array<{ productId: Types.ObjectId; variantId: Types.ObjectId; quantity: number }>) {
+      const key = `${item.productId.toString()}:${item.variantId.toString()}`;
+      reservationItemsByLine.set(key, (reservationItemsByLine.get(key) ?? 0) + Math.max(item.quantity ?? 0, 0));
+    }
+
+    const hasActiveReservation = reservationItemsByLine.size > 0;
+    const expiresAt = hasActiveReservation ? this.toIsoDateString((reservation as { expiresAt?: unknown } | null)?.expiresAt) : null;
+    const summaryState = this.toReservationSummaryState({
+      status: order.status,
+      hasActiveReservation,
+      expiresAt,
+    });
+    const consumedFromStockByLine =
+      summaryState === "Consumed" && !hasActiveReservation
+        ? await this.getConsumedFromStockByLine(order._id)
+        : new Map<string, number>();
+    const allowSellingOutOfStockByLine = await this.getAllowSellingOutOfStockByLine(order.products as IProductInOrder[]);
+
+    const lines = (order.products as IProductInOrder[]).map((line) => {
+      const productId = line.productId.toString();
+      const variantId = line.variantId.toString();
+      const key = `${productId}:${variantId}`;
+      const orderedQuantity = Math.max(line.quantity ?? 0, 0);
+      const isTerminalWithoutReservation =
+        !hasActiveReservation &&
+        (summaryState === "Consumed" || summaryState === "Released");
+      if (isTerminalWithoutReservation) {
+        const consumedFromStock = Math.min(
+          Math.max(consumedFromStockByLine.get(key) ?? 0, 0),
+          orderedQuantity,
+        );
+        const directOrderQuantity = summaryState === "Consumed"
+          ? Math.max(orderedQuantity - consumedFromStock, 0)
+          : 0;
+        return {
+          productId,
+          variantId,
+          orderedQuantity,
+          reservedQuantity: summaryState === "Consumed" ? consumedFromStock : 0,
+          directOrderQuantity,
+          state: summaryState,
+        };
+      }
+      const rawReserved = Math.max(reservationItemsByLine.get(key) ?? 0, 0);
+      const reservedQuantity = Math.min(rawReserved, orderedQuantity);
+      const directOrderQuantity = Math.max(orderedQuantity - reservedQuantity, 0);
+
+      return {
+        productId,
+        variantId,
+        orderedQuantity,
+        reservedQuantity,
+        directOrderQuantity,
+        state: this.toReservationLineState({
+          orderedQuantity,
+          reservedQuantity,
+          directOrderQuantity,
+          allowSellingOutOfStock: allowSellingOutOfStockByLine.get(key),
+        }),
+      };
+    });
+
+    return {
+      summary: {
+        state: summaryState,
+        expiresAt,
+        type: hasActiveReservation
+          ? ((reservation as { type?: "Admin Draft" | "Customer Draft" | "Order Processing" } | null)?.type ?? null)
+          : null,
+      },
+      lines,
+    };
+  }
+
+  private async getConsumedFromStockByLine(orderId: Types.ObjectId): Promise<Map<string, number>> {
+    const saleAdjustments = await InventoryAdjustment.find({
+      orderId,
+      type: INVENTORY_ADJUSTMENT_TYPES.SALE,
+    })
+      .select("productId variantId quantityChange")
+      .lean()
+      .exec();
+
+    const consumedByLine = new Map<string, number>();
+    for (const adjustment of saleAdjustments as Array<{
+      productId: Types.ObjectId;
+      variantId: Types.ObjectId;
+      quantityChange: number;
+    }>) {
+      const key = `${adjustment.productId.toString()}:${adjustment.variantId.toString()}`;
+      const consumed = Math.max(-(adjustment.quantityChange ?? 0), 0);
+      consumedByLine.set(key, (consumedByLine.get(key) ?? 0) + consumed);
+    }
+
+    return consumedByLine;
   }
 
   private toRequestOrderLine(
@@ -540,6 +742,12 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
+    const products = (orderFromDB.products as unknown as IProductInOrder[]).map((item) => ({ ...item }));
+    const inventoryReservation = await this.buildInventoryReservation({
+      _id: new Types.ObjectId(orderFromDB._id),
+      status: orderFromDB.status as ORDER_STATUSES,
+      products,
+    });
     const authorIds = [
       ...new Set(
         (orderFromDB.comments ?? [])
@@ -582,8 +790,9 @@ class OrderService {
     return this.withOverdueDelivery({
       ...(orderFromDB as unknown as IOrder<IOrderCustomerSnapshot>),
       customer,
-      products: (orderFromDB.products as unknown as IProductInOrder[]).map((item) => ({ ...item })),
+      products,
       comments: commentsWithResolvedAuthors,
+      inventoryReservation,
     } as unknown as OrderDetailsDTO);
   }
 
@@ -848,21 +1057,15 @@ class OrderService {
     return this.update(orderId, { customer: customerId }, performerId, currentOrder);
   }
 
-  async delete(id: Types.ObjectId): Promise<OrderDetailsDTO> {
+  async delete(id: Types.ObjectId): Promise<void> {
     console.log(id);
     if (!id) {
       throw new Error("Id was not provided");
     }
     const order = await Order.findByIdAndDelete(id).lean().exec();
     if (!order) {
-      return undefined;
+      return;
     }
-    const customer = await CustomerService.getCustomer(order.customer._id);
-    return {
-      ...(order as unknown as IOrder<IOrderCustomerSnapshot>),
-      customer,
-      products: (order.products as unknown as IProductInOrder[]).map((item) => ({ ...item })),
-    } as unknown as OrderDetailsDTO;
   }
 
   async getOrdersByCustomer(customerId: string) {
@@ -910,7 +1113,8 @@ class OrderService {
       ),
     );
 
-    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), newOrder, { new: true });
+    const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), persistedOrder, { new: true });
     if (!updatedOrder) throw new Error("Order not found");
 
     await this.notificationService.create({
@@ -942,7 +1146,8 @@ class OrderService {
       );
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), newOrder, { new: true });
+    const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+    const updatedOrder = await Order.findByIdAndUpdate(new Types.ObjectId(orderId), persistedOrder, { new: true });
     if (!updatedOrder) throw new Error("Order not found");
 
     if (previousAssignee) {
