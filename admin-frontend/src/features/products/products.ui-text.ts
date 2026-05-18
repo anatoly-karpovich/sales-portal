@@ -38,6 +38,7 @@ export const productsUiText = {
       saveVariant: 'Save Variant',
       activate: 'Activate Product',
       archive: 'Archive Product',
+      manageInventory: 'Manage Inventory',
       addVariant: 'Add Variant',
       removeInvalidVariants: 'Remove Invalid Variants',
       generateAllCombinations: 'Generate All Combinations',

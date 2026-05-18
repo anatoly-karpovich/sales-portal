@@ -117,7 +117,7 @@ export function getInventoryTableColumns(): DataTableColumn<InventoryListItem>[]
       minWidth: 100,
       align: 'right',
       stickyRight: true,
-      render: () => createElement(InventoryTableActionsCell),
+      render: (row) => createElement(InventoryTableActionsCell, { productId: row.productId }),
     },
   ]
 }

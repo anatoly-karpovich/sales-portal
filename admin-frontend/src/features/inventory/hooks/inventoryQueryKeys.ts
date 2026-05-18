@@ -6,4 +6,6 @@ export const inventoryQueryKeys = {
   all: INVENTORY_QUERY_KEY_BASE,
   lists: () => [...INVENTORY_QUERY_KEY_BASE, 'lists'] as const,
   list: (params: InventoryQuery) => [...inventoryQueryKeys.lists(), params] as const,
+  details: () => [...INVENTORY_QUERY_KEY_BASE, 'details'] as const,
+  detail: (productId: string) => [...inventoryQueryKeys.details(), productId] as const,
 }

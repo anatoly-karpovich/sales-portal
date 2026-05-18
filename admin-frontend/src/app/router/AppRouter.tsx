@@ -15,6 +15,7 @@ const ProductsPage = lazy(async () => ({ default: (await import('@/features/prod
 const ProductCreatePage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductCreatePage')).ProductCreatePage }))
 const ProductDetailsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductDetailsPage')).ProductDetailsPage }))
 const InventoryPage = lazy(async () => ({ default: (await import('@/features/inventory/pages/InventoryPage')).InventoryPage }))
+const InventoryDetailsPage = lazy(async () => ({ default: (await import('@/features/inventory/pages/InventoryDetailsPage')).InventoryDetailsPage }))
 const CategoriesPage = lazy(async () => ({ default: (await import('@/features/categories/pages/CategoriesPage')).CategoriesPage }))
 const CustomersPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomersPage')).CustomersPage }))
 const CustomerCreatePage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerCreatePage')).CustomerCreatePage }))
@@ -87,6 +88,14 @@ function AppRoutes() {
           element={
             <SuspendedRoute>
               <ProductCreatePage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/products/:productId/inventory"
+          element={
+            <SuspendedRoute>
+              <InventoryDetailsPage />
             </SuspendedRoute>
           }
         />

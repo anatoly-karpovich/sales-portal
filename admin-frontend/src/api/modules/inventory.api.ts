@@ -35,6 +35,41 @@ export type InventoryQuery = {
   limit: number
 }
 
+export type InventoryVariant = {
+  variantId: string
+  quantity: number
+  reserved: number
+  available: number
+  lowStockThreshold: number
+  allowSellingOutOfStock: boolean
+  stockStatus: InventoryStatus
+  status: InventoryRecordStatus
+  updatedOn: string
+}
+
+export type InventoryDetails = {
+  _id: string
+  productId: string
+  totalQuantity: number
+  totalReserved: number
+  totalAvailable: number
+  inventoryStatus: InventoryStatus
+  lowStockVariantsCount: number
+  outOfStockVariantsCount: number
+  variants: InventoryVariant[]
+  status: InventoryRecordStatus
+  createdOn: string
+  updatedOn: string
+  product?: {
+    _id: string
+    name: string
+    manufacturer: string
+    categoryId: string
+    rootCategoryId: string
+    status: ProductStatus
+  }
+}
+
 type InventoryListResponse = {
   Inventories: InventoryListItem[]
   total: number
@@ -52,6 +87,12 @@ type InventoryListResponse = {
   ErrorMessage: string | null
 }
 
+type InventoryDetailsResponse = {
+  Inventory: InventoryDetails
+  IsSuccess: boolean
+  ErrorMessage: string | null
+}
+
 export async function getInventory(query: InventoryQuery) {
   const response = await apiClient.get<InventoryListResponse>('/inventory', {
     params: {
@@ -63,4 +104,9 @@ export async function getInventory(query: InventoryQuery) {
   })
 
   return response.data
+}
+
+export async function getInventoryByProductId(productId: string) {
+  const response = await apiClient.get<InventoryDetailsResponse>(`/inventory/products/${productId}`)
+  return response.data.Inventory
 }

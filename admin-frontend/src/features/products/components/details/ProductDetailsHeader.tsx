@@ -8,6 +8,7 @@ type Props = {
   product: Product
   statusChipColor: 'success' | 'default' | 'warning'
   statusActionLabel: string
+  manageInventoryLabel: string
   statusActionColor: 'success' | 'warning'
   isReadOnlyMode: boolean
   isEditingDisabled: boolean
@@ -20,6 +21,7 @@ export function ProductDetailsHeader({
   product,
   statusChipColor,
   statusActionLabel,
+  manageInventoryLabel,
   statusActionColor,
   isReadOnlyMode,
   isEditingDisabled,
@@ -69,6 +71,15 @@ export function ProductDetailsHeader({
         </Stack>
 
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Button
+            component={Link}
+            to={`/products/${product._id}/inventory`}
+            variant="outlined"
+            disabled={!isReadOnlyMode}
+            data-testid="product-details-page-manage-inventory-button"
+          >
+            {manageInventoryLabel}
+          </Button>
           <Button
             color="error"
             variant="contained"

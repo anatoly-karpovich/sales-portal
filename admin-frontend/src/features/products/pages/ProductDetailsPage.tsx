@@ -555,6 +555,7 @@ export function ProductDetailsPage() {
         product={product}
         statusChipColor={statusChipColor}
         statusActionLabel={statusActionLabel}
+        manageInventoryLabel={productsUiText.detailsPage.actions.manageInventory}
         statusActionColor={statusActionColor}
         isReadOnlyMode={isReadOnlyMode}
         isEditingDisabled={isEditingDisabled}
