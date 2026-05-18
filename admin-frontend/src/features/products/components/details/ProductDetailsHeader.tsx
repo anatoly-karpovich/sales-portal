@@ -77,7 +77,7 @@ export function ProductDetailsHeader({
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
           <Button
             component={Link}
-            to={`/products/${product._id}/inventory`}
+            to={`/inventory/${product._id}`}
             variant="outlined"
             disabled={!isReadOnlyMode}
             data-testid="product-details-page-manage-inventory-button"

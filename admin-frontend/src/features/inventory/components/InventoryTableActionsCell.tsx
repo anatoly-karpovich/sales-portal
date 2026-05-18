@@ -18,7 +18,7 @@ export function InventoryTableActionsCell({ productId }: Props) {
         <IconButton
           size="small"
           component={Link}
-          to={`/products/${productId}/inventory`}
+          to={`/inventory/${productId}`}
           data-testid="inventory-table-details-button"
         >
           <VisibilityOutlinedIcon fontSize="small" />

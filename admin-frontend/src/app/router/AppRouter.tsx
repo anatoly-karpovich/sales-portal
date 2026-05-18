@@ -128,7 +128,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/products/:productId/inventory"
+          path="/inventory/:productId"
           element={
             <SuspendedRoute>
               <InventoryDetailsPage />

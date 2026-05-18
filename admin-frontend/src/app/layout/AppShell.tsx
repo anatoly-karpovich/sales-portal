@@ -31,6 +31,7 @@ export function AppShell() {
   const [mobileAnchor, setMobileAnchor] = useState<HTMLElement | null>(null)
   const mobileMenuOpen = Boolean(mobileAnchor)
   const toNavTestId = (path: string) => path.replace(/\//g, '-').replace(/^-+/, '') || 'home'
+  const isNavItemSelected = (path: string) => location.pathname.startsWith(path)
 
   const handleLogout = () => {
     void (async () => {
@@ -89,7 +90,7 @@ export function AppShell() {
             data-testid="app-shell-navigation"
           >
             {navigationItems.map((item) => {
-              const selected = location.pathname.startsWith(item.to)
+              const selected = isNavItemSelected(item.to)
               return (
                 <Button
                   key={item.to}
@@ -166,7 +167,7 @@ export function AppShell() {
         data-testid="app-shell-mobile-menu"
       >
         {navigationItems.map((item) => {
-          const selected = location.pathname.startsWith(item.to)
+          const selected = isNavItemSelected(item.to)
           return (
             <MenuItem
               key={item.to}
