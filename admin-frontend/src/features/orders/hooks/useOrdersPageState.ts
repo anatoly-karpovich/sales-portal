@@ -4,11 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { getCustomers } from '@/api/modules/customers.api'
 import { getProducts } from '@/api/modules/products.api'
-import type {
-  OrderDeliveryStatus,
-  OrderListItem,
-  OrderStatus,
-} from '@/api/modules/orders.api'
+import type { OrderDeliveryStatus, OrderListItem, OrderStatus } from '@/api/modules/orders.api'
 import { downloadBlobResponse } from '@/utils/download'
 import { DELIVERY_STATUSES, ORDER_STATUSES } from '@/constants/dictionaries'
 import {
@@ -42,9 +38,7 @@ function toOrderStatusList(values: string[]): OrderStatus[] {
 }
 
 function toOrderDeliveryStatusList(values: string[]): OrderDeliveryStatus[] {
-  return values.filter(
-    (value): value is OrderDeliveryStatus => DELIVERY_STATUS_SET.has(value),
-  )
+  return values.filter((value): value is OrderDeliveryStatus => DELIVERY_STATUS_SET.has(value))
 }
 
 export function useOrdersPageState() {

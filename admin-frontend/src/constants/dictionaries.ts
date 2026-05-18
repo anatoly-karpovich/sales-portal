@@ -1,4 +1,13 @@
-export const MANUFACTURERS = ['Apple', 'Samsung', 'Google', 'Microsoft', 'Sony', 'Xiaomi', 'Amazon', 'Tesla'] as const
+export const MANUFACTURERS = [
+  'Apple',
+  'Samsung',
+  'Google',
+  'Microsoft',
+  'Sony',
+  'Xiaomi',
+  'Amazon',
+  'Tesla',
+] as const
 
 export const ORDER_STATUSES = ['Draft', 'In Process', 'Completed', 'Canceled'] as const
 

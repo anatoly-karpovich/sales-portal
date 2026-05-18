@@ -27,7 +27,11 @@ export function AppProviders({ children }: Props) {
   return (
     <ThemeModeProvider>
       <QueryClientProvider client={queryClient}>
-        <SnackbarProvider maxSnack={3} autoHideDuration={4000} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <SnackbarProvider
+          maxSnack={3}
+          autoHideDuration={4000}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
           <ApiEventsProvider>
             <AuthProvider>
               <NotificationsProvider>{children}</NotificationsProvider>

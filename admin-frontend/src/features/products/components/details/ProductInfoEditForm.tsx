@@ -67,7 +67,10 @@ export function ProductInfoEditForm({
           label="Parent image URL"
           value={draft.imageUrl}
           error={Boolean(imageUrlError) || !isParentImageValid}
-          helperText={imageUrlError || (!isParentImageValid ? 'Parent image URL must be a valid http(s) URL.' : ' ')}
+          helperText={
+            imageUrlError ||
+            (!isParentImageValid ? 'Parent image URL must be a valid http(s) URL.' : ' ')
+          }
           onChange={(event) => onChangeField('imageUrl', event.target.value)}
         />
       </Box>

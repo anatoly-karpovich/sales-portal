@@ -140,12 +140,20 @@ function InlineManagerEditor({
             setSearch(value)
           }}
           noOptionsText={
-            <Typography data-testid="order-details-manager-inline-list-empty" color="text.secondary">
+            <Typography
+              data-testid="order-details-manager-inline-list-empty"
+              color="text.secondary"
+            >
               {ordersUiText.dialogs.details.assignManagerNoResults}
             </Typography>
           }
           loadingText={
-            <Stack direction="row" spacing={1} alignItems="center" data-testid="order-details-manager-inline-list-loading">
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              data-testid="order-details-manager-inline-list-loading"
+            >
               <CircularProgress size={16} />
               <Typography color="text.secondary">
                 {ordersUiText.dialogs.details.assignManagerLoading}
@@ -155,7 +163,11 @@ function InlineManagerEditor({
           renderOption={(props, manager, state) => {
             const { key, ...optionProps } = props
             return (
-              <li key={key} {...optionProps} data-testid={`order-details-manager-inline-item-${state.index}`}>
+              <li
+                key={key}
+                {...optionProps}
+                data-testid={`order-details-manager-inline-item-${state.index}`}
+              >
                 <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                   {formatManagerLabel(manager)}
                 </Typography>
@@ -219,7 +231,13 @@ export function OrderDetailsManagerSection({
   const rootSx = { p: { xs: 2, md: 2.5 } }
   const content = (
     <Stack spacing={1.75}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        flexWrap="wrap"
+        gap={1}
+      >
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {ordersUiText.detailsPage.labels.assignedManager}
         </Typography>
@@ -275,7 +293,10 @@ export function OrderDetailsManagerSection({
             </Typography>
           </Button>
         ) : (
-          <Typography sx={{ fontStyle: 'italic' }} data-testid="order-details-assigned-manager-value">
+          <Typography
+            sx={{ fontStyle: 'italic' }}
+            data-testid="order-details-assigned-manager-value"
+          >
             {assignedManagerDisplayValue}
           </Typography>
         )

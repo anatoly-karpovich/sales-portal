@@ -140,7 +140,9 @@ export async function createInventoryAdjustment(payload: InventoryAdjustmentCrea
   return response.data.Inventory
 }
 
-export async function updateInventoryVariantSettings(payload: InventoryVariantSettingsPatchPayload) {
+export async function updateInventoryVariantSettings(
+  payload: InventoryVariantSettingsPatchPayload,
+) {
   const response = await apiClient.patch<InventoryDetailsResponse>(
     `/inventory/products/${payload.productId}/variants/${payload.variantId}/settings`,
     {

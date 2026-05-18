@@ -23,7 +23,10 @@ export function HomePage() {
       <HomeActionCards />
       <HomeMetricCards metricCards={dashboard.metricCards} />
       <HomeChartsSection charts={dashboard.charts} />
-      <HomeTablesSection recentOrders={dashboard.recentOrders} topCustomers={dashboard.topCustomers} />
+      <HomeTablesSection
+        recentOrders={dashboard.recentOrders}
+        topCustomers={dashboard.topCustomers}
+      />
     </Stack>
   )
 }

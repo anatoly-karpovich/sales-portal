@@ -35,7 +35,9 @@ async function extractApiErrorMessage(error: unknown) {
   }
 
   const fallbackMessage = (error as { message?: unknown })?.message
-  return typeof fallbackMessage === 'string' && fallbackMessage.trim().length > 0 ? fallbackMessage : 'Request failed'
+  return typeof fallbackMessage === 'string' && fallbackMessage.trim().length > 0
+    ? fallbackMessage
+    : 'Request failed'
 }
 
 apiClient.interceptors.request.use((config) => {

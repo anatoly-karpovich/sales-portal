@@ -150,7 +150,8 @@ export function InventoryAdjustDialog({
   }
 
   const handleSubmit = async () => {
-    if (isSubmitting || preview.errorMessage || isCommentTooLong || preview.quantity === null) return
+    if (isSubmitting || preview.errorMessage || isCommentTooLong || preview.quantity === null)
+      return
 
     const normalizedReason = reason.trim()
     const normalizedComment = comment.trim()
@@ -177,13 +178,25 @@ export function InventoryAdjustDialog({
       <DialogTitle data-testid="inventory-adjust-dialog-title-section">
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
           <Stack spacing={0.5}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="inventory-adjust-dialog-title">
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700 }}
+              data-testid="inventory-adjust-dialog-title"
+            >
               {inventoryUiText.detailsPage.labels.adjustTitle}
             </Typography>
-            <Typography variant="body2" color="text.secondary" data-testid="inventory-adjust-dialog-subtitle">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="inventory-adjust-dialog-subtitle"
+            >
               {variantDisplayName}
             </Typography>
-            <Typography variant="body2" color="text.secondary" data-testid="inventory-adjust-dialog-meta">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="inventory-adjust-dialog-meta"
+            >
               {[manufacturer, ...attributeLabels].join(' • ')}
             </Typography>
           </Stack>
@@ -212,7 +225,10 @@ export function InventoryAdjustDialog({
               <Typography variant="caption" color="text.secondary">
                 {inventoryUiText.detailsPage.labels.currentQuantity}
               </Typography>
-              <Typography sx={{ mt: 0.5, fontWeight: 700 }} data-testid="inventory-adjust-dialog-current-quantity">
+              <Typography
+                sx={{ mt: 0.5, fontWeight: 700 }}
+                data-testid="inventory-adjust-dialog-current-quantity"
+              >
                 {variant.quantity}
               </Typography>
             </Paper>
@@ -220,7 +236,10 @@ export function InventoryAdjustDialog({
               <Typography variant="caption" color="text.secondary">
                 {inventoryUiText.detailsPage.labels.currentReserved}
               </Typography>
-              <Typography sx={{ mt: 0.5, fontWeight: 700 }} data-testid="inventory-adjust-dialog-current-reserved">
+              <Typography
+                sx={{ mt: 0.5, fontWeight: 700 }}
+                data-testid="inventory-adjust-dialog-current-reserved"
+              >
                 {variant.reserved}
               </Typography>
             </Paper>
@@ -228,7 +247,10 @@ export function InventoryAdjustDialog({
               <Typography variant="caption" color="text.secondary">
                 {inventoryUiText.detailsPage.labels.currentAvailable}
               </Typography>
-              <Typography sx={{ mt: 0.5, fontWeight: 700 }} data-testid="inventory-adjust-dialog-current-available">
+              <Typography
+                sx={{ mt: 0.5, fontWeight: 700 }}
+                data-testid="inventory-adjust-dialog-current-available"
+              >
                 {variant.available}
               </Typography>
             </Paper>
@@ -319,7 +341,10 @@ export function InventoryAdjustDialog({
                 sx={{
                   display: 'grid',
                   gap: 1,
-                  gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' },
+                  gridTemplateColumns: {
+                    xs: 'repeat(2, minmax(0, 1fr))',
+                    md: 'repeat(4, minmax(0, 1fr))',
+                  },
                 }}
                 data-testid="inventory-adjust-dialog-preview-grid"
               >
@@ -327,7 +352,10 @@ export function InventoryAdjustDialog({
                   <Typography variant="caption" color="text.secondary">
                     {inventoryUiText.detailsPage.labels.quantity}
                   </Typography>
-                  <Typography sx={{ mt: 0.25, fontWeight: 700 }} data-testid="inventory-adjust-dialog-preview-quantity">
+                  <Typography
+                    sx={{ mt: 0.25, fontWeight: 700 }}
+                    data-testid="inventory-adjust-dialog-preview-quantity"
+                  >
                     {variant.quantity} → {preview.quantityAfter}
                   </Typography>
                 </Paper>
@@ -335,7 +363,10 @@ export function InventoryAdjustDialog({
                   <Typography variant="caption" color="text.secondary">
                     {inventoryUiText.detailsPage.labels.available}
                   </Typography>
-                  <Typography sx={{ mt: 0.25, fontWeight: 700 }} data-testid="inventory-adjust-dialog-preview-available">
+                  <Typography
+                    sx={{ mt: 0.25, fontWeight: 700 }}
+                    data-testid="inventory-adjust-dialog-preview-available"
+                  >
                     {variant.available} → {preview.availableAfter}
                   </Typography>
                 </Paper>
@@ -343,7 +374,10 @@ export function InventoryAdjustDialog({
                   <Typography variant="caption" color="text.secondary">
                     {inventoryUiText.detailsPage.labels.reserved}
                   </Typography>
-                  <Typography sx={{ mt: 0.25, fontWeight: 700 }} data-testid="inventory-adjust-dialog-preview-reserved">
+                  <Typography
+                    sx={{ mt: 0.25, fontWeight: 700 }}
+                    data-testid="inventory-adjust-dialog-preview-reserved"
+                  >
                     {variant.reserved} → {variant.reserved}
                   </Typography>
                 </Paper>
@@ -351,7 +385,10 @@ export function InventoryAdjustDialog({
                   <Typography variant="caption" color="text.secondary">
                     {inventoryUiText.detailsPage.labels.change}
                   </Typography>
-                  <Typography sx={{ mt: 0.25, fontWeight: 700 }} data-testid="inventory-adjust-dialog-preview-change">
+                  <Typography
+                    sx={{ mt: 0.25, fontWeight: 700 }}
+                    data-testid="inventory-adjust-dialog-preview-change"
+                  >
                     {preview.quantityChange > 0 ? '+' : ''}
                     {preview.quantityChange}
                   </Typography>
@@ -371,7 +408,11 @@ export function InventoryAdjustDialog({
         >
           {inventoryUiText.detailsPage.actions.saveAdjustment}
         </Button>
-        <Button onClick={handleClose} disabled={isSubmitting} data-testid="inventory-adjust-dialog-cancel-button">
+        <Button
+          onClick={handleClose}
+          disabled={isSubmitting}
+          data-testid="inventory-adjust-dialog-cancel-button"
+        >
           {inventoryUiText.detailsPage.actions.cancel}
         </Button>
       </DialogActions>

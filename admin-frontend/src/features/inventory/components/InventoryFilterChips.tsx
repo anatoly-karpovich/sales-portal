@@ -16,7 +16,10 @@ type Props = {
 }
 
 function toFilterTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function withPrefix(prefix: string, value: string) {
@@ -47,7 +50,13 @@ export function InventoryFilterChips({
   }
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap data-testid="inventory-list-filter-chips">
+    <Stack
+      direction="row"
+      spacing={1}
+      flexWrap="wrap"
+      useFlexGap
+      data-testid="inventory-list-filter-chips"
+    >
       {search ? (
         <Chip
           color="primary"

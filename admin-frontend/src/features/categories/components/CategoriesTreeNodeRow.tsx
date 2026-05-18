@@ -72,14 +72,13 @@ export function CategoriesTreeNodeRow({
           borderColor: isDragOver ? 'success.main' : 'transparent',
           bgcolor: isDragOver ? 'success.main' : isSelected ? 'action.hover' : 'transparent',
           opacity: isDragging ? 0.45 : 1,
-          color:
-            isDragOver
-              ? 'primary.contrastText'
-              : isSelected
-                ? 'text.primary'
-                : depth > 0
-                  ? 'text.secondary'
-                  : 'text.primary',
+          color: isDragOver
+            ? 'primary.contrastText'
+            : isSelected
+              ? 'text.primary'
+              : depth > 0
+                ? 'text.secondary'
+                : 'text.primary',
           '&:hover': {
             bgcolor: isDragOver ? 'success.main' : 'action.hover',
             color: isDragOver ? 'primary.contrastText' : 'text.primary',

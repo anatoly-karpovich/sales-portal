@@ -103,7 +103,11 @@ export function ProductVariantsSection({
   onCancelSingleVariantEdit,
 }: Props) {
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="product-details-page-variants-section">
+    <Paper
+      variant="outlined"
+      sx={{ p: { xs: 1.5, md: 2 } }}
+      data-testid="product-details-page-variants-section"
+    >
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -170,7 +174,10 @@ export function ProductVariantsSection({
                 singleVariantError === 'Price should be greater than 0.' ||
                 singleVariantError === 'Price can have max 2 decimal places.'
               const singleVariantHeaderError =
-                isEditingThisVariant && singleVariantDraft && singleVariantError && !isSinglePriceError
+                isEditingThisVariant &&
+                singleVariantDraft &&
+                singleVariantError &&
+                !isSinglePriceError
                   ? singleVariantError
                   : ''
 
@@ -205,7 +212,12 @@ export function ProductVariantsSection({
                         </Button>
                       </Stack>
 
-                      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        alignItems="center"
+                        sx={{ flex: 1, minWidth: 0 }}
+                      >
                         <Box
                           sx={{
                             flex: 1,
@@ -217,9 +229,16 @@ export function ProductVariantsSection({
                           }}
                         >
                           {singleVariantHeaderError ? (
-                            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Stack
+                              direction="row"
+                              spacing={0.5}
+                              alignItems="center"
+                              sx={{ minWidth: 0 }}
+                            >
                               <Box sx={{ width: 4, flexShrink: 0 }} />
-                              <ErrorOutlineOutlinedIcon sx={{ color: 'error.main', fontSize: 18 }} />
+                              <ErrorOutlineOutlinedIcon
+                                sx={{ color: 'error.main', fontSize: 18 }}
+                              />
                               <Typography
                                 variant="body2"
                                 color="error.main"
@@ -236,7 +255,9 @@ export function ProductVariantsSection({
                             <IconButton
                               size="small"
                               color="error"
-                              disabled={!isReadOnlyMode || isEditingDisabled || product.variants.length <= 1}
+                              disabled={
+                                !isReadOnlyMode || isEditingDisabled || product.variants.length <= 1
+                              }
                               onClick={() => onOpenDeleteVariantConfirm(variant._id)}
                             >
                               <DeleteOutlineOutlinedIcon fontSize="small" />
@@ -270,16 +291,19 @@ export function ProductVariantsSection({
                         </Typography>
                         <Typography>
                           <strong>Image:</strong>{' '}
-                          {variant.imageUrl?.trim() || productsUiText.detailsPage.placeholders.useParentImage}
+                          {variant.imageUrl?.trim() ||
+                            productsUiText.detailsPage.placeholders.useParentImage}
                         </Typography>
                         {product.attributes.map((attribute) => (
                           <Typography key={`${variant._id ?? variantIndex}-${attribute.key}`}>
-                            <strong>{attribute.name}:</strong> {variant.attributes[attribute.key] ?? '-'}
+                            <strong>{attribute.name}:</strong>{' '}
+                            {variant.attributes[attribute.key] ?? '-'}
                           </Typography>
                         ))}
                         {product.attributes.length === 0 ? (
                           <Typography>
-                            <strong>Variant:</strong> {toVariantTitle(variant, product.attributes) || '-'}
+                            <strong>Variant:</strong>{' '}
+                            {toVariantTitle(variant, product.attributes) || '-'}
                           </Typography>
                         ) : null}
                       </Stack>

@@ -18,7 +18,12 @@ export function NotFoundPage() {
           The requested page does not exist or the link is outdated.
         </Typography>
         <Box data-testid="not-found-page-actions">
-          <Button component={Link} to="/home" variant="contained" data-testid="not-found-page-home-button">
+          <Button
+            component={Link}
+            to="/home"
+            variant="contained"
+            data-testid="not-found-page-home-button"
+          >
             Go to Home
           </Button>
         </Box>

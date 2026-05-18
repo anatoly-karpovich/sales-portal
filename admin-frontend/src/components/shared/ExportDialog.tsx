@@ -22,7 +22,11 @@ type Props = {
   availableFields: string[]
   defaultFields: string[]
   onClose: () => void
-  onSubmit: (payload: { format: 'csv' | 'json'; exportFrom: 'all' | 'filtered'; fields: string[] }) => Promise<void>
+  onSubmit: (payload: {
+    format: 'csv' | 'json'
+    exportFrom: 'all' | 'filtered'
+    fields: string[]
+  }) => Promise<void>
 }
 
 export function ExportDialog({ open, availableFields, defaultFields, onClose, onSubmit }: Props) {
@@ -53,7 +57,9 @@ export function ExportDialog({ open, availableFields, defaultFields, onClose, on
     selectedFieldsCount > 0 && selectedFieldsCount < availableFields.length
 
   const toggleField = (value: string) => {
-    setFields((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
+    setFields((current) =>
+      current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
+    )
   }
 
   const toggleSelectAll = () => {
@@ -85,35 +91,94 @@ export function ExportDialog({ open, availableFields, defaultFields, onClose, on
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs" data-testid="export-dialog">
       <DialogTitle sx={{ pr: 6, fontWeight: 700 }} data-testid="export-dialog-title-section">
         Export Data
-        <IconButton aria-label="close" onClick={onClose} sx={{ position: 'absolute', right: 16, top: 12 }} data-testid="export-dialog-close-button">
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{ position: 'absolute', right: 16, top: 12 }}
+          data-testid="export-dialog-close-button"
+        >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ px: 3, py: 2.5 }} data-testid="export-dialog-content">
         <Stack spacing={2.75}>
           <Stack spacing={1} data-testid="export-dialog-format-section">
-            <Typography component="label" sx={{ fontWeight: 700 }} data-testid="export-dialog-format-label">
-              File format: <Box component="span" sx={{ color: 'error.main' }}>*</Box>
+            <Typography
+              component="label"
+              sx={{ fontWeight: 700 }}
+              data-testid="export-dialog-format-label"
+            >
+              File format:{' '}
+              <Box component="span" sx={{ color: 'error.main' }}>
+                *
+              </Box>
             </Typography>
-            <RadioGroup row value={format} onChange={(event) => setFormat(event.target.value as 'csv' | 'json')} data-testid="export-dialog-format-options">
-              <FormControlLabel value="csv" control={<Radio />} label="CSV" data-testid="export-dialog-format-csv-option" />
-              <FormControlLabel value="json" control={<Radio />} label="JSON" data-testid="export-dialog-format-json-option" />
+            <RadioGroup
+              row
+              value={format}
+              onChange={(event) => setFormat(event.target.value as 'csv' | 'json')}
+              data-testid="export-dialog-format-options"
+            >
+              <FormControlLabel
+                value="csv"
+                control={<Radio />}
+                label="CSV"
+                data-testid="export-dialog-format-csv-option"
+              />
+              <FormControlLabel
+                value="json"
+                control={<Radio />}
+                label="JSON"
+                data-testid="export-dialog-format-json-option"
+              />
             </RadioGroup>
           </Stack>
 
           <Stack spacing={1} data-testid="export-dialog-source-section">
-            <Typography component="label" sx={{ fontWeight: 700 }} data-testid="export-dialog-source-label">
-              Export from: <Box component="span" sx={{ color: 'error.main' }}>*</Box>
+            <Typography
+              component="label"
+              sx={{ fontWeight: 700 }}
+              data-testid="export-dialog-source-label"
+            >
+              Export from:{' '}
+              <Box component="span" sx={{ color: 'error.main' }}>
+                *
+              </Box>
             </Typography>
-            <RadioGroup row value={exportFrom} onChange={(event) => setExportFrom(event.target.value as 'all' | 'filtered')} data-testid="export-dialog-source-options">
-              <FormControlLabel value="filtered" control={<Radio />} label="Filtered" data-testid="export-dialog-source-filtered-option" />
-              <FormControlLabel value="all" control={<Radio />} label="All" data-testid="export-dialog-source-all-option" />
+            <RadioGroup
+              row
+              value={exportFrom}
+              onChange={(event) => setExportFrom(event.target.value as 'all' | 'filtered')}
+              data-testid="export-dialog-source-options"
+            >
+              <FormControlLabel
+                value="filtered"
+                control={<Radio />}
+                label="Filtered"
+                data-testid="export-dialog-source-filtered-option"
+              />
+              <FormControlLabel
+                value="all"
+                control={<Radio />}
+                label="All"
+                data-testid="export-dialog-source-all-option"
+              />
             </RadioGroup>
           </Stack>
 
-          <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, px: 1.5, py: 1.25 }} data-testid="export-dialog-fields-section">
-            <Typography component="label" sx={{ fontWeight: 700 }} data-testid="export-dialog-fields-label">
-              Select fields to include: <Box component="span" sx={{ color: 'error.main' }}>*</Box>
+          <Box
+            sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, px: 1.5, py: 1.25 }}
+            data-testid="export-dialog-fields-section"
+          >
+            <Typography
+              component="label"
+              sx={{ fontWeight: 700 }}
+              data-testid="export-dialog-fields-label"
+            >
+              Select fields to include:{' '}
+              <Box component="span" sx={{ color: 'error.main' }}>
+                *
+              </Box>
             </Typography>
             <Stack spacing={0.25} sx={{ mt: 1 }} data-testid="export-dialog-fields-options">
               <FormControlLabel
@@ -150,10 +215,17 @@ export function ExportDialog({ open, availableFields, defaultFields, onClose, on
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }} data-testid="export-dialog-actions">
         <Box sx={{ flexGrow: 1 }} />
-        <Button variant="contained" disabled={!fields.length || isSubmitting} onClick={() => void submit()} data-testid="export-dialog-download-button">
+        <Button
+          variant="contained"
+          disabled={!fields.length || isSubmitting}
+          onClick={() => void submit()}
+          data-testid="export-dialog-download-button"
+        >
           {isSubmitting ? <CircularProgress size={18} color="inherit" /> : 'Download'}
         </Button>
-        <Button onClick={onClose} data-testid="export-dialog-cancel-button">Cancel</Button>
+        <Button onClick={onClose} data-testid="export-dialog-cancel-button">
+          Cancel
+        </Button>
       </DialogActions>
     </Dialog>
   )

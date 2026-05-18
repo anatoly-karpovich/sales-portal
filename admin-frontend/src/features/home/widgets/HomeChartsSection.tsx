@@ -1,9 +1,28 @@
-import { BarElement, CategoryScale, Chart as ChartJS, Filler, Legend, LineElement, LinearScale, PointElement, Tooltip as ChartTooltip } from 'chart.js'
+import {
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip as ChartTooltip,
+} from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
 import { Box, Paper, Stack, Typography } from '@mui/material'
 import type { HomeMetricsViewModel } from '@/features/home/mappers/homeMetrics.mapper'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ChartTooltip, Legend, Filler)
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ChartTooltip,
+  Legend,
+  Filler,
+)
 
 type Props = {
   charts: HomeMetricsViewModel['charts']
@@ -66,24 +85,40 @@ export function HomeChartsSection({ charts }: Props) {
           />
         </Box>
       </Paper>
-      <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center' }} data-testid="home-chart-orders-by-day-description">
+      <Box
+        sx={{ p: 2.5, display: 'flex', alignItems: 'center' }}
+        data-testid="home-chart-orders-by-day-description"
+      >
         <Stack spacing={1} data-testid="home-chart-orders-by-day-description-content">
-          <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="home-chart-orders-by-day-title">
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700 }}
+            data-testid="home-chart-orders-by-day-title"
+          >
             Orders in Current Month
           </Typography>
           <Typography color="text.secondary" data-testid="home-chart-orders-by-day-text">
-            This chart shows the number of orders created by day in the current period. It helps track activity trends.
+            This chart shows the number of orders created by day in the current period. It helps
+            track activity trends.
           </Typography>
         </Stack>
       </Box>
 
-      <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center' }} data-testid="home-chart-top-products-description">
+      <Box
+        sx={{ p: 2.5, display: 'flex', alignItems: 'center' }}
+        data-testid="home-chart-top-products-description"
+      >
         <Stack spacing={1} data-testid="home-chart-top-products-description-content">
-          <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="home-chart-top-products-title">
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700 }}
+            data-testid="home-chart-top-products-title"
+          >
             Top Sold Products
           </Typography>
           <Typography color="text.secondary" data-testid="home-chart-top-products-text">
-            This chart displays the top-selling products by sales count. It helps identify strongest performers.
+            This chart displays the top-selling products by sales count. It helps identify strongest
+            performers.
           </Typography>
         </Stack>
       </Box>
@@ -123,13 +158,21 @@ export function HomeChartsSection({ charts }: Props) {
           />
         </Box>
       </Paper>
-      <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center' }} data-testid="home-chart-customer-growth-description">
+      <Box
+        sx={{ p: 2.5, display: 'flex', alignItems: 'center' }}
+        data-testid="home-chart-customer-growth-description"
+      >
         <Stack spacing={1} data-testid="home-chart-customer-growth-description-content">
-          <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="home-chart-customer-growth-title">
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700 }}
+            data-testid="home-chart-customer-growth-title"
+          >
             Customer Growth
           </Typography>
           <Typography color="text.secondary" data-testid="home-chart-customer-growth-text">
-            This chart shows new customer registrations over time, so you can monitor growth dynamics.
+            This chart shows new customer registrations over time, so you can monitor growth
+            dynamics.
           </Typography>
         </Stack>
       </Box>

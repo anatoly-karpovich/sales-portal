@@ -8,7 +8,12 @@ type Props = {
 
 export function InventoryTableActionsCell({ productId }: Props) {
   return (
-    <Stack direction="row" spacing={0.5} justifyContent="flex-end" data-testid="inventory-table-actions-cell">
+    <Stack
+      direction="row"
+      spacing={0.5}
+      justifyContent="flex-end"
+      data-testid="inventory-table-actions-cell"
+    >
       <Tooltip title="Details">
         <IconButton
           size="small"

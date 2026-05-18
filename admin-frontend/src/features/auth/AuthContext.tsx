@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { subscribeToUnauthorized } from '@/api/events'
-import { bootstrapAuthUser, clearSessionStorage, loginRequest, logoutRequest, readStoredUser } from '@/features/auth/auth.service'
+import {
+  bootstrapAuthUser,
+  clearSessionStorage,
+  loginRequest,
+  logoutRequest,
+  readStoredUser,
+} from '@/features/auth/auth.service'
 import type { AuthContextValue } from '@/features/auth/auth.context'
 import type { AppUser, AuthState } from '@/features/auth/auth.types'
 import { AuthContext } from '@/features/auth/auth.context'

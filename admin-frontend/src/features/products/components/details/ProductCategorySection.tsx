@@ -44,7 +44,11 @@ export function ProductCategorySection({
   const categoryPathItems = product.category?.path ?? []
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }} data-testid="product-details-page-category-section">
+    <Paper
+      variant="outlined"
+      sx={{ p: { xs: 1.5, md: 2 } }}
+      data-testid="product-details-page-category-section"
+    >
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -55,7 +59,9 @@ export function ProductCategorySection({
               <span>
                 <IconButton
                   size="small"
-                  disabled={!isReadOnlyMode || isEditingDisabled || isCategoriesLoading || isCategoriesError}
+                  disabled={
+                    !isReadOnlyMode || isEditingDisabled || isCategoriesLoading || isCategoriesError
+                  }
                   onClick={onEnterCategoryMode}
                   data-testid="product-details-page-category-edit-button"
                 >
@@ -125,7 +131,12 @@ export function ProductCategorySection({
             {categoryPathItems.length > 0 ? (
               <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
                 {categoryPathItems.map((item, index) => (
-                  <Stack key={`${item._id}-${index}`} direction="row" spacing={0.5} alignItems="center">
+                  <Stack
+                    key={`${item._id}-${index}`}
+                    direction="row"
+                    spacing={0.5}
+                    alignItems="center"
+                  >
                     <Chip size="small" label={item.name} />
                     {index < categoryPathItems.length - 1 ? (
                       <ChevronRightRoundedIcon fontSize="small" color="disabled" />

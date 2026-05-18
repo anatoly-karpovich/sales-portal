@@ -83,11 +83,9 @@ export function canShowCancelOrder(status: OrderStatus, deliveryStatus: OrderDel
 export function canReceiveOrderProducts(status: OrderStatus, deliveryStatus: OrderDeliveryStatus) {
   return (
     status === 'In Process' &&
-    (
-      deliveryStatus === 'Delivery Scheduled' ||
+    (deliveryStatus === 'Delivery Scheduled' ||
       deliveryStatus === 'Pickup Scheduled' ||
-      deliveryStatus === 'Partially Delivered'
-    )
+      deliveryStatus === 'Partially Delivered')
   )
 }
 

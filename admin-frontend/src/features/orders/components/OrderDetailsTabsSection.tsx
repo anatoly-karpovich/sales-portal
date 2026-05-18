@@ -165,7 +165,11 @@ export function OrderDetailsTabsSection({
               data-testid="order-details-comments-input"
               inputProps={{ 'data-testid': 'order-details-comments-input-field' }}
               error={commentDraft.length > 0 && !isCommentValid}
-              helperText={commentDraft.length > 0 && !isCommentValid ? ordersUiText.validation.commentsInvalid : ' '}
+              helperText={
+                commentDraft.length > 0 && !isCommentValid
+                  ? ordersUiText.validation.commentsInvalid
+                  : ' '
+              }
               disabled={isCommentCreatePending}
             />
             <Button
@@ -202,8 +206,15 @@ export function OrderDetailsTabsSection({
                     data-testid={`order-details-comments-item-${index}`}
                   >
                     <Stack spacing={1}>
-                      <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
-                        <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}>
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        justifyContent="space-between"
+                        alignItems="flex-start"
+                      >
+                        <Typography
+                          sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', flex: 1 }}
+                        >
                           {comment.text}
                         </Typography>
                         <IconButton

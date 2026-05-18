@@ -65,7 +65,12 @@ export function SearchToolbar({
       {showExportButton ? (
         <>
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="contained" startIcon={<DownloadIcon />} onClick={onOpenExport} data-testid="search-toolbar-export-button">
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={onOpenExport}
+            data-testid="search-toolbar-export-button"
+          >
             Export
           </Button>
         </>

@@ -50,7 +50,10 @@ function formatAssignedManager(order: OrderListItem) {
   return fullName || order.assignedManager.username || '-'
 }
 
-export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumnActions): DataTableColumn<OrderListItem>[] {
+export function getOrdersTableColumns({
+  onDetails,
+  onReopen,
+}: OrdersTableColumnActions): DataTableColumn<OrderListItem>[] {
   return [
     {
       key: 'orderNumber',
@@ -81,11 +84,7 @@ export function getOrdersTableColumns({ onDetails, onReopen }: OrdersTableColumn
       width: '12%',
       minWidth: 170,
       render: (row) =>
-        createElement(
-          Typography,
-          { sx: { color: getOrderStatusColor(row.status) } },
-          row.status,
-        ),
+        createElement(Typography, { sx: { color: getOrderStatusColor(row.status) } }, row.status),
     },
     {
       key: 'deliveryStatus',

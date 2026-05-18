@@ -381,5 +381,3 @@ export function ManagerDetailsPage() {
     </Stack>
   )
 }
-
-

@@ -50,7 +50,11 @@ export function ProductDetailsHeader({
       >
         <Stack spacing={0.5}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="product-details-page-title">
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700 }}
+              data-testid="product-details-page-title"
+            >
               {product.name}
             </Typography>
             <Chip label={product.status} color={statusChipColor} variant="outlined" />
@@ -65,8 +69,8 @@ export function ProductDetailsHeader({
             </Button>
           </Stack>
           <Typography color="text.secondary" data-testid="product-details-page-meta">
-            {product.manufacturer} | {product.categoryPath || '-'} | Created {formatDate(product.createdOn)} | Updated{' '}
-            {formatDate(product.updatedOn)}
+            {product.manufacturer} | {product.categoryPath || '-'} | Created{' '}
+            {formatDate(product.createdOn)} | Updated {formatDate(product.updatedOn)}
           </Typography>
         </Stack>
 

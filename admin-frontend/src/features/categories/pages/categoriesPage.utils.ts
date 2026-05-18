@@ -123,7 +123,8 @@ export function getErrorStatus(error: unknown) {
 }
 
 export function getErrorMessage(error: unknown) {
-  return (error as { response?: { data?: { ErrorMessage?: string } } })?.response?.data?.ErrorMessage
+  return (error as { response?: { data?: { ErrorMessage?: string } } })?.response?.data
+    ?.ErrorMessage
 }
 
 export function buildPathLabel(path: CategoryFlatNode['path']) {

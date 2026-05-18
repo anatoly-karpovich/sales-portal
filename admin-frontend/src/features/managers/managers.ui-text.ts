@@ -85,4 +85,3 @@ export function getDeleteManagerMessage(username?: string | null) {
   const safeName = username ?? 'this manager'
   return `Are you sure you want to delete "${safeName}"?`
 }
-

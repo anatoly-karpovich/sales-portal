@@ -27,10 +27,7 @@ export function useProductVariantsDraft(product: Product | null | undefined) {
   }, [])
 
   const updateParentField = useCallback(
-    (
-      field: 'name' | 'manufacturer' | 'description' | 'imageUrl',
-      value: string,
-    ) => {
+    (field: 'name' | 'manufacturer' | 'description' | 'imageUrl', value: string) => {
       setDraft((current) =>
         current
           ? {
@@ -49,7 +46,10 @@ export function useProductVariantsDraft(product: Product | null | undefined) {
       const attributeId = createLocalId()
       return {
         ...current,
-        attributes: [...current.attributes, { id: attributeId, name: '', values: [], inputValue: '' }],
+        attributes: [
+          ...current.attributes,
+          { id: attributeId, name: '', values: [], inputValue: '' },
+        ],
         variants: current.variants.map((variant) => ({
           ...variant,
           attributesByAttributeId: {
@@ -111,10 +111,15 @@ export function useProductVariantsDraft(product: Product | null | undefined) {
 
   const commitAttributeInput = useCallback(
     (attributeId: string) => {
-      const targetAttribute = effectiveDraft?.attributes.find((attribute) => attribute.id === attributeId)
+      const targetAttribute = effectiveDraft?.attributes.find(
+        (attribute) => attribute.id === attributeId,
+      )
       if (!targetAttribute) return
 
-      const rawValues = [...targetAttribute.values, ...parseCommaSeparatedValues(targetAttribute.inputValue)]
+      const rawValues = [
+        ...targetAttribute.values,
+        ...parseCommaSeparatedValues(targetAttribute.inputValue),
+      ]
       commitAttributeValues(attributeId, rawValues)
     },
     [commitAttributeValues, effectiveDraft?.attributes],
@@ -169,7 +174,9 @@ export function useProductVariantsDraft(product: Product | null | undefined) {
       if (!current) return current
 
       const existingKeys = new Set(
-        current.variants.map((variant) => buildVariantCombinationKey(variant.attributesByAttributeId)),
+        current.variants.map((variant) =>
+          buildVariantCombinationKey(variant.attributesByAttributeId),
+        ),
       )
       const generatedVariants = buildPossibleCombinations(current.attributes)
         .filter((combination) => {

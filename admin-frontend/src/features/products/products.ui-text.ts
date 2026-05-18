@@ -51,7 +51,8 @@ export const productsUiText = {
     },
     placeholders: {
       noVariants: 'No variants yet',
-      noVariantsHelp: 'Add one variant manually or generate all possible combinations from attributes.',
+      noVariantsHelp:
+        'Add one variant manually or generate all possible combinations from attributes.',
       useParentImage: 'Uses parent',
       missingProduct: 'Product is unavailable.',
       manufacturersUnavailable:
@@ -139,7 +140,6 @@ export function getDeleteProductMessage(productName?: string | null) {
 }
 
 export function getDeleteVariantMessage(variantName?: string | null) {
-  const safeVariantName =
-    variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
+  const safeVariantName = variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
   return `Are you sure you want to delete "${safeVariantName}"?`
 }

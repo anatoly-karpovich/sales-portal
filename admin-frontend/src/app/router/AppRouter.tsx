@@ -6,24 +6,60 @@ import { PublicOnlyRoute } from '@/app/router/PublicOnlyRoute'
 import { NotFoundPage } from '@/app/router/NotFoundPage'
 import { RouteLoadingFallback } from '@/app/router/RouteLoadingFallback'
 
-const LoginPage = lazy(async () => ({ default: (await import('@/features/auth/pages/LoginPage')).LoginPage }))
-const HomePage = lazy(async () => ({ default: (await import('@/features/home/pages/HomePage')).HomePage }))
-const OrdersPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrdersPage')).OrdersPage }))
-const OrderCreatePage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderCreatePage')).OrderCreatePage }))
-const OrderDetailsPage = lazy(async () => ({ default: (await import('@/features/orders/pages/OrderDetailsPage')).OrderDetailsPage }))
-const ProductsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductsPage')).ProductsPage }))
-const ProductCreatePage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductCreatePage')).ProductCreatePage }))
-const ProductDetailsPage = lazy(async () => ({ default: (await import('@/features/products/pages/ProductDetailsPage')).ProductDetailsPage }))
-const InventoryPage = lazy(async () => ({ default: (await import('@/features/inventory/pages/InventoryPage')).InventoryPage }))
-const InventoryDetailsPage = lazy(async () => ({ default: (await import('@/features/inventory/pages/InventoryDetailsPage')).InventoryDetailsPage }))
-const CategoriesPage = lazy(async () => ({ default: (await import('@/features/categories/pages/CategoriesPage')).CategoriesPage }))
-const CustomersPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomersPage')).CustomersPage }))
-const CustomerCreatePage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerCreatePage')).CustomerCreatePage }))
-const CustomerDetailsPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerDetailsPage')).CustomerDetailsPage }))
-const CustomerEditPage = lazy(async () => ({ default: (await import('@/features/customers/pages/CustomerEditPage')).CustomerEditPage }))
-const ManagersPage = lazy(async () => ({ default: (await import('@/features/managers/pages/ManagersPage')).ManagersPage }))
-const ManagerCreatePage = lazy(async () => ({ default: (await import('@/features/managers/pages/ManagerCreatePage')).ManagerCreatePage }))
-const ManagerDetailsPage = lazy(async () => ({ default: (await import('@/features/managers/pages/ManagerDetailsPage')).ManagerDetailsPage }))
+const LoginPage = lazy(async () => ({
+  default: (await import('@/features/auth/pages/LoginPage')).LoginPage,
+}))
+const HomePage = lazy(async () => ({
+  default: (await import('@/features/home/pages/HomePage')).HomePage,
+}))
+const OrdersPage = lazy(async () => ({
+  default: (await import('@/features/orders/pages/OrdersPage')).OrdersPage,
+}))
+const OrderCreatePage = lazy(async () => ({
+  default: (await import('@/features/orders/pages/OrderCreatePage')).OrderCreatePage,
+}))
+const OrderDetailsPage = lazy(async () => ({
+  default: (await import('@/features/orders/pages/OrderDetailsPage')).OrderDetailsPage,
+}))
+const ProductsPage = lazy(async () => ({
+  default: (await import('@/features/products/pages/ProductsPage')).ProductsPage,
+}))
+const ProductCreatePage = lazy(async () => ({
+  default: (await import('@/features/products/pages/ProductCreatePage')).ProductCreatePage,
+}))
+const ProductDetailsPage = lazy(async () => ({
+  default: (await import('@/features/products/pages/ProductDetailsPage')).ProductDetailsPage,
+}))
+const InventoryPage = lazy(async () => ({
+  default: (await import('@/features/inventory/pages/InventoryPage')).InventoryPage,
+}))
+const InventoryDetailsPage = lazy(async () => ({
+  default: (await import('@/features/inventory/pages/InventoryDetailsPage')).InventoryDetailsPage,
+}))
+const CategoriesPage = lazy(async () => ({
+  default: (await import('@/features/categories/pages/CategoriesPage')).CategoriesPage,
+}))
+const CustomersPage = lazy(async () => ({
+  default: (await import('@/features/customers/pages/CustomersPage')).CustomersPage,
+}))
+const CustomerCreatePage = lazy(async () => ({
+  default: (await import('@/features/customers/pages/CustomerCreatePage')).CustomerCreatePage,
+}))
+const CustomerDetailsPage = lazy(async () => ({
+  default: (await import('@/features/customers/pages/CustomerDetailsPage')).CustomerDetailsPage,
+}))
+const CustomerEditPage = lazy(async () => ({
+  default: (await import('@/features/customers/pages/CustomerEditPage')).CustomerEditPage,
+}))
+const ManagersPage = lazy(async () => ({
+  default: (await import('@/features/managers/pages/ManagersPage')).ManagersPage,
+}))
+const ManagerCreatePage = lazy(async () => ({
+  default: (await import('@/features/managers/pages/ManagerCreatePage')).ManagerCreatePage,
+}))
+const ManagerDetailsPage = lazy(async () => ({
+  default: (await import('@/features/managers/pages/ManagerDetailsPage')).ManagerDetailsPage,
+}))
 
 function ProtectedLayout() {
   return (
@@ -201,4 +237,3 @@ export function AppRouter() {
     </HashRouter>
   )
 }
-

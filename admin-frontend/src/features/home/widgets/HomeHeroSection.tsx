@@ -9,12 +9,19 @@ export function HomeHeroSection() {
             Welcome to Sales Management Portal
           </Typography>
           <Typography color="text.secondary" data-testid="home-hero-description">
-            Monitor key metrics, manage orders, and optimize customer interactions - all in one place.
+            Monitor key metrics, manage orders, and optimize customer interactions - all in one
+            place.
           </Typography>
         </Stack>
       </Box>
 
-      <Stack spacing={1} alignItems="center" textAlign="center" sx={{ py: { xs: 2, md: 3 } }} data-testid="home-hero-secondary">
+      <Stack
+        spacing={1}
+        alignItems="center"
+        textAlign="center"
+        sx={{ py: { xs: 2, md: 3 } }}
+        data-testid="home-hero-secondary"
+      >
         <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="home-hero-metrics-title">
           Business Metrics Overview
         </Typography>

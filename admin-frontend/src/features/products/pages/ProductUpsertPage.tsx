@@ -4,10 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { ProductUpsertPayload } from '@/api/modules/products.api'
 import { ProductCreateVariantsForm } from '@/features/products/components/ProductCreateVariantsForm'
 import { useCreateProductMutation } from '@/features/products/hooks/useProductsQuery'
-import {
-  getProductApiErrorMessage,
-  productsUiText,
-} from '@/features/products/products.ui-text'
+import { getProductApiErrorMessage, productsUiText } from '@/features/products/products.ui-text'
 
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status

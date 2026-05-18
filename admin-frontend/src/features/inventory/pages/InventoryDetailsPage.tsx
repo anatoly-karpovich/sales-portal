@@ -100,7 +100,9 @@ export function InventoryDetailsPage() {
   if (!productId) {
     return (
       <Paper sx={{ p: 3 }} data-testid="inventory-details-page-missing-id">
-        <Typography color="error">{inventoryUiText.detailsPage.placeholders.missingProductId}</Typography>
+        <Typography color="error">
+          {inventoryUiText.detailsPage.placeholders.missingProductId}
+        </Typography>
       </Paper>
     )
   }
@@ -109,12 +111,22 @@ export function InventoryDetailsPage() {
     return <InventoryDetailsSkeleton />
   }
 
-  if (inventoryQuery.isError || productQuery.isError || !inventoryQuery.data || !productQuery.data) {
+  if (
+    inventoryQuery.isError ||
+    productQuery.isError ||
+    !inventoryQuery.data ||
+    !productQuery.data
+  ) {
     return (
       <Paper sx={{ p: 3 }} data-testid="inventory-details-page-load-error">
         <Stack spacing={2} alignItems="flex-start">
           <Alert severity="error">{inventoryUiText.detailsPage.placeholders.unavailable}</Alert>
-          <Button component={Link} to="/inventory" variant="outlined" data-testid="inventory-details-page-load-error-back-link">
+          <Button
+            component={Link}
+            to="/inventory"
+            variant="outlined"
+            data-testid="inventory-details-page-load-error-back-link"
+          >
             {inventoryUiText.detailsPage.backToInventory}
           </Button>
         </Stack>
@@ -153,11 +165,14 @@ export function InventoryDetailsPage() {
   const selectedAdjustVariantContext =
     selectedAdjustVariantId === null
       ? null
-      : variantContexts.find((context) => context.variant.variantId === selectedAdjustVariantId) ?? null
+      : (variantContexts.find((context) => context.variant.variantId === selectedAdjustVariantId) ??
+        null)
   const selectedSettingsVariantContext =
     selectedSettingsVariantId === null
       ? null
-      : variantContexts.find((context) => context.variant.variantId === selectedSettingsVariantId) ?? null
+      : (variantContexts.find(
+          (context) => context.variant.variantId === selectedSettingsVariantId,
+        ) ?? null)
 
   const handleAdjustSubmit = async (payload: {
     productId: string
@@ -191,7 +206,11 @@ export function InventoryDetailsPage() {
         {inventoryUiText.detailsPage.backToInventory}
       </Button>
 
-      <Paper variant="outlined" sx={{ overflow: 'hidden' }} data-testid="inventory-details-page-content">
+      <Paper
+        variant="outlined"
+        sx={{ overflow: 'hidden' }}
+        data-testid="inventory-details-page-content"
+      >
         <Stack spacing={0}>
           <Box sx={{ p: { xs: 2, md: 2.5 } }}>
             <Stack
@@ -202,7 +221,11 @@ export function InventoryDetailsPage() {
             >
               <Stack spacing={0.75}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="inventory-details-page-title">
+                  <Typography
+                    variant="h4"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="inventory-details-page-title"
+                  >
                     {product.name}
                   </Typography>
                   <Chip
@@ -213,12 +236,18 @@ export function InventoryDetailsPage() {
                     data-testid="inventory-details-page-inventory-status-chip"
                   />
                 </Stack>
-                <Stack spacing={0.25} color="text.secondary" data-testid="inventory-details-page-meta">
+                <Stack
+                  spacing={0.25}
+                  color="text.secondary"
+                  data-testid="inventory-details-page-meta"
+                >
                   <Typography color="inherit" data-testid="inventory-details-page-meta-row-1">
-                    {product.manufacturer} | {product.categoryPath || '-'} | Product status {product.status}
+                    {product.manufacturer} | {product.categoryPath || '-'} | Product status{' '}
+                    {product.status}
                   </Typography>
                   <Typography color="inherit" data-testid="inventory-details-page-meta-row-2">
-                    Created {formatDateTime(inventory.createdOn)} | Updated {formatDateTime(inventory.updatedOn)}
+                    Created {formatDateTime(inventory.createdOn)} | Updated{' '}
+                    {formatDateTime(inventory.updatedOn)}
                   </Typography>
                 </Stack>
               </Stack>
@@ -234,7 +263,14 @@ export function InventoryDetailsPage() {
             </Stack>
           </Box>
 
-          <Box sx={{ px: { xs: 2, md: 2.5 }, py: { xs: 1.5, md: 2 }, borderTop: 1, borderColor: 'divider' }}>
+          <Box
+            sx={{
+              px: { xs: 2, md: 2.5 },
+              py: { xs: 1.5, md: 2 },
+              borderTop: 1,
+              borderColor: 'divider',
+            }}
+          >
             <Box
               sx={{
                 display: 'grid',
@@ -249,55 +285,97 @@ export function InventoryDetailsPage() {
               data-testid="inventory-details-page-summary"
             >
               <Paper variant="outlined" sx={{ p: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" data-testid="inventory-details-page-summary-inventory-status-label">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="inventory-details-page-summary-inventory-status-label"
+                >
                   {inventoryUiText.detailsPage.summary.inventoryStatus}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }} data-testid="inventory-details-page-summary-inventory-status-value">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }}
+                  data-testid="inventory-details-page-summary-inventory-status-value"
+                >
                   {inventory.inventoryStatus}
                 </Typography>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" data-testid="inventory-details-page-summary-low-stock-label">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="inventory-details-page-summary-low-stock-label"
+                >
                   {inventoryUiText.detailsPage.summary.lowStockVariants}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }} data-testid="inventory-details-page-summary-low-stock-value">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }}
+                  data-testid="inventory-details-page-summary-low-stock-value"
+                >
                   {inventory.lowStockVariantsCount}
                 </Typography>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" data-testid="inventory-details-page-summary-out-of-stock-label">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="inventory-details-page-summary-out-of-stock-label"
+                >
                   {inventoryUiText.detailsPage.summary.outOfStockVariants}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }} data-testid="inventory-details-page-summary-out-of-stock-value">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }}
+                  data-testid="inventory-details-page-summary-out-of-stock-value"
+                >
                   {inventory.outOfStockVariantsCount}
                 </Typography>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" data-testid="inventory-details-page-summary-total-available-label">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="inventory-details-page-summary-total-available-label"
+                >
                   {inventoryUiText.detailsPage.summary.totalAvailable}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }} data-testid="inventory-details-page-summary-total-available-value">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }}
+                  data-testid="inventory-details-page-summary-total-available-value"
+                >
                   {inventory.totalAvailable}
                 </Typography>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" data-testid="inventory-details-page-summary-total-quantity-label">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="inventory-details-page-summary-total-quantity-label"
+                >
                   {inventoryUiText.detailsPage.summary.totalQuantity}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }} data-testid="inventory-details-page-summary-total-quantity-value">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }}
+                  data-testid="inventory-details-page-summary-total-quantity-value"
+                >
                   {inventory.totalQuantity}
                 </Typography>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 1.1 }}>
-                <Typography variant="caption" color="text.secondary" data-testid="inventory-details-page-summary-total-reserved-label">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="inventory-details-page-summary-total-reserved-label"
+                >
                   {inventoryUiText.detailsPage.summary.totalReserved}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }} data-testid="inventory-details-page-summary-total-reserved-value">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700, lineHeight: 1.2 }}
+                  data-testid="inventory-details-page-summary-total-reserved-value"
+                >
                   {inventory.totalReserved}
                 </Typography>
               </Paper>
@@ -314,7 +392,11 @@ export function InventoryDetailsPage() {
             data-testid="inventory-details-page-variants-section"
           >
             <Stack spacing={0.25} sx={{ mb: 1.5 }}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }} data-testid="inventory-details-page-variants-title">
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700 }}
+                data-testid="inventory-details-page-variants-title"
+              >
                 Variants Inventory
               </Typography>
               <Typography
@@ -322,13 +404,17 @@ export function InventoryDetailsPage() {
                 color="text.secondary"
                 data-testid="inventory-details-page-variants-subtitle"
               >
-                Stock is managed per product variant. Adjustments are tracked through inventory history.
+                Stock is managed per product variant. Adjustments are tracked through inventory
+                history.
               </Typography>
             </Stack>
 
             {inventory.variants.length === 0 ? (
               <Box sx={{ p: { xs: 0.5, md: 1 } }}>
-                <Typography color="text.secondary" data-testid="inventory-details-page-variants-empty">
+                <Typography
+                  color="text.secondary"
+                  data-testid="inventory-details-page-variants-empty"
+                >
                   {inventoryUiText.detailsPage.placeholders.noVariants}
                 </Typography>
               </Box>
@@ -374,7 +460,13 @@ export function InventoryDetailsPage() {
                           justifyContent="space-between"
                         >
                           <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              alignItems="center"
+                              flexWrap="wrap"
+                              useFlexGap
+                            >
                               <Typography
                                 sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
                                 data-testid={`inventory-details-page-variant-row-${index}-title`}
@@ -397,7 +489,13 @@ export function InventoryDetailsPage() {
                               />
                             </Stack>
 
-                            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              alignItems="center"
+                              flexWrap="wrap"
+                              useFlexGap
+                            >
                               <Typography
                                 variant="body2"
                                 color="text.secondary"
@@ -445,7 +543,12 @@ export function InventoryDetailsPage() {
                             <Typography variant="caption" color="text.secondary">
                               {inventoryUiText.detailsPage.labels.available}
                             </Typography>
-                            <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-end">
+                            <Stack
+                              direction="row"
+                              spacing={1.5}
+                              justifyContent="space-between"
+                              alignItems="flex-end"
+                            >
                               <Typography
                                 variant="h3"
                                 sx={{ fontWeight: 800, lineHeight: 1 }}
@@ -521,7 +624,6 @@ export function InventoryDetailsPage() {
                             </Typography>
                           </Paper>
                         </Box>
-
                       </Stack>
                     </Paper>
                   )
@@ -540,7 +642,9 @@ export function InventoryDetailsPage() {
           variant={selectedAdjustVariantContext.variant}
           variantDisplayName={selectedAdjustVariantContext.displayName}
           manufacturer={product.manufacturer}
-          attributeLabels={selectedAdjustVariantContext.variantAttributeEntries.map((entry) => entry.label)}
+          attributeLabels={selectedAdjustVariantContext.variantAttributeEntries.map(
+            (entry) => entry.label,
+          )}
           isSubmitting={adjustStockMutation.isPending}
           onClose={() => setSelectedAdjustVariantId(null)}
           onSubmit={handleAdjustSubmit}
@@ -555,7 +659,9 @@ export function InventoryDetailsPage() {
           variant={selectedSettingsVariantContext.variant}
           variantDisplayName={selectedSettingsVariantContext.displayName}
           manufacturer={product.manufacturer}
-          attributeLabels={selectedSettingsVariantContext.variantAttributeEntries.map((entry) => entry.label)}
+          attributeLabels={selectedSettingsVariantContext.variantAttributeEntries.map(
+            (entry) => entry.label,
+          )}
           isSubmitting={updateSettingsMutation.isPending}
           onClose={() => setSelectedSettingsVariantId(null)}
           onSubmit={handleSettingsSubmit}
@@ -564,4 +670,3 @@ export function InventoryDetailsPage() {
     </Stack>
   )
 }
-

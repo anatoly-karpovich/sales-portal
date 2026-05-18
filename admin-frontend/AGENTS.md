@@ -413,13 +413,18 @@ Avoid relying on:
 Use three visual separation levels:
 
 1. Page sections:
+
 - subtle outer border;
 - low contrast;
 - large grouping containers.
+
 2. Semantic blocks inside sections:
+
 - slightly stronger border;
 - used for related operational data.
+
 3. Interactive/editable elements:
+
 - strongest border contrast;
 - hover/focus states allowed;
 - visually distinguish actionable areas.

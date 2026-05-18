@@ -16,7 +16,10 @@ import {
 } from '@mui/material'
 import { useEffect, useRef } from 'react'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { categoriesUiText, getDeleteCategoryMessage } from '@/features/categories/categories.ui-text'
+import {
+  categoriesUiText,
+  getDeleteCategoryMessage,
+} from '@/features/categories/categories.ui-text'
 import { CategoriesChildrenSection } from '@/features/categories/components/CategoriesChildrenSection'
 import { CategoriesCreateFormSection } from '@/features/categories/components/CategoriesCreateFormSection'
 import { CategoriesDetailsHeader } from '@/features/categories/components/CategoriesDetailsHeader'
@@ -69,7 +72,9 @@ export function CategoriesPage() {
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {categoriesUiText.details.placeholderTitle}
             </Typography>
-            <Typography color="text.secondary">{categoriesUiText.details.placeholderText}</Typography>
+            <Typography color="text.secondary">
+              {categoriesUiText.details.placeholderText}
+            </Typography>
           </Stack>
         </Paper>
       )
@@ -281,7 +286,9 @@ export function CategoriesPage() {
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                 {categoriesUiText.dialogs.moveSourceLabel}
               </Typography>
-              <Typography sx={{ fontWeight: 600 }}>{state.moveSourceCategory?.name ?? '-'}</Typography>
+              <Typography sx={{ fontWeight: 600 }}>
+                {state.moveSourceCategory?.name ?? '-'}
+              </Typography>
             </Paper>
 
             <Paper variant="outlined" sx={{ p: 1.25 }}>
@@ -289,7 +296,9 @@ export function CategoriesPage() {
                 {categoriesUiText.dialogs.moveFromLabel}
               </Typography>
               <Typography>
-                {state.moveSourceCategory ? state.buildPathLabel(state.moveSourceCategory.path) : '-'}
+                {state.moveSourceCategory
+                  ? state.buildPathLabel(state.moveSourceCategory.path)
+                  : '-'}
               </Typography>
             </Paper>
 
@@ -360,7 +369,9 @@ export function CategoriesPage() {
                 {state.moveDialog.targetKind !== 'unset' ? (
                   <ArrowRightAltRoundedIcon fontSize="small" />
                 ) : null}
-                <Typography sx={{ fontWeight: 600 }}>{state.moveSourceCategory?.name ?? '-'}</Typography>
+                <Typography sx={{ fontWeight: 600 }}>
+                  {state.moveSourceCategory?.name ?? '-'}
+                </Typography>
               </Stack>
             </Paper>
           </Stack>

@@ -1,4 +1,7 @@
-import type { CustomerFormState, CustomerFormValidation } from '@/features/customers/forms/customerForm.types'
+import type {
+  CustomerFormState,
+  CustomerFormValidation,
+} from '@/features/customers/forms/customerForm.types'
 import { customersUiText } from '@/features/customers/customers.ui-text'
 
 export function validateCustomerForm(state: CustomerFormState): CustomerFormValidation {

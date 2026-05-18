@@ -367,13 +367,28 @@ export async function createOrder(payload: CreateOrderPayload) {
   return response.data.Order
 }
 
-export async function calculateOrderPricing(payload: OrderPricingPayload, requestConfig?: ApiRequestConfig) {
-  const response = await apiClient.post<OrderPricingResponse>('/orders/pricing', payload, requestConfig)
+export async function calculateOrderPricing(
+  payload: OrderPricingPayload,
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.post<OrderPricingResponse>(
+    '/orders/pricing',
+    payload,
+    requestConfig,
+  )
   return normalizeOrderPricingResult(response.data.Pricing)
 }
 
-export async function updateOrder(orderId: string, payload: UpdateOrderPayload, requestConfig?: ApiRequestConfig) {
-  const response = await apiClient.patch<OrderResponse<OrderDetails>>(`/orders/${orderId}`, payload, requestConfig)
+export async function updateOrder(
+  orderId: string,
+  payload: UpdateOrderPayload,
+  requestConfig?: ApiRequestConfig,
+) {
+  const response = await apiClient.patch<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}`,
+    payload,
+    requestConfig,
+  )
   return response.data.Order
 }
 
@@ -392,11 +407,18 @@ export async function updateOrderStatus(
 
 export async function getOrderById(orderId: string) {
   const requestConfig: ApiRequestConfig = { skipErrorToast: true }
-  const response = await apiClient.get<OrderResponse<OrderDetails>>(`/orders/${orderId}`, requestConfig)
+  const response = await apiClient.get<OrderResponse<OrderDetails>>(
+    `/orders/${orderId}`,
+    requestConfig,
+  )
   return response.data.Order
 }
 
-export async function createOrderComment(orderId: string, comment: string, requestConfig?: ApiRequestConfig) {
+export async function createOrderComment(
+  orderId: string,
+  comment: string,
+  requestConfig?: ApiRequestConfig,
+) {
   const response = await apiClient.post<OrderResponse<OrderDetails>>(
     `/orders/${orderId}/comments`,
     { comment },
@@ -405,7 +427,11 @@ export async function createOrderComment(orderId: string, comment: string, reque
   return response.data.Order
 }
 
-export async function deleteOrderComment(orderId: string, commentId: string, requestConfig?: ApiRequestConfig) {
+export async function deleteOrderComment(
+  orderId: string,
+  commentId: string,
+  requestConfig?: ApiRequestConfig,
+) {
   await apiClient.delete(`/orders/${orderId}/comments/${commentId}`, requestConfig)
 }
 

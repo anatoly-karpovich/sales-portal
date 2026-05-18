@@ -45,14 +45,13 @@ type ExpandedAccordion = 'inventoryStatus' | 'productStatus' | 'manufacturer'
 type StringArrayStateSetter = (value: string[] | ((prev: string[]) => string[])) => void
 
 function toOptionTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
-function toggleValue(
-  value: string,
-  currentValues: string[],
-  setValues: StringArrayStateSetter,
-) {
+function toggleValue(value: string, currentValues: string[], setValues: StringArrayStateSetter) {
   setValues(
     currentValues.includes(value)
       ? currentValues.filter((item) => item !== value)
@@ -111,7 +110,12 @@ export function InventoryFiltersDialog({
       }}
     >
       <DialogTitle sx={{ pr: 6 }} data-testid="inventory-list-filter-dialog-title-section">
-        <Stack direction="row" alignItems="center" spacing={1} data-testid="inventory-list-filter-dialog-title-row">
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          data-testid="inventory-list-filter-dialog-title-row"
+        >
           <FilterAltOutlinedIcon color="action" fontSize="small" />
           <Typography
             variant="h6"
@@ -132,7 +136,11 @@ export function InventoryFiltersDialog({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ px: 3, py: 2.5 }} data-testid="inventory-list-filter-dialog-content">
+      <DialogContent
+        dividers
+        sx={{ px: 3, py: 2.5 }}
+        data-testid="inventory-list-filter-dialog-content"
+      >
         <Stack spacing={1.5} data-testid="inventory-list-filter-dialog-accordion-list">
           <Accordion
             disableGutters

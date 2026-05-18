@@ -82,7 +82,9 @@ export function ProductVariantsBulkEditor({
             <Chip label={`${draft.attributes.length} attributes`} />
             <Chip label={`${possibleCombinationsCount} possible combinations`} />
             <Chip label={`${draft.variants.length} variants added`} />
-            {invalidVariantsCount > 0 ? <Chip color="error" label={`${invalidVariantsCount} invalid`} /> : null}
+            {invalidVariantsCount > 0 ? (
+              <Chip color="error" label={`${invalidVariantsCount} invalid`} />
+            ) : null}
           </Stack>
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -96,7 +98,9 @@ export function ProductVariantsBulkEditor({
 
             <Button
               variant="contained"
-              disabled={possibleCombinationsCount === 0 || hasReachedMaxVariants || isInteractionsLocked}
+              disabled={
+                possibleCombinationsCount === 0 || hasReachedMaxVariants || isInteractionsLocked
+              }
               onClick={onGenerateAllCombinations}
             >
               {productsUiText.detailsPage.actions.generateAllCombinations}
@@ -124,7 +128,8 @@ export function ProductVariantsBulkEditor({
                 Attributes
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Create unique attributes and available values. Values will be used to build variants.
+                Create unique attributes and available values. Values will be used to build
+                variants.
               </Typography>
             </Box>
             <Button
@@ -176,8 +181,12 @@ export function ProductVariantsBulkEditor({
                     options={[]}
                     value={attribute.values}
                     inputValue={attribute.inputValue}
-                    onInputChange={(_, nextValue) => onSetAttributeInputValue(attribute.id, nextValue)}
-                    onChange={(_, nextValues) => onCommitAttributeValues(attribute.id, nextValues as string[])}
+                    onInputChange={(_, nextValue) =>
+                      onSetAttributeInputValue(attribute.id, nextValue)
+                    }
+                    onChange={(_, nextValues) =>
+                      onCommitAttributeValues(attribute.id, nextValues as string[])
+                    }
                     renderTags={(value: readonly string[], getTagProps) =>
                       value.map((option: string, valueIndex: number) => {
                         const { key, ...chipProps } = getTagProps({ index: valueIndex })
@@ -232,7 +241,9 @@ export function ProductVariantsBulkEditor({
       {draft.variants.length === 0 ? (
         <Paper variant="outlined" sx={{ py: 4, px: 2, borderStyle: 'dashed', textAlign: 'center' }}>
           <Typography variant="h6">{productsUiText.detailsPage.placeholders.noVariants}</Typography>
-          <Typography color="text.secondary">{productsUiText.detailsPage.placeholders.noVariantsHelp}</Typography>
+          <Typography color="text.secondary">
+            {productsUiText.detailsPage.placeholders.noVariantsHelp}
+          </Typography>
         </Paper>
       ) : (
         <Box

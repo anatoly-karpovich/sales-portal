@@ -163,8 +163,7 @@ function useAnimatedAmount(target: number, durationMs = 360) {
       const elapsed = now - startTimeRef.current
       const progress = Math.min(elapsed / durationMs, 1)
       const easedProgress = 1 - Math.pow(1 - progress, 3)
-      const nextValue =
-        startValueRef.current + (target - startValueRef.current) * easedProgress
+      const nextValue = startValueRef.current + (target - startValueRef.current) * easedProgress
 
       lastValueRef.current = nextValue
       setAnimatedValue(nextValue)
@@ -218,7 +217,9 @@ export function OrderCreatePage() {
   const [pricingTotal, setPricingTotal] = useState<number | null>(null)
   const [pricingProductsSubtotal, setPricingProductsSubtotal] = useState<number | null>(null)
   const [pricingDeliveryPrice, setPricingDeliveryPrice] = useState<number | null>(null)
-  const [pricingDeliveryTier, setPricingDeliveryTier] = useState<OrderDeliveryPricingTier | null>(null)
+  const [pricingDeliveryTier, setPricingDeliveryTier] = useState<OrderDeliveryPricingTier | null>(
+    null,
+  )
   const [pricingEstimatedDate, setPricingEstimatedDate] = useState<string | null>(null)
   const nextRowIdRef = useRef(1)
   const pricingRequestIdRef = useRef(0)
@@ -397,28 +398,27 @@ export function OrderCreatePage() {
   )
   const isEffectivePricingPreviewUnavailable =
     canRequestPricingPreview && isPricingPreviewUnavailable
-  const effectivePricingProductsSubtotal = canRequestPricingPreview
-    ? pricingProductsSubtotal
-    : null
-  const effectivePricingDeliveryPrice = canRequestPricingPreview
-    ? pricingDeliveryPrice
-    : null
+  const effectivePricingProductsSubtotal = canRequestPricingPreview ? pricingProductsSubtotal : null
+  const effectivePricingDeliveryPrice = canRequestPricingPreview ? pricingDeliveryPrice : null
   const effectivePricingTotal = canRequestPricingPreview ? pricingTotal : null
   const summarySubtotalTarget = effectivePricingProductsSubtotal ?? selectedProductsSubtotal
   const summaryDeliveryTarget = selectedCustomer ? (effectivePricingDeliveryPrice ?? 0) : 0
-  const summaryTotalTarget = effectivePricingTotal ?? (summarySubtotalTarget + summaryDeliveryTarget)
+  const summaryTotalTarget = effectivePricingTotal ?? summarySubtotalTarget + summaryDeliveryTarget
   const deliveryTierValue = canRequestPricingPreview
     ? resolvePricingTierLabel(pricingDeliveryTier)
     : '-'
   const deliveryEstimatedValue = canRequestPricingPreview
-    ? (pricingEstimatedDate ? formatDate(pricingEstimatedDate) : '-')
+    ? pricingEstimatedDate
+      ? formatDate(pricingEstimatedDate)
+      : '-'
     : '-'
   const animatedSubtotal = useAnimatedAmount(summarySubtotalTarget)
   const animatedDelivery = useAnimatedAmount(summaryDeliveryTarget)
   const animatedTotal = useAnimatedAmount(summaryTotalTarget)
 
   const hasSelectedRows = selectedRows.length > 0
-  const canAddMoreRows = hasValidSettings && Boolean(maxProductsInOrder) && selectedRows.length < maxProductsInOrder
+  const canAddMoreRows =
+    hasValidSettings && Boolean(maxProductsInOrder) && selectedRows.length < maxProductsInOrder
   const canAddSelectedVariantsCount = useMemo(() => {
     if (!selectedParentProduct) return 0
     const rowsLeft = (maxProductsInOrder ?? 0) - selectedRows.length
@@ -589,7 +589,11 @@ export function OrderCreatePage() {
           gap={1.5}
         >
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="orders-create-page-title">
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700 }}
+              data-testid="orders-create-page-title"
+            >
               {ordersUiText.createPage.title}
             </Typography>
             <Typography color="text.secondary" data-testid="orders-create-page-subtitle">
@@ -805,7 +809,8 @@ export function OrderCreatePage() {
                           </Stack>
                         ) : null}
 
-                        {!parentProductsQuery.isFetching && parentProductsWithActiveVariants.length === 0 ? (
+                        {!parentProductsQuery.isFetching &&
+                        parentProductsWithActiveVariants.length === 0 ? (
                           <Typography
                             variant="body2"
                             color="text.secondary"
@@ -945,7 +950,11 @@ export function OrderCreatePage() {
                   </Paper>
                 </Box>
 
-                <Paper variant="outlined" sx={{ p: 1.25 }} data-testid="orders-create-page-selected-products-section">
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 1.25 }}
+                  data-testid="orders-create-page-selected-products-section"
+                >
                   <Stack spacing={1}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       {ordersUiText.createPage.sections.selectedProducts}
@@ -1056,11 +1065,17 @@ export function OrderCreatePage() {
                           size="small"
                           color="primary"
                           variant="outlined"
-                          label={ordersUiText.detailsPage.placeholders.deliveryAddressSourceCustomer}
+                          label={
+                            ordersUiText.detailsPage.placeholders.deliveryAddressSourceCustomer
+                          }
                           sx={{ alignSelf: 'flex-start' }}
                         />
-                        <Typography>{resolveCustomerAddressPrimaryLine(selectedCustomer)}</Typography>
-                        <Typography>{resolveCustomerAddressSecondaryLine(selectedCustomer)}</Typography>
+                        <Typography>
+                          {resolveCustomerAddressPrimaryLine(selectedCustomer)}
+                        </Typography>
+                        <Typography>
+                          {resolveCustomerAddressSecondaryLine(selectedCustomer)}
+                        </Typography>
                       </Stack>
                     </Paper>
 
@@ -1116,7 +1131,9 @@ export function OrderCreatePage() {
 
             <Stack spacing={1}>
               <Stack direction="row" justifyContent="space-between" gap={1}>
-                <Typography color="text.secondary">{ordersUiText.createPage.labels.customer}</Typography>
+                <Typography color="text.secondary">
+                  {ordersUiText.createPage.labels.customer}
+                </Typography>
                 <Typography
                   sx={{ textAlign: 'right' }}
                   data-testid="orders-create-page-summary-customer-value"
@@ -1125,19 +1142,25 @@ export function OrderCreatePage() {
                 </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between" gap={1}>
-                <Typography color="text.secondary">{ordersUiText.createPage.labels.productsCount}</Typography>
+                <Typography color="text.secondary">
+                  {ordersUiText.createPage.labels.productsCount}
+                </Typography>
                 <Typography data-testid="orders-create-page-summary-products-value">
                   {selectedProductsQuantity}
                 </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between" gap={1}>
-                <Typography color="text.secondary">{ordersUiText.createPage.labels.productsSubtotal}</Typography>
+                <Typography color="text.secondary">
+                  {ordersUiText.createPage.labels.productsSubtotal}
+                </Typography>
                 <Typography data-testid="orders-create-page-summary-subtotal-value">
                   {formatPrice(animatedSubtotal)}
                 </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between" gap={1}>
-                <Typography color="text.secondary">{ordersUiText.createPage.labels.deliveryPrice}</Typography>
+                <Typography color="text.secondary">
+                  {ordersUiText.createPage.labels.deliveryPrice}
+                </Typography>
                 <Typography data-testid="orders-create-page-summary-delivery-value">
                   {formatPrice(animatedDelivery)}
                 </Typography>

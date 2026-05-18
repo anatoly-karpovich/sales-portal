@@ -54,9 +54,13 @@ export function useCategoriesWorkspaceState() {
   const [createParentId, setCreateParentId] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState<CategoryFormState>(EMPTY_FORM)
   const [createSubmitAttempted, setCreateSubmitAttempted] = useState(false)
-  const [editDraftByCategoryId, setEditDraftByCategoryId] = useState<Record<string, CategoryFormState>>({})
+  const [editDraftByCategoryId, setEditDraftByCategoryId] = useState<
+    Record<string, CategoryFormState>
+  >({})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteConflictByCategoryId, setDeleteConflictByCategoryId] = useState<Record<string, string>>({})
+  const [deleteConflictByCategoryId, setDeleteConflictByCategoryId] = useState<
+    Record<string, string>
+  >({})
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [isRootDragOver, setIsRootDragOver] = useState(false)
@@ -127,9 +131,11 @@ export function useCategoriesWorkspaceState() {
   const displayTree = filteredTree.tree
   const effectiveSelectedId =
     selectedIdFromQuery ??
-    (selectedId && flatById.has(selectedId) ? selectedId : flatNodes[0]?._id ?? null)
-  const selectedCategory = effectiveSelectedId ? flatById.get(effectiveSelectedId) ?? null : null
-  const selectedTreeCategory = effectiveSelectedId ? treeById.get(effectiveSelectedId) ?? null : null
+    (selectedId && flatById.has(selectedId) ? selectedId : (flatNodes[0]?._id ?? null))
+  const selectedCategory = effectiveSelectedId ? (flatById.get(effectiveSelectedId) ?? null) : null
+  const selectedTreeCategory = effectiveSelectedId
+    ? (treeById.get(effectiveSelectedId) ?? null)
+    : null
   const selectedChildren = selectedTreeCategory?.children ?? []
   const selectedProductsCount = selectedTreeCategory?.productsCount ?? 0
   const selectedDirectProductsCount = selectedTreeCategory?.directProductsCount ?? 0
@@ -141,7 +147,7 @@ export function useCategoriesWorkspaceState() {
       : categoriesUiText.details.parentRootLabel
 
   const editForm = selectedCategory
-    ? editDraftByCategoryId[selectedCategory._id] ?? mapFormFromCategory(selectedCategory)
+    ? (editDraftByCategoryId[selectedCategory._id] ?? mapFormFromCategory(selectedCategory))
     : EMPTY_FORM
 
   const editErrors = validateCategoryForm(editForm)
@@ -174,7 +180,7 @@ export function useCategoriesWorkspaceState() {
   const deleteBlockedReason = selectedCategory
     ? selectedChildren.length > 0
       ? categoriesUiText.details.danger.deleteBlockedChildren
-      : deleteConflictByCategoryId[selectedCategory._id] ?? ''
+      : (deleteConflictByCategoryId[selectedCategory._id] ?? '')
     : ''
 
   const canDelete = Boolean(selectedCategory) && deleteBlockedReason.length === 0
@@ -182,9 +188,12 @@ export function useCategoriesWorkspaceState() {
   const deleteDisabledTooltip =
     'Category can be deleted only if it has no child categories and no assigned products.'
 
-  const moveSourceCategory = moveDialog.sourceId ? flatById.get(moveDialog.sourceId) ?? null : null
-  const moveTargetCategory =
-    moveDialog.targetParentId ? flatById.get(moveDialog.targetParentId) ?? null : null
+  const moveSourceCategory = moveDialog.sourceId
+    ? (flatById.get(moveDialog.sourceId) ?? null)
+    : null
+  const moveTargetCategory = moveDialog.targetParentId
+    ? (flatById.get(moveDialog.targetParentId) ?? null)
+    : null
 
   const isInvalidMoveTarget = useCallback(
     (sourceCategoryId: string, targetCategoryId: string) => {
@@ -205,7 +214,8 @@ export function useCategoriesWorkspaceState() {
   }, [flatNodes, isInvalidMoveTarget, moveDialog.sourceId])
 
   const effectiveExpandedIds = useMemo(() => {
-    const next = expandedIds.size > 0 ? new Set(expandedIds) : new Set(treeNodes.map((item) => item._id))
+    const next =
+      expandedIds.size > 0 ? new Set(expandedIds) : new Set(treeNodes.map((item) => item._id))
     if (selectedIdFromQuery) {
       const querySelectedCategory = flatById.get(selectedIdFromQuery)
       querySelectedCategory?.path.forEach((pathItem) => next.add(pathItem._id))
@@ -263,7 +273,9 @@ export function useCategoriesWorkspaceState() {
     if (areCategoryActionsLocked) return
     const normalizedParentId = toStableId(parentId)
     if (isCreateChildBlocked(normalizedParentId)) {
-      enqueueSnackbar(categoriesUiText.details.createChildBlockedDirectProducts, { variant: 'warning' })
+      enqueueSnackbar(categoriesUiText.details.createChildBlockedDirectProducts, {
+        variant: 'warning',
+      })
       return
     }
     selectCategoryWithPathExpansion(normalizedParentId)
@@ -284,7 +296,9 @@ export function useCategoriesWorkspaceState() {
     setCreateSubmitAttempted(true)
     if (!canCreate) return
     if (createParentId && isCreateChildBlocked(createParentId)) {
-      enqueueSnackbar(categoriesUiText.details.createChildBlockedDirectProducts, { variant: 'warning' })
+      enqueueSnackbar(categoriesUiText.details.createChildBlockedDirectProducts, {
+        variant: 'warning',
+      })
       return
     }
 
@@ -357,7 +371,8 @@ export function useCategoriesWorkspaceState() {
 
     setEditDraftByCategoryId((previous) => ({
       ...previous,
-      [selectedCategory._id]: previous[selectedCategory._id] ?? mapFormFromCategory(selectedCategory),
+      [selectedCategory._id]:
+        previous[selectedCategory._id] ?? mapFormFromCategory(selectedCategory),
     }))
     setMode('edit-general')
   }
@@ -413,7 +428,7 @@ export function useCategoriesWorkspaceState() {
     const targetParentPathIds =
       resolvedTargetParentId === null
         ? []
-        : flatById.get(resolvedTargetParentId)?.path.map((pathItem) => pathItem._id) ?? []
+        : (flatById.get(resolvedTargetParentId)?.path.map((pathItem) => pathItem._id) ?? [])
 
     try {
       await moveMutation.mutateAsync({
@@ -446,8 +461,9 @@ export function useCategoriesWorkspaceState() {
       await deleteMutation.mutateAsync(selectedCategory._id)
       const { nextFlat } = await refreshQueries()
       const nextSelectedId =
-        (parentId && nextFlat.some((item) => item._id === parentId) ? parentId : nextFlat[0]?._id) ??
-        null
+        (parentId && nextFlat.some((item) => item._id === parentId)
+          ? parentId
+          : nextFlat[0]?._id) ?? null
       selectCategory(nextSelectedId)
       setEditDraftByCategoryId((previous) => {
         const next = { ...previous }
@@ -473,7 +489,8 @@ export function useCategoriesWorkspaceState() {
 
   const handleToggleExpand = (categoryId: string) => {
     setExpandedIds((previous) => {
-      const next = previous.size > 0 ? new Set(previous) : new Set(treeNodes.map((item) => item._id))
+      const next =
+        previous.size > 0 ? new Set(previous) : new Set(treeNodes.map((item) => item._id))
       if (next.has(categoryId)) {
         next.delete(categoryId)
       } else {
@@ -555,7 +572,9 @@ export function useCategoriesWorkspaceState() {
     openMoveRootConfirmFromDrop(draggedId)
   }
 
-  const selectedAddChildBlocked = selectedCategory ? isCreateChildBlocked(selectedCategory._id) : false
+  const selectedAddChildBlocked = selectedCategory
+    ? isCreateChildBlocked(selectedCategory._id)
+    : false
   const isMoveToRootDisabled = !moveDialog.sourceId || !flatById.get(moveDialog.sourceId)?.parentId
 
   return {

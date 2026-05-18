@@ -17,12 +17,18 @@ const apiEventListeners: {
   unauthorized: new Set(),
 }
 
-function emitApiEvent<EventType extends ApiEventType>(type: EventType, payload: ApiEventsMap[EventType]) {
+function emitApiEvent<EventType extends ApiEventType>(
+  type: EventType,
+  payload: ApiEventsMap[EventType],
+) {
   const listeners = Array.from(apiEventListeners[type])
   listeners.forEach((listener) => listener(payload))
 }
 
-function subscribeApiEvent<EventType extends ApiEventType>(type: EventType, listener: ApiEventListener<EventType>) {
+function subscribeApiEvent<EventType extends ApiEventType>(
+  type: EventType,
+  listener: ApiEventListener<EventType>,
+) {
   apiEventListeners[type].add(listener)
   return () => {
     apiEventListeners[type].delete(listener)

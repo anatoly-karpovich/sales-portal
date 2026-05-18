@@ -42,10 +42,7 @@ function getInventoryStatusColor(status: InventoryStatus) {
   return 'default'
 }
 
-function resolveStockStatusAfterUpdate(
-  available: number,
-  threshold: number,
-): InventoryStatus {
+function resolveStockStatusAfterUpdate(available: number, threshold: number): InventoryStatus {
   if (available <= 0) return 'Out Of Stock'
   if (available <= threshold) return 'Low Stock'
   return 'In Stock'
@@ -118,13 +115,25 @@ export function InventorySettingsDialog({
       <DialogTitle data-testid="inventory-settings-dialog-title-section">
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
           <Stack spacing={0.5}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="inventory-settings-dialog-title">
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700 }}
+              data-testid="inventory-settings-dialog-title"
+            >
               {inventoryUiText.detailsPage.labels.settingsTitle}
             </Typography>
-            <Typography variant="body2" color="text.secondary" data-testid="inventory-settings-dialog-subtitle">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="inventory-settings-dialog-subtitle"
+            >
               {variantDisplayName}
             </Typography>
-            <Typography variant="body2" color="text.secondary" data-testid="inventory-settings-dialog-meta">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="inventory-settings-dialog-meta"
+            >
               {[manufacturer, ...attributeLabels].join(' • ')}
             </Typography>
           </Stack>
@@ -153,7 +162,10 @@ export function InventorySettingsDialog({
               <Typography variant="caption" color="text.secondary">
                 {inventoryUiText.detailsPage.labels.currentQuantity}
               </Typography>
-              <Typography sx={{ mt: 0.5, fontWeight: 700 }} data-testid="inventory-settings-dialog-current-quantity">
+              <Typography
+                sx={{ mt: 0.5, fontWeight: 700 }}
+                data-testid="inventory-settings-dialog-current-quantity"
+              >
                 {variant.quantity}
               </Typography>
             </Paper>
@@ -161,7 +173,10 @@ export function InventorySettingsDialog({
               <Typography variant="caption" color="text.secondary">
                 {inventoryUiText.detailsPage.labels.currentReserved}
               </Typography>
-              <Typography sx={{ mt: 0.5, fontWeight: 700 }} data-testid="inventory-settings-dialog-current-reserved">
+              <Typography
+                sx={{ mt: 0.5, fontWeight: 700 }}
+                data-testid="inventory-settings-dialog-current-reserved"
+              >
                 {variant.reserved}
               </Typography>
             </Paper>
@@ -169,7 +184,10 @@ export function InventorySettingsDialog({
               <Typography variant="caption" color="text.secondary">
                 {inventoryUiText.detailsPage.labels.currentAvailable}
               </Typography>
-              <Typography sx={{ mt: 0.5, fontWeight: 700 }} data-testid="inventory-settings-dialog-current-available">
+              <Typography
+                sx={{ mt: 0.5, fontWeight: 700 }}
+                data-testid="inventory-settings-dialog-current-available"
+              >
                 {variant.available}
               </Typography>
             </Paper>
@@ -189,9 +207,7 @@ export function InventorySettingsDialog({
             }}
             error={thresholdError}
             helperText={
-              thresholdError
-                ? inventoryUiText.detailsPage.validation.thresholdInvalid
-                : ' '
+              thresholdError ? inventoryUiText.detailsPage.validation.thresholdInvalid : ' '
             }
           />
 
@@ -201,12 +217,20 @@ export function InventorySettingsDialog({
             value={directOrder}
             onChange={(event) => setDirectOrder(event.target.value as DirectOrderOption)}
             data-testid="inventory-settings-dialog-direct-order"
-            SelectProps={{ inputProps: { 'data-testid': 'inventory-settings-dialog-direct-order-field' } }}
+            SelectProps={{
+              inputProps: { 'data-testid': 'inventory-settings-dialog-direct-order-field' },
+            }}
           >
-            <MenuItem value="Allowed" data-testid="inventory-settings-dialog-direct-order-option-allowed">
+            <MenuItem
+              value="Allowed"
+              data-testid="inventory-settings-dialog-direct-order-option-allowed"
+            >
               {inventoryUiText.detailsPage.labels.allowed}
             </MenuItem>
-            <MenuItem value="Blocked" data-testid="inventory-settings-dialog-direct-order-option-blocked">
+            <MenuItem
+              value="Blocked"
+              data-testid="inventory-settings-dialog-direct-order-option-blocked"
+            >
               {inventoryUiText.detailsPage.labels.blocked}
             </MenuItem>
           </TextField>
@@ -224,7 +248,10 @@ export function InventorySettingsDialog({
               sx={{
                 display: 'grid',
                 gap: 1,
-                gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(2, minmax(0, 1fr))' },
+                gridTemplateColumns: {
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  md: 'repeat(2, minmax(0, 1fr))',
+                },
               }}
               data-testid="inventory-settings-dialog-preview-grid"
             >
@@ -232,7 +259,10 @@ export function InventorySettingsDialog({
                 <Typography variant="caption" color="text.secondary">
                   {inventoryUiText.detailsPage.labels.threshold}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700 }} data-testid="inventory-settings-dialog-preview-threshold">
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700 }}
+                  data-testid="inventory-settings-dialog-preview-threshold"
+                >
                   {variant.lowStockThreshold} → {nextThreshold ?? '—'}
                 </Typography>
               </Paper>
@@ -241,10 +271,13 @@ export function InventorySettingsDialog({
                 <Typography variant="caption" color="text.secondary">
                   {inventoryUiText.detailsPage.labels.directOrder}
                 </Typography>
-                <Typography sx={{ mt: 0.25, fontWeight: 700 }} data-testid="inventory-settings-dialog-preview-direct-order">
-                  {(variant.allowSellingOutOfStock
+                <Typography
+                  sx={{ mt: 0.25, fontWeight: 700 }}
+                  data-testid="inventory-settings-dialog-preview-direct-order"
+                >
+                  {variant.allowSellingOutOfStock
                     ? inventoryUiText.detailsPage.labels.allowed
-                    : inventoryUiText.detailsPage.labels.blocked)}{' '}
+                    : inventoryUiText.detailsPage.labels.blocked}{' '}
                   →{' '}
                   {nextAllowSelling
                     ? inventoryUiText.detailsPage.labels.allowed

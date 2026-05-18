@@ -189,7 +189,9 @@ export type ProductsQuery = {
   limit: number
 }
 
-function toPriceRange(value: ProductDetails['priceRange'] | ProductListItem['priceRange'] | undefined): ProductPriceRange {
+function toPriceRange(
+  value: ProductDetails['priceRange'] | ProductListItem['priceRange'] | undefined,
+): ProductPriceRange {
   if (!value) {
     return { min: 0, max: 0 }
   }
@@ -302,7 +304,10 @@ export async function patchProductStatus(productId: string, payload: ProductStat
   return normalizeProductDetails(response.data.Product)
 }
 
-export async function addProductVariants(productId: string, payload: ProductVariantCreatePayload[]) {
+export async function addProductVariants(
+  productId: string,
+  payload: ProductVariantCreatePayload[],
+) {
   const response = await apiClient.post<ProductResponse>(
     `/products/${productId}/variants`,
     payload,
@@ -315,9 +320,13 @@ export async function replaceProductVariants(
   productId: string,
   payload: ProductVariantReplaceRequestPayload,
 ) {
-  const response = await apiClient.put<ProductResponse>(`/products/${productId}/variants`, payload, {
-    ...silentRequestConfig,
-  })
+  const response = await apiClient.put<ProductResponse>(
+    `/products/${productId}/variants`,
+    payload,
+    {
+      ...silentRequestConfig,
+    },
+  )
   return normalizeProductDetails(response.data.Product)
 }
 

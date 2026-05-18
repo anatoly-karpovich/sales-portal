@@ -36,7 +36,13 @@ export function OrdersFilterChips({
   }
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap data-testid="orders-list-filter-chips">
+    <Stack
+      direction="row"
+      spacing={1}
+      flexWrap="wrap"
+      useFlexGap
+      data-testid="orders-list-filter-chips"
+    >
       {search ? (
         <Chip
           color="primary"

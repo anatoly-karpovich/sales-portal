@@ -42,13 +42,31 @@ export function HomeActionCards() {
       data-testid="home-action-cards"
     >
       {actionCards.map((card) => (
-        <Paper key={card.title} sx={{ p: 3, textAlign: 'center', display: 'flex' }} data-testid={`home-action-card-${card.title.toLowerCase()}`}>
-          <Stack spacing={1.25} alignItems="center" sx={{ flex: 1 }} data-testid={`home-action-card-${card.title.toLowerCase()}-content`}>
+        <Paper
+          key={card.title}
+          sx={{ p: 3, textAlign: 'center', display: 'flex' }}
+          data-testid={`home-action-card-${card.title.toLowerCase()}`}
+        >
+          <Stack
+            spacing={1.25}
+            alignItems="center"
+            sx={{ flex: 1 }}
+            data-testid={`home-action-card-${card.title.toLowerCase()}-content`}
+          >
             {card.icon}
-            <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid={`home-action-card-${card.title.toLowerCase()}-title`}>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700 }}
+              data-testid={`home-action-card-${card.title.toLowerCase()}-title`}
+            >
               {card.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ minHeight: { xs: 'auto', md: 56 } }} data-testid={`home-action-card-${card.title.toLowerCase()}-description`}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ minHeight: { xs: 'auto', md: 56 } }}
+              data-testid={`home-action-card-${card.title.toLowerCase()}-description`}
+            >
               {card.description}
             </Typography>
             <Box sx={{ mt: 'auto', pt: 1 }}>

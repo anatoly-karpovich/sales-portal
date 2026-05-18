@@ -59,12 +59,18 @@ export function CategoriesDetailsHeader({
           ))}
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h5" sx={{ fontWeight: 700 }} data-testid="categories-page-details-title">
+          <Typography
+            variant="h5"
+            sx={{ fontWeight: 700 }}
+            data-testid="categories-page-details-title"
+          >
             {selectedCategory.name}
           </Typography>
           <Chip
             size="small"
-            label={isLeaf ? categoriesUiText.details.leafBadge : categoriesUiText.details.parentBadge}
+            label={
+              isLeaf ? categoriesUiText.details.leafBadge : categoriesUiText.details.parentBadge
+            }
           />
         </Stack>
         <Stack

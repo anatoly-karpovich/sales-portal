@@ -105,11 +105,7 @@ export function getProductsTableColumns({
       width: 130,
       minWidth: 120,
       render: (row) =>
-        createElement(
-          Typography,
-          { sx: { color: getProductStatusColor(row.status) } },
-          row.status,
-        ),
+        createElement(Typography, { sx: { color: getProductStatusColor(row.status) } }, row.status),
     },
     {
       key: 'variantsCount',

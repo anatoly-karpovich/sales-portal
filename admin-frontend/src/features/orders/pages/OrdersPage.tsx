@@ -44,7 +44,9 @@ export function OrdersPage() {
           variant="contained"
           onClick={() => void state.openCreatePage()}
           disabled={state.isCreateDialogPreloading}
-          startIcon={state.isCreateDialogPreloading ? <CircularProgress size={14} color="inherit" /> : null}
+          startIcon={
+            state.isCreateDialogPreloading ? <CircularProgress size={14} color="inherit" /> : null
+          }
           data-testid="orders-list-create-button"
         >
           {ordersUiText.listPage.createButton}

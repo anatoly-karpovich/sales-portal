@@ -18,7 +18,10 @@ type Props = {
 }
 
 function toFilterTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function withPrefix(prefix: string, value: string) {
@@ -58,17 +61,18 @@ export function ProductsFilterChips({
 }: Props) {
   const priceLabel = getPriceLabel(pricePrefix, minPrice, maxPrice)
 
-  if (
-    !search &&
-    manufacturerFilters.length === 0 &&
-    statusFilters.length === 0 &&
-    !priceLabel
-  ) {
+  if (!search && manufacturerFilters.length === 0 && statusFilters.length === 0 && !priceLabel) {
     return null
   }
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap data-testid="products-list-filter-chips">
+    <Stack
+      direction="row"
+      spacing={1}
+      flexWrap="wrap"
+      useFlexGap
+      data-testid="products-list-filter-chips"
+    >
       {search ? (
         <Chip
           color="primary"

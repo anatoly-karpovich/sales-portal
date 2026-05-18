@@ -1,9 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  getSettings,
-  updateSettings,
-  type SettingsUpdatePayload,
-} from '@/api/modules/settings.api'
+import { getSettings, updateSettings, type SettingsUpdatePayload } from '@/api/modules/settings.api'
 import type { ApiRequestConfig } from '@/api/types'
 import { settingsQueryKeys } from '@/features/settings/hooks/settingsQueryKeys'
 

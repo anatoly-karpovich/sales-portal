@@ -38,7 +38,12 @@ export function ManagersPage() {
           {managersUiText.listPage.title}
         </Typography>
         {isAdmin ? (
-          <Button component={Link} to="/managers/add" variant="contained" data-testid="managers-list-add-button">
+          <Button
+            component={Link}
+            to="/managers/add"
+            variant="contained"
+            data-testid="managers-list-add-button"
+          >
             {managersUiText.listPage.addButton}
           </Button>
         ) : null}
@@ -104,5 +109,3 @@ export function ManagersPage() {
     </Stack>
   )
 }
-
-

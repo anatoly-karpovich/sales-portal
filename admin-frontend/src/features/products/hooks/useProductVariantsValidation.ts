@@ -92,7 +92,10 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
     [effectiveAttributes],
   )
 
-  const possibleCombinations = useMemo(() => buildPossibleCombinations(effectiveAttributes), [effectiveAttributes])
+  const possibleCombinations = useMemo(
+    () => buildPossibleCombinations(effectiveAttributes),
+    [effectiveAttributes],
+  )
 
   const hasReachedMaxVariants = useMemo(() => {
     if (!draft || possibleCombinations.length === 0) return false
@@ -129,7 +132,9 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
       }
 
       if (!error) {
-        const duplicateCount = duplicateCounts.get(buildVariantCombinationKey(variant.attributesByAttributeId))
+        const duplicateCount = duplicateCounts.get(
+          buildVariantCombinationKey(variant.attributesByAttributeId),
+        )
         if ((duplicateCount ?? 0) > 1) {
           error = 'Variant with this attribute combination already exists.'
         }
@@ -175,7 +180,9 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
   const invalidVariantIds = useMemo(
     () =>
       effectiveVariants
-        .filter((variant) => Boolean(variantCombinationErrors.get(variant.id) || variantPriceErrors.get(variant.id)))
+        .filter((variant) =>
+          Boolean(variantCombinationErrors.get(variant.id) || variantPriceErrors.get(variant.id)),
+        )
         .map((variant) => variant.id),
     [effectiveVariants, variantCombinationErrors, variantPriceErrors],
   )
@@ -196,7 +203,10 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
     return JSON.stringify(parentSnapshot) !== JSON.stringify(baseParentSnapshot)
   }, [baseParentSnapshot, parentSnapshot])
 
-  const attributesPayload = useMemo(() => (draft ? buildAttributesPayloadFromDraft(draft) : null), [draft])
+  const attributesPayload = useMemo(
+    () => (draft ? buildAttributesPayloadFromDraft(draft) : null),
+    [draft],
+  )
   const baseAttributesPayload = useMemo(
     () => (baseDraft ? buildAttributesPayloadFromDraft(baseDraft) : null),
     [baseDraft],

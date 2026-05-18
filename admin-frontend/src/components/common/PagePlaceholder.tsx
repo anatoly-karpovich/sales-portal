@@ -12,7 +12,9 @@ export function PagePlaceholder({ title, description, testIdPrefix = 'page-place
       <Typography variant="h5" gutterBottom data-testid={`${testIdPrefix}-title`}>
         {title}
       </Typography>
-      <Typography color="text.secondary" data-testid={`${testIdPrefix}-description`}>{description}</Typography>
+      <Typography color="text.secondary" data-testid={`${testIdPrefix}-description`}>
+        {description}
+      </Typography>
     </Paper>
   )
 }

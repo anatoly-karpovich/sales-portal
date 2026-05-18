@@ -58,7 +58,7 @@ export function ProductCategorySelector({
   const treeMetaById = useMemo(() => collectTreeMeta(tree), [tree])
   const flatById = useMemo(() => new Map(flat.map((node) => [node._id, node])), [flat])
 
-  const selectedCategory = selectedCategoryId ? flatById.get(selectedCategoryId) ?? null : null
+  const selectedCategory = selectedCategoryId ? (flatById.get(selectedCategoryId) ?? null) : null
 
   const normalizedSearch = search.trim().toLowerCase()
   const matchingNodeIds = useMemo(() => {
@@ -123,7 +123,9 @@ export function ProductCategorySelector({
                 {node.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {flatById.get(node._id)?.path ? buildPathLabel(flatById.get(node._id)!.path) : node.slug}
+                {flatById.get(node._id)?.path
+                  ? buildPathLabel(flatById.get(node._id)!.path)
+                  : node.slug}
               </Typography>
             </Stack>
             {isLeaf ? (
@@ -133,7 +135,9 @@ export function ProductCategorySelector({
             )}
           </Box>
 
-          {(node.children ?? []).length > 0 ? <Stack spacing={0.5}>{renderNodes(node.children, depth + 1)}</Stack> : null}
+          {(node.children ?? []).length > 0 ? (
+            <Stack spacing={0.5}>{renderNodes(node.children, depth + 1)}</Stack>
+          ) : null}
         </Box>
       )
     })
@@ -170,14 +174,21 @@ export function ProductCategorySelector({
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
               Selected category
             </Typography>
-            {selectedCategory ? <Chip label="leaf" size="small" color="success" variant="outlined" /> : null}
+            {selectedCategory ? (
+              <Chip label="leaf" size="small" color="success" variant="outlined" />
+            ) : null}
           </Stack>
 
           {selectedCategory ? (
             <Stack spacing={0.5}>
               <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
                 {selectedCategory.path.map((pathItem, index) => (
-                  <Stack key={`${pathItem._id}-${index}`} direction="row" spacing={0.5} alignItems="center">
+                  <Stack
+                    key={`${pathItem._id}-${index}`}
+                    direction="row"
+                    spacing={0.5}
+                    alignItems="center"
+                  >
                     <Chip size="small" label={pathItem.name} />
                     {index < selectedCategory.path.length - 1 ? (
                       <ChevronRightRoundedIcon fontSize="small" color="disabled" />

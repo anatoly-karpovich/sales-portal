@@ -13,7 +13,12 @@ type Props = {
 
 export function CustomersTableActionsCell({ customer, onView, onEdit, onDelete }: Props) {
   return (
-    <Stack direction="row" spacing={0.5} justifyContent="flex-end" data-testid="customers-table-actions-cell">
+    <Stack
+      direction="row"
+      spacing={0.5}
+      justifyContent="flex-end"
+      data-testid="customers-table-actions-cell"
+    >
       <Tooltip title="Details">
         <IconButton
           size="small"

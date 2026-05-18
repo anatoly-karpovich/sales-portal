@@ -4,7 +4,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { OrderProductRequestItem, OrderStatus } from '@/api/modules/orders.api'
-import type { OrderDeliverySavePayload, OrderDetailsTab } from '@/features/orders/components/OrderDetailsTabsSection'
+import type {
+  OrderDeliverySavePayload,
+  OrderDetailsTab,
+} from '@/features/orders/components/OrderDetailsTabsSection'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import {
   useAssignOrderManagerMutation,
@@ -361,7 +364,8 @@ export function useOrderDetailsPageState() {
       isProductsEditMode ||
       isCustomerEditMode ||
       isManagerEditMode
-    ) return
+    )
+      return
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(true)
   }
@@ -653,7 +657,8 @@ export function useOrderDetailsPageState() {
     isProcessDisabled,
     isReopenVisible,
     productsSubtotal,
-    isDeliverySubmitting: updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending,
+    isDeliverySubmitting:
+      updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending,
     isStatusSubmitting: statusMutation.isPending,
     isCustomerEditSavePending: updateOrderMutation.isPending,
     isProductsEditSavePending: updateOrderMutation.isPending,

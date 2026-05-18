@@ -1,4 +1,16 @@
-import { Box, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
+import {
+  Box,
+  IconButton,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
+  Typography,
+} from '@mui/material'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import { Link } from 'react-router-dom'
 import type { HomeMetricsViewModel } from '@/features/home/mappers/homeMetrics.mapper'
@@ -21,7 +33,11 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
       data-testid="home-tables-section"
     >
       <Paper sx={{ p: 2.5 }} data-testid="home-recent-orders-table-card">
-        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }} data-testid="home-recent-orders-table-title">
+        <Typography
+          variant="h6"
+          sx={{ mb: 1.5, fontWeight: 700 }}
+          data-testid="home-recent-orders-table-title"
+        >
           Recent Orders
         </Typography>
         <TableContainer sx={{ overflowX: 'auto' }} data-testid="home-recent-orders-table-container">
@@ -38,14 +54,20 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
             <TableBody data-testid="home-recent-orders-table-body">
               {recentOrders.map((order, index) => (
                 <TableRow key={order.id} data-testid={`home-recent-orders-row-${index}`}>
-                  <TableCell data-testid={`home-recent-orders-row-${index}-customer`}>{order.customerName}</TableCell>
+                  <TableCell data-testid={`home-recent-orders-row-${index}-customer`}>
+                    {order.customerName}
+                  </TableCell>
                   <TableCell data-testid={`home-recent-orders-row-${index}-status`}>
                     <Typography component="span" sx={{ color: getOrderStatusColor(order.status) }}>
                       {order.status}
                     </Typography>
                   </TableCell>
-                  <TableCell data-testid={`home-recent-orders-row-${index}-total`}>{order.totalPrice}</TableCell>
-                  <TableCell data-testid={`home-recent-orders-row-${index}-created`}>{formatDateTime(order.createdOn)}</TableCell>
+                  <TableCell data-testid={`home-recent-orders-row-${index}-total`}>
+                    {order.totalPrice}
+                  </TableCell>
+                  <TableCell data-testid={`home-recent-orders-row-${index}-created`}>
+                    {formatDateTime(order.createdOn)}
+                  </TableCell>
                   <TableCell>
                     <Tooltip title="Details">
                       <IconButton
@@ -66,7 +88,11 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
       </Paper>
 
       <Paper sx={{ p: 2.5 }} data-testid="home-top-customers-table-card">
-        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }} data-testid="home-top-customers-table-title">
+        <Typography
+          variant="h6"
+          sx={{ mb: 1.5, fontWeight: 700 }}
+          data-testid="home-top-customers-table-title"
+        >
           Top Customers
         </Typography>
         <TableContainer sx={{ overflowX: 'auto' }} data-testid="home-top-customers-table-container">
@@ -75,7 +101,9 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
               <TableRow data-testid="home-top-customers-table-head-row">
                 <TableCell data-testid="home-top-customers-header-name">Customer Name</TableCell>
                 <TableCell data-testid="home-top-customers-header-email">Email</TableCell>
-                <TableCell data-testid="home-top-customers-header-total-spent">Total Spent</TableCell>
+                <TableCell data-testid="home-top-customers-header-total-spent">
+                  Total Spent
+                </TableCell>
                 <TableCell data-testid="home-top-customers-header-orders">Orders</TableCell>
                 <TableCell data-testid="home-top-customers-header-details">Details</TableCell>
               </TableRow>
@@ -83,10 +111,18 @@ export function HomeTablesSection({ recentOrders, topCustomers }: Props) {
             <TableBody data-testid="home-top-customers-table-body">
               {topCustomers.map((customer, index) => (
                 <TableRow key={customer.id} data-testid={`home-top-customers-row-${index}`}>
-                  <TableCell data-testid={`home-top-customers-row-${index}-name`}>{customer.name}</TableCell>
-                  <TableCell data-testid={`home-top-customers-row-${index}-email`}>{customer.email}</TableCell>
-                  <TableCell data-testid={`home-top-customers-row-${index}-total-spent`}>{customer.totalSpent}</TableCell>
-                  <TableCell data-testid={`home-top-customers-row-${index}-orders`}>{customer.ordersCount}</TableCell>
+                  <TableCell data-testid={`home-top-customers-row-${index}-name`}>
+                    {customer.name}
+                  </TableCell>
+                  <TableCell data-testid={`home-top-customers-row-${index}-email`}>
+                    {customer.email}
+                  </TableCell>
+                  <TableCell data-testid={`home-top-customers-row-${index}-total-spent`}>
+                    {customer.totalSpent}
+                  </TableCell>
+                  <TableCell data-testid={`home-top-customers-row-${index}-orders`}>
+                    {customer.ordersCount}
+                  </TableCell>
                   <TableCell>
                     <Tooltip title="Details">
                       <IconButton

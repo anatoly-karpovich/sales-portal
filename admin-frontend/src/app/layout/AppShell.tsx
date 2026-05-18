@@ -1,4 +1,16 @@
-import { AppBar, Box, Button, CircularProgress, CssBaseline, IconButton, Menu, MenuItem, Stack, Toolbar, Typography } from '@mui/material'
+import {
+  AppBar,
+  Box,
+  Button,
+  CircularProgress,
+  CssBaseline,
+  IconButton,
+  Menu,
+  MenuItem,
+  Stack,
+  Toolbar,
+  Typography,
+} from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
@@ -35,7 +47,13 @@ export function AppShell() {
   return (
     <Box sx={{ minHeight: '100vh' }} data-testid="app-shell">
       <CssBaseline />
-      <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }} data-testid="app-shell-top-bar">
+      <AppBar
+        position="sticky"
+        color="default"
+        elevation={0}
+        sx={{ borderBottom: 1, borderColor: 'divider' }}
+        data-testid="app-shell-top-bar"
+      >
         <Toolbar data-testid="app-shell-toolbar">
           <IconButton
             color="inherit"
@@ -46,13 +64,30 @@ export function AppShell() {
             <MenuIcon />
           </IconButton>
 
-          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mr: { xs: 1, md: 3 } }} data-testid="app-shell-brand">
-            <Typography component={Link} to="/home" variant="h6" sx={{ textDecoration: 'none', color: 'text.primary' }} data-testid="app-shell-home-link">
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.5}
+            sx={{ mr: { xs: 1, md: 3 } }}
+            data-testid="app-shell-brand"
+          >
+            <Typography
+              component={Link}
+              to="/home"
+              variant="h6"
+              sx={{ textDecoration: 'none', color: 'text.primary' }}
+              data-testid="app-shell-home-link"
+            >
               Sales Portal
             </Typography>
           </Stack>
 
-          <Stack direction="row" spacing={0.5} sx={{ flexGrow: 1, minWidth: 0, pr: 1, display: { xs: 'none', md: 'flex' } }} data-testid="app-shell-navigation">
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{ flexGrow: 1, minWidth: 0, pr: 1, display: { xs: 'none', md: 'flex' } }}
+            data-testid="app-shell-navigation"
+          >
             {navigationItems.map((item) => {
               const selected = location.pathname.startsWith(item.to)
               return (
@@ -76,9 +111,18 @@ export function AppShell() {
             })}
           </Stack>
 
-          <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, md: 1.25 }} data-testid="app-shell-actions">
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={{ xs: 0.5, md: 1.25 }}
+            data-testid="app-shell-actions"
+          >
             <NotificationsBell />
-            <IconButton color="inherit" onClick={toggleMode} data-testid="app-shell-theme-toggle-button">
+            <IconButton
+              color="inherit"
+              onClick={toggleMode}
+              data-testid="app-shell-theme-toggle-button"
+            >
               {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
             <Button
@@ -103,7 +147,11 @@ export function AppShell() {
               sx={{ display: { xs: 'none', md: 'inline-flex' } }}
               data-testid="app-shell-logout-button"
             >
-              {isLoggingOut ? <CircularProgress size={18} color="inherit" /> : <MeetingRoomOutlinedIcon />}
+              {isLoggingOut ? (
+                <CircularProgress size={18} color="inherit" />
+              ) : (
+                <MeetingRoomOutlinedIcon />
+              )}
             </IconButton>
           </Stack>
         </Toolbar>

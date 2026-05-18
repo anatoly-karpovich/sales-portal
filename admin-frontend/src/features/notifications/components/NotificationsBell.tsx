@@ -1,4 +1,16 @@
-import { Badge, Box, Button, CircularProgress, IconButton, List, ListItemButton, ListItemText, Menu, Stack, Typography } from '@mui/material'
+import {
+  Badge,
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
+  Menu,
+  Stack,
+  Typography,
+} from '@mui/material'
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -33,8 +45,17 @@ export function NotificationsBell() {
 
   return (
     <>
-      <IconButton color="inherit" onClick={(event) => handleOpenMenu(event.currentTarget)} data-testid="notifications-bell-button">
-        <Badge color="error" badgeContent={unreadCount} invisible={!unreadCount} data-testid="notifications-bell-badge">
+      <IconButton
+        color="inherit"
+        onClick={(event) => handleOpenMenu(event.currentTarget)}
+        data-testid="notifications-bell-button"
+      >
+        <Badge
+          color="error"
+          badgeContent={unreadCount}
+          invisible={!unreadCount}
+          data-testid="notifications-bell-badge"
+        >
           <NotificationsNoneIcon />
         </Badge>
       </IconButton>
@@ -48,9 +69,14 @@ export function NotificationsBell() {
         slotProps={{ paper: { sx: { width: 340 } } }}
         data-testid="notifications-menu"
       >
-        <Box sx={{ px: 1.5, pt: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }} data-testid="notifications-menu-header">
+        <Box
+          sx={{ px: 1.5, pt: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}
+          data-testid="notifications-menu-header"
+        >
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-            <Typography fontWeight={700} data-testid="notifications-menu-title">Notifications</Typography>
+            <Typography fontWeight={700} data-testid="notifications-menu-title">
+              Notifications
+            </Typography>
             <Button
               size="small"
               onClick={() => {
@@ -72,7 +98,10 @@ export function NotificationsBell() {
         </Box>
 
         {isLoading ? (
-          <Box sx={{ py: 3, display: 'grid', placeItems: 'center' }} data-testid="notifications-loading">
+          <Box
+            sx={{ py: 3, display: 'grid', placeItems: 'center' }}
+            data-testid="notifications-loading"
+          >
             <CircularProgress size={22} />
           </Box>
         ) : notifications.length === 0 ? (
@@ -95,15 +124,27 @@ export function NotificationsBell() {
                 <ListItemText
                   primary={
                     <Stack spacing={0.5}>
-                      <Typography variant="caption" color="text.secondary" data-testid={`notifications-item-${index}-created-at`}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        data-testid={`notifications-item-${index}-created-at`}
+                      >
                         {formatDateTime(notification.createdAt)}
                       </Typography>
-                      <Typography fontWeight={notification.read ? 400 : 700} data-testid={`notifications-item-${index}-message`}>
+                      <Typography
+                        fontWeight={notification.read ? 400 : 700}
+                        data-testid={`notifications-item-${index}-message`}
+                      >
                         {notification.message}
                       </Typography>
                       <Button
                         size="small"
-                        sx={{ alignSelf: 'flex-start', p: 0, minWidth: 'auto', textTransform: 'none' }}
+                        sx={{
+                          alignSelf: 'flex-start',
+                          p: 0,
+                          minWidth: 'auto',
+                          textTransform: 'none',
+                        }}
                         onClick={(event) => {
                           event.stopPropagation()
                           handleCloseMenu()
