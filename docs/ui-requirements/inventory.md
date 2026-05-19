@@ -6,8 +6,8 @@
 
 | Aspect | Details |
 | --- | --- |
-| Entry points | `#/inventory`, `#/products/{productId}/inventory` |
-| APIs | `/api/inventory`, `/api/inventory/products/:productId`, `/api/inventory/adjustments`, `/api/inventory/products/:productId/variants/:variantId/settings` |
+| Entry points | `#/inventory`, `#/inventory/{productId}`, `#/inventory/{productId}/history` |
+| APIs | `/api/inventory`, `/api/inventory/products/:productId`, `/api/inventory/adjustments`, `/api/inventory/products/:productId/variants/:variantId/settings`, `/api/inventory/products/:productId/adjustments`, `/api/inventory/products/:productId/variants/:variantId/adjustments` |
 | Shared widgets | Search toolbar, filters dialog, filter chips, data table, pagination |
 | Success copy | "Inventory was adjusted successfully.", "Variant settings were updated successfully." |
 
@@ -45,15 +45,16 @@
   - `Manufacturer: <value>`
 
 ### Row Action
-- `Details` opens product inventory details: `#/products/{productId}/inventory`.
+- `Details` opens product inventory details: `#/inventory/{productId}`.
 
-## Inventory Details Page (`#/products/{productId}/inventory`)
+## Inventory Details Page (`#/inventory/{productId}`)
 
 ### Header and Summary
 - Back link to `#/inventory`.
 - Product title with inventory status chip.
 - Meta rows: manufacturer, category path, product status, created/updated timestamps.
 - `View Product` action to `#/products/{productId}`.
+- `View History` action to `#/inventory/{productId}/history`.
 - Summary cards:
   - `Inventory Status`
   - `Low Stock Variants`
@@ -71,6 +72,54 @@
 - Per-variant actions:
   - `Adjust`
   - `Settings`
+
+## Inventory History Page (`#/inventory/{productId}/history`)
+
+### Layout
+- Back link to inventory details with parent product name in label (`<Product Name> Inventory`).
+- Two separate outlined blocks:
+  - left: variants selector (all variants + per-variant options);
+  - right: history workspace (header, filter action, chips, table, pagination).
+- Left and right blocks are separated by spacing, not by decorative separators.
+
+### Header and Meta
+- Title `Inventory History` with product chip.
+- Meta line segments:
+  - manufacturer;
+  - category path;
+  - currently selected scope (`All variants` or selected variant title).
+
+### Filters
+- Filter dialog uses accordion sections; only one section can be expanded at a time.
+- Supported filters:
+  - `Adjustment Type` (multi-select from full backend enum);
+  - `Order ID`;
+  - `From Date`;
+  - `To Date`;
+  - `Sort` (`Newest first` / `Oldest first`).
+- Applied filters are shown as removable chips.
+- No dedicated empty placeholder area for chips should be shown when no filter is active.
+
+### Table and Pagination
+- History table columns:
+  - `Date` (sortable by `createdOn`);
+  - `Variant`;
+  - `Type`;
+  - `Quantity` (`before -> after (delta)`);
+  - `Reserved` (`before -> after (delta)`);
+  - `Comment`;
+  - `Manager` (resolved manager display name).
+- Pagination uses the shared pagination component.
+
+### Data Source Rules
+- `All variants` mode uses product history endpoint:
+  - `GET /api/inventory/products/:productId/adjustments`
+- Variant-specific mode uses variant history endpoint:
+  - `GET /api/inventory/products/:productId/variants/:variantId/adjustments`
+- Manager values from `createdBy` should be resolved to manager full names when available.
+- If manager cannot be resolved:
+  - use `System` for system records;
+  - fallback to `Unknown Manager` for unresolved object ids.
 
 ## Adjust Modal
 

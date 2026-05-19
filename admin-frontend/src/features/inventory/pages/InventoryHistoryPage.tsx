@@ -194,16 +194,10 @@ export function InventoryHistoryPage() {
                     color="text.secondary"
                     data-testid="inventory-history-page-meta"
                   >
-                    <Stack
-                      component="span"
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={{ xs: 0.25, sm: 1 }}
-                      useFlexGap
-                    >
-                      <Box component="span">{state.product?.manufacturer ?? '-'}</Box>
-                      <Box component="span">{state.product?.categoryPath || '-'}</Box>
-                      <Box component="span">{inventoryUiText.historyPage.metaTrailing}</Box>
-                    </Stack>
+                    {state.product?.manufacturer ?? '-'} | {state.product?.categoryPath || '-'} |{' '}
+                    {state.isAllVariantsSelected
+                      ? inventoryUiText.historyPage.allVariantsLabel
+                      : state.selectedVariantLabel}
                   </Typography>
                 </Stack>
                 <Button

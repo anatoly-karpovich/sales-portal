@@ -132,12 +132,14 @@ Top-level source layout:
   - tree node includes both `directProductsCount` (products assigned directly) and `productsCount` (subtree total).
   - create/move category requests are guarded by backend rule: category with direct products cannot become parent.
 - `api/modules/inventory.api.ts`
-  - inventory module contract includes list/details and variant-level update flows.
+  - inventory module contract includes list/details/history and variant-level update flows.
   - implemented requests:
     - `getInventory()` (`GET /inventory`) with filters by `search`, `manufacturer[]`, `productStatus[]`, `inventoryStatus[]`.
     - `getInventoryByProductId()` (`GET /inventory/products/:productId`) for product inventory details.
     - `createInventoryAdjustment()` (`POST /inventory/adjustments`) for manual stock adjustments.
     - `updateInventoryVariantSettings()` (`PATCH /inventory/products/:productId/variants/:variantId/settings`) for threshold/direct-order settings.
+    - `getInventoryAdjustmentsByProduct()` (`GET /inventory/products/:productId/adjustments`) for product-level history.
+    - `getInventoryAdjustmentsByVariant()` (`GET /inventory/products/:productId/variants/:variantId/adjustments`) for variant-level history.
 
 ### 4.3 `features` layer
 
@@ -191,10 +193,18 @@ Top-level source layout:
   - `products.ui-text.ts` - labels, validation text, toast text
 - `features/inventory`
   - `pages/InventoryPage.tsx` - global inventory list (`#/inventory`) with search, filters, sorting, and pagination.
-  - `pages/InventoryDetailsPage.tsx` - product inventory details (`#/products/:productId/inventory`) with summary cards and per-variant cards.
+  - `pages/InventoryDetailsPage.tsx` - product inventory details (`#/inventory/:productId`) with summary cards and per-variant cards.
+  - `pages/InventoryHistoryPage.tsx` - inventory history workspace (`#/inventory/:productId/history`):
+    - two-block outlined layout: variants selector (left) + history table workspace (right);
+    - filters via accordion dialog (`type[]`, `orderId`, `fromDate`, `toDate`, `sortOrder`);
+    - chips for active filters (including removable sort chip when non-default sort is selected);
+    - table columns: `Date`, `Variant`, `Type`, `Quantity`, `Reserved`, `Comment`, `Manager`;
+    - product-level/variant-level endpoint switching by selected variant.
   - `hooks/useInventoryPageState.ts` - list orchestration + query params.
+  - `hooks/useInventoryHistoryPageState.ts` - history page orchestration + variant scope + filters + pagination.
   - `hooks/useInventoryQuery.ts` - query/mutation layer for list/details, stock adjustment, and variant settings updates.
-  - `components/InventoryFiltersDialog.tsx`, `InventoryFilterChips.tsx` - inventory-only filters UX.
+  - `components/InventoryFiltersDialog.tsx`, `InventoryFilterChips.tsx`, `InventoryHistoryFiltersDialog.tsx`, `InventoryHistoryFilterChips.tsx` - inventory filters UX.
+  - `config/inventoryHistoryTableColumns.ts` - inventory history table schema and renderers.
   - `components/InventoryAdjustDialog.tsx` - variant adjustment modal:
     - current-state cards (`Quantity`, `Reserved`, `Available`) use neutral outlined borders;
     - fields: `Adjustment Type`, `Adjustment Amount` / `New Quantity`, optional `Reason`, optional `Comment`;
@@ -374,8 +384,9 @@ Top-level source layout:
   - `SearchToolbar`
     - search apply button is enabled only when search input contains a non-empty value
   - `FilterDialog` (generic modal, still used by customers page)
-  - `FilterChips` (generic chips, still used by customers page)
-    - supports optional label prefixes for search/filter values (for example `Search: foo`, `State: NY`).
+  - `FilterChips` (generic chips renderer used by customers, managers, products, orders, inventory, and inventory history)
+    - supports legacy `search/filters` mode and unified `items[]` mode;
+    - shared hover behavior for filter chips is centralized here.
   - `ExportDialog`
   - `PaginationControls`
   - `ConfirmDialog`
@@ -505,10 +516,12 @@ Routes:
   - `/orders/add`
   - `/orders/:orderId`
   - `/inventory`
+  - `/inventory/:productId`
+  - `/inventory/:productId/history`
   - `/categories`
   - `/products`
   - `/products/add`
-  - `/products/:productId/inventory`
+  - `/products/:productId`
   - `/products/:productId/edit`
   - `/customers`
   - `/customers/add`
@@ -597,6 +610,7 @@ Existing scope prefixes to follow:
 - `inventory-details-page-*`
 - `inventory-adjust-dialog-*`
 - `inventory-settings-dialog-*`
+  - `inventory-history-*`
 - `categories-page-*`
 - `categories-tree-*`
 - `search-toolbar-*`
