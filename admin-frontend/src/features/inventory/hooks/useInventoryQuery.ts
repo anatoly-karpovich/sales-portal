@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createInventoryAdjustment,
+  getInventoryAdjustmentsByProduct,
+  getInventoryAdjustmentsByVariant,
   getInventory,
   getInventoryByProductId,
+  type InventoryAdjustmentsQuery,
   type InventoryDetails,
   type InventoryAdjustmentCreatePayload,
   type InventoryVariantSettingsPatchPayload,
@@ -25,6 +28,33 @@ export function useInventoryDetailsQuery(productId: string, enabled = true) {
     queryKey: inventoryQueryKeys.detail(productId),
     queryFn: () => getInventoryByProductId(productId),
     enabled,
+  })
+}
+
+export function useInventoryAdjustmentsByProductQuery(
+  productId: string,
+  query: InventoryAdjustmentsQuery,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: inventoryQueryKeys.historyByProduct(productId, query),
+    queryFn: () => getInventoryAdjustmentsByProduct(productId, query),
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useInventoryAdjustmentsByVariantQuery(
+  productId: string,
+  variantId: string,
+  query: InventoryAdjustmentsQuery,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: inventoryQueryKeys.historyByVariant(productId, variantId, query),
+    queryFn: () => getInventoryAdjustmentsByVariant(productId, variantId, query),
+    enabled,
+    placeholderData: (previousData) => previousData,
   })
 }
 

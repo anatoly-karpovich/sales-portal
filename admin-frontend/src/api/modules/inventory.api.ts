@@ -11,6 +11,19 @@ export const INVENTORY_MANUAL_ADJUSTMENT_TYPES = [
   'Return',
 ] as const
 export type InventoryManualAdjustmentType = (typeof INVENTORY_MANUAL_ADJUSTMENT_TYPES)[number]
+export const INVENTORY_ADJUSTMENT_TYPES = [
+  'Initial Stock',
+  'Manual Increase',
+  'Manual Decrease',
+  'Manual Correction',
+  'Reserve',
+  'Release',
+  'Sale',
+  'Return',
+  'Damage',
+  'Expired Reservation',
+] as const
+export type InventoryAdjustmentType = (typeof INVENTORY_ADJUSTMENT_TYPES)[number]
 
 export type InventoryListItem = {
   _id: string
@@ -117,6 +130,47 @@ export type InventoryVariantSettingsPatchPayload = {
   allowSellingOutOfStock?: boolean
 }
 
+export type InventoryAdjustmentsSortOrder = 'asc' | 'desc'
+
+export type InventoryAdjustmentsQuery = {
+  type: InventoryAdjustmentType[]
+  orderId: string
+  fromDate: string
+  toDate: string
+  sortOrder: InventoryAdjustmentsSortOrder
+  page: number
+  limit: number
+}
+
+export type InventoryAdjustment = {
+  _id: string
+  inventoryId: string
+  productId: string
+  variantId: string
+  type: InventoryAdjustmentType
+  quantityChange: number
+  quantityBefore: number
+  quantityAfter: number
+  reservedBefore: number
+  reservedAfter: number
+  reason?: string | null
+  comment?: string | null
+  orderId?: string | null
+  reservationId?: string | null
+  createdBy: string
+  createdOn: string
+}
+
+type InventoryAdjustmentsResponse = {
+  Adjustments: InventoryAdjustment[]
+  total: number
+  page: number
+  limit: number
+  sortOrder: InventoryAdjustmentsSortOrder
+  IsSuccess: boolean
+  ErrorMessage: string | null
+}
+
 export async function getInventory(query: InventoryQuery) {
   const response = await apiClient.get<InventoryListResponse>('/inventory', {
     params: {
@@ -151,4 +205,39 @@ export async function updateInventoryVariantSettings(
     },
   )
   return response.data.Inventory
+}
+
+export async function getInventoryAdjustmentsByProduct(
+  productId: string,
+  query: InventoryAdjustmentsQuery,
+) {
+  const response = await apiClient.get<InventoryAdjustmentsResponse>(
+    `/inventory/products/${productId}/adjustments`,
+    {
+      params: {
+        ...query,
+        type: query.type,
+      },
+    },
+  )
+
+  return response.data
+}
+
+export async function getInventoryAdjustmentsByVariant(
+  productId: string,
+  variantId: string,
+  query: InventoryAdjustmentsQuery,
+) {
+  const response = await apiClient.get<InventoryAdjustmentsResponse>(
+    `/inventory/products/${productId}/variants/${variantId}/adjustments`,
+    {
+      params: {
+        ...query,
+        type: query.type,
+      },
+    },
+  )
+
+  return response.data
 }

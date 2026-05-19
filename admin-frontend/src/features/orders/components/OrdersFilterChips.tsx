@@ -1,4 +1,4 @@
-import { Chip, Stack } from '@mui/material'
+import { FilterChips } from '@/components/shared/FilterChips'
 
 type Props = {
   search?: string
@@ -31,49 +31,32 @@ export function OrdersFilterChips({
   onRemoveStatusFilter,
   onRemoveDeliveryStatusFilter,
 }: Props) {
-  if (!search && statusFilters.length === 0 && deliveryStatusFilters.length === 0) {
-    return null
-  }
+  const items = [
+    ...(search
+      ? [
+          {
+            key: `search-${search}`,
+            label: withPrefix(searchPrefix, search),
+            onDelete: onRemoveSearch,
+            testId: 'orders-list-filter-chips-search-chip',
+          },
+        ]
+      : []),
+    ...statusFilters.map((value) => ({
+      key: `status-${value}`,
+      label: withPrefix(orderStatusPrefix, value),
+      onDelete: () => onRemoveStatusFilter(value),
+      testId: `orders-list-filter-chips-order-status-${toFilterTestId(value)}-chip`,
+    })),
+    ...deliveryStatusFilters.map((value) => ({
+      key: `delivery-status-${value}`,
+      label: withPrefix(deliveryStatusPrefix, value),
+      onDelete: () => onRemoveDeliveryStatusFilter(value),
+      testId: `orders-list-filter-chips-delivery-status-${toFilterTestId(value)}-chip`,
+    })),
+  ]
 
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      flexWrap="wrap"
-      useFlexGap
-      data-testid="orders-list-filter-chips"
-    >
-      {search ? (
-        <Chip
-          color="primary"
-          variant="outlined"
-          label={withPrefix(searchPrefix, search)}
-          onDelete={onRemoveSearch}
-          data-testid="orders-list-filter-chips-search-chip"
-        />
-      ) : null}
-
-      {statusFilters.map((value) => (
-        <Chip
-          key={`status-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(orderStatusPrefix, value)}
-          onDelete={() => onRemoveStatusFilter(value)}
-          data-testid={`orders-list-filter-chips-order-status-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-
-      {deliveryStatusFilters.map((value) => (
-        <Chip
-          key={`delivery-status-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(deliveryStatusPrefix, value)}
-          onDelete={() => onRemoveDeliveryStatusFilter(value)}
-          data-testid={`orders-list-filter-chips-delivery-status-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-    </Stack>
+    <FilterChips items={items} containerTestId="orders-list-filter-chips" />
   )
 }

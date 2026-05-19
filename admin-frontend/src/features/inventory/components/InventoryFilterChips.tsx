@@ -1,4 +1,4 @@
-import { Chip, Stack } from '@mui/material'
+import { FilterChips } from '@/components/shared/FilterChips'
 
 type Props = {
   search?: string
@@ -40,65 +40,38 @@ export function InventoryFilterChips({
   onRemoveProductStatusFilter,
   onRemoveInventoryStatusFilter,
 }: Props) {
-  if (
-    !search &&
-    manufacturerFilters.length === 0 &&
-    productStatusFilters.length === 0 &&
-    inventoryStatusFilters.length === 0
-  ) {
-    return null
-  }
+  const items = [
+    ...(search
+      ? [
+          {
+            key: `search-${search}`,
+            label: withPrefix(searchPrefix, search),
+            onDelete: onRemoveSearch,
+            testId: 'inventory-list-filter-chips-search-chip',
+          },
+        ]
+      : []),
+    ...inventoryStatusFilters.map((value) => ({
+      key: `inventory-status-${value}`,
+      label: withPrefix(inventoryStatusPrefix, value),
+      onDelete: () => onRemoveInventoryStatusFilter(value),
+      testId: `inventory-list-filter-chips-inventory-status-${toFilterTestId(value)}-chip`,
+    })),
+    ...productStatusFilters.map((value) => ({
+      key: `product-status-${value}`,
+      label: withPrefix(productStatusPrefix, value),
+      onDelete: () => onRemoveProductStatusFilter(value),
+      testId: `inventory-list-filter-chips-product-status-${toFilterTestId(value)}-chip`,
+    })),
+    ...manufacturerFilters.map((value) => ({
+      key: `manufacturer-${value}`,
+      label: withPrefix(manufacturerPrefix, value),
+      onDelete: () => onRemoveManufacturerFilter(value),
+      testId: `inventory-list-filter-chips-manufacturer-${toFilterTestId(value)}-chip`,
+    })),
+  ]
 
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      flexWrap="wrap"
-      useFlexGap
-      data-testid="inventory-list-filter-chips"
-    >
-      {search ? (
-        <Chip
-          color="primary"
-          variant="outlined"
-          label={withPrefix(searchPrefix, search)}
-          onDelete={onRemoveSearch}
-          data-testid="inventory-list-filter-chips-search-chip"
-        />
-      ) : null}
-
-      {inventoryStatusFilters.map((value) => (
-        <Chip
-          key={`inventory-status-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(inventoryStatusPrefix, value)}
-          onDelete={() => onRemoveInventoryStatusFilter(value)}
-          data-testid={`inventory-list-filter-chips-inventory-status-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-
-      {productStatusFilters.map((value) => (
-        <Chip
-          key={`product-status-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(productStatusPrefix, value)}
-          onDelete={() => onRemoveProductStatusFilter(value)}
-          data-testid={`inventory-list-filter-chips-product-status-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-
-      {manufacturerFilters.map((value) => (
-        <Chip
-          key={`manufacturer-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(manufacturerPrefix, value)}
-          onDelete={() => onRemoveManufacturerFilter(value)}
-          data-testid={`inventory-list-filter-chips-manufacturer-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-    </Stack>
+    <FilterChips items={items} containerTestId="inventory-list-filter-chips" />
   )
 }

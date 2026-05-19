@@ -252,14 +252,24 @@ export function InventoryDetailsPage() {
                 </Stack>
               </Stack>
 
-              <Button
-                component={Link}
-                to={`/products/${productId}`}
-                variant="outlined"
-                data-testid="inventory-details-page-view-product-button"
-              >
-                {inventoryUiText.detailsPage.actions.viewProduct}
-              </Button>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button
+                  component={Link}
+                  to={`/inventory/${productId}/history`}
+                  variant="outlined"
+                  data-testid="inventory-details-page-view-history-button"
+                >
+                  {inventoryUiText.detailsPage.actions.viewHistory}
+                </Button>
+                <Button
+                  component={Link}
+                  to={`/products/${productId}`}
+                  variant="outlined"
+                  data-testid="inventory-details-page-view-product-button"
+                >
+                  {inventoryUiText.detailsPage.actions.viewProduct}
+                </Button>
+              </Stack>
             </Stack>
           </Box>
 
