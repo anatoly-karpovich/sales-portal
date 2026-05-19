@@ -1,12 +1,18 @@
 import { NextFunction, Response } from "express";
 import { Types } from "mongoose";
-import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES, PRODUCT_STATUSES } from "../data/enums";
+import {
+  INVENTORY_ADJUSTMENT_TYPES,
+  INVENTORY_STATUSES,
+  PRODUCT_STATUSES,
+  RESERVATION_TYPES,
+} from "../data/enums";
 import { BaseResponseDTO } from "../data/types/dto/common.dto";
 import {
   CreateInventoryAdjustmentRequestDTO,
   GetInventoryAdjustmentsByProductRequestDTO,
   GetInventoryAdjustmentsByVariantRequestDTO,
   GetInventoryByProductRequestDTO,
+  GetInventoryReservationsListRequestDTO,
   PatchInventoryVariantSettingsRequestDTO,
 } from "../data/types/dto/inventory.dto";
 import Product from "../models/product.model";
@@ -138,6 +144,64 @@ export function inventoryAdjustmentsQueryValidation(
     if (typeof createdBy === "string" && createdBy.trim() && !Types.ObjectId.isValid(createdBy.trim())) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "createdBy must be a valid ObjectId" });
     }
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export function inventoryReservationsListValidation(
+  req: GetInventoryReservationsListRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const { type, sortField, sortOrder, fromDate, toDate, expiresBefore } = req.query;
+    const types = Array.isArray(type) ? type : type ? [type] : [];
+    const invalidType = types.some(
+      (value) => !Object.values(RESERVATION_TYPES).includes(value as RESERVATION_TYPES),
+    );
+    if (invalidType) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid reservation type filter value" });
+    }
+
+    if (sortField && !["createdOn", "expiresAt"].includes(sortField)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid sortField value" });
+    }
+
+    if (sortOrder && !["asc", "desc"].includes(sortOrder)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid sortOrder value" });
+    }
+
+    const parseDate = (value: string | undefined) => {
+      if (!value || !value.trim()) return null;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return NaN;
+      return parsed.getTime();
+    };
+
+    const fromMs = parseDate(fromDate);
+    const toMs = parseDate(toDate);
+    const expiresBeforeMs = parseDate(expiresBefore);
+
+    if (Number.isNaN(fromMs)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "fromDate must be a valid date-time" });
+    }
+
+    if (Number.isNaN(toMs)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "toDate must be a valid date-time" });
+    }
+
+    if (Number.isNaN(expiresBeforeMs)) {
+      return res
+        .status(400)
+        .json({ IsSuccess: false, ErrorMessage: "expiresBefore must be a valid date-time" });
+    }
+
+    if (typeof fromMs === "number" && typeof toMs === "number" && fromMs > toMs) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "fromDate cannot be greater than toDate" });
+    }
+
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

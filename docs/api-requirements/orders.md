@@ -162,6 +162,11 @@ Notes:
 }
 ```
 
+`inventoryReservation.summary.type` values:
+- `Admin Draft`
+- `Order Processing`
+- `Customer Draft`
+
 Summary state:
 - `Temporary Lock` when active reservation has `expiresAt`;
 - `Processing Lock` when active reservation exists and `expiresAt = null`;

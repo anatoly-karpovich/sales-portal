@@ -7,12 +7,20 @@ import {
   inventoryAdjustmentsQueryValidation,
   inventoryListValidation,
   inventoryProductById,
+  inventoryReservationsListValidation,
   inventoryVariantById,
 } from "../middleware/inventoryMiddleware.js";
 
 const inventoryRouter = Router();
 
 inventoryRouter.get("/inventory", authmiddleware, inventoryListValidation, InventoryController.getList.bind(InventoryController));
+
+inventoryRouter.get(
+  "/inventory/reservations",
+  authmiddleware,
+  inventoryReservationsListValidation,
+  InventoryController.getReservationsList.bind(InventoryController),
+);
 
 inventoryRouter.get(
   "/inventory/products/:productId",
@@ -288,6 +296,130 @@ inventoryRouter.get(
  *         ErrorMessage:
  *           type: string
  *           nullable: true
+ *     InventoryReservationType:
+ *       type: string
+ *       enum: [Admin Draft, Order Processing, Customer Draft]
+ *     InventoryReservationLine:
+ *       type: object
+ *       required: [productId, variantId, productName, manufacturer, variantLabel, reservedQuantity]
+ *       properties:
+ *         productId:
+ *           type: string
+ *         variantId:
+ *           type: string
+ *         productName:
+ *           type: string
+ *         manufacturer:
+ *           type: string
+ *         variantLabel:
+ *           type: string
+ *         reservedQuantity:
+ *           type: integer
+ *           minimum: 0
+ *     InventoryReservationItem:
+ *       type: object
+ *       required: [_id, orderId, type, expiresAt, createdOn, updatedOn, customer, items, reservedProductsCount, reservedUnits, isExpired]
+ *       properties:
+ *         _id:
+ *           type: string
+ *         orderId:
+ *           type: string
+ *         type:
+ *           $ref: '#/components/schemas/InventoryReservationType'
+ *         expiresAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *         createdOn:
+ *           type: string
+ *           format: date-time
+ *         updatedOn:
+ *           type: string
+ *           format: date-time
+ *         customer:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             _id:
+ *               type: string
+ *             name:
+ *               type: string
+ *             email:
+ *               type: string
+ *         items:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryReservationLine'
+ *         reservedProductsCount:
+ *           type: integer
+ *           minimum: 0
+ *         reservedUnits:
+ *           type: integer
+ *           minimum: 0
+ *         isExpired:
+ *           type: boolean
+ *     InventoryReservationsSummary:
+ *       type: object
+ *       required: [activeReservations, expiringSoon, processing, reservedUnits]
+ *       properties:
+ *         activeReservations:
+ *           type: integer
+ *           minimum: 0
+ *         expiringSoon:
+ *           type: integer
+ *           minimum: 0
+ *         processing:
+ *           type: integer
+ *           minimum: 0
+ *         reservedUnits:
+ *           type: integer
+ *           minimum: 0
+ *     InventoryReservationsListResponse:
+ *       type: object
+ *       required: [Reservations, summary, total, page, limit, search, type, fromDate, toDate, expiresBefore, sorting, IsSuccess, ErrorMessage]
+ *       properties:
+ *         Reservations:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryReservationItem'
+ *         summary:
+ *           $ref: '#/components/schemas/InventoryReservationsSummary'
+ *         total:
+ *           type: integer
+ *           minimum: 0
+ *         page:
+ *           type: integer
+ *           minimum: 1
+ *         limit:
+ *           type: integer
+ *           minimum: 1
+ *         search:
+ *           type: string
+ *         type:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryReservationType'
+ *         fromDate:
+ *           type: string
+ *         toDate:
+ *           type: string
+ *         expiresBefore:
+ *           type: string
+ *         sorting:
+ *           type: object
+ *           required: [sortField, sortOrder]
+ *           properties:
+ *             sortField:
+ *               type: string
+ *               enum: [createdOn, expiresAt]
+ *             sortOrder:
+ *               type: string
+ *               enum: [asc, desc]
+ *         IsSuccess:
+ *           type: boolean
+ *         ErrorMessage:
+ *           type: string
+ *           nullable: true
  *     InventoryVariantSettingsPatchPayload:
  *       type: object
  *       additionalProperties: false
@@ -397,6 +529,87 @@ inventoryRouter.get(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/InventoryListResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/reservations:
+ *   get:
+ *     summary: Get paginated inventory reservations list
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by order id (Mongo ObjectId string)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/InventoryReservationType'
+ *         style: form
+ *         explode: true
+ *         description: Filter by reservation type
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include reservations created on or after this date-time
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include reservations created on or before this date-time
+ *       - in: query
+ *         name: expiresBefore
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Include reservations with expiresAt less than or equal to this date-time
+ *       - in: query
+ *         name: sortField
+ *         schema:
+ *           type: string
+ *           enum: [createdOn, expiresAt]
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: string
+ *           example: "1"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: string
+ *           example: "10"
+ *     responses:
+ *       200:
+ *         description: Reservations list fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryReservationsListResponse'
  *       400:
  *         description: Validation error
  *         content:

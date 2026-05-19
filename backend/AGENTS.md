@@ -187,6 +187,7 @@ Categories:
 Inventory:
 
 - `GET /inventory`
+- `GET /inventory/reservations`
 - `GET /inventory/products/:productId`
 - `POST /inventory/adjustments`
 - `PATCH /inventory/products/:productId/variants/:variantId/settings`
@@ -286,10 +287,14 @@ Current important constraints:
   - canonical stock: `Inventory.variants[].quantity`
   - canonical reserve: `Inventory.variants[].reserved`
   - canonical available: `Inventory.variants[].available`
-  - reservation documents explain lock ownership/lifecycle by `orderId` and may be expiring (`Admin Draft`/`Customer Payment`) or non-expiring (`Order Processing`).
+  - reservation documents explain lock ownership/lifecycle by `orderId` and may be expiring (`Admin Draft`/`Customer Draft`) or non-expiring (`Order Processing`).
   - `stockStatus` and parent summary fields are derived read-model values.
 - Inventory service logic must resolve conflicts in favor of canonical sources above.
 - Reservation document/item mutations (`upsert/update/delete`) are lifecycle events and must stay consistent with inventory numeric fields.
+- Reservation type source-of-truth values:
+  - `Admin Draft`
+  - `Order Processing`
+  - `Customer Draft`
 
 ## 8.1) Order products structure
 

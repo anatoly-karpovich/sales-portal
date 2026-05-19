@@ -17,6 +17,7 @@
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | `/api/inventory` | Paginated inventory list with filters/sorting. |
+| GET | `/api/inventory/reservations` | Paginated active reservations list with summary. |
 | GET | `/api/inventory/products/:productId` | Inventory details by product. |
 | POST | `/api/inventory/adjustments` | Manual stock adjustment. |
 | PATCH | `/api/inventory/products/:productId/variants/:variantId/settings` | Update variant low-stock settings. |
@@ -35,12 +36,17 @@ Derived read-model fields:
 - parent summary: `totalReserved`, `totalAvailable`, `inventoryStatus`, `lowStockVariantsCount`, `outOfStockVariantsCount`
 
 Rule:
-- reservation documents explain lock ownership/lifecycle for orders and can be non-expiring (`Order Processing`) or expiring (`Admin Draft`/`Customer Payment`);
+- reservation documents explain lock ownership/lifecycle for orders and can be non-expiring (`Order Processing`) or expiring (`Admin Draft`/`Customer Draft`);
 - inventory numeric invariants must hold:
   - `quantity >= 0`
   - `reserved >= 0`
   - `available >= 0`
   - `available = max(quantity - reserved, 0)`
+
+Reservation type source of truth:
+- `Admin Draft`
+- `Order Processing`
+- `Customer Draft`
 
 ## Read Contract Notes
 
@@ -51,6 +57,29 @@ Rule:
 - `updatedOn`
 
 `GET /api/inventory/products/:productId` returns detailed inventory with variants.
+
+`GET /api/inventory/reservations` returns:
+- paginated active reservations list;
+- server-side filtering and sorting;
+- summary block calculated from full active reservations set (without applied filters).
+
+Reservations list filters (`GET /api/inventory/reservations`):
+- `search` (order id contains, Mongo `_id`);
+- `type[]` (`Admin Draft | Order Processing | Customer Draft`);
+- `fromDate` / `toDate` (by `createdOn`, inclusive);
+- `expiresBefore` (`expiresAt <= value`);
+- `page`, `limit`.
+
+Reservations list sorting:
+- `sortField`: `createdOn | expiresAt`
+- `sortOrder`: `asc | desc`
+- default: `createdOn desc`
+
+Reservations summary:
+- `activeReservations`: total active reservations count;
+- `expiringSoon`: reservations with `expiresAt - now <= 5 minutes`;
+- `processing`: reservations with `type = Order Processing`;
+- `reservedUnits`: sum of reserved units across all active reservations.
 
 `available` formula:
 - `available = max(quantity - reserved, 0)`

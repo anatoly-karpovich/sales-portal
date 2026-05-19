@@ -59,7 +59,7 @@ export enum INVENTORY_ADJUSTMENT_TYPES {
 export enum RESERVATION_TYPES {
   ADMIN_DRAFT = "Admin Draft",
   ORDER_PROCESSING = "Order Processing",
-  CUSTOMER_PAYMENT = "Customer Payment",
+  CUSTOMER_DRAFT = "Customer Draft",
 }
 
 export enum VALIDATION_ERROR_MESSAGES {

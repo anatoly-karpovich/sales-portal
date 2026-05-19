@@ -8,12 +8,19 @@ import {
   GetInventoryAdjustmentsByVariantRequestDTO,
   GetInventoryByProductRequestDTO,
   GetInventoryListRequestDTO,
+  GetInventoryReservationsListRequestDTO,
   InventoryAdjustmentsResponseDTO,
+  InventoryReservationsResponseDTO,
   InventoryResponseDTO,
   InventoriesResponseDTO,
   PatchInventoryVariantSettingsRequestDTO,
 } from "../data/types/dto/inventory.dto";
-import { INVENTORY_ADJUSTMENT_TYPES, INVENTORY_STATUSES, PRODUCT_STATUSES } from "../data/enums";
+import {
+  INVENTORY_ADJUSTMENT_TYPES,
+  INVENTORY_STATUSES,
+  PRODUCT_STATUSES,
+  RESERVATION_TYPES,
+} from "../data/enums";
 import InventoryService from "../services/inventory.service";
 
 const MIN_LIMIT = 10;
@@ -221,6 +228,58 @@ class InventoryController {
         page,
         limit,
         sortOrder,
+        IsSuccess: true,
+        ErrorMessage: null,
+      });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async getReservationsList(
+    req: GetInventoryReservationsListRequestDTO,
+    res: Response<InventoryReservationsResponseDTO | BaseResponseDTO>,
+  ) {
+    try {
+      const page = Math.max(parseInt(req.query.page ?? "1", 10), 1);
+      const limit = Math.min(Math.max(parseInt(req.query.limit ?? `${MIN_LIMIT}`, 10), MIN_LIMIT), MAX_LIMIT);
+      const sortField =
+        req.query.sortField && ["createdOn", "expiresAt"].includes(req.query.sortField)
+          ? req.query.sortField
+          : "createdOn";
+      const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
+      const typeFilter = (Array.isArray(req.query.type) ? req.query.type : req.query.type ? [req.query.type] : []).filter(
+        (type): type is RESERVATION_TYPES => Object.values(RESERVATION_TYPES).includes(type as RESERVATION_TYPES),
+      );
+
+      const { reservations, summary, total } = await InventoryService.getReservations({
+        search: req.query.search ?? "",
+        type: typeFilter,
+        fromDate: req.query.fromDate,
+        toDate: req.query.toDate,
+        expiresBefore: req.query.expiresBefore,
+        page,
+        limit,
+        sortField: sortField as "createdOn" | "expiresAt",
+        sortOrder,
+      });
+
+      return res.status(200).json({
+        Reservations: reservations as any,
+        summary,
+        total,
+        page,
+        limit,
+        search: req.query.search ?? "",
+        type: typeFilter,
+        fromDate: req.query.fromDate ?? "",
+        toDate: req.query.toDate ?? "",
+        expiresBefore: req.query.expiresBefore ?? "",
+        sorting: {
+          sortField: sortField as "createdOn" | "expiresAt",
+          sortOrder,
+        },
         IsSuccess: true,
         ErrorMessage: null,
       });

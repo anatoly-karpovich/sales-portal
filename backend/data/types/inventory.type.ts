@@ -105,3 +105,37 @@ export interface IReservation extends DocumentResult<IReservation> {
 export interface IReservationDocument extends IReservation, Document {
   _id: Types.ObjectId;
 }
+
+export interface IInventoryReservationListItemLine {
+  productId: string;
+  variantId: string;
+  productName: string;
+  manufacturer: string;
+  variantLabel: string;
+  reservedQuantity: number;
+}
+
+export interface IInventoryReservationListItem {
+  _id: string;
+  orderId: string;
+  type: RESERVATION_TYPES;
+  expiresAt: string | null;
+  createdOn: string;
+  updatedOn: string;
+  customer: {
+    _id: string;
+    name: string;
+    email: string;
+  } | null;
+  items: IInventoryReservationListItemLine[];
+  reservedProductsCount: number;
+  reservedUnits: number;
+  isExpired: boolean;
+}
+
+export interface IInventoryReservationsSummary {
+  activeReservations: number;
+  expiringSoon: number;
+  processing: number;
+  reservedUnits: number;
+}

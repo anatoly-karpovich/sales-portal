@@ -3,9 +3,16 @@ import {
   INVENTORY_ADJUSTMENT_TYPES,
   PRODUCT_STATUSES,
   INVENTORY_STATUSES,
+  RESERVATION_TYPES,
 } from "../../enums";
 import { BaseResponseDTO } from "./common.dto";
-import { IInventoryAdjustment, IInventoryListItem, IInventoryReadModel } from "../inventory.type";
+import {
+  IInventoryAdjustment,
+  IInventoryListItem,
+  IInventoryReadModel,
+  IInventoryReservationListItem,
+  IInventoryReservationsSummary,
+} from "../inventory.type";
 
 export type InventoryListQueryDTO = {
   search?: string;
@@ -58,6 +65,18 @@ export type InventoryAdjustmentListQueryDTO = {
   sortOrder?: "asc" | "desc";
 };
 
+export type InventoryReservationsListQueryDTO = {
+  search?: string;
+  type?: RESERVATION_TYPES | RESERVATION_TYPES[];
+  fromDate?: string;
+  toDate?: string;
+  expiresBefore?: string;
+  page?: string;
+  limit?: string;
+  sortField?: "createdOn" | "expiresAt";
+  sortOrder?: "asc" | "desc";
+};
+
 export type InventoryWithMetaDTO = IInventoryReadModel & {
   product?: {
     _id: string;
@@ -86,6 +105,13 @@ export type GetInventoryAdjustmentsByVariantRequestDTO = Request<
   InventoryAdjustmentListQueryDTO
 >;
 
+export type GetInventoryReservationsListRequestDTO = Request<
+  unknown,
+  unknown,
+  unknown,
+  InventoryReservationsListQueryDTO
+>;
+
 export type InventoryResponseDTO = BaseResponseDTO & {
   Inventory: InventoryWithMetaDTO;
 };
@@ -111,4 +137,21 @@ export type InventoryAdjustmentsResponseDTO = BaseResponseDTO & {
   page: number;
   limit: number;
   sortOrder: "asc" | "desc";
+};
+
+export type InventoryReservationsResponseDTO = BaseResponseDTO & {
+  Reservations: IInventoryReservationListItem[];
+  summary: IInventoryReservationsSummary;
+  total: number;
+  page: number;
+  limit: number;
+  search: string;
+  type: RESERVATION_TYPES[];
+  fromDate: string;
+  toDate: string;
+  expiresBefore: string;
+  sorting: {
+    sortField: "createdOn" | "expiresAt";
+    sortOrder: "asc" | "desc";
+  };
 };

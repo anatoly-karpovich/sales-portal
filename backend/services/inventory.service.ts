@@ -14,6 +14,8 @@ import type {
   IInventory,
   IInventoryAdjustment,
   IInventoryListItem,
+  IInventoryReservationListItem,
+  IInventoryReservationsSummary,
   IInventoryReadModel,
   IInventoryVariant,
   IInventoryVariantReadModel,
@@ -49,12 +51,26 @@ type AdjustmentQuery = {
   sortOrder: "asc" | "desc";
 };
 
+type ReservationListQuery = {
+  search: string;
+  type: RESERVATION_TYPES[];
+  fromDate?: string;
+  toDate?: string;
+  expiresBefore?: string;
+  page: number;
+  limit: number;
+  sortField: "createdOn" | "expiresAt";
+  sortOrder: "asc" | "desc";
+};
+
 type ReservationReleaseParams = {
   orderId: Types.ObjectId;
   managerId: string;
   session: ClientSession;
   type?: INVENTORY_ADJUSTMENT_TYPES.RELEASE | INVENTORY_ADJUSTMENT_TYPES.EXPIRED_RESERVATION;
 };
+
+const EXPIRING_SOON_WINDOW_MS = 5 * 60 * 1000;
 
 class InventoryService {
   private settingsService = new SettingsService();
@@ -74,6 +90,18 @@ class InventoryService {
     return `${productId.toString()}:${variantId.toString()}`;
   }
 
+  private normalizeReservationType(value: unknown): RESERVATION_TYPES {
+    if (value === RESERVATION_TYPES.ORDER_PROCESSING) {
+      return RESERVATION_TYPES.ORDER_PROCESSING;
+    }
+
+    if (value === RESERVATION_TYPES.CUSTOMER_DRAFT || value === "Customer Payment") {
+      return RESERVATION_TYPES.CUSTOMER_DRAFT;
+    }
+
+    return RESERVATION_TYPES.ADMIN_DRAFT;
+  }
+
   private normalizeVariantQuantities(variant: Pick<IInventoryVariant, "quantity" | "reserved">) {
     const quantity = Math.max(0, variant.quantity ?? 0);
     const reserved = Math.max(0, variant.reserved ?? 0);
@@ -84,7 +112,9 @@ class InventoryService {
 
   private buildVariantUpdate(
     variant: IInventoryVariant & Record<string, any>,
-    next: Partial<Pick<IInventoryVariant, "quantity" | "reserved" | "lowStockThreshold" | "allowSellingOutOfStock" | "status">>,
+    next: Partial<
+      Pick<IInventoryVariant, "quantity" | "reserved" | "lowStockThreshold" | "allowSellingOutOfStock" | "status">
+    >,
   ) {
     const normalized = this.normalizeVariantQuantities({
       quantity: next.quantity ?? variant.quantity,
@@ -145,7 +175,9 @@ class InventoryService {
     const totalQuantity = active.reduce((sum, variant) => sum + variant.quantity, 0);
     const totalReserved = active.reduce((sum, variant) => sum + variant.reserved, 0);
     const totalAvailable = active.reduce((sum, variant) => sum + variant.available, 0);
-    const lowStockVariantsCount = active.filter((variant) => variant.stockStatus === INVENTORY_STATUSES.LOW_STOCK).length;
+    const lowStockVariantsCount = active.filter(
+      (variant) => variant.stockStatus === INVENTORY_STATUSES.LOW_STOCK,
+    ).length;
     const outOfStockVariantsCount = active.filter(
       (variant) => variant.stockStatus === INVENTORY_STATUSES.OUT_OF_STOCK,
     ).length;
@@ -161,9 +193,7 @@ class InventoryService {
     };
   }
 
-  private buildReadModelInventory(
-    inventory: IInventory & Record<string, any>,
-  ): IInventoryReadModel {
+  private buildReadModelInventory(inventory: IInventory & Record<string, any>): IInventoryReadModel {
     const variants = (inventory.variants ?? []).map((variant: any) => {
       const normalized = this.normalizeVariantQuantities({
         quantity: variant.quantity ?? 0,
@@ -193,12 +223,11 @@ class InventoryService {
     } as IInventoryReadModel;
   }
 
-  private async getInventoryVariant(
-    productId: Types.ObjectId,
-    variantId: Types.ObjectId,
-    session?: ClientSession,
-  ) {
-    const inventory = await Inventory.findOne({ productId }).session(session ?? null).lean().exec();
+  private async getInventoryVariant(productId: Types.ObjectId, variantId: Types.ObjectId, session?: ClientSession) {
+    const inventory = await Inventory.findOne({ productId })
+      .session(session ?? null)
+      .lean()
+      .exec();
     if (!inventory) {
       throw createHttpError(`Inventory for product '${productId.toString()}' wasn't found`, 404);
     }
@@ -226,8 +255,14 @@ class InventoryService {
     );
   }
 
-  async recalculateInventorySummary(inventoryId: Types.ObjectId, session?: ClientSession): Promise<IInventoryReadModel | undefined> {
-    const inventory = await Inventory.findById(inventoryId).session(session ?? null).lean().exec();
+  async recalculateInventorySummary(
+    inventoryId: Types.ObjectId,
+    session?: ClientSession,
+  ): Promise<IInventoryReadModel | undefined> {
+    const inventory = await Inventory.findById(inventoryId)
+      .session(session ?? null)
+      .lean()
+      .exec();
     if (!inventory) {
       return undefined;
     }
@@ -278,7 +313,10 @@ class InventoryService {
     const settings = await this.settingsService.get();
     const now = this.getNowString();
     const productId = new Types.ObjectId(product._id);
-    const inventory = await Inventory.findOne({ productId }).session(session ?? null).lean().exec();
+    const inventory = await Inventory.findOne({ productId })
+      .session(session ?? null)
+      .lean()
+      .exec();
 
     if (!inventory) {
       return this.createForProduct(product, session);
@@ -375,17 +413,16 @@ class InventoryService {
       productFilter.$or = [{ name: { $regex: searchRegex } }, { manufacturer: { $regex: searchRegex } }];
     }
 
-    const products = await Product.find(productFilter)
-      .select("_id name manufacturer status")
-      .lean()
-      .exec();
+    const products = await Product.find(productFilter).select("_id name manufacturer status").lean().exec();
 
     if (products.length === 0) {
       return { inventories: [], total: 0 };
     }
 
     const productIds = products.map((product) => new Types.ObjectId(product._id));
-    const inventories = await Inventory.find({ productId: { $in: productIds } }).lean().exec();
+    const inventories = await Inventory.find({ productId: { $in: productIds } })
+      .lean()
+      .exec();
     const productById = new Map(products.map((product) => [product._id.toString(), product]));
 
     const normalized = inventories
@@ -530,6 +567,247 @@ class InventoryService {
     ]);
 
     return { adjustments, total };
+  }
+
+  private toIsoDateString(value: unknown): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value.toISOString();
+    }
+
+    const parsed = new Date(value as string);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  private toDateMs(value: unknown): number | null {
+    const iso = this.toIsoDateString(value);
+    if (!iso) {
+      return null;
+    }
+
+    const parsed = new Date(iso).getTime();
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  private toReservationVariantLabel(attributes: unknown): string {
+    if (!attributes) {
+      return "-";
+    }
+
+    const entries =
+      attributes instanceof Map
+        ? Array.from(attributes.entries())
+        : Object.entries(attributes as Record<string, unknown>);
+
+    const values = entries.map(([, value]) => String(value ?? "").trim()).filter((value) => value.length > 0);
+
+    if (values.length === 0) {
+      return "-";
+    }
+
+    return values.join(" | ");
+  }
+
+  private buildReservationsSummary(
+    reservations: Array<{ type: unknown; items: Array<{ quantity: number }>; expiresAt: unknown }>,
+  ): IInventoryReservationsSummary {
+    const nowMs = Date.now();
+
+    return reservations.reduce<IInventoryReservationsSummary>(
+      (acc, reservation) => {
+        acc.activeReservations += 1;
+        if (this.normalizeReservationType(reservation.type) === RESERVATION_TYPES.ORDER_PROCESSING) {
+          acc.processing += 1;
+        }
+
+        const reservedUnitsForReservation = (reservation.items ?? []).reduce(
+          (sum, item) => sum + Math.max(item.quantity ?? 0, 0),
+          0,
+        );
+        acc.reservedUnits += reservedUnitsForReservation;
+
+        const expiresAtMs = this.toDateMs(reservation.expiresAt);
+        if (typeof expiresAtMs === "number") {
+          const remainingMs = expiresAtMs - nowMs;
+          if (remainingMs >= 0 && remainingMs <= EXPIRING_SOON_WINDOW_MS) {
+            acc.expiringSoon += 1;
+          }
+        }
+
+        return acc;
+      },
+      {
+        activeReservations: 0,
+        expiringSoon: 0,
+        processing: 0,
+        reservedUnits: 0,
+      },
+    );
+  }
+
+  async getReservations(query: ReservationListQuery) {
+    const reservations = (await Reservation.find({})
+      .select("_id orderId type items expiresAt createdOn updatedOn")
+      .lean()
+      .exec()) as Array<{
+      _id: Types.ObjectId;
+      orderId: Types.ObjectId;
+      type: unknown;
+      items: Array<{ productId: Types.ObjectId; variantId: Types.ObjectId; quantity: number }>;
+      expiresAt: unknown;
+      createdOn: unknown;
+      updatedOn: unknown;
+    }>;
+
+    const summary = this.buildReservationsSummary(reservations);
+    const fromDateMs = this.toDateMs(query.fromDate);
+    const toDateMs = this.toDateMs(query.toDate);
+    const expiresBeforeMs = this.toDateMs(query.expiresBefore);
+    const normalizedSearch = query.search.trim().toLowerCase();
+
+    const filtered = reservations.filter((reservation) => {
+      const reservationType = this.normalizeReservationType(reservation.type);
+      if (query.type.length > 0 && !query.type.includes(reservationType)) {
+        return false;
+      }
+
+      const createdOnMs = this.toDateMs(reservation.createdOn);
+      if (typeof fromDateMs === "number" && (createdOnMs === null || createdOnMs < fromDateMs)) {
+        return false;
+      }
+      if (typeof toDateMs === "number" && (createdOnMs === null || createdOnMs > toDateMs)) {
+        return false;
+      }
+
+      if (typeof expiresBeforeMs === "number") {
+        const expiresAtMs = this.toDateMs(reservation.expiresAt);
+        if (expiresAtMs === null || expiresAtMs > expiresBeforeMs) {
+          return false;
+        }
+      }
+
+      if (normalizedSearch.length > 0) {
+        const orderId = reservation.orderId?.toString?.().toLowerCase() ?? "";
+        if (!orderId.includes(normalizedSearch)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const sortDirection = query.sortOrder === "asc" ? 1 : -1;
+    filtered.sort((left, right) => {
+      const leftSortMs = this.toDateMs(left[query.sortField]);
+      const rightSortMs = this.toDateMs(right[query.sortField]);
+
+      let comparison = 0;
+      if (leftSortMs === null && rightSortMs === null) {
+        comparison = 0;
+      } else if (leftSortMs === null) {
+        comparison = 1;
+      } else if (rightSortMs === null) {
+        comparison = -1;
+      } else {
+        comparison = leftSortMs - rightSortMs;
+      }
+
+      if (comparison === 0) {
+        const leftCreatedOn = this.toDateMs(left.createdOn) ?? 0;
+        const rightCreatedOn = this.toDateMs(right.createdOn) ?? 0;
+        return rightCreatedOn - leftCreatedOn;
+      }
+
+      return comparison * sortDirection;
+    });
+
+    const total = filtered.length;
+    const skip = (query.page - 1) * query.limit;
+    const pageItems = filtered.slice(skip, skip + query.limit);
+    if (pageItems.length === 0) {
+      return { reservations: [] as IInventoryReservationListItem[], summary, total };
+    }
+
+    const orderIds = pageItems.map((reservation) => new Types.ObjectId(reservation.orderId));
+    const orders = (await Order.find({ _id: { $in: orderIds } })
+      .select("_id customer products")
+      .lean()
+      .exec()) as Array<{
+      _id: Types.ObjectId;
+      customer?: { _id: Types.ObjectId; name: string; email: string } | null;
+      products?: Array<{
+        productId: Types.ObjectId;
+        variantId: Types.ObjectId;
+        name: string;
+        manufacturer: string;
+        attributes?: unknown;
+      }>;
+    }>;
+
+    const ordersById = new Map(orders.map((order) => [order._id.toString(), order]));
+    const nowMs = Date.now();
+    const mappedReservations = pageItems.map((reservation): IInventoryReservationListItem => {
+      const order = ordersById.get(reservation.orderId.toString());
+      const productsByLine = new Map<string, { name: string; manufacturer: string; attributes?: unknown }>(
+        (order?.products ?? []).map((product) => [
+          this.getReservationVariantKey(product.productId, product.variantId),
+          {
+            name: product.name,
+            manufacturer: product.manufacturer,
+            attributes: product.attributes,
+          },
+        ]),
+      );
+
+      const items = (reservation.items ?? []).map((item) => {
+        const productId = item.productId.toString();
+        const variantId = item.variantId.toString();
+        const key = this.getReservationVariantKey(productId, variantId);
+        const productSnapshot = productsByLine.get(key);
+
+        return {
+          productId,
+          variantId,
+          productName: productSnapshot?.name ?? productId,
+          manufacturer: productSnapshot?.manufacturer ?? "-",
+          variantLabel: this.toReservationVariantLabel(productSnapshot?.attributes),
+          reservedQuantity: Math.max(item.quantity ?? 0, 0),
+        };
+      });
+
+      const expiresAt = this.toIsoDateString(reservation.expiresAt);
+      const expiresAtMs = this.toDateMs(reservation.expiresAt);
+      const reservedUnits = items.reduce((sum, item) => sum + item.reservedQuantity, 0);
+
+      return {
+        _id: reservation._id.toString(),
+        orderId: reservation.orderId.toString(),
+        type: this.normalizeReservationType(reservation.type),
+        expiresAt,
+        createdOn: this.toIsoDateString(reservation.createdOn) ?? "",
+        updatedOn: this.toIsoDateString(reservation.updatedOn) ?? "",
+        customer: order?.customer
+          ? {
+              _id: order.customer._id.toString(),
+              name: order.customer.name,
+              email: order.customer.email,
+            }
+          : null,
+        items,
+        reservedProductsCount: items.length,
+        reservedUnits,
+        isExpired: typeof expiresAtMs === "number" ? expiresAtMs < nowMs : false,
+      };
+    });
+
+    return {
+      reservations: mappedReservations,
+      summary,
+      total,
+    };
   }
 
   async adjustStock(
@@ -735,7 +1013,9 @@ class InventoryService {
         throw createHttpError("Not enough stock", 409);
       }
 
-      const reservedQuantity = variant.allowSellingOutOfStock ? Math.min(item.quantity, availableBefore) : item.quantity;
+      const reservedQuantity = variant.allowSellingOutOfStock
+        ? Math.min(item.quantity, availableBefore)
+        : item.quantity;
       const afterReserved = baseReservedWithoutOrder + reservedQuantity;
       const nextVariant = this.buildVariantUpdate(variant as any, { reserved: afterReserved });
 
@@ -811,7 +1091,9 @@ class InventoryService {
     return reservation as unknown as IReservation;
   }
 
-  async releaseReservationByOrder(params: ReservationReleaseParams & Record<string, unknown>): Promise<IReservation | null> {
+  async releaseReservationByOrder(
+    params: ReservationReleaseParams & Record<string, unknown>,
+  ): Promise<IReservation | null> {
     const { orderId, managerId, session, type = INVENTORY_ADJUSTMENT_TYPES.RELEASE } = params;
 
     const reservation = await Reservation.findOne({ orderId }).session(session).lean().exec();
@@ -946,9 +1228,7 @@ class InventoryService {
       });
 
       const nextVariants = (inventory.variants ?? []).map((variant: any) =>
-        variant.variantId.toString() === line.variantId.toString()
-          ? nextVariant
-          : variant,
+        variant.variantId.toString() === line.variantId.toString() ? nextVariant : variant,
       );
 
       await Inventory.findByIdAndUpdate(
@@ -1020,23 +1300,35 @@ class InventoryService {
 
   async deleteByProductId(productId: Types.ObjectId, session?: ClientSession) {
     await Promise.all([
-      Inventory.deleteOne({ productId }).session(session ?? null).exec(),
-      InventoryAdjustment.deleteMany({ productId }).session(session ?? null).exec(),
-      Reservation.deleteMany({ "items.productId": productId }).session(session ?? null).exec(),
+      Inventory.deleteOne({ productId })
+        .session(session ?? null)
+        .exec(),
+      InventoryAdjustment.deleteMany({ productId })
+        .session(session ?? null)
+        .exec(),
+      Reservation.deleteMany({ "items.productId": productId })
+        .session(session ?? null)
+        .exec(),
     ]);
   }
 
   async deleteVariantData(productId: Types.ObjectId, variantId: Types.ObjectId, session?: ClientSession) {
     await Promise.all([
-      Inventory.updateOne({ productId }, { $pull: { variants: { variantId } } }).session(session ?? null).exec(),
-      InventoryAdjustment.deleteMany({ productId, variantId }).session(session ?? null).exec(),
+      Inventory.updateOne({ productId }, { $pull: { variants: { variantId } } })
+        .session(session ?? null)
+        .exec(),
+      InventoryAdjustment.deleteMany({ productId, variantId })
+        .session(session ?? null)
+        .exec(),
       Reservation.updateMany(
         { items: { $elemMatch: { productId, variantId } } },
         { $pull: { items: { productId, variantId } } },
       )
         .session(session ?? null)
         .exec(),
-      Reservation.deleteMany({ items: { $size: 0 } }).session(session ?? null).exec(),
+      Reservation.deleteMany({ items: { $size: 0 } })
+        .session(session ?? null)
+        .exec(),
     ]);
   }
 
