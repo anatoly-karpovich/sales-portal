@@ -39,6 +39,10 @@ const InventoryDetailsPage = lazy(async () => ({
 const InventoryHistoryPage = lazy(async () => ({
   default: (await import('@/features/inventory/pages/InventoryHistoryPage')).InventoryHistoryPage,
 }))
+const InventoryReservationsPage = lazy(async () => ({
+  default: (await import('@/features/inventory/pages/InventoryReservationsPage'))
+    .InventoryReservationsPage,
+}))
 const CategoriesPage = lazy(async () => ({
   default: (await import('@/features/categories/pages/CategoriesPage')).CategoriesPage,
 }))
@@ -135,6 +139,14 @@ function AppRoutes() {
           element={
             <SuspendedRoute>
               <InventoryHistoryPage />
+            </SuspendedRoute>
+          }
+        />
+        <Route
+          path="/inventory/reservations"
+          element={
+            <SuspendedRoute>
+              <InventoryReservationsPage />
             </SuspendedRoute>
           }
         />

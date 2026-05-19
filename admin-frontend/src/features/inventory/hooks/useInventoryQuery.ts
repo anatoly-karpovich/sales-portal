@@ -5,9 +5,11 @@ import {
   getInventoryAdjustmentsByVariant,
   getInventory,
   getInventoryByProductId,
+  getInventoryReservations,
   type InventoryAdjustmentsQuery,
   type InventoryDetails,
   type InventoryAdjustmentCreatePayload,
+  type InventoryReservationsQuery,
   type InventoryVariantSettingsPatchPayload,
   type InventoryQuery,
   updateInventoryVariantSettings,
@@ -28,6 +30,14 @@ export function useInventoryDetailsQuery(productId: string, enabled = true) {
     queryKey: inventoryQueryKeys.detail(productId),
     queryFn: () => getInventoryByProductId(productId),
     enabled,
+  })
+}
+
+export function useInventoryReservationsQuery(query: InventoryReservationsQuery) {
+  return useQuery({
+    queryKey: inventoryQueryKeys.reservationsList(query),
+    queryFn: () => getInventoryReservations(query),
+    placeholderData: (previousData) => previousData,
   })
 }
 

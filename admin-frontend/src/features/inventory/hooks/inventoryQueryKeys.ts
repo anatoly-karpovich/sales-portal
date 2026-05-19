@@ -1,4 +1,7 @@
-import type { InventoryQuery } from '@/api/modules/inventory.api'
+import type {
+  InventoryQuery,
+  InventoryReservationsQuery,
+} from '@/api/modules/inventory.api'
 
 const INVENTORY_QUERY_KEY_BASE = ['inventory'] as const
 
@@ -13,4 +16,7 @@ export const inventoryQueryKeys = {
     [...inventoryQueryKeys.histories(), 'product', productId, params] as const,
   historyByVariant: (productId: string, variantId: string, params: Record<string, unknown>) =>
     [...inventoryQueryKeys.histories(), 'variant', productId, variantId, params] as const,
+  reservations: () => [...INVENTORY_QUERY_KEY_BASE, 'reservations'] as const,
+  reservationsList: (params: InventoryReservationsQuery) =>
+    [...inventoryQueryKeys.reservations(), 'list', params] as const,
 }

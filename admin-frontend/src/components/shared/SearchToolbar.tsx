@@ -6,6 +6,7 @@ import DownloadIcon from '@mui/icons-material/Download'
 type Props = {
   searchDraft: string
   hasActiveSearch?: boolean
+  searchPlaceholder?: string
   onSearchDraftChange: (value: string) => void
   onSearchApply: () => void
   onOpenFilters: () => void
@@ -17,6 +18,7 @@ type Props = {
 
 export function SearchToolbar({
   searchDraft,
+  searchPlaceholder = 'Type a value...',
   onSearchDraftChange,
   onSearchApply,
   onOpenFilters,
@@ -37,7 +39,7 @@ export function SearchToolbar({
     >
       <TextField
         size="small"
-        placeholder="Type a value..."
+        placeholder={searchPlaceholder}
         value={searchDraft}
         onChange={(event) => onSearchDraftChange(event.target.value)}
         sx={{ minWidth: { xs: '100%', md: 320 } }}

@@ -24,6 +24,13 @@ export const INVENTORY_ADJUSTMENT_TYPES = [
   'Expired Reservation',
 ] as const
 export type InventoryAdjustmentType = (typeof INVENTORY_ADJUSTMENT_TYPES)[number]
+export const INVENTORY_RESERVATION_TYPES = [
+  'Admin Draft',
+  'Order Processing',
+  'Customer Draft',
+] as const
+type InventoryReservationTypeRaw = (typeof INVENTORY_RESERVATION_TYPES)[number] | 'Customer Payment'
+export type InventoryReservationType = (typeof INVENTORY_RESERVATION_TYPES)[number]
 
 export type InventoryListItem = {
   _id: string
@@ -131,6 +138,49 @@ export type InventoryVariantSettingsPatchPayload = {
 }
 
 export type InventoryAdjustmentsSortOrder = 'asc' | 'desc'
+export type InventoryReservationsSortField = 'createdOn' | 'expiresAt'
+export type InventoryReservationsSortOrder = 'asc' | 'desc'
+export type InventoryReservationsQuery = {
+  search: string
+  type: InventoryReservationType[]
+  fromDate: string
+  toDate: string
+  expiresBefore: string
+  sortField: InventoryReservationsSortField
+  sortOrder: InventoryReservationsSortOrder
+  page: number
+  limit: number
+}
+export type InventoryReservationListItem = {
+  _id: string
+  orderId: string
+  type: InventoryReservationType
+  expiresAt: string | null
+  createdOn: string
+  updatedOn: string
+  customer: {
+    _id: string
+    name: string
+    email: string
+  } | null
+  items: Array<{
+    productId: string
+    variantId: string
+    productName: string
+    manufacturer: string
+    variantLabel: string
+    reservedQuantity: number
+  }>
+  reservedProductsCount: number
+  reservedUnits: number
+  isExpired: boolean
+}
+export type InventoryReservationsSummary = {
+  activeReservations: number
+  expiringSoon: number
+  processing: number
+  reservedUnits: number
+}
 
 export type InventoryAdjustmentsQuery = {
   type: InventoryAdjustmentType[]
@@ -171,6 +221,47 @@ type InventoryAdjustmentsResponse = {
   ErrorMessage: string | null
 }
 
+type InventoryReservationsResponse = {
+  Reservations: Array<
+    Omit<InventoryReservationListItem, 'type'> & {
+      type: InventoryReservationTypeRaw
+    }
+  >
+  summary: InventoryReservationsSummary
+  total: number
+  page: number
+  limit: number
+  filters: {
+    search: string
+    type: InventoryReservationTypeRaw[]
+    fromDate: string
+    toDate: string
+    expiresBefore: string
+    sortField: InventoryReservationsSortField
+    sortOrder: InventoryReservationsSortOrder
+  }
+  IsSuccess: boolean
+  ErrorMessage: string | null
+}
+
+type NormalizedInventoryReservationsResponse = Omit<
+  InventoryReservationsResponse,
+  'Reservations' | 'filters'
+> & {
+  Reservations: InventoryReservationListItem[]
+  filters: Omit<InventoryReservationsResponse['filters'], 'type'> & {
+    type: InventoryReservationType[]
+  }
+}
+
+function normalizeInventoryReservationType(type: InventoryReservationTypeRaw): InventoryReservationType {
+  if (type === 'Customer Payment') {
+    return 'Customer Draft'
+  }
+
+  return type
+}
+
 export async function getInventory(query: InventoryQuery) {
   const response = await apiClient.get<InventoryListResponse>('/inventory', {
     params: {
@@ -182,6 +273,51 @@ export async function getInventory(query: InventoryQuery) {
   })
 
   return response.data
+}
+
+export async function getInventoryReservations(query: InventoryReservationsQuery) {
+  const response = await apiClient.get<InventoryReservationsResponse>('/inventory/reservations', {
+    params: {
+      ...query,
+      type: query.type,
+    },
+  })
+
+  const data = response.data
+  const rawReservations = Array.isArray((data as { Reservations?: unknown[] }).Reservations)
+    ? (data as { Reservations: unknown[] }).Reservations
+    : []
+  const rawSummary =
+    (data as { summary?: InventoryReservationsSummary }).summary ??
+    ({
+      activeReservations: 0,
+      expiringSoon: 0,
+      processing: 0,
+      reservedUnits: 0,
+    } satisfies InventoryReservationsSummary)
+  const rawFilters = (data as { filters?: Partial<InventoryReservationsResponse['filters']> }).filters
+  const rawFilterTypes = Array.isArray(rawFilters?.type) ? rawFilters.type : []
+
+  return {
+    ...data,
+    Reservations: rawReservations.map((reservation) => ({
+      ...(reservation as Omit<InventoryReservationListItem, 'type'> & { type: InventoryReservationTypeRaw }),
+      ...reservation,
+      type: normalizeInventoryReservationType(
+        (reservation as { type: InventoryReservationTypeRaw }).type,
+      ),
+    })),
+    summary: rawSummary,
+    filters: {
+      search: rawFilters?.search ?? '',
+      fromDate: rawFilters?.fromDate ?? '',
+      toDate: rawFilters?.toDate ?? '',
+      expiresBefore: rawFilters?.expiresBefore ?? '',
+      sortField: rawFilters?.sortField ?? query.sortField,
+      sortOrder: rawFilters?.sortOrder ?? query.sortOrder,
+      type: rawFilterTypes.map((type) => normalizeInventoryReservationType(type)),
+    },
+  } satisfies NormalizedInventoryReservationsResponse
 }
 
 export async function getInventoryByProductId(productId: string) {

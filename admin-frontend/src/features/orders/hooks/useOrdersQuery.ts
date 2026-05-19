@@ -204,6 +204,7 @@ export function useOrderStatusMutation() {
         updatedOrder,
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all })
     },
   })
 }
@@ -277,6 +278,7 @@ export function useReceiveOrderProductsMutation() {
         updatedOrder,
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all })
     },
   })
 }
