@@ -6,8 +6,8 @@
 
 | Aspect | Details |
 | --- | --- |
-| Entry points | `#/inventory`, `#/inventory/{productId}`, `#/inventory/{productId}/history` |
-| APIs | `/api/inventory`, `/api/inventory/products/:productId`, `/api/inventory/adjustments`, `/api/inventory/products/:productId/variants/:variantId/settings`, `/api/inventory/products/:productId/adjustments`, `/api/inventory/products/:productId/variants/:variantId/adjustments` |
+| Entry points | `#/inventory`, `#/inventory/reservations`, `#/inventory/{productId}`, `#/inventory/{productId}/history` |
+| APIs | `/api/inventory`, `/api/inventory/reservations`, `/api/inventory/products/:productId`, `/api/inventory/adjustments`, `/api/inventory/products/:productId/variants/:variantId/settings`, `/api/inventory/products/:productId/adjustments`, `/api/inventory/products/:productId/variants/:variantId/adjustments` |
 | Shared widgets | Search toolbar, filters dialog, filter chips, data table, pagination |
 | Success copy | "Inventory was adjusted successfully.", "Variant settings were updated successfully." |
 
@@ -46,6 +46,65 @@
 
 ### Row Action
 - `Details` opens product inventory details: `#/inventory/{productId}`.
+
+## Inventory Reservations Page (`#/inventory/reservations`)
+
+### Layout
+- Header with page title `Inventory Reservations`.
+- Three outlined semantic blocks inside page shell:
+  - summary cards block;
+  - filters block (`SearchToolbar` + filter chips);
+  - timeline cards block.
+- Timeline cards block uses vertical feed styling:
+  - one left vertical line across the list;
+  - one dot marker per reservation card item;
+  - each dot is vertically centered relative to its reservation card.
+
+### Summary
+- Cards:
+  - `Active Reservations`
+  - `Expiring Soon`
+  - `Processing Locks`
+  - `Reserved Units`
+- Values come from backend `summary` payload and are independent from page filters.
+
+### Filters
+- Search input placeholder: `Type order number...`
+- Search key: `orderId` text contains.
+- Filters dialog sections (one expanded accordion at a time):
+  - `Reservation Type` (`Admin Draft`, `Order Processing`, `Customer Draft`);
+  - `Created Date` (`From Date`, `To Date`);
+  - `Expires Before` (`datetime-local`);
+  - `Sort`:
+    - `Created On (Newest|Oldest)`
+    - `Expires At (Newest|Oldest)`.
+
+### Chips
+- Applied chips are removable and prefixed:
+  - `Search:`
+  - `Type:`
+  - `From:`
+  - `To:`
+  - `Expires before:`
+  - `Sort:`
+
+### Reservation Card Composition
+- Header row:
+  - `Order #...`
+  - reservation type chip
+  - right-aligned `Open Order` action (`#/orders/{orderId}`), vertically centered within header row.
+- Body row consists of 2 nested outlined semantic blocks:
+  - left (compact, about `20-25%` width on desktop): `Reservation Details` with `Customer`, `Created`, `Updated`, `Expires At`;
+  - right (wide): `Reserved Products` list where each product row is outlined and shows:
+    - `Product Name | Variant`
+    - `Reserved: <qty>`.
+- Vertical spacing between reservation cards should be slightly increased to keep cards visually separated in feed mode.
+- For non-expiring reservations (`expiresAt = null`) details value must show `Active until delivery`.
+
+### Empty States and Pagination
+- Base empty copy (no active filters): `No active reservations found`.
+- Filtered empty copy: `No records found.`
+- Pagination is shown only when reservations list has rows.
 
 ## Inventory Details Page (`#/inventory/{productId}`)
 

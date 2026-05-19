@@ -1,46 +1,60 @@
 # Navigation Module - UI Requirements
 
-> Goal: keep users oriented across desktop and mobile layouts with synchronized header, sidebar, and notification experiences.
+> Goal: keep users oriented across desktop and mobile top navigation with consistent routing, active-state highlighting, and quick access to auth/theme/notifications actions.
 
 ## Header (Top Navigation)
 
 | Section | Content |
 | --- | --- |
-| Brand and links | Brand label "Sales Portal" plus links defined in `navigationMenuOptions` (Home, Orders, Categories, Products, Inventory, Customers, Managers). Each link calls `sideMenuClickHandler` and highlights the active item via `activateNavigationMenuItem`. |
-| Utilities | Notification bell with badge (`#notification-bell`), theme toggle button (`#theme-toggle`), user menu linking to the manager profile, and a sign-out icon. |
-| Responsiveness | Collapses into a hamburger menu that opens the mobile off-canvas. |
+| Brand | `Sales Portal` link routes to `#/home`. |
+| Primary nav | `Home`, `Orders`, `Products`, `Inventory`, `Categories`, `Customers`, `Managers`. Active state uses route-prefix matching. |
+| Utilities | Notifications bell, theme toggle, user first-name link (to `#/managers/{userId}` when available), logout icon button. |
+| Responsiveness | Desktop shows horizontal nav buttons; mobile collapses into hamburger `Menu`. |
 
-## Notification Bell
-- Shared behavior for header and sidebar bells: toggle the popover described in `notifications.md`.
-- Badge displays only unread counts for the current user.
-- Clicking outside the popover dismisses it.
+## Inventory Nested Navigation
 
-## Mobile Off-Canvas
+### Desktop
+- `Inventory` is a hover-triggered parent item.
+- Hover opens a dropdown with:
+  - `Inventory List` -> `#/inventory`
+  - `Reservations` -> `#/inventory/reservations`
+- Dropdown closes on pointer leave with a short delay (`~200ms`) to avoid flicker on trigger/menu boundary.
+- Both `#/inventory` and `#/inventory/reservations` keep the top-level `Inventory` nav item in active state.
+
+### Mobile
+- Tap on `Inventory` opens nested inventory sub-menu.
+- Sub-menu includes:
+  - `Back`
+  - `Inventory List`
+  - `Reservations`
+- Back returns to root mobile menu without routing.
+
+## Mobile Menu
 
 | Element | Behavior |
 | --- | --- |
-| Drawer (`#mobileOffcanvas`) | Mirrors the main navigation as stacked links. `handleMobileNavigationClick` prevents default navigation, activates the item, closes the drawer, and routes via `setRoute`. |
-| Footer | Full-width Logout button for touch users. |
+| Root menu | Mirrors top-level nav links. Non-nested items navigate and close menu. |
+| Nested flow | Inventory item opens nested view instead of direct route. |
+| Footer action | Logout action is always present and closes menu before execution. |
 
-## Sidebar (Desktop Left Rail)
+## Notifications and Theme
+- Notifications bell behavior is shared across pages and follows requirements from `notifications.md`.
+- Theme toggle switches `light/dark` mode through shared ThemeMode context and persisted localStorage key.
 
-| Block | Description |
-| --- | --- |
-| Brand + nav | Same modules as the header but displayed as vertical pills. |
-| Theme switch | Toggle (`#sp-theme-switch`) that calls `switchTheme`. |
-| Profile dropdown | Avatar, first name, and options: Profile (`#/managers/{id}`), Change Password (if non-admin), Sign out. |
-| Notification bell | Mirrors the top nav bell for users who prefer side controls. |
-| Extras | "Currency exchange" widget (demo) near the bottom; hide on narrow screens if space is tight. |
+## User and Logout
+- User label in top bar links to manager details when current user id exists; otherwise it is disabled.
+- Logout action:
+  1. calls auth logout flow;
+  2. navigates to `#/login` on success;
+  3. keeps pending visual state while request is in flight.
 
-## Theme Switching
-- Header icon button and sidebar switch both call `switchTheme`.
-- `switchTheme` saves the choice (`localStorage.theme`), updates HTML/background colors, and toggles `data-bs-theme` ("light"/"dark").
-- When dark mode is enabled, set sidebar backgrounds to `themeBgColors.dark` and switch the header icon to the sun glyph; revert when returning to light mode.
-
-## Profile and Sign-out
-- Profile links open the manager details page; if the stored ID is missing, fall back to signing out for safety.
-- `signOutHandler` flow:
-  1. Show the body-level spinner (`setSpinnerToBody`).
-  2. Call `POST /api/logout`.
-  3. On success, hide the spinner, clear auth cookie/localStorage token, remove the sidebar node, reset notification state, and route to `#/login`.
-  4. On failure, show an error toast and keep the user on the current page.
+## Test IDs (Navigation-specific)
+- Required desktop ids:
+  - `app-shell-nav-inventory-trigger`
+  - `app-shell-nav-inventory-list-link`
+  - `app-shell-nav-inventory-reservations-link`
+- Required mobile ids:
+  - `app-shell-mobile-nav-inventory-trigger`
+  - `app-shell-mobile-nav-inventory-back-button`
+  - `app-shell-mobile-nav-inventory-list-link`
+  - `app-shell-mobile-nav-inventory-reservations-link`
