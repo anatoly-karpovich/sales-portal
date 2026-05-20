@@ -24,6 +24,7 @@ import {
   INVENTORY_ADJUSTMENT_TYPES,
   ORDER_HISTORY_ACTIONS,
   ORDER_STATUSES,
+  ROLES,
   RESERVATION_TYPES,
 } from "../data/enums";
 import _ from "lodash";
@@ -414,6 +415,10 @@ class OrderService {
     try {
       const products = await productsMapping(order);
       const performer = await managersService.getManager(performerdId);
+      if (!performer) {
+        throw new Error("Performer manager was not found");
+      }
+      const shouldAssignCreator = performer.roles.some((role) => role === ROLES.USER || role === ROLES.ADMIN);
       const customer = await CustomerService.getCustomer(order.customer);
       const customerSnapshot = this.buildCustomerSnapshot(customer);
       const defaultDelivery = this.buildDefaultDraftDeliveryPayload(customer);
@@ -437,12 +442,17 @@ class OrderService {
         createdOn: getTodaysDate(true),
         history: [],
         comments: [],
-        assignedManager: null,
+        assignedManager: shouldAssignCreator ? performer : null,
       };
 
       newOrder.history.unshift(
         createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.CREATED, performer),
       );
+      if (shouldAssignCreator) {
+        newOrder.history.unshift(
+          createHistoryEntry(newOrder, ORDER_HISTORY_ACTIONS.MANAGER_ASSIGNED, performer),
+        );
+      }
 
       await session.withTransaction(async () => {
         await Order.create([newOrder], { session });
@@ -466,6 +476,14 @@ class OrderService {
         type: "newOrder",
         message: NOTIFICATIONS.newOrder(orderId.toString()),
       });
+      if (shouldAssignCreator) {
+        await this.notificationService.create({
+          managerId: performerdId,
+          orderId: orderId.toString(),
+          type: "assigned",
+          message: NOTIFICATIONS.assignedAutomatically(orderId.toString()),
+        });
+      }
 
       return this.getOrder(orderId);
     } finally {
@@ -1073,14 +1091,28 @@ class OrderService {
     return this.update(orderId, { customer: customerId }, performerId, currentOrder);
   }
 
-  async delete(id: Types.ObjectId): Promise<void> {
-    console.log(id);
+  async delete(id: Types.ObjectId, performerId: string): Promise<void> {
     if (!id) {
       throw new Error("Id was not provided");
     }
-    const order = await Order.findByIdAndDelete(id).lean().exec();
-    if (!order) {
-      return;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const order = await Order.findById(id).session(session).lean().exec();
+        if (!order) {
+          return;
+        }
+
+        await InventoryService.releaseReservationByOrder({
+          orderId: id,
+          managerId: performerId,
+          session,
+        });
+
+        await Order.deleteOne({ _id: id }).session(session).exec();
+      });
+    } finally {
+      await session.endSession();
     }
   }
 

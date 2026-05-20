@@ -26,6 +26,7 @@ On `POST /api/orders`:
 - `delivery.status = Draft`
 - `delivery` is prefilled from customer address with `condition=Delivery`, `express=false`
 - delivery schedule is preview-only (`startsAt` is `null`; pickup preview dates may be filled and are not final)
+- in manager-authenticated flow, creator is auto-set as `assignedManager` and `Manager Assigned` history entry is added
 
 ## Transition Matrix
 
@@ -74,6 +75,7 @@ Pickup finalization:
 - Reservation document/items are the canonical source of reserved stock.
 - Transition `Draft -> In Process` releases/removes reservation and removes reserve impact.
 - Transition to `Canceled` releases/removes reservation by flow rules.
+- `DELETE /api/orders/:orderId` releases/removes active reservation for that order.
 - Transition `Canceled -> Draft` recreates reservation for reopened order (`Admin Draft` TTL for current manager-authenticated flow).
 - Expired reservation is released/removed by cron flow.
 - If reservation expiration auto-cancels a `Draft` order, assigned manager receives `statusChanged` notification (same type as manual cancel).

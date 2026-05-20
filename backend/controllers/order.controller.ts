@@ -243,8 +243,10 @@ class OrderController {
 
   async delete(req: DeleteOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>): Promise<Response> {
     try {
+      const token = getTokenFromRequest(req);
+      const managerData = getDataDataFromToken(token);
       const id = new Types.ObjectId(req.params.orderId);
-      await OrderService.delete(id);
+      await OrderService.delete(id, managerData.id);
       return res.status(204).send();
     } catch (e: any) {
       console.log(e);

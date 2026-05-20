@@ -36,6 +36,7 @@
 - Reservation document represents active reservation aggregate for one `orderId`.
 - On `In Process` transition reservation is released (removed), and reserved stock impact is removed.
 - On cancel/reopen/edit flows reservation may be removed/recreated; reserved stock is recalculated from reservation documents.
+- On `DELETE /api/orders/:orderId`, active reservation for the order is released/removed before order deletion.
 - On `Canceled -> Draft` reopen:
   - product snapshots are rebuilt from current product/variant data;
   - product/variant must exist and be `Active`;
@@ -193,6 +194,8 @@ Notes:
 
 ## Manager Assignment Rules
 
+- `POST /api/orders` in manager-authenticated flow auto-assigns the authenticated creator to `assignedManager`.
+- Create-time auto-assign appends a separate history item: `Manager Assigned`.
 - `PUT /api/orders/:orderId/status` with target `In Process` auto-assigns current performer when `assignedManager` is empty.
 - Auto-assign appends history before processing entry: first `Manager Assigned`, then `Order processing started`.
 - `PUT /api/orders/:orderId/unassign-manager` is allowed only for `Draft` orders.
@@ -200,6 +203,7 @@ Notes:
 ## Order Notification Side Effects
 
 - On `POST /api/orders`, `newOrder` notification is created for the authenticated creator.
+- On manager create-time auto-assign, `assigned` notification is created with automatic-assignment message.
 
 ## Export Contract (`POST /api/orders/export`)
 
