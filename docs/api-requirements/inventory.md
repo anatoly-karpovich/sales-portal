@@ -91,6 +91,7 @@ Manual adjustments (`POST /adjustments`):
 - update stock quantity;
 - must keep inventory invariants valid;
 - quantity cannot go below reserved amount (independent of `allowSellingOutOfStock`).
+- manual payload supports optional `comment` and does not accept `reason`.
 
 Reservation and ordering rules:
 - `Reserve` updates `Inventory.reserved/available` and reservation items;
@@ -103,6 +104,7 @@ Reservation-driven adjustments:
 - `Release`/`Expired Reservation` is created when active reservation is released/expired.
 - `Sale` is created on receive flow and decreases both `quantity` and `reserved` only for stock-covered (reserved) part.
 - Backorder-only receive may produce no `Sale` adjustment for that order line.
+- system-generated adjustments add automatic readable `comment` that describes the business trigger.
 
 Important:
 - reservation lifecycle is still tracked by reservation document mutations (`upsert`, `item update`, `delete reservation`);

@@ -14,7 +14,6 @@ export const inventoryAdjustmentCreateSchema: AllowedSchema = {
       ],
     },
     quantity: { type: "integer", minimum: 1 },
-    reason: { type: "string" },
     comment: { type: "string" },
   },
   required: ["productId", "variantId", "type", "quantity"],

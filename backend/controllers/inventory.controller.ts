@@ -116,7 +116,6 @@ class InventoryController {
             | INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION
             | INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT,
           quantity: req.body.quantity,
-          reason: req.body.reason,
           comment: req.body.comment,
         },
         managerData.id,

@@ -43,7 +43,6 @@ export interface IInventoryAdjustment extends DocumentResult<IInventoryAdjustmen
   quantityAfter: number;
   reservedBefore: number;
   reservedAfter: number;
-  reason?: string;
   comment?: string;
   orderId?: Types.ObjectId;
   reservationId?: Types.ObjectId;

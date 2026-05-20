@@ -53,7 +53,6 @@ export const inventoryUiText = {
       adjustmentType: 'Adjustment Type',
       adjustmentAmount: 'Adjustment Amount',
       newQuantity: 'New Quantity',
-      reason: 'Reason',
       comment: 'Comment',
       resultPreview: 'Result Preview',
       change: 'Change',
@@ -67,7 +66,6 @@ export const inventoryUiText = {
       missingProductId: 'Product id is missing.',
       unavailable: 'Inventory details are unavailable.',
       noVariants: 'No inventory variants found.',
-      reason: 'Supplier delivery, correction...',
       comment: 'Optional manager comment',
     },
     validation: {

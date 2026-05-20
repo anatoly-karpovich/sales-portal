@@ -13,7 +13,6 @@ const inventoryAdjustmentSchema = new mongoose.Schema(
     quantityAfter: { type: Number, required: true },
     reservedBefore: { type: Number, required: true },
     reservedAfter: { type: Number, required: true },
-    reason: { type: String, required: false },
     comment: { type: String, required: false },
     orderId: { type: mongoose.SchemaTypes.ObjectId, required: false, index: true },
     reservationId: { type: mongoose.SchemaTypes.ObjectId, required: false, index: true },

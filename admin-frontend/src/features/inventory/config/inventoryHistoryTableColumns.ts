@@ -1,5 +1,6 @@
 import { createElement } from 'react'
-import { Chip, Typography } from '@mui/material'
+import ArrowRightAltRoundedIcon from '@mui/icons-material/ArrowRightAltRounded'
+import { Chip, Stack, Typography } from '@mui/material'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { inventoryUiText } from '@/features/inventory/inventory.ui-text'
 import { formatDateTime } from '@/utils/date'
@@ -27,10 +28,30 @@ function getDeltaColor(before: number, after: number) {
   return 'text.secondary'
 }
 
-function formatDelta(before: number, after: number) {
+function formatDeltaValue(before: number, after: number) {
   const delta = after - before
   const sign = delta > 0 ? '+' : ''
-  return `${before} -> ${after} (${sign}${delta})`
+  return `(${sign}${delta})`
+}
+
+function renderDelta(before: number, after: number) {
+  const color = getDeltaColor(before, after)
+
+  return createElement(
+    Stack,
+    {
+      direction: 'row',
+      spacing: 0.5,
+      alignItems: 'center',
+      sx: { color, flexWrap: 'wrap' },
+    },
+    createElement(Typography, { component: 'span', sx: { color: 'inherit' } }, before),
+    createElement(ArrowRightAltRoundedIcon, {
+      sx: { fontSize: 20, color: 'inherit', flexShrink: 0 },
+    }),
+    createElement(Typography, { component: 'span', sx: { color: 'inherit' } }, after),
+    createElement(Typography, { component: 'span', sx: { color: 'inherit' } }, formatDeltaValue(before, after)),
+  )
 }
 
 export function getInventoryHistoryTableColumns(): DataTableColumn<InventoryHistoryRow>[] {
@@ -62,24 +83,14 @@ export function getInventoryHistoryTableColumns(): DataTableColumn<InventoryHist
       label: inventoryUiText.historyPage.columns.quantity,
       width: 140,
       minWidth: 130,
-      render: (row) =>
-        createElement(
-          Typography,
-          { sx: { color: getDeltaColor(row.quantityBefore, row.quantityAfter) } },
-          formatDelta(row.quantityBefore, row.quantityAfter),
-        ),
+      render: (row) => renderDelta(row.quantityBefore, row.quantityAfter),
     },
     {
       key: 'reserved',
       label: inventoryUiText.historyPage.columns.reserved,
       width: 140,
       minWidth: 130,
-      render: (row) =>
-        createElement(
-          Typography,
-          { sx: { color: getDeltaColor(row.reservedBefore, row.reservedAfter) } },
-          formatDelta(row.reservedBefore, row.reservedAfter),
-        ),
+      render: (row) => renderDelta(row.reservedBefore, row.reservedAfter),
     },
     {
       key: 'comment',

@@ -37,7 +37,6 @@ type InventoryAdjustDialogProps = {
     variantId: string
     type: InventoryManualAdjustmentType
     quantity: number
-    reason?: string
     comment?: string
   }) => Promise<void> | void
 }
@@ -124,7 +123,6 @@ export function InventoryAdjustDialog({
 }: InventoryAdjustDialogProps) {
   const [type, setType] = useState<InventoryManualAdjustmentType>('Stock Receipt')
   const [quantityInput, setQuantityInput] = useState('1')
-  const [reason, setReason] = useState('')
   const [comment, setComment] = useState('')
 
   const preview = useMemo(
@@ -151,7 +149,6 @@ export function InventoryAdjustDialog({
     if (isSubmitting || preview.errorMessage || isCommentTooLong || preview.quantity === null)
       return
 
-    const normalizedReason = reason.trim()
     const normalizedComment = comment.trim()
 
     await onSubmit({
@@ -159,7 +156,6 @@ export function InventoryAdjustDialog({
       variantId: variant.variantId,
       type,
       quantity: preview.quantity,
-      reason: normalizedReason.length > 0 ? normalizedReason : undefined,
       comment: normalizedComment.length > 0 ? normalizedComment : undefined,
     })
   }
@@ -291,15 +287,6 @@ export function InventoryAdjustDialog({
             }}
             error={Boolean(preview.errorMessage)}
             helperText={preview.errorMessage || ' '}
-          />
-
-          <TextField
-            label={inventoryUiText.detailsPage.labels.reason}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={inventoryUiText.detailsPage.placeholders.reason}
-            data-testid="inventory-adjust-dialog-reason"
-            inputProps={{ 'data-testid': 'inventory-adjust-dialog-reason-field' }}
           />
 
           <TextField

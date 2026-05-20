@@ -179,7 +179,6 @@ export function InventoryDetailsPage() {
     variantId: string
     type: InventoryManualAdjustmentType
     quantity: number
-    reason?: string
     comment?: string
   }) => {
     await adjustStockMutation.mutateAsync(payload)

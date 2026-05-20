@@ -90,6 +90,28 @@ class InventoryService {
     return `${productId.toString()}:${variantId.toString()}`;
   }
 
+  private buildSystemAdjustmentComment(params: {
+    type: INVENTORY_ADJUSTMENT_TYPES;
+    orderId?: Types.ObjectId;
+    reservationType?: RESERVATION_TYPES;
+  }): string | undefined {
+    const { type, orderId, reservationType } = params;
+    const orderRef = orderId ? `order #${orderId.toString()}` : "order";
+
+    switch (type) {
+      case INVENTORY_ADJUSTMENT_TYPES.RESERVE:
+        return `Reserved for ${orderRef}${reservationType ? ` (${reservationType})` : ""}.`;
+      case INVENTORY_ADJUSTMENT_TYPES.RELEASE:
+        return `Reservation released for ${orderRef}.`;
+      case INVENTORY_ADJUSTMENT_TYPES.EXPIRED_RESERVATION:
+        return `Reservation expired and was released for ${orderRef}.`;
+      case INVENTORY_ADJUSTMENT_TYPES.SALE:
+        return `Stock consumed for ${orderRef} during product receipt.`;
+      default:
+        return undefined;
+    }
+  }
+
   private normalizeReservationType(value: unknown): RESERVATION_TYPES {
     if (value === RESERVATION_TYPES.ORDER_PROCESSING) {
       return RESERVATION_TYPES.ORDER_PROCESSING;
@@ -818,7 +840,6 @@ class InventoryService {
         | INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION
         | INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT;
       quantity: number;
-      reason?: string;
       comment?: string;
     },
     managerId: string,
@@ -880,7 +901,6 @@ class InventoryService {
             quantityAfter: afterQuantity,
             reservedBefore: beforeReserved,
             reservedAfter: beforeReserved,
-            reason: payload.reason,
             comment: payload.comment,
             createdBy: new Types.ObjectId(managerId),
           },
@@ -1035,6 +1055,11 @@ class InventoryService {
           reservedAfter: afterReserved,
           orderId,
           reservationId: reservationIdForAdjustments,
+          comment: this.buildSystemAdjustmentComment({
+            type: INVENTORY_ADJUSTMENT_TYPES.RESERVE,
+            orderId,
+            reservationType,
+          }),
           createdBy: new Types.ObjectId(managerId),
         },
         session,
@@ -1133,6 +1158,7 @@ class InventoryService {
           reservedAfter: afterReserved,
           orderId,
           reservationId: new Types.ObjectId(reservation._id),
+          comment: this.buildSystemAdjustmentComment({ type, orderId }),
           createdBy: new Types.ObjectId(managerId),
         },
         session,
@@ -1242,6 +1268,7 @@ class InventoryService {
           reservedBefore,
           reservedAfter,
           orderId,
+          comment: this.buildSystemAdjustmentComment({ type: INVENTORY_ADJUSTMENT_TYPES.SALE, orderId }),
           createdBy: new Types.ObjectId(managerId),
         },
         session,

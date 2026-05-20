@@ -193,8 +193,9 @@
 - Quantity field label switches:
   - `Adjustment Amount` for `Stock Receipt`
   - `New Quantity` for `Manual Correction`
-- Optional `Reason`
 - Optional `Comment` with max length `250`
+
+Manual adjustment payload uses `type + quantity + comment?` (no `reason` field).
 
 ### Preview
 - Preview cards:

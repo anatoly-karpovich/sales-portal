@@ -46,7 +46,6 @@ export type InventoryAdjustmentCreateBodyDTO = {
     | INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION
     | INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT;
   quantity: number;
-  reason?: string;
   comment?: string;
 };
 

@@ -119,7 +119,6 @@ export type InventoryAdjustmentCreatePayload = {
   variantId: string
   type: InventoryManualAdjustmentType
   quantity: number
-  reason?: string
   comment?: string
 }
 
@@ -196,7 +195,6 @@ export type InventoryAdjustment = {
   quantityAfter: number
   reservedBefore: number
   reservedAfter: number
-  reason?: string | null
   comment?: string | null
   orderId?: string | null
   reservationId?: string | null

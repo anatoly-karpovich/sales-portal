@@ -257,9 +257,6 @@ inventoryRouter.get(
  *           type: integer
  *         reservedAfter:
  *           type: integer
- *         reason:
- *           type: string
- *           nullable: true
  *         comment:
  *           type: string
  *           nullable: true
@@ -446,8 +443,6 @@ inventoryRouter.get(
  *         quantity:
  *           type: integer
  *           minimum: 1
- *         reason:
- *           type: string
  *         comment:
  *           type: string
  *     InventoryErrorResponse:
