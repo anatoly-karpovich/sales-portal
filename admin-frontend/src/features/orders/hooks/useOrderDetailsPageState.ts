@@ -51,7 +51,6 @@ export function useOrderDetailsPageState() {
   const [isCustomerEditMode, setIsCustomerEditMode] = useState(false)
   const [isProductsEditMode, setIsProductsEditMode] = useState(false)
   const [isManagerEditMode, setIsManagerEditMode] = useState(false)
-  const [isManagerUnassignDialogOpen, setIsManagerUnassignDialogOpen] = useState(false)
   const [isReceiveMode, setIsReceiveMode] = useState(false)
   const [selectedReceiveRowIndices, setSelectedReceiveRowIndices] = useState<number[]>([])
 
@@ -121,7 +120,6 @@ export function useOrderDetailsPageState() {
       setIsCustomerEditMode(false)
       setIsProductsEditMode(false)
       setIsManagerEditMode(false)
-      setIsManagerUnassignDialogOpen(false)
     }
 
     if (
@@ -297,24 +295,35 @@ export function useOrderDetailsPageState() {
   }
 
   const handleCancelManagerEdit = () => {
-    if (assignOrderManagerMutation.isPending) return
+    if (assignOrderManagerMutation.isPending || unassignOrderManagerMutation.isPending) return
     setIsManagerEditMode(false)
   }
 
-  const handleSaveAssignedManager = async (nextManagerId: string) => {
-    if (!orderId || !nextManagerId || order?.status !== 'Draft') return false
+  const handleSaveAssignedManager = async (nextManagerId: string | null) => {
+    if (!orderId || order?.status !== 'Draft') return false
 
     try {
-      await assignOrderManagerMutation.mutateAsync({
-        orderId,
-        managerId: nextManagerId,
-        requestConfig: { skipErrorToast: true },
-      })
-      enqueueSnackbar(ordersUiText.toasts.managerAssigned, { variant: 'success' })
+      if (nextManagerId) {
+        await assignOrderManagerMutation.mutateAsync({
+          orderId,
+          managerId: nextManagerId,
+          requestConfig: { skipErrorToast: true },
+        })
+        enqueueSnackbar(ordersUiText.toasts.managerAssigned, { variant: 'success' })
+      } else {
+        await unassignOrderManagerMutation.mutateAsync({
+          orderId,
+          requestConfig: { skipErrorToast: true },
+        })
+        enqueueSnackbar(ordersUiText.toasts.managerUnassigned, { variant: 'success' })
+      }
       setIsManagerEditMode(false)
       return true
     } catch (error) {
-      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.assignManagerFailed)
+      const errorMessage = resolveApiErrorMessage(
+        error,
+        nextManagerId ? ordersUiText.errors.assignManagerFailed : ordersUiText.errors.unassignManagerFailed,
+      )
       if (isOrderNotFoundErrorMessage(errorMessage)) {
         setIsManagerEditMode(false)
         await reloadOrderDetailsWithSkeleton()
@@ -323,38 +332,6 @@ export function useOrderDetailsPageState() {
 
       enqueueSnackbar(errorMessage, { variant: 'error' })
       return false
-    }
-  }
-
-  const handleOpenManagerUnassignDialog = () => {
-    if (!order?.assignedManager || order.status !== 'Draft') return
-    setIsManagerUnassignDialogOpen(true)
-  }
-
-  const handleCloseManagerUnassignDialog = () => {
-    if (unassignOrderManagerMutation.isPending) return
-    setIsManagerUnassignDialogOpen(false)
-  }
-
-  const handleConfirmManagerUnassign = async () => {
-    if (!orderId) return
-
-    try {
-      await unassignOrderManagerMutation.mutateAsync({
-        orderId,
-        requestConfig: { skipErrorToast: true },
-      })
-      enqueueSnackbar(ordersUiText.toasts.managerUnassigned, { variant: 'success' })
-      setIsManagerUnassignDialogOpen(false)
-    } catch (error) {
-      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.unassignManagerFailed)
-      if (isOrderNotFoundErrorMessage(errorMessage)) {
-        setIsManagerUnassignDialogOpen(false)
-        await reloadOrderDetailsWithSkeleton()
-        return
-      }
-
-      enqueueSnackbar(errorMessage, { variant: 'error' })
     }
   }
 
@@ -630,7 +607,6 @@ export function useOrderDetailsPageState() {
     isCustomerEditMode,
     isProductsEditMode,
     isManagerEditMode,
-    isManagerUnassignDialogOpen,
     pendingStatusAction,
     setPendingStatusAction,
     detailsDialogCopy,
@@ -678,9 +654,6 @@ export function useOrderDetailsPageState() {
     handleStartManagerEdit,
     handleCancelManagerEdit,
     handleSaveAssignedManager,
-    handleOpenManagerUnassignDialog,
-    handleCloseManagerUnassignDialog,
-    handleConfirmManagerUnassign,
     handleStartReceiveMode,
     handleCancelReceiveMode,
     handleToggleReceiveProduct,

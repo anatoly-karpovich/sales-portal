@@ -125,6 +125,7 @@ export function OrdersPage() {
         title={ordersUiText.dialogs.reopenTitle}
         message={state.reopenDialogMessage}
         confirmLabel={ordersUiText.dialogs.reopenConfirm}
+        confirmColor="primary"
         cancelLabel={ordersUiText.dialogs.cancel}
         isSubmitting={state.isReopenPending}
         onCancel={state.closeReopenDialog}

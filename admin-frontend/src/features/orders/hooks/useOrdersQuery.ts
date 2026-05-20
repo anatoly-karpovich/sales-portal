@@ -39,6 +39,11 @@ import { ORDER_DETAILS_PRODUCT_SEARCH_LIMIT } from '@/features/orders/config/ord
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import { inventoryQueryKeys } from '@/features/inventory/hooks/inventoryQueryKeys'
 
+const invalidateInventoryReservationsAndHistory = (queryClient: ReturnType<typeof useQueryClient>) => {
+  void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.reservations() })
+  void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
+}
+
 export function useOrdersQuery(query: OrdersQuery) {
   return useQuery({
     queryKey: ordersQueryKeys.list(query),
@@ -177,6 +182,7 @@ export function useCreateOrderMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -205,6 +211,7 @@ export function useOrderStatusMutation() {
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -230,6 +237,7 @@ export function useUpdateOrderMutation() {
       if ('products' in variables.payload && Array.isArray(variables.payload.products)) {
         void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all })
       }
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -279,6 +287,7 @@ export function useReceiveOrderProductsMutation() {
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.all })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -298,6 +307,7 @@ export function useUpdateOrderDeliveryMutation() {
         updatedOrder,
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -317,6 +327,7 @@ export function useUpdateOrderPickupMutation() {
         updatedOrder,
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -332,6 +343,7 @@ export function useAssignOrderManagerMutation() {
         updatedOrder,
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }
@@ -347,6 +359,7 @@ export function useUnassignOrderManagerMutation() {
         updatedOrder,
       )
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() })
+      invalidateInventoryReservationsAndHistory(queryClient)
     },
   })
 }

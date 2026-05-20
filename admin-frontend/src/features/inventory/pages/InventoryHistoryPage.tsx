@@ -1,5 +1,4 @@
 import KeyboardBackspaceRoundedIcon from '@mui/icons-material/KeyboardBackspaceRounded'
-import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import {
   Alert,
   Box,
@@ -12,6 +11,7 @@ import {
 import { Link, useParams } from 'react-router-dom'
 import { DataTable } from '@/components/shared/DataTable'
 import { PaginationControls } from '@/components/shared/PaginationControls'
+import { SearchToolbar } from '@/components/shared/SearchToolbar'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
 import { InventoryHistoryFilterChips } from '@/features/inventory/components/InventoryHistoryFilterChips'
 import { InventoryHistoryFiltersDialog } from '@/features/inventory/components/InventoryHistoryFiltersDialog'
@@ -29,7 +29,7 @@ export function InventoryHistoryPage() {
     Boolean(state.orderId) ||
     Boolean(state.fromDate) ||
     Boolean(state.toDate)
-  const hasActiveChips = hasActiveCriteria || Boolean(state.sortLabel)
+  const hasActiveChips = hasActiveCriteria
   const emptyText = hasActiveCriteria ? sharedUiText.table.emptyFiltered : sharedUiText.table.empty
 
   if (!productId) {
@@ -162,10 +162,7 @@ export function InventoryHistoryPage() {
           >
             <Stack spacing={0}>
               <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                spacing={1.5}
-                justifyContent="space-between"
-                alignItems={{ xs: 'stretch', md: 'center' }}
+                spacing={2}
                 sx={{
                   px: { xs: 2, md: 2.5 },
                   py: { xs: 2, md: 2.5 },
@@ -200,14 +197,16 @@ export function InventoryHistoryPage() {
                       : state.selectedVariantLabel}
                   </Typography>
                 </Stack>
-                <Button
-                  variant="outlined"
-                  startIcon={<FilterAltOutlinedIcon />}
-                  onClick={() => state.setFiltersOpen(true)}
-                  data-testid="inventory-history-page-filter-button"
-                >
-                  Filter
-                </Button>
+                <SearchToolbar
+                  searchDraft={state.searchDraft}
+                  hasActiveSearch={Boolean(state.orderId)}
+                  searchPlaceholder="Type order number..."
+                  onSearchDraftChange={state.setSearchDraft}
+                  onSearchApply={state.onSearchApply}
+                  onOpenFilters={() => state.setFiltersOpen(true)}
+                  isSearching={state.isTableLoading}
+                  showExportButton={false}
+                />
               </Stack>
 
               {hasActiveChips ? (
@@ -232,14 +231,11 @@ export function InventoryHistoryPage() {
                     fromDatePrefix={inventoryUiText.historyPage.chips.fromDatePrefix}
                     toDate={state.toDate}
                     toDatePrefix={inventoryUiText.historyPage.chips.toDatePrefix}
-                    sortLabel={state.sortLabel}
-                    sortPrefix={inventoryUiText.historyPage.chips.sortPrefix}
                     onResetVariant={state.onResetVariant}
                     onRemoveType={state.onRemoveType}
                     onRemoveOrderId={state.onRemoveOrderId}
                     onRemoveFromDate={state.onRemoveFromDate}
                     onRemoveToDate={state.onRemoveToDate}
-                    onRemoveSort={state.onResetSort}
                   />
                 </Box>
               ) : null}
@@ -280,18 +276,12 @@ export function InventoryHistoryPage() {
         open={state.filtersOpen}
         title={inventoryUiText.historyPage.filtersTitle}
         typeTitle={inventoryUiText.historyPage.filterSections.type}
-        sortTitle={inventoryUiText.historyPage.filterSections.sortOrder}
-        orderIdLabel={inventoryUiText.historyPage.orderIdLabel}
         dateFromLabel={inventoryUiText.historyPage.dateFromLabel}
         dateToLabel={inventoryUiText.historyPage.dateToLabel}
-        sortNewestLabel={inventoryUiText.historyPage.sortOrder.newestFirst}
-        sortOldestLabel={inventoryUiText.historyPage.sortOrder.oldestFirst}
         typeValues={state.typeOptions}
         selectedType={state.type}
-        selectedOrderId={state.orderId}
         selectedFromDate={state.fromDate}
         selectedToDate={state.toDate}
-        selectedSortOrder={state.sortOrder}
         onClose={() => state.setFiltersOpen(false)}
         onApply={state.applyFilters}
       />

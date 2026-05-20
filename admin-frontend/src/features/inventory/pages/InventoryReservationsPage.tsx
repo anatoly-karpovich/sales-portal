@@ -1,4 +1,4 @@
-import { Alert, Box, Paper, Skeleton, Stack, Typography } from '@mui/material'
+import { Alert, Box, MenuItem, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material'
 import { PaginationControls } from '@/components/shared/PaginationControls'
 import { SearchToolbar } from '@/components/shared/SearchToolbar'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
@@ -6,6 +6,7 @@ import { InventoryReservationCard } from '@/features/inventory/components/Invent
 import { InventoryReservationsFilterChips } from '@/features/inventory/components/InventoryReservationsFilterChips'
 import { InventoryReservationsFiltersDialog } from '@/features/inventory/components/InventoryReservationsFiltersDialog'
 import { InventoryReservationsSummary } from '@/features/inventory/components/InventoryReservationsSummary'
+import { INVENTORY_RESERVATIONS_SORT_OPTIONS } from '@/features/inventory/config/inventoryReservations.config'
 import { useInventoryReservationsPageState } from '@/features/inventory/hooks/useInventoryReservationsPageState'
 import { inventoryUiText } from '@/features/inventory/inventory.ui-text'
 
@@ -34,7 +35,7 @@ export function InventoryReservationsPage() {
     Boolean(state.fromDate) ||
     Boolean(state.toDate) ||
     Boolean(state.expiresBefore)
-  const hasActiveChips = hasActiveCriteria || Boolean(state.sortLabel)
+  const hasActiveChips = hasActiveCriteria
   const emptyText = hasActiveCriteria
     ? sharedUiText.table.emptyFiltered
     : inventoryUiText.reservationsPage.emptyStateNoReservations
@@ -109,6 +110,31 @@ export function InventoryReservationsPage() {
                     onOpenFilters={() => state.setFiltersOpen(true)}
                     isSearching={state.isCardsUpdating}
                     showExportButton={false}
+                    afterFilterControl={
+                      <TextField
+                        select
+                        size="small"
+                        value={state.sortValue}
+                        onChange={(event) => state.onSortValueChange(event.target.value)}
+                        sx={{ minWidth: { xs: '100%', md: 220 } }}
+                        SelectProps={{
+                          inputProps: {
+                            'data-testid': 'inventory-reservations-page-sort-select-field',
+                          },
+                        }}
+                        data-testid="inventory-reservations-page-sort-select"
+                      >
+                        {INVENTORY_RESERVATIONS_SORT_OPTIONS.map((option) => (
+                          <MenuItem
+                            key={option.value}
+                            value={option.value}
+                            data-testid={`inventory-reservations-page-sort-option-${option.value.replace(':', '-')}`}
+                          >
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    }
                   />
 
                   {hasActiveChips ? (
@@ -125,14 +151,11 @@ export function InventoryReservationsPage() {
                       expiresBeforePrefix={
                         inventoryUiText.reservationsPage.chips.expiresBeforePrefix
                       }
-                      sortLabel={state.sortLabel}
-                      sortPrefix={inventoryUiText.reservationsPage.chips.sortPrefix}
                       onRemoveSearch={state.onRemoveSearch}
                       onRemoveType={state.onRemoveType}
                       onRemoveFromDate={state.onRemoveFromDate}
                       onRemoveToDate={state.onRemoveToDate}
                       onRemoveExpiresBefore={state.onRemoveExpiresBefore}
-                      onRemoveSort={state.onResetSort}
                     />
                   ) : null}
                 </Stack>
@@ -242,18 +265,14 @@ export function InventoryReservationsPage() {
         typeTitle={inventoryUiText.reservationsPage.filterSections.type}
         createdDateTitle={inventoryUiText.reservationsPage.filterSections.createdDate}
         expiresBeforeTitle={inventoryUiText.reservationsPage.filterSections.expiresBefore}
-        sortTitle={inventoryUiText.reservationsPage.filterSections.sort}
         fromDateLabel={inventoryUiText.reservationsPage.fromDateLabel}
         toDateLabel={inventoryUiText.reservationsPage.toDateLabel}
         expiresBeforeLabel={inventoryUiText.reservationsPage.expiresBeforeLabel}
-        sortLabel={inventoryUiText.reservationsPage.sortLabel}
         typeValues={state.typeOptions}
         selectedType={state.type}
         selectedFromDate={state.fromDate}
         selectedToDate={state.toDate}
         selectedExpiresBefore={state.expiresBefore}
-        selectedSortField={state.sortField}
-        selectedSortOrder={state.sortOrder}
         onClose={() => state.setFiltersOpen(false)}
         onApply={state.applyFilters}
       />

@@ -2,6 +2,7 @@ import { Box, Button, CircularProgress, Stack, TextField } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import DownloadIcon from '@mui/icons-material/Download'
+import type { ReactNode } from 'react'
 
 type Props = {
   searchDraft: string
@@ -14,6 +15,7 @@ type Props = {
   isSearching?: boolean
   disableFilterButton?: boolean
   showExportButton?: boolean
+  afterFilterControl?: ReactNode
 }
 
 export function SearchToolbar({
@@ -26,6 +28,7 @@ export function SearchToolbar({
   isSearching = false,
   disableFilterButton = false,
   showExportButton = true,
+  afterFilterControl = null,
 }: Props) {
   const canApplySearch = Boolean(searchDraft.trim())
 
@@ -64,6 +67,7 @@ export function SearchToolbar({
       >
         Filter
       </Button>
+      {afterFilterControl}
       {showExportButton ? (
         <>
           <Box sx={{ flexGrow: 1 }} />

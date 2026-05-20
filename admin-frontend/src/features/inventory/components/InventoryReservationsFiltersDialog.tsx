@@ -14,30 +14,17 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
-  MenuItem,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
-import type {
-  InventoryReservationsSortField,
-  InventoryReservationsSortOrder,
-} from '@/api/modules/inventory.api'
-import {
-  INVENTORY_RESERVATIONS_DEFAULT_SORT,
-  INVENTORY_RESERVATIONS_SORT_OPTIONS,
-  parseInventoryReservationsSortValue,
-  resolveInventoryReservationsSortValue,
-} from '@/features/inventory/config/inventoryReservations.config'
 
 type InventoryReservationsFiltersApplyPayload = {
   type: string[]
   fromDate: string
   toDate: string
   expiresBefore: string
-  sortField: InventoryReservationsSortField
-  sortOrder: InventoryReservationsSortOrder
 }
 
 type Props = {
@@ -46,23 +33,19 @@ type Props = {
   typeTitle: string
   createdDateTitle: string
   expiresBeforeTitle: string
-  sortTitle: string
   fromDateLabel: string
   toDateLabel: string
   expiresBeforeLabel: string
-  sortLabel: string
   typeValues: string[]
   selectedType: string[]
   selectedFromDate: string
   selectedToDate: string
   selectedExpiresBefore: string
-  selectedSortField: InventoryReservationsSortField
-  selectedSortOrder: InventoryReservationsSortOrder
   onClose: () => void
   onApply: (values: InventoryReservationsFiltersApplyPayload) => void
 }
 
-type ExpandedAccordion = 'type' | 'created-date' | 'expires-before' | 'sort'
+type ExpandedAccordion = 'type' | 'created-date' | 'expires-before'
 
 function toOptionTestId(value: string) {
   return value
@@ -77,18 +60,14 @@ export function InventoryReservationsFiltersDialog({
   typeTitle,
   createdDateTitle,
   expiresBeforeTitle,
-  sortTitle,
   fromDateLabel,
   toDateLabel,
   expiresBeforeLabel,
-  sortLabel,
   typeValues,
   selectedType,
   selectedFromDate,
   selectedToDate,
   selectedExpiresBefore,
-  selectedSortField,
-  selectedSortOrder,
   onClose,
   onApply,
 }: Props) {
@@ -96,12 +75,6 @@ export function InventoryReservationsFiltersDialog({
   const [fromDateDraft, setFromDateDraft] = useState('')
   const [toDateDraft, setToDateDraft] = useState('')
   const [expiresBeforeDraft, setExpiresBeforeDraft] = useState('')
-  const [sortFieldDraft, setSortFieldDraft] = useState<InventoryReservationsSortField>(
-    INVENTORY_RESERVATIONS_DEFAULT_SORT.sortField,
-  )
-  const [sortOrderDraft, setSortOrderDraft] = useState<InventoryReservationsSortOrder>(
-    INVENTORY_RESERVATIONS_DEFAULT_SORT.sortOrder,
-  )
   const [expandedAccordion, setExpandedAccordion] = useState<ExpandedAccordion>('type')
 
   const toggleType = (value: string) => {
@@ -115,12 +88,9 @@ export function InventoryReservationsFiltersDialog({
     setFromDateDraft('')
     setToDateDraft('')
     setExpiresBeforeDraft('')
-    setSortFieldDraft(INVENTORY_RESERVATIONS_DEFAULT_SORT.sortField)
-    setSortOrderDraft(INVENTORY_RESERVATIONS_DEFAULT_SORT.sortOrder)
   }
 
   const selectedCreatedDateCount = Number(Boolean(fromDateDraft)) + Number(Boolean(toDateDraft))
-  const selectedSortValue = resolveInventoryReservationsSortValue(sortFieldDraft, sortOrderDraft)
 
   return (
     <Dialog
@@ -135,8 +105,6 @@ export function InventoryReservationsFiltersDialog({
           setFromDateDraft(selectedFromDate)
           setToDateDraft(selectedToDate)
           setExpiresBeforeDraft(selectedExpiresBefore)
-          setSortFieldDraft(selectedSortField)
-          setSortOrderDraft(selectedSortOrder)
           setExpandedAccordion('type')
         },
       }}
@@ -384,83 +352,6 @@ export function InventoryReservationsFiltersDialog({
             </AccordionDetails>
           </Accordion>
 
-          <Accordion
-            disableGutters
-            expanded={expandedAccordion === 'sort'}
-            onChange={() => setExpandedAccordion('sort')}
-            data-testid="inventory-reservations-filter-dialog-sort-accordion"
-            sx={{
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 1.5,
-              overflow: 'hidden',
-              boxShadow: 'none',
-              '&::before': { display: 'none' },
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              sx={{
-                px: 2,
-                py: 1,
-                minHeight: 0,
-                '& .MuiAccordionSummary-content': { my: 0 },
-              }}
-              data-testid="inventory-reservations-filter-dialog-sort-accordion-summary"
-            >
-              <Box
-                sx={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  pr: 1,
-                }}
-              >
-                <Typography sx={{ fontWeight: 600 }}>{sortTitle}</Typography>
-                {selectedSortValue !== INVENTORY_RESERVATIONS_DEFAULT_SORT.value ? (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    data-testid="inventory-reservations-filter-dialog-sort-selected-count"
-                  >
-                    1 selected
-                  </Typography>
-                ) : null}
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails
-              sx={{ px: 2, pt: 0.5, pb: 1.5 }}
-              data-testid="inventory-reservations-filter-dialog-sort-accordion-details"
-            >
-              <TextField
-                label={sortLabel}
-                select
-                size="small"
-                value={selectedSortValue}
-                onChange={(event) => {
-                  const option = parseInventoryReservationsSortValue(event.target.value)
-                  setSortFieldDraft(option.sortField)
-                  setSortOrderDraft(option.sortOrder)
-                }}
-                fullWidth
-                SelectProps={{
-                  inputProps: { 'data-testid': 'inventory-reservations-filter-dialog-sort-field' },
-                }}
-                data-testid="inventory-reservations-filter-dialog-sort-input"
-              >
-                {INVENTORY_RESERVATIONS_SORT_OPTIONS.map((option) => (
-                  <MenuItem
-                    key={option.value}
-                    value={option.value}
-                    data-testid={`inventory-reservations-filter-dialog-sort-option-${toOptionTestId(option.value)}`}
-                  >
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </AccordionDetails>
-          </Accordion>
         </Stack>
       </DialogContent>
 
@@ -474,8 +365,6 @@ export function InventoryReservationsFiltersDialog({
               fromDate: fromDateDraft,
               toDate: toDateDraft,
               expiresBefore: expiresBeforeDraft,
-              sortField: sortFieldDraft,
-              sortOrder: sortOrderDraft,
             })
           }
           data-testid="inventory-reservations-filter-dialog-apply-button"
@@ -492,4 +381,3 @@ export function InventoryReservationsFiltersDialog({
     </Dialog>
   )
 }
-

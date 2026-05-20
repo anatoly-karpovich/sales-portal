@@ -79,6 +79,7 @@ export function useInventoryAdjustStockMutation() {
         updatedInventory,
       )
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
     },
   })
@@ -96,6 +97,7 @@ export function useInventoryUpdateVariantSettingsMutation() {
         updatedInventory,
       )
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
     },
   })

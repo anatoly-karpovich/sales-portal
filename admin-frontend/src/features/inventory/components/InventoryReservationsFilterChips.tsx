@@ -11,14 +11,11 @@ type Props = {
   toDatePrefix: string
   expiresBefore: string
   expiresBeforePrefix: string
-  sortLabel: string
-  sortPrefix: string
   onRemoveSearch: () => void
   onRemoveType: (value: string) => void
   onRemoveFromDate: () => void
   onRemoveToDate: () => void
   onRemoveExpiresBefore: () => void
-  onRemoveSort: () => void
 }
 
 function toFilterTestId(value: string) {
@@ -48,14 +45,11 @@ export function InventoryReservationsFilterChips({
   toDatePrefix,
   expiresBefore,
   expiresBeforePrefix,
-  sortLabel,
-  sortPrefix,
   onRemoveSearch,
   onRemoveType,
   onRemoveFromDate,
   onRemoveToDate,
   onRemoveExpiresBefore,
-  onRemoveSort,
 }: Props) {
   const items = [
     ...(search
@@ -104,20 +98,9 @@ export function InventoryReservationsFilterChips({
           },
         ]
       : []),
-    ...(sortLabel
-      ? [
-          {
-            key: `sort-${sortLabel}`,
-            label: withPrefix(sortPrefix, sortLabel),
-            onDelete: onRemoveSort,
-            testId: 'inventory-reservations-filter-chips-sort-chip',
-          },
-        ]
-      : []),
   ]
 
   return (
     <FilterChips items={items} containerTestId="inventory-reservations-filter-chips" />
   )
 }
-

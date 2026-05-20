@@ -7,7 +7,8 @@ import {
 } from '@/api/modules/inventory.api'
 import {
   INVENTORY_RESERVATIONS_DEFAULT_SORT,
-  resolveInventoryReservationsSortLabel,
+  parseInventoryReservationsSortValue,
+  resolveInventoryReservationsSortValue,
 } from '@/features/inventory/config/inventoryReservations.config'
 import { useInventoryReservationsQuery } from '@/features/inventory/hooks/useInventoryQuery'
 
@@ -16,8 +17,6 @@ type InventoryReservationsFiltersApplyPayload = {
   fromDate: string
   toDate: string
   expiresBefore: string
-  sortField: InventoryReservationsSortField
-  sortOrder: InventoryReservationsSortOrder
 }
 
 const DATE_FROM_TIME_SUFFIX = 'T00:00:00.000Z'
@@ -114,9 +113,10 @@ export function useInventoryReservationsPageState() {
     setPage(1)
   }, [])
 
-  const onResetSort = useCallback(() => {
-    setSortField(INVENTORY_RESERVATIONS_DEFAULT_SORT.sortField)
-    setSortOrder(INVENTORY_RESERVATIONS_DEFAULT_SORT.sortOrder)
+  const onSortValueChange = useCallback((value: string) => {
+    const nextSort = parseInventoryReservationsSortValue(value)
+    setSortField(nextSort.sortField)
+    setSortOrder(nextSort.sortOrder)
     setPage(1)
   }, [])
 
@@ -144,19 +144,14 @@ export function useInventoryReservationsPageState() {
     setFromDate(values.fromDate)
     setToDate(values.toDate)
     setExpiresBefore(values.expiresBefore)
-    setSortField(values.sortField)
-    setSortOrder(values.sortOrder)
     setPage(1)
     setFiltersOpen(false)
   }, [])
 
-  const sortLabel = useMemo(() => {
-    const isDefaultSort =
-      sortField === INVENTORY_RESERVATIONS_DEFAULT_SORT.sortField &&
-      sortOrder === INVENTORY_RESERVATIONS_DEFAULT_SORT.sortOrder
-    if (isDefaultSort) return ''
-    return resolveInventoryReservationsSortLabel(sortField, sortOrder)
-  }, [sortField, sortOrder])
+  const sortValue = useMemo(
+    () => resolveInventoryReservationsSortValue(sortField, sortOrder),
+    [sortField, sortOrder],
+  )
 
   return {
     search,
@@ -168,7 +163,7 @@ export function useInventoryReservationsPageState() {
     expiresBefore,
     sortField,
     sortOrder,
-    sortLabel,
+    sortValue,
     page,
     limit,
     rows,
@@ -188,7 +183,7 @@ export function useInventoryReservationsPageState() {
     onRemoveFromDate,
     onRemoveToDate,
     onRemoveExpiresBefore,
-    onResetSort,
+    onSortValueChange,
     applyFilters,
   }
 }

@@ -16,10 +16,8 @@ import { useProductQuery } from '@/features/products/hooks/useProductsQuery'
 
 type InventoryHistoryFiltersApplyPayload = {
   type: string[]
-  orderId: string
   fromDate: string
   toDate: string
-  sortOrder: 'asc' | 'desc'
 }
 
 type VariantOption = {
@@ -83,14 +81,11 @@ function resolveManagerName(
   return createdBy
 }
 
-function resolveFilterSortLabel(sortOrder: 'asc' | 'desc') {
-  return sortOrder === 'asc' ? inventoryUiText.historyPage.sortOrder.oldestFirst : ''
-}
-
 export function useInventoryHistoryPageState(productId: string) {
   const [selectedVariantId, setSelectedVariantId] = useState<string>(ALL_VARIANTS_ID)
   const [type, setType] = useState<InventoryAdjustmentType[]>([])
   const [orderId, setOrderId] = useState('')
+  const [searchDraft, setSearchDraft] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [sortField] = useState<InventoryHistorySortField>('createdOn')
@@ -219,6 +214,12 @@ export function useInventoryHistoryPageState(productId: string) {
     setSortOrder((currentOrder) => (currentOrder === 'asc' ? 'desc' : 'asc'))
   }, [])
 
+  const onSearchApply = useCallback(() => {
+    setOrderId(searchDraft.trim())
+    setSearchDraft('')
+    setPage(1)
+  }, [searchDraft])
+
   const onPageChange = useCallback(
     (value: number) => {
       startTransition(() => {
@@ -240,10 +241,8 @@ export function useInventoryHistoryPageState(productId: string) {
 
   const applyFilters = useCallback((values: InventoryHistoryFiltersApplyPayload) => {
     setType(toInventoryAdjustmentTypes(values.type))
-    setOrderId(values.orderId.trim())
     setFromDate(values.fromDate)
     setToDate(values.toDate)
-    setSortOrder(values.sortOrder)
     setPage(1)
     setFiltersOpen(false)
   }, [])
@@ -265,6 +264,7 @@ export function useInventoryHistoryPageState(productId: string) {
 
   const onRemoveOrderId = useCallback(() => {
     setOrderId('')
+    setSearchDraft('')
     setPage(1)
   }, [])
 
@@ -275,11 +275,6 @@ export function useInventoryHistoryPageState(productId: string) {
 
   const onRemoveToDate = useCallback(() => {
     setToDate('')
-    setPage(1)
-  }, [])
-
-  const onResetSort = useCallback(() => {
-    setSortOrder('desc')
     setPage(1)
   }, [])
 
@@ -306,11 +301,11 @@ export function useInventoryHistoryPageState(productId: string) {
     type,
     typeOptions: [...INVENTORY_ADJUSTMENT_TYPES],
     orderId,
+    searchDraft,
     fromDate,
     toDate,
     sortField,
     sortOrder,
-    sortLabel: resolveFilterSortLabel(sortOrder),
     page,
     limit,
     total,
@@ -319,7 +314,9 @@ export function useInventoryHistoryPageState(productId: string) {
     isPageLoading,
     isDataUnavailable,
     isTableLoading,
+    setSearchDraft,
     setFiltersOpen,
+    onSearchApply,
     onSort,
     onPageChange,
     onLimitChange,
@@ -329,7 +326,6 @@ export function useInventoryHistoryPageState(productId: string) {
     onRemoveOrderId,
     onRemoveFromDate,
     onRemoveToDate,
-    onResetSort,
     applyFilters,
   }
 }

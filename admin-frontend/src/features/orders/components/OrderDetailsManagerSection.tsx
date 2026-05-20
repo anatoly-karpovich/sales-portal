@@ -2,11 +2,13 @@ import {
   Autocomplete,
   Button,
   CircularProgress,
+  IconButton,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Manager } from '@/api/modules/managers.api'
@@ -24,11 +26,17 @@ type OrderDetailsManagerSectionProps = {
   isEmbedded?: boolean
   onStartManagerEdit: () => void
   onCancelManagerEdit: () => void
-  onSaveManagerEdit: (managerId: string) => Promise<boolean> | boolean
-  onUnassignManager: () => void
+  onSaveManagerEdit: (managerId: string | null) => Promise<boolean> | boolean
 }
 
 const ASSIGNABLE_MANAGER_ROLES = new Set(['USER', 'ADMIN'])
+const NOT_ASSIGNED_OPTION_ID = '__not_assigned__'
+
+type ManagerSelectOption = {
+  id: string
+  label: string
+  searchValue: string
+}
 
 function resolveManagerName(manager: Manager) {
   const fullName = `${manager.firstName ?? ''} ${manager.lastName ?? ''}`.trim()
@@ -57,13 +65,15 @@ function InlineManagerEditor({
   order: OrderDetails
   isSubmitting: boolean
   onCancel: () => void
-  onSave: (managerId: string) => Promise<boolean> | boolean
+  onSave: (managerId: string | null) => Promise<boolean> | boolean
 }) {
   const [search, setSearch] = useState('')
-  const [selectedManagerId, setSelectedManagerId] = useState(order.assignedManager?._id ?? '')
+  const [selectedManagerId, setSelectedManagerId] = useState(
+    order.assignedManager?._id ?? NOT_ASSIGNED_OPTION_ID,
+  )
   const managerOptionsQuery = useOrderManagerOptionsQuery(true)
 
-  const availableManagers = useMemo(() => {
+  const availableOptions = useMemo<ManagerSelectOption[]>(() => {
     const managers = (managerOptionsQuery.data ?? []).filter(isAssignableManager)
     const managerById = new Map(managers.map((manager) => [manager._id, manager]))
 
@@ -82,33 +92,39 @@ function InlineManagerEditor({
       })
     }
 
-    return [...managerById.values()].sort((left, right) =>
+    const sortedManagers = [...managerById.values()].sort((left, right) =>
       resolveManagerSortKey(left).localeCompare(resolveManagerSortKey(right)),
     )
+
+    const managerOptions = sortedManagers.map((manager) => ({
+      id: manager._id,
+      label: formatManagerLabel(manager),
+      searchValue: `${manager.firstName ?? ''} ${manager.lastName ?? ''} ${manager.username}`.toLocaleLowerCase(),
+    }))
+
+    return [
+      {
+        id: NOT_ASSIGNED_OPTION_ID,
+        label: ordersUiText.detailsPage.history.notAssigned,
+        searchValue: ordersUiText.detailsPage.history.notAssigned.toLocaleLowerCase(),
+      },
+      ...managerOptions,
+    ]
   }, [managerOptionsQuery.data, order.assignedManager])
 
-  const filteredManagers = useMemo(() => {
+  const filteredOptions = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase()
-    if (!normalizedSearch) return availableManagers
-    return availableManagers.filter((manager) => {
-      const firstName = (manager.firstName ?? '').toLocaleLowerCase()
-      const lastName = (manager.lastName ?? '').toLocaleLowerCase()
-      const username = (manager.username ?? '').toLocaleLowerCase()
-      return (
-        firstName.includes(normalizedSearch) ||
-        lastName.includes(normalizedSearch) ||
-        username.includes(normalizedSearch)
-      )
-    })
-  }, [availableManagers, search])
+    if (!normalizedSearch) return availableOptions
+    return availableOptions.filter((option) => option.searchValue.includes(normalizedSearch))
+  }, [availableOptions, search])
 
-  const selectedManager = useMemo(
-    () => availableManagers.find((manager) => manager._id === selectedManagerId) ?? null,
-    [availableManagers, selectedManagerId],
+  const selectedOption = useMemo(
+    () => availableOptions.find((option) => option.id === selectedManagerId) ?? null,
+    [availableOptions, selectedManagerId],
   )
-  const currentManagerId = order.assignedManager?._id ?? ''
+  const currentManagerId = order.assignedManager?._id ?? NOT_ASSIGNED_OPTION_ID
   const isSaveDisabled =
-    (managerOptionsQuery.isLoading && availableManagers.length === 0) ||
+    (managerOptionsQuery.isLoading && availableOptions.length === 0) ||
     isSubmitting ||
     !selectedManagerId ||
     selectedManagerId === currentManagerId
@@ -121,19 +137,19 @@ function InlineManagerEditor({
     >
       <Stack spacing={1.25}>
         <Autocomplete
-          options={filteredManagers}
-          value={selectedManager}
+          options={filteredOptions}
+          value={selectedOption}
           openOnFocus
           disableClearable
           forcePopupIcon={false}
           loading={managerOptionsQuery.isLoading || managerOptionsQuery.isFetching}
           filterOptions={(options) => options}
-          getOptionLabel={formatManagerLabel}
-          isOptionEqualToValue={(option, value) => option._id === value._id}
+          getOptionLabel={(option) => option.label}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           onClose={() => setSearch('')}
-          onChange={(_, manager) => {
-            if (!manager) return
-            setSelectedManagerId(manager._id)
+          onChange={(_, option) => {
+            if (!option) return
+            setSelectedManagerId(option.id)
             setSearch('')
           }}
           onInputChange={(_, value, reason) => {
@@ -161,7 +177,7 @@ function InlineManagerEditor({
               </Typography>
             </Stack>
           }
-          renderOption={(props, manager, state) => {
+          renderOption={(props, option, state) => {
             const { key, ...optionProps } = props
             return (
               <li
@@ -170,7 +186,7 @@ function InlineManagerEditor({
                 data-testid={`order-details-manager-inline-item-${state.index}`}
               >
                 <Typography sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                  {formatManagerLabel(manager)}
+                  {option.label}
                 </Typography>
               </li>
             )
@@ -193,7 +209,11 @@ function InlineManagerEditor({
         <Stack direction="row" spacing={1} justifyContent="flex-end">
           <Button
             variant="contained"
-            onClick={() => void onSave(selectedManagerId)}
+            onClick={() =>
+              void onSave(
+                selectedManagerId === NOT_ASSIGNED_OPTION_ID ? null : selectedManagerId,
+              )
+            }
             disabled={isSaveDisabled}
             data-testid="order-details-manager-inline-save-button"
           >
@@ -220,7 +240,6 @@ function InlineManagerEditor({
 export function OrderDetailsManagerSection({
   order,
   assignedManagerDisplayValue,
-  isManagerAssigned,
   isManagerEditable,
   isManagerActionPending,
   isManagerEditMode,
@@ -228,49 +247,29 @@ export function OrderDetailsManagerSection({
   onStartManagerEdit,
   onCancelManagerEdit,
   onSaveManagerEdit,
-  onUnassignManager,
 }: OrderDetailsManagerSectionProps) {
+  const isManagerAssigned = Boolean(order.assignedManager)
   const rootSx = { p: { xs: 2, md: 2.5 } }
   const content = (
     <Stack spacing={1.75}>
       <Stack
         direction="row"
         alignItems="center"
-        justifyContent="space-between"
-        flexWrap="wrap"
         gap={1}
       >
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {ordersUiText.detailsPage.labels.assignedManager}
         </Typography>
         {!isManagerEditMode && isManagerEditable ? (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="text"
-              disabled={isManagerActionPending}
-              onClick={onStartManagerEdit}
-              data-testid={
-                isManagerAssigned
-                  ? 'order-details-manager-edit-trigger'
-                  : 'order-details-manager-assign-trigger'
-              }
-              sx={{ textTransform: 'none' }}
-            >
-              {isManagerAssigned ? 'Change' : 'Assign'}
-            </Button>
-            {isManagerAssigned ? (
-              <Button
-                variant="text"
-                color="error"
-                disabled={isManagerActionPending}
-                onClick={onUnassignManager}
-                data-testid="order-details-manager-unassign-trigger"
-                sx={{ textTransform: 'none' }}
-              >
-                Unassign
-              </Button>
-            ) : null}
-          </Stack>
+          <IconButton
+            size="small"
+            disabled={isManagerActionPending}
+            onClick={onStartManagerEdit}
+            data-testid="order-details-manager-edit-trigger"
+            aria-label="Edit assigned manager"
+          >
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
         ) : null}
       </Stack>
 

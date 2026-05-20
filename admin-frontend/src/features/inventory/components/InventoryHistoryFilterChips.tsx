@@ -12,14 +12,11 @@ type Props = {
   fromDatePrefix: string
   toDate: string
   toDatePrefix: string
-  sortLabel: string
-  sortPrefix: string
   onResetVariant: () => void
   onRemoveType: (value: string) => void
   onRemoveOrderId: () => void
   onRemoveFromDate: () => void
   onRemoveToDate: () => void
-  onRemoveSort: () => void
 }
 
 function toFilterTestId(value: string) {
@@ -45,14 +42,11 @@ export function InventoryHistoryFilterChips({
   fromDatePrefix,
   toDate,
   toDatePrefix,
-  sortLabel,
-  sortPrefix,
   onResetVariant,
   onRemoveType,
   onRemoveOrderId,
   onRemoveFromDate,
   onRemoveToDate,
-  onRemoveSort,
 }: Props) {
   const items = [
     ...(!isAllVariantsSelected
@@ -98,16 +92,6 @@ export function InventoryHistoryFilterChips({
             label: withPrefix(toDatePrefix, toDate),
             onDelete: onRemoveToDate,
             testId: 'inventory-history-filter-chips-to-date-chip',
-          },
-        ]
-      : []),
-    ...(sortLabel
-      ? [
-          {
-            key: `sort-${sortLabel}`,
-            label: withPrefix(sortPrefix, sortLabel),
-            onDelete: onRemoveSort,
-            testId: 'inventory-history-filter-chips-sort-chip',
           },
         ]
       : []),
