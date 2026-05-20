@@ -52,7 +52,10 @@ type StringArrayStateSetter = (value: string[] | ((prev: string[]) => string[]))
 const PRICE_INPUT_PATTERN = /^(?:\d+(?:\.\d*)?)?$/
 
 function toOptionTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function parsePriceInput(value: string): number | null | 'invalid' {
@@ -176,7 +179,11 @@ export function ProductsFiltersDialog({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ px: 3, py: 2.5 }} data-testid="products-list-filter-dialog-content">
+      <DialogContent
+        dividers
+        sx={{ px: 3, py: 2.5 }}
+        data-testid="products-list-filter-dialog-content"
+      >
         <Stack spacing={1.5} data-testid="products-list-filter-dialog-accordion-list">
           <Accordion
             disableGutters
@@ -241,9 +248,7 @@ export function ProductsFiltersDialog({
                     control={
                       <Checkbox
                         checked={manufacturerDraft.includes(value)}
-                        onChange={() =>
-                          toggleValue(value, manufacturerDraft, setManufacturerDraft)
-                        }
+                        onChange={() => toggleValue(value, manufacturerDraft, setManufacturerDraft)}
                       />
                     }
                     label={value}
@@ -430,10 +435,7 @@ export function ProductsFiltersDialog({
         >
           Apply
         </Button>
-        <Button
-          onClick={clearAllFilters}
-          data-testid="products-list-filter-dialog-clear-button"
-        >
+        <Button onClick={clearAllFilters} data-testid="products-list-filter-dialog-clear-button">
           Clear Filters
         </Button>
       </DialogActions>

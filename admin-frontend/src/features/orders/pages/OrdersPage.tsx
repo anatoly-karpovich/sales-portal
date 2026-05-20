@@ -44,7 +44,9 @@ export function OrdersPage() {
           variant="contained"
           onClick={() => void state.openCreatePage()}
           disabled={state.isCreateDialogPreloading}
-          startIcon={state.isCreateDialogPreloading ? <CircularProgress size={14} color="inherit" /> : null}
+          startIcon={
+            state.isCreateDialogPreloading ? <CircularProgress size={14} color="inherit" /> : null
+          }
           data-testid="orders-list-create-button"
         >
           {ordersUiText.listPage.createButton}
@@ -123,6 +125,7 @@ export function OrdersPage() {
         title={ordersUiText.dialogs.reopenTitle}
         message={state.reopenDialogMessage}
         confirmLabel={ordersUiText.dialogs.reopenConfirm}
+        confirmColor="primary"
         cancelLabel={ordersUiText.dialogs.cancel}
         isSubmitting={state.isReopenPending}
         onCancel={state.closeReopenDialog}

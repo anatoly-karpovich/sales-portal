@@ -12,11 +12,31 @@ type Props = {
 
 export function HomeMetricCards({ metricCards }: Props) {
   const cards = [
-    { title: 'Orders This Year', value: metricCards.ordersThisYear, icon: <ShoppingCartOutlinedIcon fontSize="large" color="primary" /> },
-    { title: 'Total Revenue', value: metricCards.totalRevenue, icon: <AttachMoneyOutlinedIcon fontSize="large" color="primary" /> },
-    { title: 'New Customers', value: metricCards.newCustomers, icon: <PersonAddAltOutlinedIcon fontSize="large" color="primary" /> },
-    { title: 'Avg Order Value', value: metricCards.averageOrderValue, icon: <ReceiptLongOutlinedIcon fontSize="large" color="primary" /> },
-    { title: 'Canceled Orders', value: metricCards.canceledOrders, icon: <HighlightOffOutlinedIcon fontSize="large" color="primary" /> },
+    {
+      title: 'Orders This Year',
+      value: metricCards.ordersThisYear,
+      icon: <ShoppingCartOutlinedIcon fontSize="large" color="primary" />,
+    },
+    {
+      title: 'Total Revenue',
+      value: metricCards.totalRevenue,
+      icon: <AttachMoneyOutlinedIcon fontSize="large" color="primary" />,
+    },
+    {
+      title: 'New Customers',
+      value: metricCards.newCustomers,
+      icon: <PersonAddAltOutlinedIcon fontSize="large" color="primary" />,
+    },
+    {
+      title: 'Avg Order Value',
+      value: metricCards.averageOrderValue,
+      icon: <ReceiptLongOutlinedIcon fontSize="large" color="primary" />,
+    },
+    {
+      title: 'Canceled Orders',
+      value: metricCards.canceledOrders,
+      icon: <HighlightOffOutlinedIcon fontSize="large" color="primary" />,
+    },
   ]
 
   return (
@@ -33,13 +53,30 @@ export function HomeMetricCards({ metricCards }: Props) {
       data-testid="home-metric-cards"
     >
       {cards.map((card) => (
-        <Paper key={card.title} sx={{ p: 2.5, height: '100%' }} data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}`}>
-          <Stack spacing={1} alignItems="center" textAlign="center" data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}-content`}>
+        <Paper
+          key={card.title}
+          sx={{ p: 2.5, height: '100%' }}
+          data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}`}
+        >
+          <Stack
+            spacing={1}
+            alignItems="center"
+            textAlign="center"
+            data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}-content`}
+          >
             {card.icon}
-            <Typography variant="body2" color="text.secondary" data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}-title`}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}-title`}
+            >
               {card.title}
             </Typography>
-            <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 700 }} data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}-value`}>
+            <Typography
+              variant="h5"
+              sx={{ mt: 0.5, fontWeight: 700 }}
+              data-testid={`home-metric-card-${card.title.toLowerCase().replace(/\s+/g, '-')}-value`}
+            >
               {card.value}
             </Typography>
           </Stack>

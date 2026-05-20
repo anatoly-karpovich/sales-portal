@@ -131,7 +131,9 @@ export function CustomerForm({
             label={customersUiText.form.fields.email}
             placeholder={customersUiText.form.placeholders.email}
             value={formState.email}
-            onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, email: event.target.value }))
+            }
             onBlur={() => markTouched('email')}
             error={touched.email && Boolean(validation.emailError)}
             helperText={touched.email ? (validation.emailError ?? ' ') : ' '}
@@ -143,7 +145,9 @@ export function CustomerForm({
             label={customersUiText.form.fields.name}
             placeholder={customersUiText.form.placeholders.name}
             value={formState.name}
-            onChange={(event) => setFormState((current) => ({ ...current, name: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, name: event.target.value }))
+            }
             onBlur={() => markTouched('name')}
             error={touched.name && Boolean(validation.nameError)}
             helperText={touched.name ? (validation.nameError ?? ' ') : ' '}
@@ -195,7 +199,9 @@ export function CustomerForm({
             label={customersUiText.form.fields.city}
             placeholder={customersUiText.form.placeholders.city}
             value={formState.city}
-            onChange={(event) => setFormState((current) => ({ ...current, city: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, city: event.target.value }))
+            }
             onBlur={() => markTouched('city')}
             error={touched.city && Boolean(validation.cityError)}
             helperText={touched.city ? (validation.cityError ?? ' ') : ' '}
@@ -207,7 +213,9 @@ export function CustomerForm({
             label={customersUiText.form.fields.street}
             placeholder={customersUiText.form.placeholders.street}
             value={formState.street}
-            onChange={(event) => setFormState((current) => ({ ...current, street: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, street: event.target.value }))
+            }
             onBlur={() => markTouched('street')}
             error={touched.street && Boolean(validation.streetError)}
             helperText={touched.street ? (validation.streetError ?? ' ') : ' '}
@@ -220,7 +228,9 @@ export function CustomerForm({
             placeholder={customersUiText.form.placeholders.house}
             type="number"
             value={formState.house}
-            onChange={(event) => setFormState((current) => ({ ...current, house: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, house: event.target.value }))
+            }
             onBlur={() => markTouched('house')}
             error={touched.house && Boolean(validation.houseError)}
             helperText={touched.house ? (validation.houseError ?? ' ') : ' '}
@@ -233,7 +243,9 @@ export function CustomerForm({
             placeholder={customersUiText.form.placeholders.apartment}
             type="number"
             value={formState.apartment}
-            onChange={(event) => setFormState((current) => ({ ...current, apartment: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, apartment: event.target.value }))
+            }
             onBlur={() => markTouched('apartment')}
             error={touched.apartment && Boolean(validation.apartmentError)}
             helperText={touched.apartment ? (validation.apartmentError ?? ' ') : ' '}
@@ -262,7 +274,9 @@ export function CustomerForm({
             label={customersUiText.form.fields.phone}
             placeholder={customersUiText.form.placeholders.phone}
             value={formState.phone}
-            onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, phone: event.target.value }))
+            }
             onBlur={() => markTouched('phone')}
             error={touched.phone && Boolean(validation.phoneError)}
             helperText={touched.phone ? (validation.phoneError ?? ' ') : ' '}
@@ -277,7 +291,9 @@ export function CustomerForm({
           value={formState.notes}
           multiline
           minRows={4}
-          onChange={(event) => setFormState((current) => ({ ...current, notes: event.target.value }))}
+          onChange={(event) =>
+            setFormState((current) => ({ ...current, notes: event.target.value }))
+          }
           onBlur={() => markTouched('notes')}
           error={touched.notes && Boolean(validation.notesError)}
           helperText={touched.notes ? (validation.notesError ?? ' ') : ' '}
@@ -297,7 +313,9 @@ export function CustomerForm({
             disabled={!canSubmit}
             data-testid="customers-upsert-save-button"
           >
-            {mode === 'create' ? customersUiText.form.actions.saveCreate : customersUiText.form.actions.saveEdit}
+            {mode === 'create'
+              ? customersUiText.form.actions.saveCreate
+              : customersUiText.form.actions.saveEdit}
           </Button>
           {mode === 'create' ? (
             <Button onClick={resetToInitial} data-testid="customers-upsert-clear-button">

@@ -31,6 +31,7 @@ import {
   categoryMoveSchema,
   categoryPatchSchema,
 } from "./categories.schema";
+import { inventoryAdjustmentCreateSchema, inventoryVariantSettingsPatchSchema } from "./inventory.schema";
 
 export {
   customerSchema,
@@ -61,4 +62,6 @@ export {
   categoryCreateSchema,
   categoryPatchSchema,
   categoryMoveSchema,
+  inventoryAdjustmentCreateSchema,
+  inventoryVariantSettingsPatchSchema,
 };

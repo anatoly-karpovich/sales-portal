@@ -1,6 +1,7 @@
 import { createElement } from 'react'
-import { Typography } from '@mui/material'
+import { Box, Stack, Typography } from '@mui/material'
 import type { Product } from '@/api/modules/products.api'
+import noImageProduct from '@/assets/no-image-product.jpeg'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { ProductsTableActionsCell } from '@/features/products/components/ProductsTableActionsCell'
 import { formatDateTime } from '@/utils/date'
@@ -69,6 +70,42 @@ function getProductStatusColor(status: Product['status']) {
   return 'text.primary'
 }
 
+function renderProductNameCell(product: Product) {
+  const imageUrl = product.imageUrl?.trim() || noImageProduct
+
+  return createElement(
+    Stack,
+    {
+      direction: 'row',
+      spacing: 1,
+      alignItems: 'center',
+      sx: { minWidth: 0 },
+    },
+    createElement(Box, {
+      component: 'img',
+      src: imageUrl,
+      alt: product.name,
+      sx: {
+        width: 36,
+        height: 36,
+        borderRadius: 1,
+        border: 1,
+        borderColor: 'divider',
+        objectFit: 'cover',
+        flexShrink: 0,
+      },
+    }),
+    createElement(
+      Typography,
+      {
+        noWrap: true,
+        title: product.name,
+      },
+      product.name,
+    ),
+  )
+}
+
 export function getProductsTableColumns({
   onView,
   onDelete,
@@ -80,7 +117,7 @@ export function getProductsTableColumns({
       sortable: true,
       width: '24%',
       minWidth: 220,
-      render: (row) => row.name,
+      render: (row) => renderProductNameCell(row),
     },
     {
       key: 'price',
@@ -105,11 +142,7 @@ export function getProductsTableColumns({
       width: 130,
       minWidth: 120,
       render: (row) =>
-        createElement(
-          Typography,
-          { sx: { color: getProductStatusColor(row.status) } },
-          row.status,
-        ),
+        createElement(Typography, { sx: { color: getProductStatusColor(row.status) } }, row.status),
     },
     {
       key: 'variantsCount',

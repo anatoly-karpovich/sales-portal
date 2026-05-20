@@ -1,4 +1,4 @@
-import { Chip, Stack } from '@mui/material'
+import { FilterChips } from '@/components/shared/FilterChips'
 import { formatPrice } from '@/utils/number'
 
 type Props = {
@@ -18,7 +18,10 @@ type Props = {
 }
 
 function toFilterTestId(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function withPrefix(prefix: string, value: string) {
@@ -57,59 +60,42 @@ export function ProductsFilterChips({
   onRemovePriceFilter,
 }: Props) {
   const priceLabel = getPriceLabel(pricePrefix, minPrice, maxPrice)
-
-  if (
-    !search &&
-    manufacturerFilters.length === 0 &&
-    statusFilters.length === 0 &&
-    !priceLabel
-  ) {
-    return null
-  }
+  const items = [
+    ...(search
+      ? [
+          {
+            key: `search-${search}`,
+            label: withPrefix(searchPrefix, search),
+            onDelete: onRemoveSearch,
+            testId: 'products-list-filter-chips-search-chip',
+          },
+        ]
+      : []),
+    ...manufacturerFilters.map((value) => ({
+      key: `manufacturer-${value}`,
+      label: withPrefix(manufacturerPrefix, value),
+      onDelete: () => onRemoveManufacturerFilter(value),
+      testId: `products-list-filter-chips-manufacturer-${toFilterTestId(value)}-chip`,
+    })),
+    ...statusFilters.map((value) => ({
+      key: `status-${value}`,
+      label: withPrefix(statusPrefix, value),
+      onDelete: () => onRemoveStatusFilter(value),
+      testId: `products-list-filter-chips-status-${toFilterTestId(value)}-chip`,
+    })),
+    ...(priceLabel
+      ? [
+          {
+            key: 'price',
+            label: priceLabel,
+            onDelete: onRemovePriceFilter,
+            testId: 'products-list-filter-chips-price-chip',
+          },
+        ]
+      : []),
+  ]
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap data-testid="products-list-filter-chips">
-      {search ? (
-        <Chip
-          color="primary"
-          variant="outlined"
-          label={withPrefix(searchPrefix, search)}
-          onDelete={onRemoveSearch}
-          data-testid="products-list-filter-chips-search-chip"
-        />
-      ) : null}
-
-      {manufacturerFilters.map((value) => (
-        <Chip
-          key={`manufacturer-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(manufacturerPrefix, value)}
-          onDelete={() => onRemoveManufacturerFilter(value)}
-          data-testid={`products-list-filter-chips-manufacturer-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-
-      {statusFilters.map((value) => (
-        <Chip
-          key={`status-${value}`}
-          color="primary"
-          variant="outlined"
-          label={withPrefix(statusPrefix, value)}
-          onDelete={() => onRemoveStatusFilter(value)}
-          data-testid={`products-list-filter-chips-status-${toFilterTestId(value)}-chip`}
-        />
-      ))}
-
-      {priceLabel ? (
-        <Chip
-          color="primary"
-          variant="outlined"
-          label={priceLabel}
-          onDelete={onRemovePriceFilter}
-          data-testid="products-list-filter-chips-price-chip"
-        />
-      ) : null}
-    </Stack>
+    <FilterChips items={items} containerTestId="products-list-filter-chips" />
   )
 }

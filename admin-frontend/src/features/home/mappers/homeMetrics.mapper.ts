@@ -82,7 +82,11 @@ function toDateLabel(value: unknown, fallback = '-') {
   return `${year}-${mm}-${dd}`
 }
 
-function toChartSeries(items: unknown[], resolveLabel: (item: UnknownRecord) => string, resolveData: (item: UnknownRecord) => number): HomeChartSeries {
+function toChartSeries(
+  items: unknown[],
+  resolveLabel: (item: UnknownRecord) => string,
+  resolveData: (item: UnknownRecord) => number,
+): HomeChartSeries {
   const labels: string[] = []
   const data: number[] = []
 

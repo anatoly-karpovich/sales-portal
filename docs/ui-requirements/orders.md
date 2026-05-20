@@ -53,6 +53,7 @@
 - Unsaved changes prompt is shown on route leave/refresh when customer or products were changed.
 - After successful create, UI redirects to order details `#/orders/{id}` and shows success toast.
 - Backend returns non-null `delivery` snapshot immediately on create.
+- In manager-authenticated admin flow, created order is returned with creator auto-assigned as `assignedManager`.
 
 ## Order Details Layout
 
@@ -67,6 +68,7 @@
 ### Action Gates
 
 - `Process` is visible for `Draft`; enabled only when `delivery.status` is `Delivery Scheduled` or `Pickup Scheduled`.
+- On `Process`, backend keeps current assignee; if assignee is missing, backend auto-assigns current performer.
 - `Cancel` is visible for `Draft` and `In Process`; enabled only when `delivery.status` is `Draft`, `Delivery Scheduled`, or `Pickup Scheduled`.
 - `Receive` mode is available only when:
   - `status = In Process`

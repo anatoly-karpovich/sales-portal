@@ -11,14 +11,28 @@ type Props = {
 
 export function ProductsTableActionsCell({ product, onView, onDelete }: Props) {
   return (
-    <Stack direction="row" spacing={0.5} justifyContent="flex-end" data-testid="products-table-actions-cell">
+    <Stack
+      direction="row"
+      spacing={0.5}
+      justifyContent="flex-end"
+      data-testid="products-table-actions-cell"
+    >
       <Tooltip title="Details">
-        <IconButton size="small" onClick={() => onView(product)} data-testid="products-table-details-button">
+        <IconButton
+          size="small"
+          onClick={() => onView(product)}
+          data-testid="products-table-details-button"
+        >
           <VisibilityOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
       <Tooltip title="Delete">
-        <IconButton size="small" color="error" onClick={() => onDelete(product)} data-testid="products-table-delete-button">
+        <IconButton
+          size="small"
+          color="error"
+          onClick={() => onDelete(product)}
+          data-testid="products-table-delete-button"
+        >
           <DeleteOutlineOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>

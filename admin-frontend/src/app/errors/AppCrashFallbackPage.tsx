@@ -17,7 +17,11 @@ export function AppCrashFallbackPage({ errorMessage, onRetry, onGoHome, onReload
         <Typography variant="h5" sx={{ mb: 1 }} data-testid="app-crash-fallback-page-title">
           Something went wrong
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 2 }} data-testid="app-crash-fallback-page-description">
+        <Typography
+          color="text.secondary"
+          sx={{ mb: 2 }}
+          data-testid="app-crash-fallback-page-description"
+        >
           The page crashed unexpectedly. You can retry, go back to Home, or reload the app.
         </Typography>
         {errorMessage ? (
@@ -30,14 +34,30 @@ export function AppCrashFallbackPage({ errorMessage, onRetry, onGoHome, onReload
             {errorMessage}
           </Typography>
         ) : null}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} data-testid="app-crash-fallback-page-actions">
-          <Button variant="outlined" onClick={onRetry} data-testid="app-crash-fallback-page-retry-button">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.25}
+          data-testid="app-crash-fallback-page-actions"
+        >
+          <Button
+            variant="outlined"
+            onClick={onRetry}
+            data-testid="app-crash-fallback-page-retry-button"
+          >
             Retry
           </Button>
-          <Button variant="outlined" onClick={onGoHome} data-testid="app-crash-fallback-page-home-button">
+          <Button
+            variant="outlined"
+            onClick={onGoHome}
+            data-testid="app-crash-fallback-page-home-button"
+          >
             Home
           </Button>
-          <Button variant="contained" onClick={onReload} data-testid="app-crash-fallback-page-reload-button">
+          <Button
+            variant="contained"
+            onClick={onReload}
+            data-testid="app-crash-fallback-page-reload-button"
+          >
             Reload
           </Button>
         </Stack>

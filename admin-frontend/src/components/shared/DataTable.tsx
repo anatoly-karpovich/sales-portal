@@ -1,4 +1,15 @@
-import { Alert, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel } from '@mui/material'
+import {
+  Alert,
+  Paper,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
+} from '@mui/material'
 import { sharedUiText } from '@/components/shared/shared.ui-text'
 
 export type DataTableColumnKey<Row> = Extract<keyof Row, string> | (string & {})
@@ -60,7 +71,10 @@ export function DataTable<Row>({
       <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 980 }} data-testid="data-table">
         <colgroup>
           {columns.map((column) => (
-            <col key={String(column.key)} style={{ width: resolveWidth(column), minWidth: column.minWidth }} />
+            <col
+              key={String(column.key)}
+              style={{ width: resolveWidth(column), minWidth: column.minWidth }}
+            />
           ))}
         </colgroup>
         <TableHead data-testid="data-table-head">
@@ -92,7 +106,10 @@ export function DataTable<Row>({
         <TableBody data-testid="data-table-body">
           {isLoading ? (
             Array.from({ length: loadingRowCount }).map((_, rowIndex) => (
-              <TableRow key={`skeleton-${rowIndex}`} data-testid={`data-table-loading-row-${rowIndex}`}>
+              <TableRow
+                key={`skeleton-${rowIndex}`}
+                data-testid={`data-table-loading-row-${rowIndex}`}
+              >
                 {columns.map((column) => (
                   <TableCell
                     key={`${String(column.key)}-${rowIndex}`}

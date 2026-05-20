@@ -29,8 +29,20 @@ const inventorySettingsRequiredSchema: JSONSchema7 = {
   type: "object",
   properties: {
     defaultLowStockThreshold: { type: "integer", minimum: 0 },
+    allowSellingOutOfStockByDefault: { type: "boolean" },
   },
-  required: ["defaultLowStockThreshold"],
+  required: ["defaultLowStockThreshold", "allowSellingOutOfStockByDefault"],
+  additionalProperties: false,
+};
+
+const reservationsSettingsRequiredSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    adminDraftReservationTtlMs: { type: "integer", minimum: 1 },
+    customerPaymentReservationTtlMs: { type: "integer", minimum: 1 },
+    cronIntervalMs: { type: "integer", minimum: 1000 },
+  },
+  required: ["adminDraftReservationTtlMs", "customerPaymentReservationTtlMs", "cronIntervalMs"],
   additionalProperties: false,
 };
 
@@ -164,9 +176,25 @@ const inventorySettingsPartialSchema: JSONSchema7 = {
   type: "object",
   properties: {
     defaultLowStockThreshold: { type: "integer", minimum: 0 },
+    allowSellingOutOfStockByDefault: { type: "boolean" },
   },
   additionalProperties: false,
-  required: ["defaultLowStockThreshold"],
+  anyOf: [{ required: ["defaultLowStockThreshold"] }, { required: ["allowSellingOutOfStockByDefault"] }],
+};
+
+const reservationsSettingsPartialSchema: JSONSchema7 = {
+  type: "object",
+  properties: {
+    adminDraftReservationTtlMs: { type: "integer", minimum: 1 },
+    customerPaymentReservationTtlMs: { type: "integer", minimum: 1 },
+    cronIntervalMs: { type: "integer", minimum: 1000 },
+  },
+  additionalProperties: false,
+  anyOf: [
+    { required: ["adminDraftReservationTtlMs"] },
+    { required: ["customerPaymentReservationTtlMs"] },
+    { required: ["cronIntervalMs"] },
+  ],
 };
 
 const shippingDeliveryPartialSchema: JSONSchema7 = {
@@ -226,9 +254,10 @@ export const settingsCreateSchema: AllowedSchema = {
     catalog: catalogSettingsRequiredSchema,
     order: orderSettingsRequiredSchema,
     inventory: inventorySettingsRequiredSchema,
+    reservations: reservationsSettingsRequiredSchema,
     shipping: shippingSettingsRequiredSchema,
   },
-  required: ["catalog", "order", "inventory", "shipping"],
+  required: ["catalog", "order", "inventory", "reservations", "shipping"],
   additionalProperties: false,
 };
 
@@ -238,8 +267,15 @@ export const settingsUpdateSchema: AllowedSchema = {
     catalog: catalogSettingsPartialSchema,
     order: orderSettingsPartialSchema,
     inventory: inventorySettingsPartialSchema,
+    reservations: reservationsSettingsPartialSchema,
     shipping: shippingSettingsPartialSchema,
   },
   additionalProperties: false,
-  anyOf: [{ required: ["catalog"] }, { required: ["order"] }, { required: ["inventory"] }, { required: ["shipping"] }],
+  anyOf: [
+    { required: ["catalog"] },
+    { required: ["order"] },
+    { required: ["inventory"] },
+    { required: ["reservations"] },
+    { required: ["shipping"] },
+  ],
 };

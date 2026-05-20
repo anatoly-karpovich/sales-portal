@@ -22,6 +22,8 @@ import {
   type ProductVariantReplaceRequestPayload,
   type ProductsQuery,
 } from '@/api/modules/products.api'
+import { inventoryQueryKeys } from '@/features/inventory/hooks/inventoryQueryKeys'
+import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import { productsQueryKeys } from '@/features/products/hooks/productsQueryKeys'
 
 type ProductDetailsData = Awaited<ReturnType<typeof getProductById>>
@@ -33,6 +35,24 @@ function syncProductMutationResult(params: {
 }) {
   params.queryClient.setQueryData(productsQueryKeys.detail(params.productId), params.product)
   void params.queryClient.invalidateQueries({ queryKey: productsQueryKeys.lists() })
+  void params.queryClient.invalidateQueries({
+    queryKey: inventoryQueryKeys.detail(params.productId),
+  })
+  void params.queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+  void params.queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+}
+
+function invalidateProductRelatedDomainCaches(params: {
+  queryClient: ReturnType<typeof useQueryClient>
+  productId?: string
+}) {
+  if (params.productId) {
+    void params.queryClient.invalidateQueries({
+      queryKey: inventoryQueryKeys.detail(params.productId),
+    })
+  }
+  void params.queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+  void params.queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
 }
 
 export function useProductsQuery(query: ProductsQuery) {
@@ -96,6 +116,7 @@ export function useDeleteProductMutation() {
         exact: true,
       })
       void queryClient.invalidateQueries({ queryKey: productsQueryKeys.lists() })
+      invalidateProductRelatedDomainCaches({ queryClient, productId: deletedProductId })
     },
   })
 }
@@ -234,6 +255,10 @@ export function useDeleteProductVariantMutation() {
         queryKey: productsQueryKeys.detail(variables.productId),
       })
       void queryClient.invalidateQueries({ queryKey: productsQueryKeys.lists() })
+      invalidateProductRelatedDomainCaches({
+        queryClient,
+        productId: variables.productId,
+      })
     },
   })
 }

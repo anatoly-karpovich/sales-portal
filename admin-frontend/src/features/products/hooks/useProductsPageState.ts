@@ -133,7 +133,9 @@ export function useProductsPageState() {
       if (!isProductsSortField(field)) return
       setPage(1)
       setSortField(field)
-      setSortOrder((currentOrder) => (field === sortField ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'))
+      setSortOrder((currentOrder) =>
+        field === sortField ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc',
+      )
     },
     [sortField],
   )

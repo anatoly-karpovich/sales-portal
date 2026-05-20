@@ -4,7 +4,11 @@ import { authmiddleware } from "../middleware/authmiddleware.js";
 
 const notification = Router();
 
-notification.get("/notifications", authmiddleware, NotificationController.getNotifications.bind(NotificationController));
+notification.get(
+  "/notifications",
+  authmiddleware,
+  NotificationController.getNotifications.bind(NotificationController),
+);
 notification.patch(
   "/notifications/:notificationId/read",
   authmiddleware,
@@ -37,7 +41,8 @@ notification.patch(
  *           description: The manager this notification belongs to
  *         type:
  *           type: string
- *           description: The type of notification (e.g., statusChanged, assigned, etc.)
+ *           enum: [assigned, unassigned, statusChanged, customerChanged, productsChanged, deliveryUpdated, productsDelivered, managerChanged, commentAdded, commentDeleted, newOrder]
+ *           description: The type of notification
  *         orderId:
  *           type: string
  *           description: The order related to the notification
@@ -60,7 +65,7 @@ notification.patch(
  *         managerId: "6650b914db6d1d4d12c6c915"
  *         type: "statusChanged"
  *         orderId: "6628e650db61bb3e9ed9ef19"
- *         message: "Order #12345 status changed to 'In Process'"
+ *         message: "Order #6628e650db61bb3e9ed9ef19 is now in process."
  *         read: false
  *         createdAt: "2024-05-27T10:27:46.858Z"
  *         expiresAt: "2024-05-30T10:27:46.858Z"
@@ -179,4 +184,3 @@ notification.patch(
  */
 
 export default notification;
-

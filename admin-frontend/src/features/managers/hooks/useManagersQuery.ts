@@ -69,4 +69,3 @@ export function useChangeManagerPasswordMutation() {
     }) => changeManagerPassword(managerId, payload, requestConfig),
   })
 }
-

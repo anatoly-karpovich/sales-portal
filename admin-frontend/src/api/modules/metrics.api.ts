@@ -16,7 +16,10 @@ type MetricsResponse = {
         customer: { _id: string; name: string; email: string }
         createdOn: string
       }>
-      ordersCountPerDay: Array<{ date: { year: number; month: number; day: number }; count: number }>
+      ordersCountPerDay: Array<{
+        date: { year: number; month: number; day: number }
+        count: number
+      }>
     }
     customers: {
       totalNewCustomers: number

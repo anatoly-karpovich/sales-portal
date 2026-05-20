@@ -29,7 +29,7 @@ export const productsUiText = {
     backToProducts: 'Products',
     productInfoTitle: 'Product info',
     productInfoSubtitle: 'Read-only. Click edit to modify.',
-    variantsTitle: 'Variants',
+    variantsTitle: 'Attributes & Variants',
     variantsSubtitle: 'Manage variants individually',
     actions: {
       edit: 'Edit',
@@ -38,6 +38,7 @@ export const productsUiText = {
       saveVariant: 'Save Variant',
       activate: 'Activate Product',
       archive: 'Archive Product',
+      manageInventory: 'Manage Inventory',
       addVariant: 'Add Variant',
       removeInvalidVariants: 'Remove Invalid Variants',
       generateAllCombinations: 'Generate All Combinations',
@@ -50,7 +51,8 @@ export const productsUiText = {
     },
     placeholders: {
       noVariants: 'No variants yet',
-      noVariantsHelp: 'Add one variant manually or generate all possible combinations from attributes.',
+      noVariantsHelp:
+        'Add one variant manually or generate all possible combinations from attributes.',
       useParentImage: 'Uses parent',
       missingProduct: 'Product is unavailable.',
       manufacturersUnavailable:
@@ -138,7 +140,6 @@ export function getDeleteProductMessage(productName?: string | null) {
 }
 
 export function getDeleteVariantMessage(variantName?: string | null) {
-  const safeVariantName =
-    variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
+  const safeVariantName = variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
   return `Are you sure you want to delete "${safeVariantName}"?`
 }

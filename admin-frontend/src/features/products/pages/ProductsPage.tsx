@@ -35,11 +35,22 @@ export function ProductsPage() {
 
   return (
     <Stack spacing={2.5} data-testid="products-list-page">
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} data-testid="products-list-page-header">
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.5}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        data-testid="products-list-page-header"
+      >
         <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="products-list-page-title">
           {productsUiText.listPage.title}
         </Typography>
-        <Button component={Link} to="/products/add" variant="contained" data-testid="products-list-add-button">
+        <Button
+          component={Link}
+          to="/products/add"
+          variant="contained"
+          data-testid="products-list-add-button"
+        >
           {productsUiText.listPage.addButton}
         </Button>
       </Stack>

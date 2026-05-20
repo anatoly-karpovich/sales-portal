@@ -1,5 +1,13 @@
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import { Box, Button, CircularProgress, IconButton, Stack, TextField, Typography } from '@mui/material'
+import {
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material'
 import type { CategoryFlatNode } from '@/api/modules/categories.api'
 import { categoriesUiText } from '@/features/categories/categories.ui-text'
 import type {
@@ -180,7 +188,9 @@ export function CategoriesGeneralInfoSection({
           <Typography>{selectedCategory.description?.trim() || '-'}</Typography>
 
           <Typography fontWeight={700}>{categoriesUiText.details.fields.imageUrl}</Typography>
-          <Typography sx={{ overflowWrap: 'anywhere' }}>{selectedCategory.imageUrl?.trim() || '-'}</Typography>
+          <Typography sx={{ overflowWrap: 'anywhere' }}>
+            {selectedCategory.imageUrl?.trim() || '-'}
+          </Typography>
         </Box>
       )}
     </Stack>

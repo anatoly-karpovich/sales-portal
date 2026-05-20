@@ -12,6 +12,7 @@ On create (`POST /api/orders`):
 - `status = Draft`
 - `delivery` exists immediately (non-null snapshot)
 - `delivery.status = Draft`
+- in manager-authenticated admin flow, creator is auto-assigned as `assignedManager`
 
 ## Transition Matrix
 
@@ -19,7 +20,7 @@ On create (`POST /api/orders`):
 | --- | --- | --- | --- |
 | `Draft + Draft` | `Draft + Delivery Scheduled` | Valid delivery payload with `condition=Delivery`. | `POST /api/orders/{id}/delivery` |
 | `Draft + Draft` | `Draft + Pickup Scheduled` | Valid delivery payload with `condition=Pickup`. | `POST /api/orders/{id}/delivery` |
-| `Draft + Delivery Scheduled/Pickup Scheduled` | `In Process + same delivery status` | Processing confirmed in UI. | `PUT /api/orders/{id}/status` with `status=In Process` |
+| `Draft + Delivery Scheduled/Pickup Scheduled` | `In Process + same delivery status` | Processing confirmed in UI; if `assignedManager` is empty, backend auto-assigns current performer. | `PUT /api/orders/{id}/status` with `status=In Process` |
 | `In Process + Delivery Scheduled/Pickup Scheduled` | `In Process + Partially Delivered` | Subset of pending products received. | `POST /api/orders/{id}/receive` |
 | `In Process + Delivery Scheduled/Pickup Scheduled` | `Completed + Delivered` | All pending products received in one save. | `POST /api/orders/{id}/receive` |
 | `In Process + Partially Delivered` | `Completed + Delivered` | Remaining pending products received. | `POST /api/orders/{id}/receive` |
@@ -76,6 +77,8 @@ On create (`POST /api/orders`):
 ## Testing Notes
 
 - Validate both axes after each mutation (`status` and `delivery.status`).
+- Validate auto-assign on create: newly created order should already have `assignedManager`.
+- Validate processing fallback auto-assign: for legacy draft orders without assignee, `Process` should set current performer as assignee.
 - Validate list filtering by request key `deliveryStatus` with new values.
 - Validate history actions include both delivery and pickup scheduling/editing events.
 - Validate reopen resets to `Draft + Draft` with rebuilt delivery snapshot.

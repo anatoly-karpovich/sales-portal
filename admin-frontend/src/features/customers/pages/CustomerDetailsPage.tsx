@@ -1,11 +1,4 @@
-import {
-  Box,
-  Button,
-  Paper,
-  Skeleton,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Box, Button, Paper, Skeleton, Stack, Typography } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { Link, useParams } from 'react-router-dom'
@@ -91,9 +84,7 @@ function getCustomerOrderColumns(): DataTableColumn<CustomerOrder>[] {
       width: '16%',
       minWidth: 150,
       render: (row) => (
-        <Typography sx={{ color: getOrderStatusColor(row.status) }}>
-          {row.status}
-        </Typography>
+        <Typography sx={{ color: getOrderStatusColor(row.status) }}>{row.status}</Typography>
       ),
     },
     {
@@ -116,10 +107,17 @@ function getCustomerOrderColumns(): DataTableColumn<CustomerOrder>[] {
 function DetailsField({ label, value }: { label: string; value: string }) {
   return (
     <Stack spacing={0.25}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }} data-testid={`customer-details-${label.toLowerCase().replace(/\s+/g, '-')}-label`}>
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 700 }}
+        data-testid={`customer-details-${label.toLowerCase().replace(/\s+/g, '-')}-label`}
+      >
         {label}
       </Typography>
-      <Typography color="text.secondary" data-testid={`customer-details-${label.toLowerCase().replace(/\s+/g, '-')}-value`}>
+      <Typography
+        color="text.secondary"
+        data-testid={`customer-details-${label.toLowerCase().replace(/\s+/g, '-')}-value`}
+      >
         {value}
       </Typography>
     </Stack>
@@ -128,8 +126,15 @@ function DetailsField({ label, value }: { label: string; value: string }) {
 
 function InlineDetailsField({ label, value }: { label: string; value: string }) {
   return (
-    <Typography color="text.secondary" data-testid={`customer-details-inline-${label.toLowerCase()}-value`}>
-      <Typography component="span" variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+    <Typography
+      color="text.secondary"
+      data-testid={`customer-details-inline-${label.toLowerCase()}-value`}
+    >
+      <Typography
+        component="span"
+        variant="subtitle2"
+        sx={{ fontWeight: 700, color: 'text.primary' }}
+      >
         {label}:
       </Typography>{' '}
       {value}
@@ -141,14 +146,14 @@ export function CustomerDetailsPage() {
   const { customerId } = useParams<{ customerId: string }>()
 
   const shouldLoadCustomer = Boolean(customerId)
-  const {
-    data: customer,
-    isLoading: isCustomerLoading,
-  } = useCustomerQuery(customerId ?? '', shouldLoadCustomer)
-  const {
-    data: orders,
-    isLoading: isOrdersLoading,
-  } = useCustomerOrdersQuery(customerId ?? '', shouldLoadCustomer)
+  const { data: customer, isLoading: isCustomerLoading } = useCustomerQuery(
+    customerId ?? '',
+    shouldLoadCustomer,
+  )
+  const { data: orders, isLoading: isOrdersLoading } = useCustomerOrdersQuery(
+    customerId ?? '',
+    shouldLoadCustomer,
+  )
 
   if (!customerId) {
     return (
@@ -191,7 +196,12 @@ export function CustomerDetailsPage() {
             {customersUiText.form.backToCustomers}
           </Button>
 
-          <Stack direction="row" spacing={1} alignItems="center" data-testid="customer-details-header">
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            data-testid="customer-details-header"
+          >
             <Typography variant="h4" sx={{ fontWeight: 700 }} data-testid="customer-details-title">
               {customersUiText.detailsPage.title}
             </Typography>
@@ -219,9 +229,15 @@ export function CustomerDetailsPage() {
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {customersUiText.detailsPage.contactTitle}
               </Typography>
-              <DetailsField label={customersUiText.detailsPage.fields.email} value={customer.email} />
+              <DetailsField
+                label={customersUiText.detailsPage.fields.email}
+                value={customer.email}
+              />
               <DetailsField label={customersUiText.detailsPage.fields.name} value={customer.name} />
-              <DetailsField label={customersUiText.detailsPage.fields.phone} value={customer.phone} />
+              <DetailsField
+                label={customersUiText.detailsPage.fields.phone}
+                value={customer.phone}
+              />
             </Stack>
 
             <Stack spacing={1.5} data-testid="customer-details-address-section">
@@ -229,17 +245,32 @@ export function CustomerDetailsPage() {
                 {customersUiText.detailsPage.addressTitle}
               </Typography>
               <Stack spacing={0.35}>
-                <InlineDetailsField label={customersUiText.detailsPage.fields.state} value={customer.state} />
-                <InlineDetailsField label={customersUiText.detailsPage.fields.city} value={customer.city} />
-                <InlineDetailsField label={customersUiText.detailsPage.fields.street} value={customer.street} />
-                <InlineDetailsField label={customersUiText.detailsPage.fields.house} value={String(customer.house)} />
+                <InlineDetailsField
+                  label={customersUiText.detailsPage.fields.state}
+                  value={customer.state}
+                />
+                <InlineDetailsField
+                  label={customersUiText.detailsPage.fields.city}
+                  value={customer.city}
+                />
+                <InlineDetailsField
+                  label={customersUiText.detailsPage.fields.street}
+                  value={customer.street}
+                />
+                <InlineDetailsField
+                  label={customersUiText.detailsPage.fields.house}
+                  value={String(customer.house)}
+                />
                 {typeof customer.apartment === 'number' ? (
                   <InlineDetailsField
                     label={customersUiText.detailsPage.fields.apartment}
                     value={String(customer.apartment)}
                   />
                 ) : null}
-                <InlineDetailsField label={customersUiText.detailsPage.fields.zipCode} value={customer.zipCode} />
+                <InlineDetailsField
+                  label={customersUiText.detailsPage.fields.zipCode}
+                  value={customer.zipCode}
+                />
               </Stack>
             </Stack>
           </Box>
@@ -256,7 +287,10 @@ export function CustomerDetailsPage() {
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {customersUiText.detailsPage.registrationDateTitle}
               </Typography>
-              <Typography color="text.secondary" data-testid="customer-details-registration-date-value">
+              <Typography
+                color="text.secondary"
+                data-testid="customer-details-registration-date-value"
+              >
                 {formatDateTime(customer.createdOn)}
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -282,7 +316,11 @@ export function CustomerDetailsPage() {
 
       <Paper sx={{ p: { xs: 2, md: 3 } }} data-testid="customer-details-page-orders">
         <Stack spacing={1.5}>
-          <Typography variant="h5" sx={{ fontWeight: 700 }} data-testid="customer-details-orders-title">
+          <Typography
+            variant="h5"
+            sx={{ fontWeight: 700 }}
+            data-testid="customer-details-orders-title"
+          >
             {customersUiText.detailsPage.ordersTitle}
           </Typography>
           <DataTable

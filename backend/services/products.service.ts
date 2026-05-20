@@ -13,6 +13,7 @@ import Product from "../models/product.model";
 import ExportService from "./export.service";
 import { PRODUCT_STATUSES } from "../data/enums";
 import CategoriesService from "./categories.service";
+import InventoryService from "./inventory.service";
 
 type ProductSortField = "name" | "price" | "manufacturer" | "category" | "status" | "createdOn" | "variantsCount";
 type ProductSortOrder = "asc" | "desc";
@@ -62,7 +63,9 @@ class ProductsService {
       createdOn,
       updatedOn: createdOn,
     });
-    return this.normalizeProduct(createdProduct.toObject());
+    const normalized = this.normalizeProduct(createdProduct.toObject());
+    await InventoryService.createForProduct(normalized);
+    return normalized;
   }
 
   async replace(productId: Types.ObjectId, payload: ProductCreateOrReplaceRequestDTO): Promise<IProduct> {
@@ -97,6 +100,10 @@ class ProductsService {
       };
     });
 
+    const currentVariantIds = new Set(
+      (currentProduct.variants ?? []).map((variant: any) => variant?._id?.toString?.()).filter(Boolean),
+    );
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       {
@@ -111,7 +118,16 @@ class ProductsService {
     )
       .lean()
       .exec();
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    const nextVariantIds = new Set(
+      (normalized.variants ?? []).map((variant) => variant._id?.toString?.()).filter(Boolean),
+    );
+    const removedVariantIds = [...currentVariantIds].filter((variantId) => !nextVariantIds.has(variantId));
+    for (const removedVariantId of removedVariantIds) {
+      await InventoryService.deleteVariantData(productId, new Types.ObjectId(removedVariantId));
+    }
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async patch(
@@ -130,7 +146,9 @@ class ProductsService {
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(productId, updatePayload, { new: true }).lean().exec();
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async patchVariant(
@@ -160,7 +178,9 @@ class ProductsService {
     )
       .lean()
       .exec();
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async replaceVariants(productId: Types.ObjectId, payload: ProductVariantsReplaceBodyDTO): Promise<IProduct> {
@@ -194,6 +214,10 @@ class ProductsService {
       };
     });
 
+    const currentVariantIds = new Set(
+      (product.variants ?? []).map((variant: any) => variant?._id?.toString?.()).filter(Boolean),
+    );
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       {
@@ -206,7 +230,16 @@ class ProductsService {
       .lean()
       .exec();
 
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    const nextVariantIds = new Set(
+      (normalized.variants ?? []).map((variant) => variant._id?.toString?.()).filter(Boolean),
+    );
+    const removedVariantIds = [...currentVariantIds].filter((variantId) => !nextVariantIds.has(variantId));
+    for (const removedVariantId of removedVariantIds) {
+      await InventoryService.deleteVariantData(productId, new Types.ObjectId(removedVariantId));
+    }
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async createVariant(productId: Types.ObjectId, payload: ProductVariantCreateRequestDTO): Promise<IProduct> {
@@ -224,7 +257,9 @@ class ProductsService {
       .lean()
       .exec();
 
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async createVariants(productId: Types.ObjectId, payload: ProductVariantCreateRequestDTO[]): Promise<IProduct> {
@@ -245,7 +280,9 @@ class ProductsService {
       .lean()
       .exec();
 
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async patchStatus(productId: Types.ObjectId, status: PRODUCT_STATUSES): Promise<IProduct> {
@@ -274,7 +311,9 @@ class ProductsService {
       .lean()
       .exec();
 
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async patchVariantStatus(
@@ -305,7 +344,9 @@ class ProductsService {
       .lean()
       .exec();
 
-    return this.normalizeProduct(updatedProduct);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   async previewWithVariants(productId: Types.ObjectId, payload: ProductVariantsReplaceBodyDTO): Promise<IProduct> {
@@ -363,8 +404,10 @@ class ProductsService {
     )
       .lean()
       .exec();
-
-    return this.normalizeProduct(updatedProduct);
+    await InventoryService.deleteVariantData(productId, variantId);
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
   }
 
   private async buildCategoryLookup(): Promise<Map<string, CategoryLookupItem>> {
@@ -657,6 +700,7 @@ class ProductsService {
       throw new Error("Id was not provided");
     }
     const product = await Product.findByIdAndDelete(id).lean().exec();
+    await InventoryService.deleteByProductId(id);
     return this.normalizeProduct(product);
   }
 

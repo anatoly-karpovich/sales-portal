@@ -1,4 +1,12 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  TextField,
+} from '@mui/material'
 import { type FormEvent, useMemo, useState } from 'react'
 import { managersUiText } from '@/features/managers/managers.ui-text'
 
@@ -150,12 +158,14 @@ export function ChangePasswordDialog({ open, isSubmitting, onClose, onSubmit }: 
         >
           {managersUiText.dialogs.changePasswordConfirm}
         </Button>
-        <Button onClick={onClose} disabled={isSubmitting} data-testid="change-password-dialog-cancel-button">
+        <Button
+          onClick={onClose}
+          disabled={isSubmitting}
+          data-testid="change-password-dialog-cancel-button"
+        >
           {managersUiText.dialogs.cancel}
         </Button>
       </DialogActions>
     </Dialog>
   )
 }
-
-

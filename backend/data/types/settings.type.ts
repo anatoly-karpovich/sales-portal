@@ -18,6 +18,12 @@ export interface ISettings {
   };
   inventory: {
     defaultLowStockThreshold: number;
+    allowSellingOutOfStockByDefault: boolean;
+  };
+  reservations: {
+    adminDraftReservationTtlMs: number;
+    customerPaymentReservationTtlMs: number;
+    cronIntervalMs: number;
   };
   shipping: {
     processing: {

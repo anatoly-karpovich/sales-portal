@@ -218,7 +218,9 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
   if (categoriesQuery.isError) {
     return (
       <Stack spacing={2} data-testid="products-upsert-categories-unavailable">
-        <Alert severity="warning">Unable to load categories. Product creation is unavailable.</Alert>
+        <Alert severity="warning">
+          Unable to load categories. Product creation is unavailable.
+        </Alert>
         <Button component={Link} to="/products" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
           Back to Products
         </Button>
@@ -230,7 +232,12 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     return (
       <Stack spacing={2} data-testid="products-upsert-categories-empty">
         <Alert severity="warning">Create at least one category before adding products.</Alert>
-        <Button component={Link} to="/categories" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+        <Button
+          component={Link}
+          to="/categories"
+          variant="outlined"
+          sx={{ alignSelf: 'flex-start' }}
+        >
           Go to Categories
         </Button>
       </Stack>
@@ -426,14 +433,17 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
     setCategoryTouched(true)
     if (!canSave) return
 
-    const payload = buildProductUpsertPayloadFromDraft({
-      name,
-      manufacturer: selectedManufacturer,
-      description,
-      imageUrl,
-      attributes,
-      variants,
-    }, selectedCategoryId ?? '')
+    const payload = buildProductUpsertPayloadFromDraft(
+      {
+        name,
+        manufacturer: selectedManufacturer,
+        description,
+        imageUrl,
+        attributes,
+        variants,
+      },
+      selectedCategoryId ?? '',
+    )
 
     await onSubmit(payload)
   }
@@ -588,7 +598,11 @@ export function ProductCreateVariantsForm({ isSubmitting, onSubmit }: Props) {
           >
             <Stack spacing={1.5}>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }} data-testid="products-upsert-category-title">
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 700 }}
+                  data-testid="products-upsert-category-title"
+                >
                   Product category
                 </Typography>
                 <Typography

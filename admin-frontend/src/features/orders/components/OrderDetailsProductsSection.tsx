@@ -1,6 +1,7 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   Alert,
   Box,
@@ -20,6 +21,7 @@ import type {
   OrderDelivery,
   OrderDetails,
   OrderDetailsProduct,
+  OrderInventoryReservationLine,
   OrderProductRequestItem,
 } from '@/api/modules/orders.api'
 import { ORDER_DETAILS_SEARCH_DEBOUNCE_MS } from '@/features/orders/config/orderDetails.config'
@@ -28,6 +30,11 @@ import {
   resolvePickupLocation,
 } from '@/features/orders/config/pickupLocations.config'
 import { OrderProductQuantityControl } from '@/features/orders/components/OrderProductQuantityControl'
+import {
+  useOrderInventoryValidation,
+  isInventoryVariantOrderable,
+  type OrderInventoryValidationWarningCode,
+} from '@/features/orders/hooks/useOrderInventoryValidation'
 import {
   useOrderPricingMutation,
   useOrderProductDetailsQuery,
@@ -63,6 +70,37 @@ type SelectedVariantRow = {
   quantity: number
 }
 
+type OrderProductInventoryReservationView = {
+  reservedFromStock: number | null
+  directOrder: number | null
+  inventoryStatus: string
+  isDataMismatch: boolean
+}
+
+const PRODUCTS_TABLE_COLUMNS_EDIT = 'minmax(240px, 1.5fr) 80px 110px 150px'
+const PRODUCTS_TABLE_COLUMNS_VIEW =
+  'minmax(240px, 1.5fr) 80px 110px 90px 90px 150px 150px'
+
+function StatusChip({
+  label,
+  color,
+  testId,
+}: {
+  label: string
+  color: 'default' | 'success'
+  testId: string
+}) {
+  return (
+    <Chip
+      label={label}
+      color={color}
+      variant="outlined"
+      sx={{ '& .MuiChip-label': { fontSize: '0.95rem' } }}
+      data-testid={testId}
+    />
+  )
+}
+
 type OrderDetailsProductsSectionProps = {
   order: OrderDetails
   displayRows: OrderDetailsProductDisplayRow[]
@@ -93,14 +131,15 @@ type OrderDetailsProductsSectionProps = {
 
 type InlineProductsEditorProps = {
   orderProducts: OrderDetailsProduct[]
+  orderInventoryReservationLines: OrderInventoryReservationLine[]
   currentDelivery: OrderDelivery | null
   isSubmitting: boolean
   onCancel: () => void
   onSave: (payload: { products: OrderProductRequestItem[] }) => Promise<boolean> | boolean
 }
 
-function clampQuantity(value: number, max: number) {
-  return Math.min(Math.max(value, 1), max)
+function clampQuantity(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 function isVariantActive(variant: ProductVariant) {
@@ -139,6 +178,42 @@ function toSelectedRows(products: OrderDetailsProduct[]) {
     unitPrice: product.unitPrice,
     quantity: product.quantity,
   }))
+}
+
+function buildInventoryReservationLineKey(productId: string, variantId: string) {
+  return `${productId}|${variantId}`
+}
+
+function resolveDirectOrderLabel(isAllowed: boolean | null) {
+  if (isAllowed === null) return '-'
+  return isAllowed ? 'Allowed' : 'Blocked'
+}
+
+function resolveInventoryWarningMessage(code: OrderInventoryValidationWarningCode | null) {
+  switch (code) {
+    case 'variant_unavailable_create':
+      return ordersUiText.validation.inventoryVariantUnavailable
+    case 'out_of_stock_blocked':
+      return ordersUiText.validation.inventoryOutOfStockBlocked
+    case 'quantity_exceeds_available':
+      return ordersUiText.validation.inventoryQuantityExceedsAvailable
+    case 'missing_inventory_snapshot':
+      return ordersUiText.validation.inventoryMissingSnapshot
+    case 'missing_catalog_snapshot':
+      return ordersUiText.validation.catalogMissingSnapshot
+    case 'inactive_snapshot':
+      return ordersUiText.validation.inactiveSnapshot
+    default:
+      return null
+  }
+}
+
+function buildInventoryReservationLinesMap(lines: OrderInventoryReservationLine[] | undefined) {
+  const map = new Map<string, OrderInventoryReservationLine>()
+  for (const line of lines ?? []) {
+    map.set(buildInventoryReservationLineKey(line.productId, line.variantId), line)
+  }
+  return map
 }
 
 function normalizeRequestedProducts(items: OrderProductRequestItem[]) {
@@ -200,6 +275,7 @@ function toOrderPricingContext(
 
 function InlineProductsEditor({
   orderProducts,
+  orderInventoryReservationLines,
   currentDelivery,
   isSubmitting,
   onCancel,
@@ -286,20 +362,79 @@ function InlineProductsEditor({
     selectedParentProduct?._id ?? '',
     Boolean(selectedParentProduct),
   )
+  const reservedQuantityByLineKey = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const line of orderInventoryReservationLines) {
+      map.set(buildInventoryReservationLineKey(line.productId, line.variantId), line.reservedQuantity)
+    }
+    return map
+  }, [orderInventoryReservationLines])
+  const {
+    isReferenceDataLoading,
+    inventoryById,
+    productById,
+    validatedRows,
+  } = useOrderInventoryValidation({
+    rows: selectedRows.map((row) => ({
+      rowId: row.rowId,
+      productId: row.productId,
+      variantId: row.variantId,
+      quantity: row.quantity,
+    })),
+    mode: 'edit',
+    maxProductQuantityInOrder: maxProductQuantityInOrder ?? null,
+    enabled: hasValidSettings,
+    reservedQuantityByLineKey,
+    includeProductIds: selectedParentProduct?._id ? [selectedParentProduct._id] : [],
+  })
+  const selectedRowsValidationById = useMemo(
+    () => new Map(validatedRows.map((row) => [row.rowId, row])),
+    [validatedRows],
+  )
+  const selectedParentInventory = useMemo(
+    () => (selectedParentProduct ? (inventoryById.get(selectedParentProduct._id) ?? null) : null),
+    [inventoryById, selectedParentProduct],
+  )
+  const selectedParentProductData = useMemo(
+    () =>
+      selectedParentProduct
+        ? (productById.get(selectedParentProduct._id) ?? parentProductDetailsQuery.data ?? null)
+        : null,
+    [parentProductDetailsQuery.data, productById, selectedParentProduct],
+  )
   const variantOptions = useMemo(() => {
     const product = parentProductDetailsQuery.data
     if (!product) return []
     return product.variants.filter(isVariantActive)
   }, [parentProductDetailsQuery.data])
+  const orderableVariantOptions = useMemo(() => {
+    if (!selectedParentProductData || !selectedParentInventory) return []
+    return variantOptions.filter((variant) => {
+      if (!variant._id) return false
+      return isInventoryVariantOrderable({
+        product: selectedParentProductData,
+        inventory: selectedParentInventory,
+        variantId: variant._id,
+      })
+    })
+  }, [selectedParentInventory, selectedParentProductData, variantOptions])
+  const orderableVariantIdsSet = useMemo(
+    () => new Set(orderableVariantOptions.map((variant) => variant._id).filter(Boolean) as string[]),
+    [orderableVariantOptions],
+  )
+  const selectedOrderableVariantIds = useMemo(
+    () => selectedVariantIds.filter((variantId) => orderableVariantIdsSet.has(variantId)),
+    [orderableVariantIdsSet, selectedVariantIds],
+  )
 
   const normalizedRows = useMemo(() => {
-    if (!hasValidSettings || !maxProductQuantityInOrder) return []
+    if (!hasValidSettings) return []
     return selectedRows.map((row) => ({
       productId: row.productId,
       variantId: row.variantId,
-      quantity: clampQuantity(row.quantity, maxProductQuantityInOrder),
+      quantity: row.quantity,
     }))
-  }, [hasValidSettings, maxProductQuantityInOrder, selectedRows])
+  }, [hasValidSettings, selectedRows])
   const initialRequestedProducts = useMemo(
     () =>
       orderProducts.map((product) => ({
@@ -315,6 +450,11 @@ function InlineProductsEditor({
       normalizedRows.length,
     [normalizedRows],
   )
+  const hasInventoryValidationErrors = validatedRows.some((row) => row.isSubmitBlocked)
+  const firstInventoryValidationWarning = useMemo(
+    () => validatedRows.find((row) => row.isSubmitBlocked)?.warningCode ?? null,
+    [validatedRows],
+  )
   const hasChanges = useMemo(
     () => !areEqualRequestedProducts(initialRequestedProducts, normalizedRows),
     [initialRequestedProducts, normalizedRows],
@@ -326,7 +466,7 @@ function InlineProductsEditor({
     const rowsLeft = (maxProductsInOrder ?? 0) - selectedRows.length
     if (rowsLeft <= 0) return 0
 
-    const selectedIdsSet = new Set(selectedVariantIds)
+    const selectedIdsSet = new Set(selectedOrderableVariantIds)
     const existingIdsSet = new Set(
       selectedRows
         .filter((row) => row.productId === selectedParentProduct._id)
@@ -334,7 +474,7 @@ function InlineProductsEditor({
     )
 
     let count = 0
-    for (const variant of variantOptions) {
+    for (const variant of orderableVariantOptions) {
       if (!variant._id) continue
       if (!selectedIdsSet.has(variant._id)) continue
       if (existingIdsSet.has(variant._id)) continue
@@ -342,15 +482,26 @@ function InlineProductsEditor({
       if (count >= rowsLeft) break
     }
     return count
-  }, [maxProductsInOrder, selectedParentProduct, selectedRows, selectedVariantIds, variantOptions])
+  }, [
+    maxProductsInOrder,
+    orderableVariantOptions,
+    selectedParentProduct,
+    selectedRows,
+    selectedOrderableVariantIds,
+  ])
   const canAddSelectedVariant =
     Boolean(selectedParentProduct) &&
-    selectedVariantIds.length > 0 &&
+    selectedOrderableVariantIds.length > 0 &&
     canAddSelectedVariantsCount > 0 &&
     canAddMoreRows &&
+    !isReferenceDataLoading &&
     !isSubmitting
   const canRequestPricingPreview =
-    hasValidSettings && normalizedRows.length > 0 && !hasDuplicateRows
+    hasValidSettings &&
+    normalizedRows.length > 0 &&
+    !hasDuplicateRows &&
+    !hasInventoryValidationErrors &&
+    !isReferenceDataLoading
 
   useEffect(() => {
     if (!canRequestPricingPreview) return
@@ -436,6 +587,9 @@ function InlineProductsEditor({
           ? ordersUiText.dialogs.details.editProductsDisabledReasonEmptyRows
           : hasDuplicateRows
             ? ordersUiText.dialogs.details.editProductsDisabledReasonDuplicates
+            : hasInventoryValidationErrors
+              ? (resolveInventoryWarningMessage(firstInventoryValidationWarning) ??
+                ordersUiText.validation.inventoryQuantityExceedsAvailable)
             : !hasChanges
               ? ordersUiText.dialogs.details.editProductsDisabledReasonNoChanges
               : null
@@ -445,6 +599,8 @@ function InlineProductsEditor({
     !hasValidSettings ||
     normalizedRows.length === 0 ||
     hasDuplicateRows ||
+    hasInventoryValidationErrors ||
+    isReferenceDataLoading ||
     !hasChanges
 
   const handleParentProductSelect = (product: ProductSummary) => {
@@ -454,7 +610,7 @@ function InlineProductsEditor({
 
   const handleAddSelectedVariant = () => {
     if (!selectedParentProduct || !parentProductDetailsQuery.data || !canAddMoreRows) return
-    const selectedIdsSet = new Set(selectedVariantIds)
+    const selectedIdsSet = new Set(selectedOrderableVariantIds)
     if (!selectedIdsSet.size) return
 
     const existingIdsSet = new Set(
@@ -465,7 +621,7 @@ function InlineProductsEditor({
     const rowsLeft = (maxProductsInOrder ?? 0) - selectedRows.length
     if (rowsLeft <= 0) return
 
-    const variantsToAdd = variantOptions
+    const variantsToAdd = orderableVariantOptions
       .filter(
         (variant) =>
           typeof variant._id === 'string' &&
@@ -502,10 +658,12 @@ function InlineProductsEditor({
 
   const handleQuantityChange = (rowId: number, quantity: number) => {
     if (!hasValidSettings || !maxProductQuantityInOrder) return
+    const rowValidation = selectedRowsValidationById.get(rowId)
+    const rowMax = Math.max(rowValidation?.maxQuantity ?? maxProductQuantityInOrder, 1)
     setSelectedRows((current) =>
       current.map((row) =>
         row.rowId === rowId
-          ? { ...row, quantity: clampQuantity(quantity, maxProductQuantityInOrder) }
+          ? { ...row, quantity: clampQuantity(quantity, 1, rowMax) }
           : row,
       ),
     )
@@ -667,7 +825,8 @@ function InlineProductsEditor({
                   {ordersUiText.createPage.placeholders.noParentSelected}
                 </Typography>
               ) : null}
-              {selectedParentProduct && parentProductDetailsQuery.isLoading ? (
+              {selectedParentProduct &&
+              (parentProductDetailsQuery.isLoading || isReferenceDataLoading) ? (
                 <Stack
                   direction="row"
                   spacing={1}
@@ -682,7 +841,8 @@ function InlineProductsEditor({
               ) : null}
               {selectedParentProduct &&
               !parentProductDetailsQuery.isLoading &&
-              variantOptions.length === 0 ? (
+              !isReferenceDataLoading &&
+              orderableVariantOptions.length === 0 ? (
                 <Typography
                   variant="body2"
                   color="text.secondary"
@@ -696,10 +856,13 @@ function InlineProductsEditor({
                 sx={{ maxHeight: 280, overflowY: 'auto' }}
                 data-testid="order-details-products-inline-variants-list"
               >
-                {variantOptions.map((variant, index) => {
+                {orderableVariantOptions.map((variant, index) => {
                   const product = parentProductDetailsQuery.data
                   const variantId = variant._id
                   if (!variantId || !product) return null
+                  const inventoryVariant = selectedParentInventory?.variants.find(
+                    (candidate) => candidate.variantId === variantId,
+                  )
                   const isSelected = selectedVariantIds.includes(variantId)
                   const isAlreadyAdded = selectedRows.some(
                     (row) => row.productId === product._id && row.variantId === variantId,
@@ -738,7 +901,10 @@ function InlineProductsEditor({
                           {buildVariantLabel(variant, product)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {formatPrice(variant.price)}
+                          {formatPrice(variant.price)} • {ordersUiText.createPage.labels.available}:{' '}
+                          {inventoryVariant?.available ?? '-'} •{' '}
+                          {ordersUiText.createPage.labels.directOrder}:{' '}
+                          {resolveDirectOrderLabel(inventoryVariant?.allowSellingOutOfStock ?? null)}
                         </Typography>
                       </Stack>
                     </Paper>
@@ -751,11 +917,18 @@ function InlineProductsEditor({
 
         <Stack
           direction="row"
-          justifyContent="space-between"
+          justifyContent="flex-end"
           alignItems="center"
           flexWrap="wrap"
           gap={1}
         >
+          <Typography
+            variant="body2"
+            color={saveDisabledReason ? 'warning.main' : 'text.secondary'}
+            data-testid="order-details-products-inline-save-disabled-reason"
+          >
+            {saveDisabledReason ?? ' '}
+          </Typography>
           <Button
             variant="outlined"
             startIcon={<AddRoundedIcon />}
@@ -765,13 +938,6 @@ function InlineProductsEditor({
           >
             {ordersUiText.createPage.actions.addVariant}
           </Button>
-          <Typography
-            variant="body2"
-            color={saveDisabledReason ? 'warning.main' : 'text.secondary'}
-            data-testid="order-details-products-inline-save-disabled-reason"
-          >
-            {saveDisabledReason ?? ' '}
-          </Typography>
         </Stack>
 
         <Paper variant="outlined" sx={{ p: 1.25, borderColor: 'divider' }}>
@@ -789,49 +955,81 @@ function InlineProductsEditor({
               </Typography>
             ) : null}
             <Stack spacing={0.75}>
-              {selectedRows.map((row, index) => (
-                <Paper
-                  key={row.rowId}
-                  variant="outlined"
-                  sx={{ p: 1, borderColor: 'divider' }}
-                  data-testid={`order-details-products-inline-selected-row-${index}`}
-                >
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
-                        data-testid={`order-details-products-inline-selected-row-${index}-summary`}
-                      >
-                        {row.productName} | {row.variantLabel}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid={`order-details-products-inline-selected-row-${index}-price`}
-                      >
-                        {formatPrice(row.unitPrice)}
-                      </Typography>
-                    </Box>
-                    <OrderProductQuantityControl
-                      value={row.quantity}
-                      min={1}
-                      max={maxProductQuantityInOrder ?? 1}
-                      disabled={!hasValidSettings || isSubmitting}
-                      onChange={(nextValue) => handleQuantityChange(row.rowId, nextValue)}
-                      testIdPrefix={`order-details-products-inline-selected-row-${index}`}
-                    />
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemoveRow(row.rowId)}
-                      disabled={isSubmitting}
-                      data-testid={`order-details-products-inline-selected-row-${index}-delete-button`}
-                    >
-                      <DeleteOutlineOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                </Paper>
-              ))}
+              {selectedRows.map((row, index) => {
+                const rowValidation = selectedRowsValidationById.get(row.rowId)
+                const rowMax = Math.max(rowValidation?.maxQuantity ?? maxProductQuantityInOrder ?? 1, 1)
+                const warningMessage = resolveInventoryWarningMessage(
+                  rowValidation?.warningCode ?? null,
+                )
+                const hasWarning = Boolean(warningMessage)
+
+                return (
+                  <Paper
+                    key={row.rowId}
+                    variant="outlined"
+                    sx={{ p: 1, borderColor: hasWarning ? 'warning.main' : 'divider' }}
+                    data-testid={`order-details-products-inline-selected-row-${index}`}
+                  >
+                    <Stack spacing={0.75}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            data-testid={`order-details-products-inline-selected-row-${index}-summary`}
+                          >
+                            {row.productName} | {row.variantLabel}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            data-testid={`order-details-products-inline-selected-row-${index}-price`}
+                          >
+                            {formatPrice(row.unitPrice)} •{' '}
+                            {ordersUiText.createPage.labels.availableInStock}:{' '}
+                            {rowValidation?.available ?? '-'} |{' '}
+                            {ordersUiText.createPage.labels.reservedFromStock}:{' '}
+                            {rowValidation?.reservedFromStock ?? '-'} |{' '}
+                            {ordersUiText.createPage.labels.directOrder}:{' '}
+                            {rowValidation?.directOrder ?? '-'}
+                          </Typography>
+                        </Box>
+                        <OrderProductQuantityControl
+                          value={row.quantity}
+                          min={1}
+                          max={rowMax}
+                          disabled={!hasValidSettings || isSubmitting || isReferenceDataLoading}
+                          onChange={(nextValue) => handleQuantityChange(row.rowId, nextValue)}
+                          testIdPrefix={`order-details-products-inline-selected-row-${index}`}
+                        />
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleRemoveRow(row.rowId)}
+                          disabled={isSubmitting}
+                          data-testid={`order-details-products-inline-selected-row-${index}-delete-button`}
+                        >
+                          <DeleteOutlineOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+
+                      {hasWarning ? (
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          alignItems="center"
+                          sx={{ color: 'warning.main' }}
+                          data-testid={`order-details-products-inline-selected-row-${index}-warning`}
+                        >
+                          <WarningAmberRoundedIcon fontSize="small" />
+                          <Typography variant="caption" color="inherit">
+                            {warningMessage}
+                          </Typography>
+                        </Stack>
+                      ) : null}
+                    </Stack>
+                  </Paper>
+                )
+              })}
             </Stack>
           </Stack>
         </Paper>
@@ -845,54 +1043,77 @@ function InlineProductsEditor({
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               {ordersUiText.createPage.sections.summary}
             </Typography>
-            <Stack direction="row" justifyContent="space-between" gap={1}>
-              <Typography color="text.secondary">
-                {ordersUiText.createPage.labels.productsCount}
-              </Typography>
-              <Typography data-testid="order-details-products-inline-summary-products-value">
-                {selectedProductsQuantity}
-              </Typography>
-            </Stack>
-            <Stack direction="row" justifyContent="space-between" gap={1}>
-              <Typography color="text.secondary">
-                {ordersUiText.createPage.labels.productsSubtotal}
-              </Typography>
-              <Typography data-testid="order-details-products-inline-summary-subtotal-value">
-                {isPricingPreviewLoading ? (
-                  <CircularProgress size={14} />
-                ) : (
-                  formatPrice(summarySubtotal)
-                )}
-              </Typography>
-            </Stack>
-            <Stack direction="row" justifyContent="space-between" gap={1}>
-              <Typography color="text.secondary">
-                {ordersUiText.createPage.labels.deliveryPrice}
-              </Typography>
-              <Typography data-testid="order-details-products-inline-summary-delivery-value">
-                {isPricingPreviewLoading ? (
-                  <CircularProgress size={14} />
-                ) : (
-                  formatPrice(summaryDelivery)
-                )}
-              </Typography>
-            </Stack>
-            <Stack direction="row" justifyContent="space-between" gap={1}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {ordersUiText.createPage.labels.totalPrice}
-              </Typography>
-              <Typography
-                variant="subtitle2"
-                sx={{ fontWeight: 700 }}
-                data-testid="order-details-products-inline-summary-total-value"
-              >
-                {isPricingPreviewLoading ? (
-                  <CircularProgress size={14} />
-                ) : (
-                  formatPrice(summaryTotal)
-                )}
-              </Typography>
-            </Stack>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1,
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, minmax(0, 1fr))',
+                  lg: 'repeat(4, minmax(0, 1fr))',
+                },
+              }}
+            >
+              <Paper variant="outlined" sx={{ p: 1, borderColor: 'divider' }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    {ordersUiText.createPage.labels.productsCount}
+                  </Typography>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="order-details-products-inline-summary-products-value"
+                  >
+                    {selectedProductsQuantity}
+                  </Typography>
+                </Stack>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 1, borderColor: 'divider' }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    {ordersUiText.createPage.labels.productsSubtotal}
+                  </Typography>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="order-details-products-inline-summary-subtotal-value"
+                  >
+                    {isPricingPreviewLoading ? <CircularProgress size={14} /> : formatPrice(summarySubtotal)}
+                  </Typography>
+                </Stack>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 1, borderColor: 'divider' }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    {ordersUiText.createPage.labels.deliveryPrice}
+                  </Typography>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 700 }}
+                    data-testid="order-details-products-inline-summary-delivery-value"
+                  >
+                    {isPricingPreviewLoading ? <CircularProgress size={14} /> : formatPrice(summaryDelivery)}
+                  </Typography>
+                </Stack>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 1, borderColor: 'divider' }}>
+                <Stack spacing={0.25}>
+                  <Typography variant="caption" color="text.secondary">
+                    {ordersUiText.createPage.labels.totalPrice}
+                  </Typography>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 800 }}
+                    data-testid="order-details-products-inline-summary-total-value"
+                  >
+                    {isPricingPreviewLoading ? <CircularProgress size={14} /> : formatPrice(summaryTotal)}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Box>
             {canRequestPricingPreview && isPricingPreviewUnavailable ? (
               <Alert
                 severity="warning"
@@ -934,6 +1155,39 @@ export function OrderDetailsProductsSection({
   onToggleReceiveProduct,
 }: OrderDetailsProductsSectionProps) {
   const rootSx = { overflow: 'hidden' }
+  const inventoryReservationLinesMap = useMemo(
+    () => buildInventoryReservationLinesMap(order.inventoryReservation?.lines),
+    [order.inventoryReservation?.lines],
+  )
+  const inventoryReservationByProductRow = useMemo<OrderProductInventoryReservationView[]>(
+    () =>
+      order.products.map((product) => {
+        const line = inventoryReservationLinesMap.get(
+          buildInventoryReservationLineKey(product.productId, product.variantId),
+        )
+
+        if (!line) {
+          return {
+            reservedFromStock: null,
+            directOrder: null,
+            inventoryStatus: ordersUiText.detailsPage.placeholders.inventoryDataMismatch,
+            isDataMismatch: true,
+          }
+        }
+
+        return {
+          reservedFromStock: line.reservedQuantity,
+          directOrder: line.directOrderQuantity,
+          inventoryStatus: line.state,
+          isDataMismatch: false,
+        }
+      }),
+    [inventoryReservationLinesMap, order.products],
+  )
+  const hasInventoryReservationDataMismatch = inventoryReservationByProductRow.some(
+    (line) => line.isDataMismatch,
+  )
+  const tableGridColumns = isProductsEditMode ? PRODUCTS_TABLE_COLUMNS_EDIT : PRODUCTS_TABLE_COLUMNS_VIEW
 
   const content = (
     <Stack spacing={0}>
@@ -1000,177 +1254,179 @@ export function OrderDetailsProductsSection({
         </Stack>
       </Box>
 
-      <Box data-testid="order-details-products-table">
-        <Box
-          sx={{
-            px: { xs: 1.5, md: 2.5 },
-            py: 1.25,
-            borderTop: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: 'minmax(0, 1fr) auto',
-              md: 'minmax(300px, 1.6fr) 120px 140px 180px',
-            },
-            gap: 1.5,
-            color: 'text.secondary',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
+      {hasInventoryReservationDataMismatch && !isProductsEditMode ? (
+        <Alert
+          severity="warning"
+          sx={{ mx: { xs: 1.5, md: 2.5 }, mb: 1 }}
+          data-testid="order-details-products-inventory-mismatch-alert"
         >
-          <Typography>Product</Typography>
-          <Typography sx={{ display: { xs: 'none', md: 'block' } }}>Quantity</Typography>
-          <Typography sx={{ display: { xs: 'none', md: 'block' } }}>Unit Price</Typography>
-          <Stack direction="row" spacing={0.5} justifyContent="flex-start" alignItems="center">
-            {!isProductsEditMode && isReceiveModeVisible ? (
-              <Checkbox
-                size="small"
-                checked={isSelectAllChecked}
-                indeterminate={isSelectAllIndeterminate}
-                disabled={!hasPendingProductsToReceive || isReceiveSavePending}
-                onChange={onToggleSelectAllReceive}
-                data-testid="order-details-products-receive-select-all-checkbox"
-              />
+          {ordersUiText.detailsPage.placeholders.inventoryDataMismatchBanner}
+        </Alert>
+      ) : null}
+
+      <Box sx={{ overflowX: 'auto' }} data-testid="order-details-products-table">
+        <Box sx={{ minWidth: isProductsEditMode ? 640 : 920 }}>
+          <Box
+            sx={{
+              px: { xs: 1.5, md: 2.5 },
+              py: 1.25,
+              borderTop: 1,
+              borderBottom: 1,
+              borderColor: 'divider',
+              display: 'grid',
+              gridTemplateColumns: tableGridColumns,
+              gap: 1.5,
+              color: 'text.secondary',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            <Typography>Product</Typography>
+            <Typography>Quantity</Typography>
+            <Typography>Unit Price</Typography>
+            {!isProductsEditMode ? (
+              <>
+                <Typography>{ordersUiText.detailsPage.labels.reservedFromStock}</Typography>
+                <Typography>{ordersUiText.detailsPage.labels.directOrder}</Typography>
+                <Typography>{ordersUiText.detailsPage.labels.inventoryStatus}</Typography>
+              </>
             ) : null}
-            <Typography color="text.secondary">Status</Typography>
-          </Stack>
-        </Box>
-
-        {!isProductsEditMode && order.products.length
-          ? order.products.map((product, index) => {
-              const displayRow = displayRows[index]
-              return (
-                <Box
-                  key={`${product.productId}-${product.variantId}-${index}`}
-                  sx={{
-                    px: { xs: 1.5, md: 2.5 },
-                    py: 1.5,
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    display: 'grid',
-                    gridTemplateColumns: {
-                      xs: 'minmax(0, 1fr) auto',
-                      md: 'minmax(300px, 1.6fr) 120px 140px 180px',
-                    },
-                    gap: 1.5,
-                    alignItems: 'center',
-                  }}
-                  data-testid={`order-details-products-row-${index}`}
-                >
-                  <Stack direction="row" spacing={1.25} minWidth={0} alignItems="center">
-                    <Box
-                      component="img"
-                      src={displayRow?.imageUrl}
-                      alt={displayRow?.displayName ?? product.name}
-                      sx={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 1.5,
-                        border: 1,
-                        borderColor: 'divider',
-                        objectFit: 'cover',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography
-                        sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
-                        data-testid={`order-details-products-row-${index}-name`}
-                      >
-                        {displayRow?.displayName ?? product.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ overflowWrap: 'anywhere' }}
-                        data-testid={`order-details-products-row-${index}-manufacturer`}
-                      >
-                        {displayRow?.manufacturer ?? product.manufacturer ?? '-'}
-                      </Typography>
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        sx={{ mt: 0.5, display: { xs: 'flex', md: 'none' } }}
-                      >
-                        <Typography data-testid={`order-details-products-row-${index}-amount`}>
-                          Qty: {product.quantity}
-                        </Typography>
-                        <Typography data-testid={`order-details-products-row-${index}-price`}>
-                          {formatPrice(product.unitPrice)}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  </Stack>
-
-                  <Typography
-                    sx={{ display: { xs: 'none', md: 'block' } }}
-                    data-testid={`order-details-products-row-${index}-amount`}
-                  >
-                    {product.quantity}
-                  </Typography>
-                  <Typography
-                    sx={{ display: { xs: 'none', md: 'block' } }}
-                    data-testid={`order-details-products-row-${index}-price`}
-                  >
-                    {formatPrice(product.unitPrice)}
-                  </Typography>
-
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    alignItems="center"
-                    justifyContent="flex-start"
-                  >
-                    {isReceiveModeVisible ? (
-                      <Checkbox
-                        size="small"
-                        checked={
-                          product.received || selectedReceivePendingRowIndices.includes(index)
-                        }
-                        disabled={product.received || isReceiveSavePending}
-                        onChange={() => onToggleReceiveProduct(index)}
-                        data-testid={`order-details-products-row-${index}-receive-checkbox`}
-                      />
-                    ) : null}
-                    <Chip
-                      label={product.received ? 'Received' : 'Not Received'}
-                      color={product.received ? 'success' : 'default'}
-                      variant="outlined"
-                      sx={{
-                        display: { xs: 'none', md: 'inline-flex' },
-                        '& .MuiChip-label': { fontSize: '0.95rem' },
-                      }}
-                    />
-                    <Typography
-                      color={product.received ? 'success.main' : 'text.secondary'}
-                      sx={{ display: { xs: 'block', md: 'none' } }}
-                      data-testid={
-                        isReceiveModeVisible
-                          ? `order-details-products-row-${index}-receive-state`
-                          : `order-details-products-row-${index}-received`
-                      }
-                    >
-                      {product.received ? 'Received' : 'Not Received'}
-                    </Typography>
-                  </Stack>
-                </Box>
-              )
-            })
-          : null}
-
-        {!isProductsEditMode && !order.products.length ? (
-          <Box sx={{ p: 2.5 }}>
-            <Typography color="text.secondary" data-testid="order-details-products-empty">
-              -
-            </Typography>
+            <Stack direction="row" spacing={0.5} justifyContent="flex-start" alignItems="center">
+              {!isProductsEditMode && isReceiveModeVisible ? (
+                <Checkbox
+                  size="small"
+                  checked={isSelectAllChecked}
+                  indeterminate={isSelectAllIndeterminate}
+                  disabled={!hasPendingProductsToReceive || isReceiveSavePending}
+                  onChange={onToggleSelectAllReceive}
+                  data-testid="order-details-products-receive-select-all-checkbox"
+                />
+              ) : null}
+              <Typography color="text.secondary">{ordersUiText.detailsPage.labels.delivery}</Typography>
+            </Stack>
           </Box>
-        ) : null}
+
+          {!isProductsEditMode && order.products.length
+            ? order.products.map((product, index) => {
+                const displayRow = displayRows[index]
+                const reservationLine = inventoryReservationByProductRow[index]
+                const inventoryStatusLabel =
+                  reservationLine?.inventoryStatus ??
+                  ordersUiText.detailsPage.placeholders.inventoryDataMismatch
+
+                return (
+                  <Box
+                    key={`${product.productId}-${product.variantId}-${index}`}
+                    sx={{
+                      px: { xs: 1.5, md: 2.5 },
+                      py: 1.5,
+                      borderBottom: 1,
+                      borderColor: 'divider',
+                      display: 'grid',
+                      gridTemplateColumns: tableGridColumns,
+                      gap: 1.5,
+                      alignItems: 'center',
+                    }}
+                    data-testid={`order-details-products-row-${index}`}
+                  >
+                    <Stack direction="row" spacing={1.25} minWidth={0} alignItems="center">
+                      <Box
+                        component="img"
+                        src={displayRow?.imageUrl}
+                        alt={displayRow?.displayName ?? product.name}
+                        sx={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 1.5,
+                          border: 1,
+                          borderColor: 'divider',
+                          objectFit: 'cover',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}
+                          data-testid={`order-details-products-row-${index}-name`}
+                        >
+                          {displayRow?.displayName ?? product.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ overflowWrap: 'anywhere' }}
+                          data-testid={`order-details-products-row-${index}-manufacturer`}
+                        >
+                          {displayRow?.manufacturer ?? product.manufacturer ?? '-'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Typography data-testid={`order-details-products-row-${index}-amount`}>
+                      {product.quantity}
+                    </Typography>
+                    <Typography data-testid={`order-details-products-row-${index}-price`}>
+                      {formatPrice(product.unitPrice)}
+                    </Typography>
+                    <Typography data-testid={`order-details-products-row-${index}-reserved`}>
+                      {reservationLine?.reservedFromStock ?? '—'}
+                    </Typography>
+                    <Typography data-testid={`order-details-products-row-${index}-direct-order`}>
+                      {reservationLine?.directOrder ?? '—'}
+                    </Typography>
+                    <Typography
+                      color={reservationLine?.isDataMismatch ? 'error.main' : 'text.primary'}
+                      data-testid={`order-details-products-row-${index}-inventory-status`}
+                    >
+                      {inventoryStatusLabel}
+                    </Typography>
+
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      alignItems="center"
+                      justifyContent="flex-start"
+                    >
+                      {isReceiveModeVisible ? (
+                        <Checkbox
+                          size="small"
+                          checked={
+                            product.received || selectedReceivePendingRowIndices.includes(index)
+                          }
+                          disabled={product.received || isReceiveSavePending}
+                          onChange={() => onToggleReceiveProduct(index)}
+                          data-testid={`order-details-products-row-${index}-receive-checkbox`}
+                        />
+                      ) : null}
+                      <StatusChip
+                        label={product.received ? 'Received' : 'Not Received'}
+                        color={product.received ? 'success' : 'default'}
+                        testId={
+                          isReceiveModeVisible
+                            ? `order-details-products-row-${index}-receive-state`
+                            : `order-details-products-row-${index}-received`
+                        }
+                      />
+                    </Stack>
+                  </Box>
+                )
+              })
+            : null}
+
+          {!isProductsEditMode && !order.products.length ? (
+            <Box sx={{ p: 2.5 }}>
+              <Typography color="text.secondary" data-testid="order-details-products-empty">
+                -
+              </Typography>
+            </Box>
+          ) : null}
+        </Box>
       </Box>
 
       {isProductsEditMode ? (
         <InlineProductsEditor
           orderProducts={order.products}
+          orderInventoryReservationLines={order.inventoryReservation?.lines ?? []}
           currentDelivery={currentDelivery}
           isSubmitting={isProductsEditSavePending}
           onCancel={onCancelProductsEdit}

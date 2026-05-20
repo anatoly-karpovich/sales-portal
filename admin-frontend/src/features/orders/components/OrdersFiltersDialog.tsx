@@ -98,7 +98,12 @@ export function OrdersFiltersDialog({
       }}
     >
       <DialogTitle sx={{ pr: 6 }} data-testid="orders-list-filter-dialog-title-section">
-        <Stack direction="row" alignItems="center" spacing={1} data-testid="orders-list-filter-dialog-title-row">
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          data-testid="orders-list-filter-dialog-title-row"
+        >
           <FilterAltOutlinedIcon color="action" fontSize="small" />
           <Typography
             variant="h6"
@@ -119,7 +124,11 @@ export function OrdersFiltersDialog({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ px: 3, py: 2.5 }} data-testid="orders-list-filter-dialog-content">
+      <DialogContent
+        dividers
+        sx={{ px: 3, py: 2.5 }}
+        data-testid="orders-list-filter-dialog-content"
+      >
         <Stack spacing={1.5} data-testid="orders-list-filter-dialog-accordion-list">
           <Accordion
             disableGutters
@@ -147,7 +156,15 @@ export function OrdersFiltersDialog({
               }}
               data-testid="orders-list-filter-dialog-order-status-accordion-summary"
             >
-              <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  pr: 1,
+                }}
+              >
                 <Typography sx={{ fontWeight: 600 }}>{orderStatusTitle}</Typography>
                 {statusDraft.length > 0 ? (
                   <Typography
@@ -215,7 +232,15 @@ export function OrdersFiltersDialog({
               }}
               data-testid="orders-list-filter-dialog-delivery-status-accordion-summary"
             >
-              <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  pr: 1,
+                }}
+              >
                 <Typography sx={{ fontWeight: 600 }}>{deliveryStatusTitle}</Typography>
                 {deliveryStatusDraft.length > 0 ? (
                   <Typography

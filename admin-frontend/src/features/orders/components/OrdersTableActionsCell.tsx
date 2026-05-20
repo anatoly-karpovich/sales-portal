@@ -11,9 +11,18 @@ type Props = {
 
 export function OrdersTableActionsCell({ order, onDetails, onReopen }: Props) {
   return (
-    <Stack direction="row" spacing={0.5} justifyContent="flex-end" data-testid="orders-table-actions-cell">
+    <Stack
+      direction="row"
+      spacing={0.5}
+      justifyContent="flex-end"
+      data-testid="orders-table-actions-cell"
+    >
       <Tooltip title="Details">
-        <IconButton size="small" onClick={() => onDetails(order._id)} data-testid="orders-table-details-button">
+        <IconButton
+          size="small"
+          onClick={() => onDetails(order._id)}
+          data-testid="orders-table-details-button"
+        >
           <VisibilityOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>

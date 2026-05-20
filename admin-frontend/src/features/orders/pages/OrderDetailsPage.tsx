@@ -51,7 +51,6 @@ export function OrderDetailsPage() {
     isCustomerEditMode,
     isProductsEditMode,
     isManagerEditMode,
-    isManagerUnassignDialogOpen,
     pendingStatusAction,
     setPendingStatusAction,
     detailsDialogCopy,
@@ -64,6 +63,7 @@ export function OrderDetailsPage() {
     orderedComments,
     assignedManagerDisplayValue,
     isManagerAssigned,
+    isManagerEditable,
     isManagerActionPending,
     isCustomerEditable,
     isProductsEditable,
@@ -84,7 +84,6 @@ export function OrderDetailsPage() {
     isStatusSubmitting,
     isCustomerEditSavePending,
     isProductsEditSavePending,
-    isManagerUnassignSubmitting,
     orderProductDisplayRows,
     handleBackToOrders,
     handleRefresh,
@@ -97,9 +96,6 @@ export function OrderDetailsPage() {
     handleStartManagerEdit,
     handleCancelManagerEdit,
     handleSaveAssignedManager,
-    handleOpenManagerUnassignDialog,
-    handleCloseManagerUnassignDialog,
-    handleConfirmManagerUnassign,
     handleStartReceiveMode,
     handleCancelReceiveMode,
     handleToggleReceiveProduct,
@@ -228,13 +224,13 @@ export function OrderDetailsPage() {
                     order={order}
                     assignedManagerDisplayValue={assignedManagerDisplayValue}
                     isManagerAssigned={isManagerAssigned}
+                    isManagerEditable={isManagerEditable}
                     isManagerActionPending={isManagerActionPending}
                     isManagerEditMode={isManagerEditMode}
                     isEmbedded
                     onStartManagerEdit={handleStartManagerEdit}
                     onCancelManagerEdit={handleCancelManagerEdit}
                     onSaveManagerEdit={handleSaveAssignedManager}
-                    onUnassignManager={handleOpenManagerUnassignDialog}
                   />
                 </Paper>
 
@@ -304,18 +300,6 @@ export function OrderDetailsPage() {
           </Paper>
         </Stack>
       </Paper>
-
-      <ConfirmDialog
-        open={isManagerUnassignDialogOpen}
-        title={ordersUiText.dialogs.details.unassignManagerTitle}
-        message={ordersUiText.dialogs.details.unassignManagerMessage}
-        confirmLabel={ordersUiText.dialogs.details.unassignManagerConfirm}
-        confirmColor="error"
-        cancelLabel={ordersUiText.dialogs.cancel}
-        isSubmitting={isManagerUnassignSubmitting}
-        onCancel={handleCloseManagerUnassignDialog}
-        onConfirm={handleConfirmManagerUnassign}
-      />
 
       <ConfirmDialog
         open={Boolean(pendingStatusAction) && Boolean(detailsDialogCopy)}

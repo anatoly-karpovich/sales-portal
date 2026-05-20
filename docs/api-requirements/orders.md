@@ -30,6 +30,20 @@
 - `Partially Delivered`
 - `Delivered`
 
+## Inventory Reservation Contract
+
+- `Reservation` is the canonical source of reserved quantity while order is in reservation-driven stages.
+- Reservation document represents active reservation aggregate for one `orderId`.
+- On `In Process` transition reservation is released (removed), and reserved stock impact is removed.
+- On cancel/reopen/edit flows reservation may be removed/recreated; reserved stock is recalculated from reservation documents.
+- On `DELETE /api/orders/:orderId`, active reservation for the order is released/removed before order deletion.
+- On `Canceled -> Draft` reopen:
+  - product snapshots are rebuilt from current product/variant data;
+  - product/variant must exist and be `Active`;
+  - reservation is recreated with `Admin Draft` TTL in current manager-authenticated flow;
+  - if reopen validation/reservation fails, status remains `Canceled`.
+- Inventory `reserved/available/summary` response fields are derived read-model values, not persisted canonical state.
+
 ## Endpoints
 
 | Method | Endpoint | Description |
@@ -52,7 +66,7 @@
 | POST | `/api/orders/:orderId/comments` | Add comment. |
 | DELETE | `/api/orders/:orderId/comments/:commentId` | Delete comment (`204`). |
 | PUT | `/api/orders/:orderId/assign-manager/:managerId` | Assign manager. |
-| PUT | `/api/orders/:orderId/unassign-manager` | Unassign manager. |
+| PUT | `/api/orders/:orderId/unassign-manager` | Unassign manager (Draft only). |
 
 ## Order Product Line Contracts
 
@@ -123,6 +137,73 @@ Rules:
 Notes:
 - order details use a persisted product snapshot from the order document (no live product join required);
 - order list/export keep the list-oriented line references (`product._id`, `variant._id`) in response/export columns.
+- on reopen (`Canceled -> Draft`), product snapshots in order lines are refreshed from current product/variant values.
+
+## Order Details Inventory Reservation (`GET /api/orders/:orderId`)
+
+`Order` response includes computed `inventoryReservation` block:
+
+```json
+{
+  "summary": {
+    "state": "Temporary Lock",
+    "expiresAt": "2026-05-18T12:34:56.000Z",
+    "type": "Admin Draft"
+  },
+  "lines": [
+    {
+      "productId": "64f100000000000000000001",
+      "variantId": "64f100000000000000000101",
+      "orderedQuantity": 5,
+      "reservedQuantity": 2,
+      "directOrderQuantity": 3,
+      "state": "Partially Reserved"
+    }
+  ]
+}
+```
+
+`inventoryReservation.summary.type` values:
+- `Admin Draft`
+- `Order Processing`
+- `Customer Draft`
+
+Summary state:
+- `Temporary Lock` when active reservation has `expiresAt`;
+- `Processing Lock` when active reservation exists and `expiresAt = null`;
+- `Consumed` when no active reservation and order is `Completed`;
+- `Released` when no active reservation and order is `Canceled`;
+- `No Active Lock` otherwise.
+
+Line-level state:
+- `Fully Reserved` when `reservedQuantity === orderedQuantity`;
+- `Partially Reserved` when `0 < reservedQuantity < orderedQuantity`;
+- `Direct Order` when `reservedQuantity === 0`, `directOrderQuantity > 0`, and inventory variant allows selling out of stock;
+- `No Active Lock` as fallback when reservation is missing/inconsistent for a line.
+- `Consumed` when order is `Completed` and no active reservation (terminal line state; split is restored from `Sale` adjustments for this order line);
+- `Released` when order is `Canceled` and no active reservation (terminal line state; `directOrderQuantity = 0`).
+
+Partially delivered behavior:
+- for lines with `received=true`, split is derived from `Sale` adjustments of this order line and line state is `Consumed`;
+- for lines with `received=false`, split is derived from active reservation items.
+
+Notes:
+- backend returns only canonical state fields (`state`, `type`, `expiresAt`) and quantities;
+- UI label mapping (for example `Temporary Lock -> Reserved (Temporary)`) is frontend-owned;
+- reservation data is composed dynamically from `Reservation` + `Inventory` and is not stored in `Order`.
+
+## Manager Assignment Rules
+
+- `POST /api/orders` in manager-authenticated flow auto-assigns the authenticated creator to `assignedManager`.
+- Create-time auto-assign appends a separate history item: `Manager Assigned`.
+- `PUT /api/orders/:orderId/status` with target `In Process` auto-assigns current performer when `assignedManager` is empty.
+- Auto-assign appends history before processing entry: first `Manager Assigned`, then `Order processing started`.
+- `PUT /api/orders/:orderId/unassign-manager` is allowed only for `Draft` orders.
+
+## Order Notification Side Effects
+
+- On `POST /api/orders`, `newOrder` notification is created for the authenticated creator.
+- On manager create-time auto-assign, `assigned` notification is created with automatic-assignment message.
 
 ## Export Contract (`POST /api/orders/export`)
 

@@ -4,7 +4,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { OrderProductRequestItem, OrderStatus } from '@/api/modules/orders.api'
-import type { OrderDeliverySavePayload, OrderDetailsTab } from '@/features/orders/components/OrderDetailsTabsSection'
+import type {
+  OrderDeliverySavePayload,
+  OrderDetailsTab,
+} from '@/features/orders/components/OrderDetailsTabsSection'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
 import {
   useAssignOrderManagerMutation,
@@ -48,7 +51,6 @@ export function useOrderDetailsPageState() {
   const [isCustomerEditMode, setIsCustomerEditMode] = useState(false)
   const [isProductsEditMode, setIsProductsEditMode] = useState(false)
   const [isManagerEditMode, setIsManagerEditMode] = useState(false)
-  const [isManagerUnassignDialogOpen, setIsManagerUnassignDialogOpen] = useState(false)
   const [isReceiveMode, setIsReceiveMode] = useState(false)
   const [selectedReceiveRowIndices, setSelectedReceiveRowIndices] = useState<number[]>([])
 
@@ -293,24 +295,35 @@ export function useOrderDetailsPageState() {
   }
 
   const handleCancelManagerEdit = () => {
-    if (assignOrderManagerMutation.isPending) return
+    if (assignOrderManagerMutation.isPending || unassignOrderManagerMutation.isPending) return
     setIsManagerEditMode(false)
   }
 
-  const handleSaveAssignedManager = async (nextManagerId: string) => {
-    if (!orderId || !nextManagerId) return false
+  const handleSaveAssignedManager = async (nextManagerId: string | null) => {
+    if (!orderId || order?.status !== 'Draft') return false
 
     try {
-      await assignOrderManagerMutation.mutateAsync({
-        orderId,
-        managerId: nextManagerId,
-        requestConfig: { skipErrorToast: true },
-      })
-      enqueueSnackbar(ordersUiText.toasts.managerAssigned, { variant: 'success' })
+      if (nextManagerId) {
+        await assignOrderManagerMutation.mutateAsync({
+          orderId,
+          managerId: nextManagerId,
+          requestConfig: { skipErrorToast: true },
+        })
+        enqueueSnackbar(ordersUiText.toasts.managerAssigned, { variant: 'success' })
+      } else {
+        await unassignOrderManagerMutation.mutateAsync({
+          orderId,
+          requestConfig: { skipErrorToast: true },
+        })
+        enqueueSnackbar(ordersUiText.toasts.managerUnassigned, { variant: 'success' })
+      }
       setIsManagerEditMode(false)
       return true
     } catch (error) {
-      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.assignManagerFailed)
+      const errorMessage = resolveApiErrorMessage(
+        error,
+        nextManagerId ? ordersUiText.errors.assignManagerFailed : ordersUiText.errors.unassignManagerFailed,
+      )
       if (isOrderNotFoundErrorMessage(errorMessage)) {
         setIsManagerEditMode(false)
         await reloadOrderDetailsWithSkeleton()
@@ -322,38 +335,6 @@ export function useOrderDetailsPageState() {
     }
   }
 
-  const handleOpenManagerUnassignDialog = () => {
-    if (!order?.assignedManager) return
-    setIsManagerUnassignDialogOpen(true)
-  }
-
-  const handleCloseManagerUnassignDialog = () => {
-    if (unassignOrderManagerMutation.isPending) return
-    setIsManagerUnassignDialogOpen(false)
-  }
-
-  const handleConfirmManagerUnassign = async () => {
-    if (!orderId) return
-
-    try {
-      await unassignOrderManagerMutation.mutateAsync({
-        orderId,
-        requestConfig: { skipErrorToast: true },
-      })
-      enqueueSnackbar(ordersUiText.toasts.managerUnassigned, { variant: 'success' })
-      setIsManagerUnassignDialogOpen(false)
-    } catch (error) {
-      const errorMessage = resolveApiErrorMessage(error, ordersUiText.errors.unassignManagerFailed)
-      if (isOrderNotFoundErrorMessage(errorMessage)) {
-        setIsManagerUnassignDialogOpen(false)
-        await reloadOrderDetailsWithSkeleton()
-        return
-      }
-
-      enqueueSnackbar(errorMessage, { variant: 'error' })
-    }
-  }
-
   const handleStartReceiveMode = () => {
     if (
       !canStartReceive ||
@@ -361,7 +342,8 @@ export function useOrderDetailsPageState() {
       isProductsEditMode ||
       isCustomerEditMode ||
       isManagerEditMode
-    ) return
+    )
+      return
     setSelectedReceiveRowIndices([])
     setIsReceiveMode(true)
   }
@@ -560,6 +542,7 @@ export function useOrderDetailsPageState() {
 
   const assignedManagerValue = resolveAssignedManagerName(order?.assignedManager ?? null)
   const isManagerAssigned = Boolean(order?.assignedManager)
+  const isManagerEditable = order?.status === 'Draft'
   const isManagerActionPending =
     assignOrderManagerMutation.isPending || unassignOrderManagerMutation.isPending
   const isCustomerEditable = order?.status === 'Draft'
@@ -624,7 +607,6 @@ export function useOrderDetailsPageState() {
     isCustomerEditMode,
     isProductsEditMode,
     isManagerEditMode,
-    isManagerUnassignDialogOpen,
     pendingStatusAction,
     setPendingStatusAction,
     detailsDialogCopy,
@@ -637,6 +619,7 @@ export function useOrderDetailsPageState() {
     orderedComments,
     assignedManagerDisplayValue: assignedManagerValue,
     isManagerAssigned,
+    isManagerEditable,
     isManagerActionPending,
     isCustomerEditable,
     isProductsEditable,
@@ -653,7 +636,8 @@ export function useOrderDetailsPageState() {
     isProcessDisabled,
     isReopenVisible,
     productsSubtotal,
-    isDeliverySubmitting: updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending,
+    isDeliverySubmitting:
+      updateOrderDeliveryMutation.isPending || updateOrderPickupMutation.isPending,
     isStatusSubmitting: statusMutation.isPending,
     isCustomerEditSavePending: updateOrderMutation.isPending,
     isProductsEditSavePending: updateOrderMutation.isPending,
@@ -670,9 +654,6 @@ export function useOrderDetailsPageState() {
     handleStartManagerEdit,
     handleCancelManagerEdit,
     handleSaveAssignedManager,
-    handleOpenManagerUnassignDialog,
-    handleCloseManagerUnassignDialog,
-    handleConfirmManagerUnassign,
     handleStartReceiveMode,
     handleCancelReceiveMode,
     handleToggleReceiveProduct,

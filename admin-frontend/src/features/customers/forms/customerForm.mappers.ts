@@ -1,5 +1,8 @@
 import type { Customer, CustomerUpsertPayload } from '@/api/modules/customers.api'
-import type { CustomerFormState, CustomerFormTouchedState } from '@/features/customers/forms/customerForm.types'
+import type {
+  CustomerFormState,
+  CustomerFormTouchedState,
+} from '@/features/customers/forms/customerForm.types'
 
 export function toCustomerFormTouchedState(value = false): CustomerFormTouchedState {
   return {

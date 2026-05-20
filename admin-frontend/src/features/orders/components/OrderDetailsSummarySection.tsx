@@ -1,6 +1,6 @@
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   Box,
   Button,
@@ -12,11 +12,55 @@ import {
   Typography,
 } from '@mui/material'
 import { Link } from 'react-router-dom'
-import type { OrderDetails } from '@/api/modules/orders.api'
+import type { OrderDetails, OrderInventoryReservationSummaryState } from '@/api/modules/orders.api'
 import { getOverdueByDaysLabel, ordersUiText } from '@/features/orders/orders.ui-text'
 import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 import { getOrderStatusColor } from '@/utils/orderStatus'
+
+const ONE_MINUTE_MS = 60_000
+const FIVE_MINUTES_MS = 5 * ONE_MINUTE_MS
+
+const INVENTORY_RESERVATION_STATE_LABEL: Record<OrderInventoryReservationSummaryState, string> = {
+  'Temporary Lock': ordersUiText.detailsPage.labels.reservationStateTemporary,
+  'Processing Lock': ordersUiText.detailsPage.labels.reservationStateProcessing,
+  'No Active Lock': ordersUiText.detailsPage.labels.reservationStateNoLock,
+  Consumed: ordersUiText.detailsPage.labels.reservationStateConsumed,
+  Released: ordersUiText.detailsPage.labels.reservationStateReleased,
+}
+
+function formatDateTimeWithoutSeconds(value: string | null) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function toCountdownText(diffMs: number) {
+  if (diffMs <= ONE_MINUTE_MS) {
+    return ordersUiText.detailsPage.labels.lessThanOneMinute
+  }
+
+  const totalMinutes = Math.floor(diffMs / ONE_MINUTE_MS)
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m`
+  }
+
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (minutes === 0) {
+    return `${hours}h`
+  }
+
+  return `${hours}h ${minutes}m`
+}
 
 type OrderDetailsSummarySectionProps = {
   order: OrderDetails
@@ -52,6 +96,41 @@ export function OrderDetailsSummarySection({
   onRefresh,
 }: OrderDetailsSummarySectionProps) {
   const deliveryFee = Math.max(order.delivery.price, 0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  const inventorySummary = order.inventoryReservation?.summary
+  const inventorySummaryLabel = inventorySummary
+    ? INVENTORY_RESERVATION_STATE_LABEL[inventorySummary.state]
+    : ordersUiText.errors.inventoryReservationUnavailable
+  const shouldShowReservationExpiry =
+    inventorySummary?.state === 'Temporary Lock' && Boolean(inventorySummary.expiresAt)
+
+  useEffect(() => {
+    if (!shouldShowReservationExpiry) return
+
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, ONE_MINUTE_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [shouldShowReservationExpiry])
+
+  const inventoryReservationCountdown = (() => {
+    if (!shouldShowReservationExpiry || !inventorySummary?.expiresAt) return null
+
+    const expiresAtMs = new Date(inventorySummary.expiresAt).getTime()
+    if (Number.isNaN(expiresAtMs)) return null
+
+    const diffMs = Math.max(expiresAtMs - nowMs, 0)
+    return {
+      text: toCountdownText(diffMs),
+      color:
+        diffMs <= ONE_MINUTE_MS ? 'error.main' : diffMs <= FIVE_MINUTES_MS ? 'warning.main' : null,
+    }
+  })()
+
   const content = (
     <Stack spacing={0}>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -81,10 +160,34 @@ export function OrderDetailsSummarySection({
               >
                 {order._id}
               </Typography>
-              <Stack direction="row" spacing={1.25} flexWrap="wrap" sx={{ mt: 1.25 }}>
+              <Stack spacing={0.35} sx={{ mt: 1.25 }}>
                 <Typography color="text.secondary" variant="body2">
                   Created {formatDateTime(order.createdOn)}
                 </Typography>
+                {shouldShowReservationExpiry ? (
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    flexWrap="wrap"
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    data-testid="order-details-summary-inventory-reservation-expiry-inline"
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Reservation {ordersUiText.detailsPage.labels.expiresAt}{' '}
+                      {formatDateTimeWithoutSeconds(inventorySummary?.expiresAt ?? null)}
+                    </Typography>
+                    {inventoryReservationCountdown ? (
+                      <Typography
+                        variant="body2"
+                        color={inventoryReservationCountdown.color ?? 'text.secondary'}
+                        data-testid="order-details-summary-inventory-reservation-countdown"
+                      >
+                        | {ordersUiText.detailsPage.labels.expiresInPrefix}{' '}
+                        {inventoryReservationCountdown.text}
+                      </Typography>
+                    ) : null}
+                  </Stack>
+                ) : null}
               </Stack>
             </Box>
 
@@ -158,7 +261,8 @@ export function OrderDetailsSummarySection({
             gridTemplateColumns: {
               xs: '1fr',
               sm: 'repeat(2, minmax(0, 1fr))',
-              xl: 'repeat(5, minmax(0, 1fr))',
+              md: 'repeat(3, minmax(0, 1fr))',
+              xl: 'repeat(6, minmax(0, 1fr))',
             },
           }}
           data-testid="order-details-summary-metrics-grid"
@@ -195,6 +299,13 @@ export function OrderDetailsSummarySection({
                 />
               ) : null}
             </Stack>
+          </MetricCard>
+
+          <MetricCard
+            label={ordersUiText.detailsPage.labels.inventoryReservation}
+            testId="order-details-summary-inventory-reservation-value"
+          >
+            <Typography sx={{ fontWeight: 700 }}>{inventorySummaryLabel}</Typography>
           </MetricCard>
 
           <MetricCard label="Total" testId="order-details-summary-total-price-value">

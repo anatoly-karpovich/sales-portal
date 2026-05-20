@@ -22,6 +22,9 @@
 ## Real-time Delivery
 - Backend `NotificationService` stores `{ userId, orderId, message, read, expiresAt }` and expires records after 24 hours.
 - Audience rule: only the manager assigned to an order receives updates. The service writes one record per assigned manager and emits a Socket.IO event to that manager's room. To notify more roles, create additional records per user and emit to their rooms.
+- Auto-assignment events produce `assigned` notifications:
+  - on order create (creator auto-assigned in manager-authenticated flow);
+  - on process action only when legacy draft order has no assignee.
 - `socket.js` connects after login (passing `auth.token`), listens for `new_notification`, and updates the badge via `setNumberOfNotificationsToBadge`.
 - Socket.IO authentication reuses `wsAuthMiddleware` to validate JWTs just like the REST API.
 

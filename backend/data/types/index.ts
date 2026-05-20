@@ -18,6 +18,22 @@ import type { IDeliveryPayload, IDelivery, IDeliveryUpdatePayload, IPickupUpdate
 import type { DocumentResult } from "./document.type";
 import type { IComment } from "./comments.type";
 import type { ICategory, ICategoryDocument, ICategoryPathItem } from "./category.type";
+import type {
+  IInventory,
+  IInventoryAdjustment,
+  IInventoryAdjustmentDocument,
+  IInventoryDocument,
+  IInventoryListItem,
+  IInventoryReservationListItem,
+  IInventoryReservationListItemLine,
+  IInventoryReservationsSummary,
+  IInventoryReadModel,
+  IInventoryVariant,
+  IInventoryVariantReadModel,
+  IReservation,
+  IReservationDocument,
+  IReservationItem,
+} from "./inventory.type";
 
 export {
   IHistory,
@@ -48,4 +64,18 @@ export {
   ICategory,
   ICategoryDocument,
   ICategoryPathItem,
+  IInventory,
+  IInventoryListItem,
+  IInventoryReservationListItem,
+  IInventoryReservationListItemLine,
+  IInventoryReservationsSummary,
+  IInventoryReadModel,
+  IInventoryVariant,
+  IInventoryVariantReadModel,
+  IInventoryDocument,
+  IInventoryAdjustment,
+  IInventoryAdjustmentDocument,
+  IReservation,
+  IReservationItem,
+  IReservationDocument,
 };

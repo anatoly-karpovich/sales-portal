@@ -3,10 +3,11 @@ import type { IOrderReceiveRequestItem, IProductInOrder } from "../data/types";
 import Order from "../models/order.model";
 import OrderService from "./order.service";
 import { createHistoryEntry } from "../utils/utils";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import managersService from "./managers.service";
 import { NotificationService } from "./notification.service";
 import { OrderDetailsDTO } from "../data/types/dto/orders.dto";
+import InventoryService from "./inventory.service";
 
 class OrderReceiveService {
   private notificationService = new NotificationService();
@@ -95,7 +96,38 @@ class OrderReceiveService {
         manager,
       ),
     );
-    const updatedOrder = await Order.findByIdAndUpdate(orderId, orderForUpdate, { new: true });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await InventoryService.applySaleForOrderLines({
+          orderId,
+          lines: products.map((item) => {
+            const line = dbProducts.find(
+              (dbItem) =>
+                dbItem.productId.toString() === item.productId.toString() &&
+                dbItem.variantId.toString() === item.variantId.toString(),
+            );
+            return {
+              productId: new Types.ObjectId(item.productId),
+              variantId: new Types.ObjectId(item.variantId),
+              quantity: line?.quantity ?? 0,
+            };
+          }),
+          managerId: performerId,
+          session,
+        });
+
+        const { inventoryReservation: _inventoryReservation, ...persistedOrder } = orderForUpdate;
+        const updatedOrder = await Order.findByIdAndUpdate(orderId, persistedOrder, { new: true, session });
+        if (!updatedOrder) {
+          throw new Error("Order not found");
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    const updatedOrder = await Order.findById(orderId).lean().exec();
     if (!updatedOrder) {
       throw new Error("Order not found");
     }
@@ -105,14 +137,17 @@ class OrderReceiveService {
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "productsDelivered",
-        message: NOTIFICATIONS.productsDelivered,
+        message: NOTIFICATIONS.productsDelivered(updatedOrder._id.toString()),
       });
       if (updatedOrder.status === ORDER_STATUSES.COMPLETED) {
         await this.notificationService.create({
           managerId: updatedOrder.assignedManager._id.toString(),
           orderId: updatedOrder._id.toString(),
           type: "statusChanged",
-          message: NOTIFICATIONS.statusChanged(updatedOrder.status),
+          message: NOTIFICATIONS.statusChanged({
+            status: updatedOrder.status,
+            orderId: updatedOrder._id.toString(),
+          }),
         });
       }
     }

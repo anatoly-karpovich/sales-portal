@@ -42,7 +42,8 @@ function normalizeValue(value: string | number | null | undefined) {
 }
 
 function formatAddress(order: OrderDetails) {
-  const apartmentPart = typeof order.customer.apartment === 'number' ? `, Apt ${order.customer.apartment}` : ''
+  const apartmentPart =
+    typeof order.customer.apartment === 'number' ? `, Apt ${order.customer.apartment}` : ''
   return `${order.customer.house} ${order.customer.street}${apartmentPart}, ${order.customer.city}, ${order.customer.state} ${order.customer.zipCode}`
 }
 
@@ -132,7 +133,10 @@ function InlineCustomerEditor({
             setSearch(value)
           }}
           noOptionsText={
-            <Typography data-testid="order-details-customer-inline-list-empty" color="text.secondary">
+            <Typography
+              data-testid="order-details-customer-inline-list-empty"
+              color="text.secondary"
+            >
               {ordersUiText.dialogs.details.editCustomerNoResults}
             </Typography>
           }
@@ -152,7 +156,11 @@ function InlineCustomerEditor({
           renderOption={(props, customer, state) => {
             const { key, ...optionProps } = props
             return (
-              <li key={key} {...optionProps} data-testid={`order-details-customer-inline-item-${state.index}`}>
+              <li
+                key={key}
+                {...optionProps}
+                data-testid={`order-details-customer-inline-item-${state.index}`}
+              >
                 <Stack spacing={0.25}>
                   <Typography
                     sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
@@ -194,7 +202,11 @@ function InlineCustomerEditor({
             disabled={isSaveDisabled}
             data-testid="order-details-customer-inline-save-button"
           >
-            {isSubmitting ? <CircularProgress size={18} color="inherit" /> : ordersUiText.dialogs.details.editCustomerSave}
+            {isSubmitting ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              ordersUiText.dialogs.details.editCustomerSave
+            )}
           </Button>
           <Button
             variant="outlined"

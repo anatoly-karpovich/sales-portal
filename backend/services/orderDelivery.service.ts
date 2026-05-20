@@ -130,7 +130,8 @@ class OrderDeliveryService {
       createHistoryEntry(newOrder as unknown as Parameters<typeof createHistoryEntry>[0], action, manager),
     );
 
-    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
+    const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, persistedOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");
     }
@@ -140,7 +141,7 @@ class OrderDeliveryService {
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "deliveryUpdated",
-        message: NOTIFICATIONS.deliveryUpdated,
+        message: NOTIFICATIONS.deliveryUpdated(updatedOrder._id.toString()),
       });
     }
 

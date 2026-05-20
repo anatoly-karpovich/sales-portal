@@ -61,8 +61,8 @@ class OrderController {
       const order = await OrderService.create(this.mapCreateOrderRequestBody(req.body), managerData.id);
       res.status(201).json({ Order: order, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
-      console.log(e);
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
@@ -142,8 +142,8 @@ class OrderController {
       );
       return res.status(200).json({ Order: updatedOrder, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
-      console.log(e);
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
@@ -243,8 +243,10 @@ class OrderController {
 
   async delete(req: DeleteOrderRequestDTO, res: Response<OrderResponseDTO | BaseResponseDTO>): Promise<Response> {
     try {
+      const token = getTokenFromRequest(req);
+      const managerData = getDataDataFromToken(token);
       const id = new Types.ObjectId(req.params.orderId);
-      await OrderService.delete(id);
+      await OrderService.delete(id, managerData.id);
       return res.status(204).send();
     } catch (e: any) {
       console.log(e);

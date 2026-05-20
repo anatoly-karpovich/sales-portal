@@ -20,6 +20,16 @@ const catalogSettings = new mongoose.Schema(
 const inventorySettings = new mongoose.Schema(
   {
     defaultLowStockThreshold: { type: Number, required: true },
+    allowSellingOutOfStockByDefault: { type: Boolean, required: true },
+  },
+  { _id: false, versionKey: false },
+);
+
+const reservationsSettings = new mongoose.Schema(
+  {
+    adminDraftReservationTtlMs: { type: Number, required: true, min: 1 },
+    customerPaymentReservationTtlMs: { type: Number, required: true, min: 1 },
+    cronIntervalMs: { type: Number, required: true, min: 1000 },
   },
   { _id: false, versionKey: false },
 );
@@ -116,6 +126,7 @@ const settingsModel = new mongoose.Schema(
     catalog: { type: catalogSettings, required: true },
     order: { type: orderSettings, required: true },
     inventory: { type: inventorySettings, required: true },
+    reservations: { type: reservationsSettings, required: true },
     shipping: { type: shippingSettings, required: true },
   },
   { versionKey: false },

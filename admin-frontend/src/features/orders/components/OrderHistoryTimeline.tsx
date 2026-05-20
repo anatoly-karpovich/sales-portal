@@ -35,11 +35,7 @@ type HistoryChange = {
   updated: string
 }
 
-const STATUS_ACTIONS = new Set([
-  'Order created',
-  'Order canceled',
-  'Order reopened',
-])
+const STATUS_ACTIONS = new Set(['Order created', 'Order canceled', 'Order reopened'])
 const PROCESSING_STARTED_ACTION = 'Order processing started'
 
 const DELIVERY_ACTIONS = new Set([
@@ -414,9 +410,7 @@ function buildReceivedChanges(
 
   return updatedProducts.map((updatedProduct) => {
     const productId = resolveOrderProductKey(updatedProduct)
-    const previousReceived = productId
-      ? previousProductsById.get(productId)?.received
-      : undefined
+    const previousReceived = productId ? previousProductsById.get(productId)?.received : undefined
     return {
       label: resolveOrderProductLabel(updatedProduct),
       previous: resolveReceivedLabel(previousReceived),
@@ -525,13 +519,7 @@ function buildHistoryCustomerIds(history: OrderHistoryEntry[]) {
   return [...ids]
 }
 
-function HistoryProducts({
-  products,
-  index,
-}: {
-  products: OrderDetailsProduct[]
-  index: number
-}) {
+function HistoryProducts({ products, index }: { products: OrderDetailsProduct[]; index: number }) {
   if (!products.length) {
     return <Typography color="text.secondary">-</Typography>
   }
@@ -939,10 +927,7 @@ export function OrderHistoryTimeline({ history }: OrderHistoryTimelineProps) {
                         >
                           {ordersUiText.detailsPage.history.productsAfterEvent}
                         </Typography>
-                        <HistoryProducts
-                          products={entry.products ?? []}
-                          index={index}
-                        />
+                        <HistoryProducts products={entry.products ?? []} index={index} />
                       </Stack>
                     </Paper>
                   </Stack>

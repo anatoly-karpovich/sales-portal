@@ -86,6 +86,9 @@ Top-level source layout:
 - `app/router/AuthRouteFallback.tsx` - loading fallback during auth bootstrap.
 - `app/layout/AppShell.tsx` - top nav, user actions, mobile menu, main outlet.
   - top-bar user first name is a link to current manager details (`/managers/:userId`) when user id is available.
+  - `Inventory` navigation has nested entries:
+    - desktop: hover dropdown with `Inventory List` (`/inventory`) and `Reservations` (`/inventory/reservations`);
+    - mobile: tap opens inventory sub-menu with explicit `Back` action to the root mobile menu.
 - `app/config/navigation.ts` - single navigation source.
 
 ### 4.2 `api` layer
@@ -98,7 +101,7 @@ Top-level source layout:
     - emits API error event unless request has `skipErrorToast: true`.
 - `api/events.ts` - internal event bus for `error` and `unauthorized`.
 - `api/types.ts` - `ApiRequestConfig` extension with `skipErrorToast`.
-- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `categories`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
+- `api/modules/*.api.ts` - backend contracts and domain requests (`products`, `categories`, `inventory`, `metrics`, `notifications`, `orders`, `customers`, `managers`, `settings`).
 - `api/modules/orders.api.ts`
   - typed orders list contract (`GET /orders`);
   - order model uses split state axes:
@@ -131,6 +134,16 @@ Top-level source layout:
   - categories workspace contract uses combined payload (`GET /categories`) with `tree + flat`.
   - tree node includes both `directProductsCount` (products assigned directly) and `productsCount` (subtree total).
   - create/move category requests are guarded by backend rule: category with direct products cannot become parent.
+- `api/modules/inventory.api.ts`
+  - inventory module contract includes list/reservations/details/history and variant-level update flows.
+  - implemented requests:
+    - `getInventory()` (`GET /inventory`) with filters by `search`, `manufacturer[]`, `productStatus[]`, `inventoryStatus[]`.
+    - `getInventoryReservations()` (`GET /inventory/reservations`) with filters by `search`, `type[]`, `fromDate`, `toDate`, `expiresBefore`, sorting by `createdOn|expiresAt`, and server pagination.
+    - `getInventoryByProductId()` (`GET /inventory/products/:productId`) for product inventory details.
+    - `createInventoryAdjustment()` (`POST /inventory/adjustments`) for manual stock adjustments.
+    - `updateInventoryVariantSettings()` (`PATCH /inventory/products/:productId/variants/:variantId/settings`) for threshold/direct-order settings.
+    - `getInventoryAdjustmentsByProduct()` (`GET /inventory/products/:productId/adjustments`) for product-level history.
+    - `getInventoryAdjustmentsByVariant()` (`GET /inventory/products/:productId/variants/:variantId/adjustments`) for variant-level history.
 
 ### 4.3 `features` layer
 
@@ -182,6 +195,54 @@ Top-level source layout:
   - `components/ProductForm.tsx`, `ProductsFiltersDialog.tsx`, `ProductsFilterChips.tsx`, `ProductsTableActionsCell.tsx`
   - `forms/*` - form mappers, touched state, validation
   - `products.ui-text.ts` - labels, validation text, toast text
+- `features/inventory`
+  - `pages/InventoryPage.tsx` - global inventory list (`#/inventory`) with search, filters, sorting, and pagination.
+  - `pages/InventoryReservationsPage.tsx` - reservations timeline workspace (`#/inventory/reservations`):
+    - outlined summary + outlined filters + outlined timeline sections;
+    - reservations cards timeline with one left vertical line and centered dot marker per card item;
+    - reservation card composition:
+      - header row: order title + type chip + right-aligned `Open Order` action;
+      - body row: two nested outlined semantic blocks:
+        - `Reservation Details` (left, compact; target width about `20-25%`);
+        - `Reserved Products` (right, wide; each product row is rendered as its own outlined item);
+      - non-expiring reservations (`expiresAt = null`) show `Active until delivery` instead of expired wording;
+    - filter set: `search(orderId)`, `type[]`, `fromDate`, `toDate`, `expiresBefore`, `sort(createdOn|expiresAt asc/desc)`;
+    - empty states:
+      - no active criteria: `No active reservations found`;
+      - active criteria: `No records found.`;
+    - pagination is hidden when list is empty.
+  - `pages/InventoryDetailsPage.tsx` - product inventory details (`#/inventory/:productId`) with summary cards and per-variant cards.
+  - `pages/InventoryHistoryPage.tsx` - inventory history workspace (`#/inventory/:productId/history`):
+    - two-block outlined layout: variants selector (left) + history table workspace (right);
+    - filters via accordion dialog (`type[]`, `orderId`, `fromDate`, `toDate`, `sortOrder`);
+    - chips for active filters (including removable sort chip when non-default sort is selected);
+    - table columns: `Date`, `Variant`, `Type`, `Quantity`, `Reserved`, `Comment`, `Manager`;
+    - product-level/variant-level endpoint switching by selected variant.
+  - `hooks/useInventoryPageState.ts` - list orchestration + query params.
+  - `hooks/useInventoryReservationsPageState.ts` - reservations page orchestration + filters/chips/pagination state.
+  - `hooks/useInventoryHistoryPageState.ts` - history page orchestration + variant scope + filters + pagination.
+  - `hooks/useInventoryQuery.ts` - query/mutation layer for list/reservations/details, stock adjustment, and variant settings updates.
+  - `components/InventoryFiltersDialog.tsx`, `InventoryFilterChips.tsx`, `InventoryHistoryFiltersDialog.tsx`, `InventoryHistoryFilterChips.tsx` - inventory filters UX.
+  - reservations page components:
+    - `InventoryReservationsSummary.tsx`
+    - `InventoryReservationsFiltersDialog.tsx`
+    - `InventoryReservationsFilterChips.tsx`
+    - `InventoryReservationCard.tsx`
+  - `config/inventoryReservations.config.ts` - reservations sort options and mapping helpers.
+  - `config/inventoryHistoryTableColumns.ts` - inventory history table schema and renderers.
+  - `components/InventoryAdjustDialog.tsx` - variant adjustment modal:
+    - current-state cards (`Quantity`, `Reserved`, `Available`) use neutral outlined borders;
+    - fields: `Adjustment Type`, `Adjustment Amount` / `New Quantity`, optional `Reason`, optional `Comment`;
+    - `Comment` max length is `250`;
+    - preview block includes `Quantity`, `Available`, `Reserved`, `Change`;
+    - save is blocked for invalid payloads (non-integer/<=0, negative result, `quantityAfter < reserved`);
+    - footer action order is `Save Adjustment` then `Cancel`.
+  - `components/InventorySettingsDialog.tsx` - variant settings modal:
+    - current-state cards (`Quantity`, `Reserved`, `Available`) use neutral outlined borders;
+    - fields: `Low Stock Threshold`, `Direct Order` (`Allowed`/`Blocked`);
+    - preview block includes only `Threshold` and `Direct Order` cards;
+    - footer action order is `Save Settings` then `Cancel`.
+  - `inventory.ui-text.ts` - labels, validation text, toast text.
 - `features/customers` (implemented in iteration 5)
   - `pages/CustomersPage.tsx` - list, filters, export, pagination, delete flow
     - list table columns: `Email`, `Name`, `State`, `City`, `Created On`, `Actions`.
@@ -347,9 +408,11 @@ Top-level source layout:
   - `DataTable`
   - `SearchToolbar`
     - search apply button is enabled only when search input contains a non-empty value
+    - optional `searchPlaceholder` prop is supported for page-specific search copy.
   - `FilterDialog` (generic modal, still used by customers page)
-  - `FilterChips` (generic chips, still used by customers page)
-    - supports optional label prefixes for search/filter values (for example `Search: foo`, `State: NY`).
+  - `FilterChips` (generic chips renderer used by customers, managers, products, orders, inventory, and inventory history)
+    - supports legacy `search/filters` mode and unified `items[]` mode;
+    - shared hover behavior for filter chips is centralized here.
   - `ExportDialog`
   - `PaginationControls`
   - `ConfirmDialog`
@@ -387,13 +450,18 @@ Avoid relying on:
 Use three visual separation levels:
 
 1. Page sections:
+
 - subtle outer border;
 - low contrast;
 - large grouping containers.
+
 2. Semantic blocks inside sections:
+
 - slightly stronger border;
 - used for related operational data.
+
 3. Interactive/editable elements:
+
 - strongest border contrast;
 - hover/focus states allowed;
 - visually distinguish actionable areas.
@@ -473,9 +541,14 @@ Routes:
   - `/orders`
   - `/orders/add`
   - `/orders/:orderId`
+  - `/inventory`
+  - `/inventory/reservations`
+  - `/inventory/:productId`
+  - `/inventory/:productId/history`
   - `/categories`
   - `/products`
   - `/products/add`
+  - `/products/:productId`
   - `/products/:productId/edit`
   - `/customers`
   - `/customers/add`
@@ -560,6 +633,11 @@ Existing scope prefixes to follow:
 - `products-list-*`
 - `products-upsert-*`
 - `product-details-dialog-*`
+- `inventory-list-*`
+- `inventory-details-page-*`
+- `inventory-adjust-dialog-*`
+- `inventory-settings-dialog-*`
+  - `inventory-history-*`
 - `categories-page-*`
 - `categories-tree-*`
 - `search-toolbar-*`

@@ -1,4 +1,12 @@
-import { CircularProgress, FormControl, MenuItem, Pagination, Select, Stack, Typography } from '@mui/material'
+import {
+  CircularProgress,
+  FormControl,
+  MenuItem,
+  Pagination,
+  Select,
+  Stack,
+  Typography,
+} from '@mui/material'
 import { PAGE_LIMIT_OPTIONS } from '@/constants/dictionaries'
 
 type Props = {
@@ -10,7 +18,14 @@ type Props = {
   onLimitChange: (limit: number) => void
 }
 
-export function PaginationControls({ total, page, limit, isLoading = false, onPageChange, onLimitChange }: Props) {
+export function PaginationControls({
+  total,
+  page,
+  limit,
+  isLoading = false,
+  onPageChange,
+  onLimitChange,
+}: Props) {
   const pageCount = Math.max(Math.ceil(total / limit), 1)
 
   return (
@@ -22,19 +37,41 @@ export function PaginationControls({ total, page, limit, isLoading = false, onPa
       sx={{ px: { xs: 0, md: 1.5 }, pt: 0.5 }}
       data-testid="pagination-controls"
     >
-      <Stack direction="row" spacing={1} alignItems="center" data-testid="pagination-controls-limit-section">
-        <Typography variant="body2" data-testid="pagination-controls-limit-label">Items on page:</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        data-testid="pagination-controls-limit-section"
+      >
+        <Typography variant="body2" data-testid="pagination-controls-limit-label">
+          Items on page:
+        </Typography>
         <FormControl size="small" data-testid="pagination-controls-limit-control">
-          <Select value={limit} onChange={(event) => onLimitChange(Number(event.target.value))} disabled={isLoading} data-testid="pagination-controls-limit-select">
+          <Select
+            value={limit}
+            onChange={(event) => onLimitChange(Number(event.target.value))}
+            disabled={isLoading}
+            data-testid="pagination-controls-limit-select"
+          >
             {PAGE_LIMIT_OPTIONS.map((value) => (
-              <MenuItem key={value} value={value} data-testid={`pagination-controls-limit-option-${value}`}>
+              <MenuItem
+                key={value}
+                value={value}
+                data-testid={`pagination-controls-limit-option-${value}`}
+              >
                 {value}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
         {isLoading ? (
-          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ pl: 0.5 }} data-testid="pagination-controls-loading-state">
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            sx={{ pl: 0.5 }}
+            data-testid="pagination-controls-loading-state"
+          >
             <CircularProgress size={14} />
             <Typography variant="caption" color="text.secondary">
               Updating...

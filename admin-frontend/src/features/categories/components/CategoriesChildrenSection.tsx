@@ -67,7 +67,11 @@ export function CategoriesChildrenSection({
       </Stack>
       {isAddChildDisabled ? (
         <Tooltip title={addChildDisabledReason}>
-          <Typography variant="caption" color="text.secondary" data-testid="categories-page-add-child-disabled-reason">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            data-testid="categories-page-add-child-disabled-reason"
+          >
             {addChildDisabledReason}
           </Typography>
         </Tooltip>

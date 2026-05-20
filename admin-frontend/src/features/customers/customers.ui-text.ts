@@ -100,7 +100,8 @@ export const customersUiText = {
     stateRequired: 'State is required',
     stateInvalid: 'State must be a valid 2-letter code',
     cityRequired: 'City is required',
-    cityInvalid: 'City must be 1-20 characters and may include spaces, dots, hyphens, and apostrophes',
+    cityInvalid:
+      'City must be 1-20 characters and may include spaces, dots, hyphens, and apostrophes',
     streetRequired: 'Street is required',
     streetInvalid: 'Street must be 1-40 alphanumeric characters',
     houseInvalid: 'House must be in range 1-999',

@@ -2,26 +2,33 @@ import { Box, Button, CircularProgress, Stack, TextField } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import DownloadIcon from '@mui/icons-material/Download'
+import type { ReactNode } from 'react'
 
 type Props = {
   searchDraft: string
   hasActiveSearch?: boolean
+  searchPlaceholder?: string
   onSearchDraftChange: (value: string) => void
   onSearchApply: () => void
   onOpenFilters: () => void
-  onOpenExport: () => void
+  onOpenExport?: () => void
   isSearching?: boolean
   disableFilterButton?: boolean
+  showExportButton?: boolean
+  afterFilterControl?: ReactNode
 }
 
 export function SearchToolbar({
   searchDraft,
+  searchPlaceholder = 'Type a value...',
   onSearchDraftChange,
   onSearchApply,
   onOpenFilters,
-  onOpenExport,
+  onOpenExport = () => {},
   isSearching = false,
   disableFilterButton = false,
+  showExportButton = true,
+  afterFilterControl = null,
 }: Props) {
   const canApplySearch = Boolean(searchDraft.trim())
 
@@ -35,7 +42,7 @@ export function SearchToolbar({
     >
       <TextField
         size="small"
-        placeholder="Type a value..."
+        placeholder={searchPlaceholder}
         value={searchDraft}
         onChange={(event) => onSearchDraftChange(event.target.value)}
         sx={{ minWidth: { xs: '100%', md: 320 } }}
@@ -60,10 +67,20 @@ export function SearchToolbar({
       >
         Filter
       </Button>
-      <Box sx={{ flexGrow: 1 }} />
-      <Button variant="contained" startIcon={<DownloadIcon />} onClick={onOpenExport} data-testid="search-toolbar-export-button">
-        Export
-      </Button>
+      {afterFilterControl}
+      {showExportButton ? (
+        <>
+          <Box sx={{ flexGrow: 1 }} />
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={onOpenExport}
+            data-testid="search-toolbar-export-button"
+          >
+            Export
+          </Button>
+        </>
+      ) : null}
     </Stack>
   )
 }

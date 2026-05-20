@@ -84,10 +84,11 @@ export function OrderProductQuantityControl({
             textAlign: 'center',
             px: 0.5,
           },
-          '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': {
-            appearance: 'none',
-            margin: 0,
-          },
+          '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
+            {
+              appearance: 'none',
+              margin: 0,
+            },
           '& input[type=number]': {
             MozAppearance: 'textfield',
           },

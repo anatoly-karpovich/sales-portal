@@ -19,7 +19,7 @@ export const getTodaysDate = (withTime: boolean) => {
 
 type HistorySource = {
   status: IHistory["status"];
-  customer: Types.ObjectId | string | { _id: Types.ObjectId | string };
+  customer: Types.ObjectId | string | { _id?: Types.ObjectId | string } | undefined;
   products: IProductInOrder[];
   delivery: IHistory["delivery"];
   total_price: number;
@@ -50,6 +50,9 @@ export function createHistoryEntry(
     typeof orderCustomer === "object" && orderCustomer !== null && "_id" in orderCustomer
       ? orderCustomer._id
       : orderCustomer;
+  if (!customerValue) {
+    throw new Error("Customer id was not provided for history entry");
+  }
   const customerId = new Types.ObjectId(customerValue as Types.ObjectId | string);
   return {
     action,

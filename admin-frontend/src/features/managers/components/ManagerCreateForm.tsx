@@ -206,5 +206,3 @@ export function ManagerCreateForm({ isSubmitting, onSubmit }: Props) {
     </Paper>
   )
 }
-
-

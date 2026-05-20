@@ -2,10 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
-import { getNotifications, readAllNotifications, readNotification, type NotificationItem } from '@/api/modules/notifications.api'
+import {
+  getNotifications,
+  readAllNotifications,
+  readNotification,
+  type NotificationItem,
+} from '@/api/modules/notifications.api'
 import { TOKEN_STORAGE_KEY } from '@/api/client'
 import { useAuth } from '@/features/auth/useAuth'
-import { NotificationsContext, type NotificationsContextValue } from '@/features/notifications/notifications.context'
+import {
+  NotificationsContext,
+  type NotificationsContextValue,
+} from '@/features/notifications/notifications.context'
 
 type Props = {
   children: React.ReactNode
@@ -26,7 +34,11 @@ export function NotificationsProvider({ children }: Props) {
 
   const enabled = state === 'authenticated'
 
-  const { data: notifications = [], isLoading, refetch } = useQuery({
+  const {
+    data: notifications = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => getNotifications(),
     enabled,

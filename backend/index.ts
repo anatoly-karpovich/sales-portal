@@ -7,7 +7,11 @@ import fileUpload from "express-fileupload";
 import swaggerDocs from "./utils/swagger.js";
 import { errorHandleMiddleware } from "./middleware/errorHandleMiddleware";
 import cors from "cors";
-import { startNotificationCleanup } from "./utils/cron";
+import { startNotificationCleanup } from "./cron/notificationCleanup.job";
+import {
+  DEFAULT_RESERVATION_CRON_INTERVAL_MS,
+  startReservationExpirationJob,
+} from "./cron/reservationExpiration.job";
 import {
   authRouter,
   customerOrdersRouter,
@@ -25,9 +29,11 @@ import {
   settingsRouter,
   pricingRouter,
   categoriesRouter,
+  inventoryRouter,
 } from "./routers/index.js";
 import { seed } from "./mongo/init";
 import { getDbUrl } from "./mongo/url";
+import { SettingsService } from "./services/settings.service";
 
 dotenv.config();
 
@@ -63,11 +69,13 @@ app.use("/api", notificationRouter);
 app.use("/api", settingsRouter);
 app.use("/api", pricingRouter);
 app.use("/api", categoriesRouter);
+app.use("/api", inventoryRouter);
 app.use(errorHandleMiddleware);
 
 async function startApp() {
   const DB_URL = getDbUrl();
   const PORT = +process.env.PORT || 5000;
+  const settingsService = new SettingsService();
   try {
     mongoose.connect(DB_URL, {});
     await seed();
@@ -77,6 +85,9 @@ async function startApp() {
       console.log("Server started on port " + PORT);
     });
     swaggerDocs(app);
+    const settings = await settingsService.get();
+    const reservationIntervalMs = settings?.reservations?.cronIntervalMs ?? DEFAULT_RESERVATION_CRON_INTERVAL_MS;
+    await startReservationExpirationJob(reservationIntervalMs);
   } catch (e) {
     console.log(e);
   }

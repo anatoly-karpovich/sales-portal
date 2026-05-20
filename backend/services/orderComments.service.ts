@@ -34,7 +34,8 @@ class OrderCommentsService {
       comments: [...currentOrder.comments, comment],
     };
 
-    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, newOrder, { new: true });
+    const { inventoryReservation: _inventoryReservation, ...persistedOrder } = newOrder;
+    const updatedOrder = await Order.findByIdAndUpdate(newOrder._id, persistedOrder, { new: true });
     if (!updatedOrder) {
       throw new Error("Order not found");
     }
@@ -44,7 +45,7 @@ class OrderCommentsService {
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "commentAdded",
-        message: NOTIFICATIONS.commentAdded,
+        message: NOTIFICATIONS.commentAdded(updatedOrder._id.toString()),
       });
     }
     return OrderService.getOrder(updatedOrder._id);
@@ -58,7 +59,7 @@ class OrderCommentsService {
         managerId: updatedOrder.assignedManager._id.toString(),
         orderId: updatedOrder._id.toString(),
         type: "commentDeleted",
-        message: NOTIFICATIONS.commentDeleted,
+        message: NOTIFICATIONS.commentDeleted(updatedOrder._id.toString()),
       });
     }
     return updatedOrder;
