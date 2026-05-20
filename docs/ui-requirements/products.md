@@ -1,93 +1,142 @@
 # Products Module - UI Requirements
 
-> Purpose: give operations teams one workspace for the product catalog so they can browse, search, filter, and run CRUD flows with clear feedback.
+> Purpose: provide one operational workspace for catalog products, including list/search/filter/delete, create flow with variants, and inline edit on product details.
 
 ## Quick Facts
 
 | Aspect | Details |
 | --- | --- |
-| Entry points | `#/products`, `#/products/add`, `#/products/{id}/edit` |
-| APIs | `/api/products`, `/api/products/:id` |
-| Shared widgets | Header actions, search, data table, export modal, pagination, confirmation modal |
+| Entry points | `#/products`, `#/products/add`, `#/products/{id}` |
+| APIs | `/api/products`, `/api/products/:id`, `/api/products/:id/status`, `/api/products/:id/variants` |
+| Shared widgets | Search toolbar, filters dialog, filter chips, data table, export dialog, pagination, confirmation dialog |
 | Success copy | "Product was successfully created/updated/deleted" |
-| Error copy | "Failed to create product", "Unable to update products. Please try again later.", etc. |
+| Error copy | "Unable to update products. Please try again later.", API-specific fallback copy |
 
-## Page Anatomy
+## Products List (`#/products`)
 
-| Block | Description | Notes |
+### Layout
+- Header with title `Products List` and `+ Add Product` button.
+- Utility row with search, filters, export, and chips.
+- Data table + pagination.
+
+### Table
+- Columns: `Name`, `Price`, `Manufacturer`, `Status`, `Variants`, `Created On`, `Actions`.
+- Sortable columns: `Name`, `Price`, `Manufacturer`, `Status`, `Variants`, `Created On`.
+- `Name` cell includes a thumbnail (`36x36`) on the left and product name on the right.
+  - Image source: product `imageUrl`.
+  - Fallback when empty: default asset `no-image-product.jpeg`.
+- Status color mapping:
+  - `Active` -> `primary.main`
+  - `Archived` -> `warning.main`
+  - `Draft` -> `text.primary`
+
+### List Actions
+- `Details` navigates to `#/products/{id}`.
+- `Delete` opens confirm dialog (`Yes, Delete` / `Cancel`) and refetches list on success.
+
+### Filters and Chips
+- Filters dialog sections (single expanded accordion at a time):
+  - `Manufacturers`
+  - `Product Status`
+  - `Price` (`Min Price`, `Max Price`)
+- Price validation: `min <= max` when both values are set.
+- Chips prefixes:
+  - `Search:`
+  - `Manufacturer:`
+  - `Status:`
+  - `Price:`
+
+### Empty States
+- With active criteria: `No records found.`
+- Without criteria and no data: `No products created yet.`
+
+## Create Product (`#/products/add`)
+
+### Form Composition
+- Single create page with semantic sections:
+  - `Parent product`
+  - `Product category`
+  - `Attributes`
+  - `Variants`
+- Back link: `Products`.
+- Header chip: `Draft Product`.
+
+### Parent Product
+- Fields:
+  - `Name` (required, `3-40`, letters/numbers/single spaces).
+  - `Manufacturer` (required, source: `settings.catalog.manufacturers`).
+  - `Parent image URL` (optional, must be valid `http(s)` URL when provided).
+  - `Description` (optional multiline).
+
+### Category
+- Category is required.
+- Category selector supports only leaf assignment.
+- If categories/manufacturers are unavailable, create flow is blocked with warning state.
+
+### Attributes and Variants
+- Attributes are optional.
+- Attribute names must be unique and non-empty.
+- Attribute values are deduplicated and normalized.
+- Variants can be added manually (`Add One Variant`) or generated (`Generate All Combinations`).
+- Each variant requires:
+  - valid attribute combination;
+  - `Price > 0` with up to 2 decimals;
+  - optional valid `http(s)` image URL.
+- Save is disabled until parent/category/variants pass validation.
+
+### Submit
+- Primary action: `Save Product`.
+- On success, redirect to `#/products`.
+
+## Product Details (`#/products/{id}`)
+
+### Header
+- Back link to `#/products`.
+- Product title + status chip + activate/archive action.
+- Meta: manufacturer, category path, created/updated dates.
+- Actions:
+  - `Manage Inventory` -> `#/inventory/{id}`
+  - `Delete Product`
+
+### Sectioned Inline Editing
+- `Product info`: inline edit mode for parent fields (`name`, `manufacturer`, `description`, `imageUrl`).
+- `Category`: inline edit mode for category reassignment.
+- `Attributes & Variants`: inline edit modes for:
+  - bulk attributes/variants editor;
+  - single variant editor.
+- Unsaved changes in edit modes use discard confirmation dialog.
+
+### Read-only Rendering Rules
+- Parent image is displayed in details with fallback to `no-image-product.jpeg`.
+- In `Attributes & Variants` read-only mode:
+  - attributes are rendered above variant cards;
+  - each variant card displays image on the left and text content on the right;
+  - variant image uses own `imageUrl` when provided;
+  - otherwise variant image falls back to parent image (which itself falls back to default).
+
+### Variant Operations
+- Toggle variant status (`Active`/`Archived`).
+- Edit single variant (`price`, `attributes`, optional `imageUrl`).
+- Delete variant (blocked when only one variant remains).
+- Bulk save updates variants and (when changed) attributes.
+
+## Backend Contracts Used by UI
+
+| Method | Endpoint | Usage |
 | --- | --- | --- |
-| Header strip | Title plus `+ Add Product` button linking to the add page | Button stays primary-styled down to mobile widths |
-| Utility row | Search bar, Filter button, prefixed chip container | Search limited to 40 chars; filters modal has accordions for manufacturers, product statuses, and price range |
-| Data table | Columns Name, Price, Manufacturer, Status, Variants, Created On | Sortable columns: Name, Price, Manufacturer, Status, Variants, Created On |
-| Row actions | Details, Edit, Delete | Icon buttons with tooltips; Delete always opens confirmation modal |
-| Pagination | Standard controls under the table | If a page empties (after delete), step back and refetch |
-
-## Key Interactions
-
-### Searching and Filtering
-- Search button stays disabled until the input has text. Submitting stores the query in `state.search.products`, renders chip `Search: <value>`, clears the input, and calls `getSortedProducts`.
-- Products page uses dedicated filters modal with 3 accordion sections:
-  - `Manufacturers` (multi-select checkboxes, source: `settings.catalog.manufacturers`);
-  - `Product Status` (multi-select checkboxes: `Draft | Active | Archived`);
-  - `Price` (`Min Price`, `Max Price`, decimal input with dot only).
-- Only one accordion can be expanded at a time; selected counters are shown per section when values are selected.
-- Price rules:
-  - `min` and `max` can be used independently or together;
-  - when both are provided, `min <= max` is required;
-  - invalid range blocks `Apply`, marks both inputs as invalid, and shows helper validation text under inputs.
-- Applied filters are represented as prefixed chips:
-  - `Search: <value>`
-  - `Manufacturer: <value>`
-  - `Status: <value>`
-  - `Price: >= $X`, `Price: <= $Y`, or `Price: $X - $Y`
-- Chips removal updates local filter state and triggers refetch with the updated criteria.
-
-### Table Actions
-- **Details** opens the Product Details modal (read-only fields, formatted timestamps, Edit shortcut).
-- **Edit** navigates to `#/products/{id}/edit`.
-- **Delete** shows the standard confirmation modal ("Yes, Delete" / "Cancel"). Confirmed deletes disable both buttons, show a spinner, send the request, then display success/error toasts.
-
-### Table Status Styling
-- Status column is color-coded for quick scan:
-  - `Active` -> blue (`primary.main`)
-  - `Archived` -> yellow-ish (`warning.main`)
-  - `Draft` -> neutral (`text.primary`)
-
-### Create and Edit Forms
-
-| Field | Validation | Notes |
-| --- | --- | --- |
-| Name | 3-40 alphanumeric chars with single spaces | Required |
-| Manufacturer | Dropdown (Apple...Tesla) | Required |
-| Price | 1-99999 | Numeric text input |
-| Amount | 0-999 | Numeric text input |
-| Notes | Up to 250 chars, no `<` or `>` | Textarea |
-
-- Responsive two-column layout with inline validation. Invalid inputs highlight the field and disable the Save button.
-- Add view buttons: `Save New Product`, `Clear all`, and a breadcrumb-style back link.
-- Edit view reuses the form, renames the primary CTA to `Save Changes`, and adds `Delete Product`. Save stays disabled until the user changes a value.
-
-## Loading and Empty States
-- The table container shows a spinner overlay while data loads.
-- When search/filter criteria return zero rows, show "No records found." while keeping chips visible so filters can be removed quickly.
-- When the product dataset is empty without active search/filters, show "No products created yet."
-
-## Backend Contracts
-
-| Method | Endpoint | Notes |
-| --- | --- | --- |
-| GET | `/api/products` | Accepts `search`, repeated `manufacturer`, repeated `status`, `minPrice`, `maxPrice`, `sortField` (`name|price|manufacturer|category|status|createdOn|variantsCount`), `sortOrder` (`asc|desc`), `page` (`>= 1`), `limit` (`10-100`). Responds with `{ Products, total, page, limit, sorting }`. |
-| GET | `/api/products/:id` | Used for edit/details views. |
-| POST | `/api/products` | Creates a product. |
-| PUT | `/api/products/:id` | Updates fields. |
-| DELETE | `/api/products/:id` | Returns `204` on success. |
-
-All mutations return `{ IsSuccess, ErrorMessage }`; surface this output via toasts using the success/error copy above.
+| GET | `/api/products` | List with search/filter/sort/pagination |
+| GET | `/api/products/:id` | Product details |
+| POST | `/api/products` | Create product with attributes/variants |
+| PATCH | `/api/products/:id` | Update parent/category fields |
+| PATCH | `/api/products/:id/status` | Activate/archive product |
+| PUT | `/api/products/:id/variants` | Replace full variants set (and optional attributes) |
+| PATCH | `/api/products/:id/variants/:variantId` | Patch single variant |
+| PATCH | `/api/products/:id/variants/:variantId/status` | Toggle single variant status |
+| DELETE | `/api/products/:id/variants/:variantId` | Delete variant |
+| DELETE | `/api/products/:id` | Delete product |
 
 ## UX Guardrails
-- Keep Save buttons disabled whenever validation fails or the form matches the stored data.
-- After deleting, recalculate pagination so the list never shows an empty page.
-- Edit view should always rely on the same Delete confirmation flow as the list to provide a consistent experience.
-- Product category selection must allow only leaf categories; non-leaf categories are visible but not selectable.
-- Category links from product details should open `#/categories?selectedId=<categoryId>` and preselect that node in categories workspace.
-- Product details view should provide a `Manage Inventory` action that opens `#/inventory/{id}`.
+- Keep destructive actions behind confirmation dialogs.
+- Keep save actions disabled on invalid payloads or unchanged draft.
+- Keep pagination stable after deletions (auto-step back from empty page when needed).
+- Category links from product details should open `#/categories?selectedId=<categoryId>` and preselect that node.

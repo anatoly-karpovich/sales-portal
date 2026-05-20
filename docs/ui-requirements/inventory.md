@@ -53,7 +53,7 @@
 - Header with page title `Inventory Reservations`.
 - Three outlined semantic blocks inside page shell:
   - summary cards block;
-  - filters block (`SearchToolbar` + filter chips);
+  - filters block (`SearchToolbar` + filter chips + sort select in utility row);
   - timeline cards block.
 - Timeline cards block uses vertical feed styling:
   - one left vertical line across the list;
@@ -74,10 +74,10 @@
 - Filters dialog sections (one expanded accordion at a time):
   - `Reservation Type` (`Admin Draft`, `Order Processing`, `Customer Draft`);
   - `Created Date` (`From Date`, `To Date`);
-  - `Expires Before` (`datetime-local`);
-  - `Sort`:
-    - `Created On (Newest|Oldest)`
-    - `Expires At (Newest|Oldest)`.
+  - `Expires Before` (`datetime-local`).
+- Sort is controlled by a dedicated select in the utility row:
+  - `Created On (Newest|Oldest)`
+  - `Expires At (Newest|Oldest)`.
 
 ### Chips
 - Applied chips are removable and prefixed:
@@ -85,8 +85,7 @@
   - `Type:`
   - `From:`
   - `To:`
-  - `Expires before:`
-  - `Sort:`
+  - `Expires before:`.
 
 ### Reservation Card Composition
 - Header row:
@@ -125,7 +124,7 @@
 ### Variants Section
 - Variant cards display:
   - variant title + status chips (`variant.status`, `variant.stockStatus`);
-  - manufacturer and attribute chips;
+  - manufacturer as text label and attributes as chips;
   - available block;
   - metrics (`Quantity`, `Reserved`, `Threshold`, `Direct Order`).
 - Per-variant actions:
@@ -152,10 +151,10 @@
 - Filter dialog uses accordion sections; only one section can be expanded at a time.
 - Supported filters:
   - `Adjustment Type` (multi-select from full backend enum);
-  - `Order ID`;
   - `From Date`;
-  - `To Date`;
-  - `Sort` (`Newest first` / `Oldest first`).
+  - `To Date`.
+- `Order ID` is applied from the page search toolbar (`Type order number...`).
+- Sorting is controlled from table header (`Date` column), toggling `asc/desc`.
 - Applied filters are shown as removable chips.
 - No dedicated empty placeholder area for chips should be shown when no filter is active.
 

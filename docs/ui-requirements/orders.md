@@ -7,9 +7,9 @@
 | Aspect                 | Details                                                                                                                                                                                                                                                                                                        |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Entry points           | `#/orders`, `#/orders/add`, `#/orders/{id}`                                                                                                                                                                                                                                                                    |
-| APIs                   | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/orders/pricing`, `/api/settings` |
+| APIs                   | `/api/orders`, `/api/orders/:id`, `/api/orders/:id/status`, `/api/orders/:id/delivery`, `/api/orders/:id/pickup`, `/api/orders/:id/receive`, `/api/orders/:id/assign-manager/:managerId`, `/api/orders/:id/unassign-manager`, `/api/orders/:id/comments`, `/api/orders/:id/comments/{commentId}`, `/api/orders/pricing`, `/api/settings` |
 | Status model           | Order status: `Draft / In Process / Completed / Canceled`; delivery status source: `order.delivery.status`                                                                                                                                                                                                     |
-| Delivery status values | `Draft`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`                                                                                                                                                                                                                          |
+| Delivery status values | `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, `Pickup Scheduled`, `Partially Delivered`, `Delivered`                                                                                                                                                                                    |
 | Filter key contract    | Request key remains `deliveryStatus`, but values are matched against `delivery.status`                                                                                                                                                                                                                         |
 
 ## List View
@@ -67,9 +67,9 @@
 
 ### Action Gates
 
-- `Process` is visible for `Draft`; enabled only when `delivery.status` is `Delivery Scheduled` or `Pickup Scheduled`.
+- `Process` is visible for `Draft`; enabled only when `delivery.status` is `Delivery Planned` or `Pickup Planned`.
 - On `Process`, backend keeps current assignee; if assignee is missing, backend auto-assigns current performer.
-- `Cancel` is visible for `Draft` and `In Process`; enabled only when `delivery.status` is `Draft`, `Delivery Scheduled`, or `Pickup Scheduled`.
+- `Cancel` is visible for `Draft` and `In Process`; enabled only when `delivery.status` is `Draft`, `Delivery Planned`, `Pickup Planned`, `Delivery Scheduled`, or `Pickup Scheduled`.
 - `Receive` mode is available only when:
   - `status = In Process`
   - `delivery.status in [Delivery Scheduled, Pickup Scheduled, Partially Delivered]`
@@ -101,7 +101,7 @@
 - `delivery` is always present in details payload.
 - Draft delivery gates:
   - `Draft + delivery.status=Draft` -> show `Schedule`.
-  - `Draft + delivery.status in [Delivery Scheduled, Pickup Scheduled]` -> show edit icon.
+  - `Draft + delivery.status in [Delivery Planned, Pickup Planned]` -> show edit icon.
 - Form payload remains `condition + address + express?`.
 - `Express` is only for `Delivery`; for `Pickup` it is omitted.
 - `Delivery` condition:
@@ -136,7 +136,7 @@
 | Change status             | `PUT /api/orders/:id/status`                                                  |
 | Assign manager            | `PUT /api/orders/:id/assign-manager/:managerId`                               |
 | Unassign manager          | `PUT /api/orders/:id/unassign-manager`                                        |
-| Schedule or edit delivery | `POST /api/orders/:id/delivery`                                               |
+| Schedule or edit delivery | `PATCH /api/orders/:id/delivery` (Delivery), `PATCH /api/orders/:id/pickup` (Pickup) |
 | Receive products          | `POST /api/orders/:id/receive`                                                |
 | Manage comments           | `POST /api/orders/:id/comments`, `DELETE /api/orders/:id/comments/:commentId` |
 
