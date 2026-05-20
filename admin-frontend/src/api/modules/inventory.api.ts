@@ -3,18 +3,11 @@ import { apiClient } from '@/api/client'
 export type InventoryStatus = 'In Stock' | 'Low Stock' | 'Out Of Stock' | 'Not Tracked'
 export type InventoryRecordStatus = 'Active' | 'Archived'
 export type ProductStatus = 'Draft' | 'Active' | 'Archived'
-export const INVENTORY_MANUAL_ADJUSTMENT_TYPES = [
-  'Manual Increase',
-  'Manual Decrease',
-  'Manual Correction',
-  'Damage',
-  'Return',
-] as const
+export const INVENTORY_MANUAL_ADJUSTMENT_TYPES = ['Stock Receipt', 'Manual Correction'] as const
 export type InventoryManualAdjustmentType = (typeof INVENTORY_MANUAL_ADJUSTMENT_TYPES)[number]
 export const INVENTORY_ADJUSTMENT_TYPES = [
   'Initial Stock',
-  'Manual Increase',
-  'Manual Decrease',
+  'Stock Receipt',
   'Manual Correction',
   'Reserve',
   'Release',
@@ -254,7 +247,9 @@ type NormalizedInventoryReservationsResponse = Omit<
   }
 }
 
-function normalizeInventoryReservationType(type: InventoryReservationTypeRaw): InventoryReservationType {
+function normalizeInventoryReservationType(
+  type: InventoryReservationTypeRaw,
+): InventoryReservationType {
   if (type === 'Customer Payment') {
     return 'Customer Draft'
   }
@@ -295,14 +290,17 @@ export async function getInventoryReservations(query: InventoryReservationsQuery
       processing: 0,
       reservedUnits: 0,
     } satisfies InventoryReservationsSummary)
-  const rawFilters = (data as { filters?: Partial<InventoryReservationsResponse['filters']> }).filters
+  const rawFilters = (data as { filters?: Partial<InventoryReservationsResponse['filters']> })
+    .filters
   const rawFilterTypes = Array.isArray(rawFilters?.type) ? rawFilters.type : []
 
   return {
     ...data,
     Reservations: rawReservations.map((reservation) => ({
-      ...(reservation as Omit<InventoryReservationListItem, 'type'> & { type: InventoryReservationTypeRaw }),
-      ...reservation,
+      ...(reservation as Omit<InventoryReservationListItem, 'type'> & {
+        type: InventoryReservationTypeRaw
+      }),
+      ...(reservation as object),
       type: normalizeInventoryReservationType(
         (reservation as { type: InventoryReservationTypeRaw }).type,
       ),

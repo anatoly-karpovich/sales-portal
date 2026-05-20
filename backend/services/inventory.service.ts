@@ -815,11 +815,8 @@ class InventoryService {
       productId: Types.ObjectId;
       variantId: Types.ObjectId;
       type:
-        | INVENTORY_ADJUSTMENT_TYPES.MANUAL_INCREASE
-        | INVENTORY_ADJUSTMENT_TYPES.MANUAL_DECREASE
         | INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION
-        | INVENTORY_ADJUSTMENT_TYPES.DAMAGE
-        | INVENTORY_ADJUSTMENT_TYPES.RETURN;
+        | INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT;
       quantity: number;
       reason?: string;
       comment?: string;
@@ -839,18 +836,9 @@ class InventoryService {
         let afterQuantity = beforeQuantity;
         let quantityChange = 0;
 
-        if (
-          payload.type === INVENTORY_ADJUSTMENT_TYPES.MANUAL_INCREASE ||
-          payload.type === INVENTORY_ADJUSTMENT_TYPES.RETURN
-        ) {
+        if (payload.type === INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT) {
           quantityChange = payload.quantity;
           afterQuantity = beforeQuantity + payload.quantity;
-        } else if (
-          payload.type === INVENTORY_ADJUSTMENT_TYPES.MANUAL_DECREASE ||
-          payload.type === INVENTORY_ADJUSTMENT_TYPES.DAMAGE
-        ) {
-          quantityChange = -payload.quantity;
-          afterQuantity = beforeQuantity - payload.quantity;
         } else {
           quantityChange = payload.quantity - beforeQuantity;
           afterQuantity = payload.quantity;

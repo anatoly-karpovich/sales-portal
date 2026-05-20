@@ -43,11 +43,8 @@ export type InventoryAdjustmentCreateBodyDTO = {
   productId: string;
   variantId: string;
   type:
-    | INVENTORY_ADJUSTMENT_TYPES.MANUAL_INCREASE
-    | INVENTORY_ADJUSTMENT_TYPES.MANUAL_DECREASE
     | INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION
-    | INVENTORY_ADJUSTMENT_TYPES.DAMAGE
-    | INVENTORY_ADJUSTMENT_TYPES.RETURN;
+    | INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT;
   quantity: number;
   reason?: string;
   comment?: string;

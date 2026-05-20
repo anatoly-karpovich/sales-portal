@@ -67,7 +67,7 @@ export const inventoryUiText = {
       missingProductId: 'Product id is missing.',
       unavailable: 'Inventory details are unavailable.',
       noVariants: 'No inventory variants found.',
-      reason: 'Supplier delivery, correction, damaged item...',
+      reason: 'Supplier delivery, correction...',
       comment: 'Optional manager comment',
     },
     validation: {

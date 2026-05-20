@@ -229,10 +229,10 @@ inventoryRouter.get(
  *           nullable: true
  *     InventoryManualAdjustmentType:
  *       type: string
- *       enum: [Manual Increase, Manual Decrease, Manual Correction, Damage, Return]
+ *       enum: [Manual Correction, Stock Receipt]
  *     InventoryAdjustmentType:
  *       type: string
- *       enum: [Initial Stock, Manual Increase, Manual Decrease, Manual Correction, Reserve, Release, Sale, Return, Damage, Expired Reservation]
+ *       enum: [Initial Stock, Manual Correction, Stock Receipt, Reserve, Release, Sale, Return, Damage, Expired Reservation]
  *     InventoryAdjustment:
  *       type: object
  *       required: [inventoryId, productId, variantId, type, quantityChange, quantityBefore, quantityAfter, reservedBefore, reservedAfter, createdBy, createdOn]

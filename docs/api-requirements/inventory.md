@@ -87,7 +87,7 @@ Reservations summary:
 ## Adjustment and Reservation Semantics
 
 Manual adjustments (`POST /adjustments`):
-- allowed types: `Manual Increase`, `Manual Decrease`, `Manual Correction`, `Damage`, `Return`
+- allowed types: `Manual Correction`, `Stock Receipt`
 - update stock quantity;
 - must keep inventory invariants valid;
 - quantity cannot go below reserved amount (independent of `allowSellingOutOfStock`).

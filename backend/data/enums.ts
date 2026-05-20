@@ -45,9 +45,8 @@ export enum INVENTORY_RECORD_STATUSES {
 
 export enum INVENTORY_ADJUSTMENT_TYPES {
   INITIAL_STOCK = "Initial Stock",
-  MANUAL_INCREASE = "Manual Increase",
-  MANUAL_DECREASE = "Manual Decrease",
   MANUAL_CORRECTION = "Manual Correction",
+  STOCK_RECEIPT = "Stock Receipt",
   RESERVE = "Reserve",
   RELEASE = "Release",
   SALE = "Sale",

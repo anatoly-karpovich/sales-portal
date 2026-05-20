@@ -9,11 +9,8 @@ export const inventoryAdjustmentCreateSchema: AllowedSchema = {
     type: {
       type: "string",
       enum: [
-        INVENTORY_ADJUSTMENT_TYPES.MANUAL_INCREASE,
-        INVENTORY_ADJUSTMENT_TYPES.MANUAL_DECREASE,
         INVENTORY_ADJUSTMENT_TYPES.MANUAL_CORRECTION,
-        INVENTORY_ADJUSTMENT_TYPES.DAMAGE,
-        INVENTORY_ADJUSTMENT_TYPES.RETURN,
+        INVENTORY_ADJUSTMENT_TYPES.STOCK_RECEIPT,
       ],
     },
     quantity: { type: "integer", minimum: 1 },

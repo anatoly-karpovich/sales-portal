@@ -76,10 +76,8 @@ function buildAdjustmentPreview(
   }
 
   let quantityAfter = variant.quantity
-  if (type === 'Manual Increase' || type === 'Return') {
+  if (type === 'Stock Receipt') {
     quantityAfter = variant.quantity + quantity
-  } else if (type === 'Manual Decrease' || type === 'Damage') {
-    quantityAfter = variant.quantity - quantity
   } else {
     quantityAfter = quantity
   }
@@ -124,7 +122,7 @@ export function InventoryAdjustDialog({
   onClose,
   onSubmit,
 }: InventoryAdjustDialogProps) {
-  const [type, setType] = useState<InventoryManualAdjustmentType>('Manual Increase')
+  const [type, setType] = useState<InventoryManualAdjustmentType>('Stock Receipt')
   const [quantityInput, setQuantityInput] = useState('1')
   const [reason, setReason] = useState('')
   const [comment, setComment] = useState('')

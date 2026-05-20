@@ -188,13 +188,10 @@
 
 ### Form Fields
 - `Adjustment Type` options:
-  - `Manual Increase`
-  - `Manual Decrease`
   - `Manual Correction`
-  - `Damage`
-  - `Return`
+  - `Stock Receipt`
 - Quantity field label switches:
-  - `Adjustment Amount` for increase/decrease/damage/return
+  - `Adjustment Amount` for `Stock Receipt`
   - `New Quantity` for `Manual Correction`
 - Optional `Reason`
 - Optional `Comment` with max length `250`
