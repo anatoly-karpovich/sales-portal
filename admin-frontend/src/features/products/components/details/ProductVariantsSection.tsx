@@ -3,6 +3,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import { Box, Button, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import type { Product, ProductVariant } from '@/api/modules/products.api'
+import noImageProduct from '@/assets/no-image-product.jpeg'
 import type { ProductVariantsDraft } from '@/features/products/forms/productVariantsDraft'
 import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
 import { ProductVariantInlineEditor } from '@/features/products/components/details/ProductVariantInlineEditor'
@@ -102,6 +103,8 @@ export function ProductVariantsSection({
   onSaveSingleVariant,
   onCancelSingleVariantEdit,
 }: Props) {
+  const parentImageUrl = product.imageUrl?.trim() || noImageProduct
+
   return (
     <Paper
       variant="outlined"
@@ -160,159 +163,201 @@ export function ProductVariantsSection({
             onCancelVariants={onCancelVariants}
           />
         ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 1.5,
-              gridTemplateColumns: { xs: '1fr', xl: '1fr 1fr' },
-            }}
-          >
-            {product.variants.map((variant, variantIndex) => {
-              const isEditingThisVariant =
-                singleVariantDraft?.variantId === variant._id && Boolean(variant._id)
-              const isSinglePriceError =
-                singleVariantError === 'Price should be greater than 0.' ||
-                singleVariantError === 'Price can have max 2 decimal places.'
-              const singleVariantHeaderError =
-                isEditingThisVariant &&
-                singleVariantDraft &&
-                singleVariantError &&
-                !isSinglePriceError
-                  ? singleVariantError
-                  : ''
+          <Stack spacing={1.5}>
+            {isReadOnlyMode ? (
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+                data-testid="product-details-page-attributes-list-read-only"
+              >
+                <Typography sx={{ fontWeight: 700 }}>Attributes:</Typography>
+                {product.attributes.length === 0 ? (
+                  <Typography color="text.secondary">No attributes</Typography>
+                ) : (
+                  product.attributes.map((attribute) => (
+                    <Chip
+                      key={attribute.key}
+                      label={`${attribute.name}: ${attribute.values.join(', ')}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))
+                )}
+              </Stack>
+            ) : null}
 
-              return (
-                <Paper key={variant._id ?? variantIndex} variant="outlined" sx={{ p: 1.5 }}>
-                  <Stack spacing={1.25}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                          {product.name}
-                        </Typography>
-                        <Chip size="small" label={variant.status} variant="outlined" />
-                        <Tooltip title={productsUiText.detailsPage.actions.edit}>
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={!isReadOnlyMode || isEditingDisabled}
-                              onClick={() => onEnterSingleVariantEdit(variant)}
-                            >
-                              <EditOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Button
-                          size="small"
-                          color={variant.status === 'Active' ? 'warning' : 'success'}
-                          variant="outlined"
-                          disabled={!isReadOnlyMode || isEditingDisabled}
-                          onClick={() => onToggleVariantStatus(variant)}
-                        >
-                          {variant.status === 'Active' ? 'Archive' : 'Activate'}
-                        </Button>
-                      </Stack>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1.5,
+                gridTemplateColumns: { xs: '1fr', xl: '1fr 1fr' },
+              }}
+            >
+              {product.variants.map((variant, variantIndex) => {
+                const variantImageUrl = variant.imageUrl?.trim() || parentImageUrl
+                const isEditingThisVariant =
+                  singleVariantDraft?.variantId === variant._id && Boolean(variant._id)
+                const isSinglePriceError =
+                  singleVariantError === 'Price should be greater than 0.' ||
+                  singleVariantError === 'Price can have max 2 decimal places.'
+                const singleVariantHeaderError =
+                  isEditingThisVariant &&
+                  singleVariantDraft &&
+                  singleVariantError &&
+                  !isSinglePriceError
+                    ? singleVariantError
+                    : ''
 
-                      <Stack
-                        direction="row"
-                        spacing={0.75}
-                        alignItems="center"
-                        sx={{ flex: 1, minWidth: 0 }}
-                      >
-                        <Box
-                          sx={{
-                            flex: 1,
-                            minWidth: 0,
-                            display: 'flex',
-                            justifyContent: 'flex-start',
-                            alignItems: 'center',
-                            minHeight: 20,
-                          }}
-                        >
-                          {singleVariantHeaderError ? (
-                            <Stack
-                              direction="row"
-                              spacing={0.5}
-                              alignItems="center"
-                              sx={{ minWidth: 0 }}
-                            >
-                              <Box sx={{ width: 4, flexShrink: 0 }} />
-                              <ErrorOutlineOutlinedIcon
-                                sx={{ color: 'error.main', fontSize: 18 }}
-                              />
-                              <Typography
-                                variant="body2"
-                                color="error.main"
-                                noWrap
-                                title={singleVariantHeaderError}
+                return (
+                  <Paper key={variant._id ?? variantIndex} variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack spacing={1.25}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                            {product.name}
+                          </Typography>
+                          <Chip size="small" label={variant.status} variant="outlined" />
+                          <Tooltip title={productsUiText.detailsPage.actions.edit}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={!isReadOnlyMode || isEditingDisabled}
+                                onClick={() => onEnterSingleVariantEdit(variant)}
                               >
-                                {singleVariantHeaderError}
-                              </Typography>
-                            </Stack>
-                          ) : null}
-                        </Box>
-                        <Tooltip title="Delete">
-                          <span>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              disabled={
-                                !isReadOnlyMode || isEditingDisabled || product.variants.length <= 1
-                              }
-                              onClick={() => onOpenDeleteVariantConfirm(variant._id)}
-                            >
-                              <DeleteOutlineOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Stack>
-                    </Stack>
+                                <EditOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Button
+                            size="small"
+                            color={variant.status === 'Active' ? 'warning' : 'success'}
+                            variant="outlined"
+                            disabled={!isReadOnlyMode || isEditingDisabled}
+                            onClick={() => onToggleVariantStatus(variant)}
+                          >
+                            {variant.status === 'Active' ? 'Archive' : 'Activate'}
+                          </Button>
+                        </Stack>
 
-                    {isEditingThisVariant && singleVariantDraft ? (
-                      <ProductVariantInlineEditor
-                        attributes={product.attributes}
-                        draft={{
-                          price: singleVariantDraft.price,
-                          imageUrl: singleVariantDraft.imageUrl,
-                          attributes: singleVariantDraft.attributes,
-                        }}
-                        error={singleVariantError}
-                        isInteractionsLocked={isInteractionsLocked}
-                        canSave={canSaveSingleVariant}
-                        onChangeAttribute={onSetSingleVariantAttribute}
-                        onChangePrice={onSetSingleVariantPrice}
-                        onChangeImageUrl={onSetSingleVariantImageUrl}
-                        onSave={onSaveSingleVariant}
-                        onCancel={onCancelSingleVariantEdit}
-                      />
-                    ) : (
-                      <Stack spacing={0.75}>
-                        <Typography>
-                          <strong>Price:</strong> {formatPrice(variant.price)}
-                        </Typography>
-                        <Typography>
-                          <strong>Image:</strong>{' '}
-                          {variant.imageUrl?.trim() ||
-                            productsUiText.detailsPage.placeholders.useParentImage}
-                        </Typography>
-                        {product.attributes.map((attribute) => (
-                          <Typography key={`${variant._id ?? variantIndex}-${attribute.key}`}>
-                            <strong>{attribute.name}:</strong>{' '}
-                            {variant.attributes[attribute.key] ?? '-'}
-                          </Typography>
-                        ))}
-                        {product.attributes.length === 0 ? (
-                          <Typography>
-                            <strong>Variant:</strong>{' '}
-                            {toVariantTitle(variant, product.attributes) || '-'}
-                          </Typography>
-                        ) : null}
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          alignItems="center"
+                          sx={{ flex: 1, minWidth: 0 }}
+                        >
+                          <Box
+                            sx={{
+                              flex: 1,
+                              minWidth: 0,
+                              display: 'flex',
+                              justifyContent: 'flex-start',
+                              alignItems: 'center',
+                              minHeight: 20,
+                            }}
+                          >
+                            {singleVariantHeaderError ? (
+                              <Stack
+                                direction="row"
+                                spacing={0.5}
+                                alignItems="center"
+                                sx={{ minWidth: 0 }}
+                              >
+                                <Box sx={{ width: 4, flexShrink: 0 }} />
+                                <ErrorOutlineOutlinedIcon
+                                  sx={{ color: 'error.main', fontSize: 18 }}
+                                />
+                                <Typography
+                                  variant="body2"
+                                  color="error.main"
+                                  noWrap
+                                  title={singleVariantHeaderError}
+                                >
+                                  {singleVariantHeaderError}
+                                </Typography>
+                              </Stack>
+                            ) : null}
+                          </Box>
+                          <Tooltip title="Delete">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={
+                                  !isReadOnlyMode || isEditingDisabled || product.variants.length <= 1
+                                }
+                                onClick={() => onOpenDeleteVariantConfirm(variant._id)}
+                              >
+                                <DeleteOutlineOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
                       </Stack>
-                    )}
-                  </Stack>
-                </Paper>
-              )
-            })}
-          </Box>
+
+                      {isEditingThisVariant && singleVariantDraft ? (
+                        <ProductVariantInlineEditor
+                          attributes={product.attributes}
+                          draft={{
+                            price: singleVariantDraft.price,
+                            imageUrl: singleVariantDraft.imageUrl,
+                            attributes: singleVariantDraft.attributes,
+                          }}
+                          error={singleVariantError}
+                          isInteractionsLocked={isInteractionsLocked}
+                          canSave={canSaveSingleVariant}
+                          onChangeAttribute={onSetSingleVariantAttribute}
+                          onChangePrice={onSetSingleVariantPrice}
+                          onChangeImageUrl={onSetSingleVariantImageUrl}
+                          onSave={onSaveSingleVariant}
+                          onCancel={onCancelSingleVariantEdit}
+                        />
+                      ) : (
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+                          <Box
+                            component="img"
+                            src={variantImageUrl}
+                            alt={`${product.name} ${toVariantTitle(variant, product.attributes) || ''}`}
+                            sx={{
+                              width: 120,
+                              height: 120,
+                              borderRadius: 1.5,
+                              border: 1,
+                              borderColor: 'divider',
+                              objectFit: 'cover',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                            <Typography>
+                              <strong>Price:</strong> {formatPrice(variant.price)}
+                            </Typography>
+                            <Typography>
+                              <strong>Image URL:</strong> {variant.imageUrl?.trim() || '-'}
+                            </Typography>
+                            {product.attributes.map((attribute) => (
+                              <Typography key={`${variant._id ?? variantIndex}-${attribute.key}`}>
+                                <strong>{attribute.name}:</strong>{' '}
+                                {variant.attributes[attribute.key] ?? '-'}
+                              </Typography>
+                            ))}
+                            {product.attributes.length === 0 ? (
+                              <Typography>
+                                <strong>Variant:</strong>{' '}
+                                {toVariantTitle(variant, product.attributes) || '-'}
+                              </Typography>
+                            ) : null}
+                          </Stack>
+                        </Stack>
+                      )}
+                    </Stack>
+                  </Paper>
+                )
+              })}
+            </Box>
+          </Stack>
         )}
       </Stack>
     </Paper>

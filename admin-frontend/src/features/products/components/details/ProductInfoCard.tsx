@@ -1,6 +1,7 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
-import { Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
+import { Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import type { Product } from '@/api/modules/products.api'
+import noImageProduct from '@/assets/no-image-product.jpeg'
 import type { ProductVariantsDraft } from '@/features/products/forms/productVariantsDraft'
 import { productsUiText } from '@/features/products/products.ui-text'
 import { ProductInfoEditForm } from '@/features/products/components/details/ProductInfoEditForm'
@@ -39,6 +40,8 @@ export function ProductInfoCard({
   onSaveInfo,
   onCancelInfo,
 }: Props) {
+  const parentImageUrl = product.imageUrl?.trim() || noImageProduct
+
   return (
     <Paper
       variant="outlined"
@@ -78,33 +81,34 @@ export function ProductInfoCard({
             onCancel={onCancelInfo}
           />
         ) : (
-          <Stack spacing={1}>
-            <Typography>
-              <strong>Name:</strong> {product.name}
-            </Typography>
-            <Typography>
-              <strong>Manufacturer:</strong> {product.manufacturer}
-            </Typography>
-            <Typography>
-              <strong>Description:</strong> {product.description?.trim() || '-'}
-            </Typography>
-            <Typography>
-              <strong>Image:</strong> {product.imageUrl?.trim() || '-'}
-            </Typography>
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-              <Typography sx={{ fontWeight: 700 }}>Attributes:</Typography>
-              {product.attributes.length === 0 ? (
-                <Typography color="text.secondary">No attributes</Typography>
-              ) : (
-                product.attributes.map((attribute) => (
-                  <Chip
-                    key={attribute.key}
-                    label={`${attribute.name}: ${attribute.values.join(', ')}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                ))
-              )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+            <Box
+              component="img"
+              src={parentImageUrl}
+              alt={product.name}
+              sx={{
+                width: 120,
+                height: 120,
+                borderRadius: 1.5,
+                border: 1,
+                borderColor: 'divider',
+                objectFit: 'cover',
+                flexShrink: 0,
+              }}
+            />
+            <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+              <Typography>
+                <strong>Name:</strong> {product.name}
+              </Typography>
+              <Typography>
+                <strong>Manufacturer:</strong> {product.manufacturer}
+              </Typography>
+              <Typography>
+                <strong>Description:</strong> {product.description?.trim() || '-'}
+              </Typography>
+              <Typography>
+                <strong>Image URL:</strong> {product.imageUrl?.trim() || '-'}
+              </Typography>
             </Stack>
           </Stack>
         )}

@@ -46,6 +46,7 @@ export type ProductListItem = {
   _id: string
   name: string
   manufacturer: string
+  imageUrl?: string
   categoryId: string
   rootCategoryId: string
   categoryPath: string

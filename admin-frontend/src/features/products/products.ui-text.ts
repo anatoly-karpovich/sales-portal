@@ -29,7 +29,7 @@ export const productsUiText = {
     backToProducts: 'Products',
     productInfoTitle: 'Product info',
     productInfoSubtitle: 'Read-only. Click edit to modify.',
-    variantsTitle: 'Variants',
+    variantsTitle: 'Attributes & Variants',
     variantsSubtitle: 'Manage variants individually',
     actions: {
       edit: 'Edit',
