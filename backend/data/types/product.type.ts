@@ -16,6 +16,12 @@ export interface IProductVariant {
   imageUrl?: string;
 }
 
+export interface IProductSetup {
+  completed: boolean;
+  completedOn?: string;
+  completedBy?: Types.ObjectId;
+}
+
 export interface IProduct extends DocumentResult<IProduct> {
   _id?: Types.ObjectId;
   name: string;
@@ -25,6 +31,7 @@ export interface IProduct extends DocumentResult<IProduct> {
   description?: string;
   imageUrl?: string;
   status: PRODUCT_STATUSES;
+  setup: IProductSetup;
   attributes: IProductAttribute[];
   variants: IProductVariant[];
   createdOn: string;

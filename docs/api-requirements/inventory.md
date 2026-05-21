@@ -10,7 +10,7 @@
 | Auth | Required for all endpoints |
 | Pagination limits | `limit` clamped to `10..100` |
 | Inventory statuses | `In Stock`, `Low Stock`, `Out Of Stock`, `Not Tracked` |
-| Record statuses | `Active`, `Archived` |
+| Record statuses | `Draft`, `Active`, `Archived` |
 
 ## Endpoints
 
@@ -19,6 +19,7 @@
 | GET | `/api/inventory` | Paginated inventory list with filters/sorting. |
 | GET | `/api/inventory/reservations` | Paginated active reservations list with summary. |
 | GET | `/api/inventory/products/:productId` | Inventory details by product. |
+| POST | `/api/inventory/products/:productId/initial` | Save initial inventory for setup flow product variants. |
 | POST | `/api/inventory/adjustments` | Manual stock adjustment. |
 | PATCH | `/api/inventory/products/:productId/variants/:variantId/settings` | Update variant low-stock settings. |
 | GET | `/api/inventory/products/:productId/adjustments` | Product-level adjustment history. |
@@ -127,6 +128,11 @@ Sorting:
 
 - `productId`, `variantId`, and relevant query ids must be valid ObjectId.
 - `quantity` in manual adjustment must be integer `>= 1`.
+- `POST /api/inventory/products/:productId/initial` accepts `variants[]` with required:
+  - `variantId` (ObjectId string)
+  - `quantity` (integer `>= 0`)
+  - optional `lowStockThreshold` (integer `>= 0`)
+  - optional `allowSellingOutOfStock` (boolean)
 - `lowStockThreshold` (when provided) must be integer `>= 0`.
 - patch settings requires at least one field:
   - `lowStockThreshold`

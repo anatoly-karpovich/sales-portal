@@ -81,9 +81,13 @@ class InventoryService {
   }
 
   private toInventoryRecordStatus(productVariantStatus: PRODUCT_STATUSES): INVENTORY_RECORD_STATUSES {
-    return productVariantStatus === PRODUCT_STATUSES.ARCHIVED
-      ? INVENTORY_RECORD_STATUSES.ARCHIVED
-      : INVENTORY_RECORD_STATUSES.ACTIVE;
+    if (productVariantStatus === PRODUCT_STATUSES.ARCHIVED) {
+      return INVENTORY_RECORD_STATUSES.ARCHIVED;
+    }
+    if (productVariantStatus === PRODUCT_STATUSES.ACTIVE) {
+      return INVENTORY_RECORD_STATUSES.ACTIVE;
+    }
+    return INVENTORY_RECORD_STATUSES.DRAFT;
   }
 
   private getReservationVariantKey(productId: Types.ObjectId | string, variantId: Types.ObjectId | string) {
@@ -158,7 +162,10 @@ class InventoryService {
   recalculateVariantStatus(
     variant: Pick<IInventoryVariantReadModel, "status" | "available" | "lowStockThreshold">,
   ): INVENTORY_STATUSES {
-    if (variant.status === INVENTORY_RECORD_STATUSES.ARCHIVED) {
+    if (
+      variant.status === INVENTORY_RECORD_STATUSES.ARCHIVED ||
+      variant.status === INVENTORY_RECORD_STATUSES.DRAFT
+    ) {
       return INVENTORY_STATUSES.NOT_TRACKED;
     }
     if (variant.available <= 0) {
@@ -320,7 +327,7 @@ class InventoryService {
         {
           productId: new Types.ObjectId(product._id),
           variants,
-          status: INVENTORY_RECORD_STATUSES.ACTIVE,
+          status: product.setup?.completed ? INVENTORY_RECORD_STATUSES.ACTIVE : INVENTORY_RECORD_STATUSES.DRAFT,
           createdOn: now,
           updatedOn: now,
         },
@@ -386,6 +393,12 @@ class InventoryService {
       { productId },
       {
         variants: nextVariants,
+        status:
+          inventory.status === INVENTORY_RECORD_STATUSES.ARCHIVED
+            ? INVENTORY_RECORD_STATUSES.ARCHIVED
+            : product.setup?.completed
+              ? INVENTORY_RECORD_STATUSES.ACTIVE
+              : INVENTORY_RECORD_STATUSES.DRAFT,
         updatedOn: now,
       },
       { new: true, session },
@@ -963,6 +976,161 @@ class InventoryService {
     }
 
     return this.buildReadModelInventory(updated as IInventory & Record<string, any>);
+  }
+
+  async createInitialSetup(
+    productId: Types.ObjectId,
+    payload: {
+      variants: Array<{
+        variantId: string;
+        quantity: number;
+        lowStockThreshold?: number;
+        allowSellingOutOfStock?: boolean;
+      }>;
+    },
+  ): Promise<IInventoryReadModel> {
+    const product = await Product.findById(productId).lean().exec();
+    if (!product) {
+      throw createHttpError(`Product with id '${productId.toString()}' wasn't found`, 404);
+    }
+
+    if (product.setup?.completed) {
+      throw createHttpError("Product setup has already been completed", 409);
+    }
+
+    if (product.status !== PRODUCT_STATUSES.DRAFT) {
+      throw createHttpError("Only draft products can update setup inventory", 409);
+    }
+
+    if (!Array.isArray(payload.variants) || payload.variants.length === 0) {
+      throw createHttpError("Incorrect request body", 400);
+    }
+
+    const productVariantIds = new Set((product.variants ?? []).map((variant: any) => variant._id?.toString?.()).filter(Boolean));
+    if (productVariantIds.size === 0) {
+      throw createHttpError("Configure product variants before inventory setup", 400);
+    }
+
+    const receivedIds = new Set<string>();
+    for (const item of payload.variants) {
+      if (!item?.variantId || !Types.ObjectId.isValid(item.variantId) || !productVariantIds.has(item.variantId)) {
+        throw createHttpError("Incorrect request body", 400);
+      }
+      if (receivedIds.has(item.variantId)) {
+        throw createHttpError(`Duplicate variantId '${item.variantId}' is not allowed`, 409);
+      }
+      receivedIds.add(item.variantId);
+      if (!Number.isInteger(item.quantity) || item.quantity < 0) {
+        throw createHttpError("Incorrect request body", 400);
+      }
+      if (item.lowStockThreshold !== undefined && (!Number.isInteger(item.lowStockThreshold) || item.lowStockThreshold < 0)) {
+        throw createHttpError("Incorrect request body", 400);
+      }
+      if (item.allowSellingOutOfStock !== undefined && typeof item.allowSellingOutOfStock !== "boolean") {
+        throw createHttpError("Incorrect request body", 400);
+      }
+    }
+
+    if (receivedIds.size !== productVariantIds.size) {
+      throw createHttpError("Initial inventory must include every product variant", 400);
+    }
+
+    const synced = await this.syncWithProductVariants(product as unknown as IProduct);
+    const payloadById = new Map(payload.variants.map((item) => [item.variantId, item]));
+
+    const nextVariants = (synced.variants ?? []).map((variant: any) => {
+      const setupItem = payloadById.get(variant.variantId.toString());
+      if (!setupItem) {
+        return variant;
+      }
+
+      return this.buildVariantUpdate(variant, {
+        quantity: setupItem.quantity,
+        reserved: 0,
+        lowStockThreshold: setupItem.lowStockThreshold ?? variant.lowStockThreshold,
+        allowSellingOutOfStock: setupItem.allowSellingOutOfStock ?? variant.allowSellingOutOfStock,
+      });
+    });
+
+    const updated = await Inventory.findByIdAndUpdate(
+      synced._id,
+      {
+        variants: nextVariants,
+        status: INVENTORY_RECORD_STATUSES.DRAFT,
+        updatedOn: this.getNowString(),
+      },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    if (!updated) {
+      throw createHttpError("Inventory was not updated", 500);
+    }
+
+    return this.buildReadModelInventory(updated as IInventory & Record<string, any>);
+  }
+
+  async completeSetup(product: IProduct, managerId: string): Promise<IInventoryReadModel> {
+    const synced = await this.syncWithProductVariants(product);
+    const variantIds = new Set((product.variants ?? []).map((variant) => variant._id?.toString?.()).filter(Boolean));
+    const inventoryVariants = synced.variants ?? [];
+
+    if (variantIds.size === 0) {
+      throw createHttpError("Product should contain at least one variant", 400);
+    }
+
+    for (const item of inventoryVariants) {
+      const key = item.variantId.toString();
+      if (!variantIds.has(key)) {
+        continue;
+      }
+      if ((item.reserved ?? 0) !== 0) {
+        throw createHttpError("Inventory setup must not contain reserved stock", 409);
+      }
+      if ((item.quantity ?? 0) < 0) {
+        throw createHttpError("Inventory quantity cannot be negative", 409);
+      }
+    }
+
+    const now = this.getNowString();
+    const initialAdjustments = inventoryVariants
+      .filter((item) => variantIds.has(item.variantId.toString()) && (item.quantity ?? 0) > 0)
+      .map((item) => ({
+        inventoryId: new Types.ObjectId(synced._id),
+        productId: new Types.ObjectId(product._id),
+        variantId: new Types.ObjectId(item.variantId),
+        type: INVENTORY_ADJUSTMENT_TYPES.INITIAL_STOCK,
+        quantityChange: item.quantity,
+        quantityBefore: 0,
+        quantityAfter: item.quantity,
+        reservedBefore: 0,
+        reservedAfter: 0,
+        comment: "Initial stock set during product setup completion",
+        createdBy: new Types.ObjectId(managerId),
+        createdOn: now,
+      }));
+
+    if (initialAdjustments.length > 0) {
+      await InventoryAdjustment.insertMany(initialAdjustments);
+    }
+
+    const completed = await Inventory.findByIdAndUpdate(
+      synced._id,
+      {
+        status: INVENTORY_RECORD_STATUSES.ACTIVE,
+        updatedOn: now,
+      },
+      { new: true },
+    )
+      .lean()
+      .exec();
+
+    if (!completed) {
+      throw createHttpError("Inventory was not updated", 500);
+    }
+
+    return this.buildReadModelInventory(completed as IInventory & Record<string, any>);
   }
 
   private async getOrCreateInventoryByProductId(productId: Types.ObjectId, session: ClientSession) {

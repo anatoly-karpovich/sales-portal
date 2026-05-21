@@ -6,6 +6,7 @@ import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
   CreateProductVariantsRequestDTO,
   CreateProductRequestDTO,
+  CompleteProductSetupRequestDTO,
   DeleteProductRequestDTO,
   DeleteProductVariantRequestDTO,
   ExportProductsRequestDTO,
@@ -20,12 +21,15 @@ import {
   ProductsResponseDTO,
   ProductsSortedResponseDTO,
   ProductCategoryPathItemDTO,
+  ProductSetupInitRequestWithEntityDTO,
+  ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
   ReplaceProductRequestDTO,
   ValidateProductVariantsRequestDTO,
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
 import CategoriesService from "../services/categories.service.js";
+import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
@@ -73,6 +77,7 @@ class ProductsController {
 
   private toDetailsDTO(product: any, categoryLookup: Map<string, CategoryLookupItem>): ProductDetailsDTO {
     const prices = product.variants.map((variant: any) => variant.price);
+    const hasPrices = prices.length > 0;
     const categoryId = product.categoryId?.toString?.() ?? "";
     const rootCategoryId = product.rootCategoryId?.toString?.() ?? "";
     const category = categoryLookup.get(categoryId);
@@ -110,8 +115,13 @@ class ProductsController {
         _id: variant._id ? new Types.ObjectId(variant._id) : undefined,
       })),
       priceRange: {
-        min: Math.min(...prices),
-        max: Math.max(...prices),
+        min: hasPrices ? Math.min(...prices) : 0,
+        max: hasPrices ? Math.max(...prices) : 0,
+      },
+      setup: {
+        completed: Boolean(product.setup?.completed),
+        completedOn: product.setup?.completedOn,
+        completedBy: product.setup?.completedBy?.toString?.(),
       },
       createdOn: product.createdOn,
       updatedOn: product.updatedOn,
@@ -125,6 +135,17 @@ class ProductsController {
       res.status(201).json({ Product: this.toDetailsDTO(product, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async createSetupInit(req: ProductSetupInitRequestWithEntityDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const product = await ProductsService.createSetupInit(req.body);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(201).json({ Product: this.toDetailsDTO(product, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
@@ -298,6 +319,18 @@ class ProductsController {
     }
   }
 
+  async replaceSetupSpec(req: ReplaceProductSetupSpecRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const updatedProduct = await ProductsService.replaceVariants(productId, req.body);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
   async createVariants(req: CreateProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const productId = new Types.ObjectId(req.params.productId);
@@ -340,6 +373,19 @@ class ProductsController {
       return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async completeSetup(req: CompleteProductSetupRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const managerData = getDataDataFromToken(getTokenFromRequest(req as any));
+      const updatedProduct = await ProductsService.completeSetup(productId, managerData.id);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 

@@ -10,6 +10,8 @@ import {
   productVariantCreateSchema,
   productVariantPatchSchema,
   productVariantStatusPatchSchema,
+  productSetupInitSchema,
+  productSetupSpecSchema,
 } from "./product.schema";
 import {
   orderCreateSchema,
@@ -31,7 +33,11 @@ import {
   categoryMoveSchema,
   categoryPatchSchema,
 } from "./categories.schema";
-import { inventoryAdjustmentCreateSchema, inventoryVariantSettingsPatchSchema } from "./inventory.schema";
+import {
+  inventoryAdjustmentCreateSchema,
+  inventoryVariantSettingsPatchSchema,
+  inventoryInitialSetupSchema,
+} from "./inventory.schema";
 
 export {
   customerSchema,
@@ -64,4 +70,7 @@ export {
   categoryMoveSchema,
   inventoryAdjustmentCreateSchema,
   inventoryVariantSettingsPatchSchema,
+  inventoryInitialSetupSchema,
+  productSetupInitSchema,
+  productSetupSpecSchema,
 };

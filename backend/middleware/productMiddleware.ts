@@ -5,15 +5,18 @@ import { Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
+  CompleteProductSetupRequestDTO,
   CreateProductVariantsRequestDTO,
   CreateProductRequestDTO,
   DeleteProductRequestDTO,
   DeleteProductVariantRequestDTO,
   GetProductByIdRequestDTO,
+  ProductSetupInitRequestWithEntityDTO,
   PatchProductStatusRequestDTO,
   PatchProductVariantStatusRequestDTO,
   PatchProductRequestDTO,
   PatchProductVariantRequestDTO,
+  ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
   ReplaceProductRequestDTO,
   ValidateProductVariantsRequestDTO,
@@ -341,7 +344,11 @@ async function getAllowedManufacturers(): Promise<string[]> {
 }
 
 export async function uniqueProduct(
-  req: CreateProductRequestDTO | ReplaceProductRequestDTO | PatchProductRequestDTO,
+  req:
+    | CreateProductRequestDTO
+    | ReplaceProductRequestDTO
+    | PatchProductRequestDTO
+    | ProductSetupInitRequestWithEntityDTO,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
@@ -375,6 +382,47 @@ export async function uniqueProduct(
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
   }
   next();
+}
+
+export async function productSetupInitValidations(
+  req: ProductSetupInitRequestWithEntityDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const normalizedName = normalizeText(req.body.name);
+    const normalizedManufacturer = normalizeText(req.body.manufacturer);
+    const normalizedCategoryId = normalizeText(req.body.categoryId);
+    const normalizedDescription = typeof req.body.description === "string" ? normalizeText(req.body.description) : undefined;
+    const normalizedImageUrl = typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : undefined;
+
+    if (!normalizedName || !normalizedManufacturer || !normalizedCategoryId || !Types.ObjectId.isValid(normalizedCategoryId)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const categoryValidation = await CategoriesService.validateCategoryExists(normalizedCategoryId);
+    if (categoryValidation.isValid === false) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: categoryValidation.error });
+    }
+
+    const allowedManufacturers = await getAllowedManufacturers();
+    const allowedManufacturerKeys = new Set(allowedManufacturers.map((value) => normalizeKey(value)));
+    if (!allowedManufacturerKeys.has(normalizeKey(normalizedManufacturer))) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "No such manufacturer is defined" });
+    }
+
+    req.body = {
+      name: normalizedName,
+      manufacturer: normalizedManufacturer,
+      categoryId: normalizedCategoryId,
+      description: normalizedDescription,
+      imageUrl: normalizedImageUrl,
+    };
+
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
 }
 
 export async function productCreateOrReplaceValidations(
@@ -683,7 +731,7 @@ export async function productStatusPatchValidations(
   next: NextFunction,
 ) {
   try {
-    const product = req.product as unknown as MutableProduct | undefined;
+    const product = req.product as unknown as (MutableProduct & { setup?: { completed?: boolean } }) | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
@@ -696,6 +744,17 @@ export async function productStatusPatchValidations(
     const allowed = PRODUCT_STATUS_TRANSITIONS[product.status] ?? [];
     if (!allowed.includes(nextStatus)) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid product status transition" });
+    }
+
+    if (
+      product.status === PRODUCT_STATUSES.DRAFT &&
+      nextStatus === PRODUCT_STATUSES.ACTIVE &&
+      !product.setup?.completed
+    ) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Use complete setup endpoint to activate draft product",
+      });
     }
 
     next();
@@ -744,6 +803,31 @@ export async function productById(req: GetProductByIdRequestDTO, res: Response<B
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${productId}' wasn't found` });
     }
     req.product = product;
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productSetupWritable(
+  req: ReplaceProductSetupSpecRequestDTO | CompleteProductSetupRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct & { setup?: { completed?: boolean } } | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    if (product.setup?.completed) {
+      return res.status(409).json({ IsSuccess: false, ErrorMessage: "Product setup has already been completed" });
+    }
+
+    if (product.status !== PRODUCT_STATUSES.DRAFT) {
+      return res.status(409).json({ IsSuccess: false, ErrorMessage: "Only draft products can be changed in setup flow" });
+    }
+
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

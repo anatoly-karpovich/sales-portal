@@ -49,6 +49,15 @@ export type InventoryAdjustmentCreateBodyDTO = {
   comment?: string;
 };
 
+export type InventoryInitialSetupBodyDTO = {
+  variants: Array<{
+    variantId: string;
+    quantity: number;
+    lowStockThreshold?: number;
+    allowSellingOutOfStock?: boolean;
+  }>;
+};
+
 export type InventoryAdjustmentListQueryDTO = {
   type?: INVENTORY_ADJUSTMENT_TYPES | INVENTORY_ADJUSTMENT_TYPES[];
   orderId?: string;
@@ -91,6 +100,11 @@ export type GetInventoryByProductRequestDTO = Request<InventoryByProductParamsDT
 export type PatchInventoryVariantSettingsRequestDTO = Request<InventoryByProductVariantParamsDTO, unknown, InventoryVariantSettingsBodyDTO>;
 
 export type CreateInventoryAdjustmentRequestDTO = Request<unknown, unknown, InventoryAdjustmentCreateBodyDTO>;
+export type CreateInventoryInitialSetupRequestDTO = Request<
+  InventoryByProductParamsDTO,
+  unknown,
+  InventoryInitialSetupBodyDTO
+>;
 
 export type GetInventoryAdjustmentsByProductRequestDTO = Request<InventoryByProductParamsDTO, unknown, unknown, InventoryAdjustmentListQueryDTO>;
 

@@ -26,6 +26,11 @@ Product {
   description?: string;
   imageUrl?: string;
   status: "Draft" | "Active" | "Archived";
+  setup: {
+    completed: boolean;
+    completedOn?: Date;
+    completedBy?: ObjectId;
+  };
   attributes: Array<{ key: string; name: string; values: string[] }>;
   variants: Array<{
     _id: ObjectId;
@@ -40,7 +45,8 @@ Product {
 ```
 
 Rules:
-- product must contain at least 1 variant;
+- draft product created by setup init may contain 0 variants;
+- setup completion requires at least 1 variant;
 - variant attributes must contain all product attribute keys;
 - variant attribute keys/values are validated case-insensitively (`trim + lower-case`);
 - variant attribute values must belong to corresponding `ProductAttribute.values`;
@@ -58,7 +64,9 @@ Rules:
 | --- | --- | --- |
 | GET | `/api/products` | Paginated/sorted/filtered list. |
 | GET | `/api/products/all` | Full details for all products. |
-| POST | `/api/products` | Create product. |
+| POST | `/api/products/setup/init` | Create draft parent product for setup flow. |
+| PUT | `/api/products/:productId/setup/spec` | Save attributes + variants atomically in setup flow. |
+| POST | `/api/products/:productId/complete-setup` | Complete setup and activate parent product. |
 | GET | `/api/products/:productId` | Get product details. |
 | PUT | `/api/products/:productId` | Full replace product. |
 | PATCH | `/api/products/:productId` | Partial update product parent fields. |
@@ -83,6 +91,7 @@ Rules:
   "rootCategoryId": "string",
   "categoryPath": "Electronics / Laptops / Gaming Laptops",
   "status": "Active",
+  "setup": { "completed": true, "completedOn": "2026-05-06T10:30:00.000Z", "completedBy": "6650..." },
   "createdOn": "2026-05-06T10:00:00.000Z",
   "variantsCount": 3,
   "priceRange": { "min": 599.99, "max": 899.99 }
@@ -134,6 +143,7 @@ Filters:
   "description": "string",
   "imageUrl": "string",
   "status": "Active",
+  "setup": { "completed": true, "completedOn": "2026-05-06T10:30:00.000Z", "completedBy": "6650..." },
   "attributes": [{ "key": "color", "name": "Color", "values": ["Black", "White"] }],
   "variants": [
     {

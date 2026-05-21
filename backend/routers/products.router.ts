@@ -5,6 +5,8 @@ import {
   deleteProductVariant,
   deleteProduct,
   productById,
+  productSetupInitValidations,
+  productSetupWritable,
   productCreateOrReplaceValidations,
   productStatusPatchValidations,
   productVariantsCreateValidations,
@@ -20,6 +22,14 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 const productsRouter = Router();
 
 productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted.bind(ProductsController));
+productsRouter.post(
+  "/products",
+  authmiddleware,
+  schemaMiddleware("productSetupInitSchema"),
+  uniqueProduct,
+  productSetupInitValidations,
+  ProductsController.createSetupInit.bind(ProductsController),
+);
 
 productsRouter.get("/products/all", authmiddleware, ProductsController.getAll.bind(ProductsController));
 
@@ -33,12 +43,30 @@ productsRouter.get(
 );
 
 productsRouter.post(
-  "/products",
+  "/products/setup/init",
   authmiddleware,
-  schemaMiddleware("productCreateSchema"),
+  schemaMiddleware("productSetupInitSchema"),
   uniqueProduct,
-  productCreateOrReplaceValidations,
-  ProductsController.create.bind(ProductsController),
+  productSetupInitValidations,
+  ProductsController.createSetupInit.bind(ProductsController),
+);
+
+productsRouter.put(
+  "/products/:productId/setup/spec",
+  authmiddleware,
+  schemaMiddleware("productSetupSpecSchema"),
+  productById,
+  productSetupWritable,
+  productVariantsReplaceValidations,
+  ProductsController.replaceSetupSpec.bind(ProductsController),
+);
+
+productsRouter.post(
+  "/products/:productId/complete-setup",
+  authmiddleware,
+  productById,
+  productSetupWritable,
+  ProductsController.completeSetup.bind(ProductsController),
 );
 
 productsRouter.put(
@@ -140,7 +168,7 @@ productsRouter.delete(
  *   schemas:
  *     ProductListItem:
  *       type: object
- *       required: [_id, name, manufacturer, categoryId, rootCategoryId, categoryPath, status, createdOn, variantsCount, priceRange]
+ *       required: [_id, name, manufacturer, categoryId, rootCategoryId, categoryPath, status, createdOn, variantsCount, priceRange, setup]
  *       properties:
  *         _id: { type: string }
  *         name: { type: string }
@@ -157,24 +185,22 @@ productsRouter.delete(
  *           properties:
  *             min: { type: number }
  *             max: { type: number }
+ *         setup:
+ *           type: object
+ *           required: [completed]
+ *           properties:
+ *             completed: { type: boolean }
+ *             completedOn: { type: string, format: date-time, nullable: true }
+ *             completedBy: { type: string, nullable: true }
  *     ProductCreatePayload:
  *       type: object
- *       required: [name, manufacturer, categoryId, attributes, variants]
+ *       required: [name, manufacturer, categoryId]
  *       properties:
  *         name: { type: string, minLength: 1 }
  *         manufacturer: { type: string, minLength: 1 }
  *         categoryId: { type: string, minLength: 1 }
  *         description: { type: string }
  *         imageUrl: { type: string }
- *         attributes:
- *           type: array
- *           items:
- *             type: object
- *         variants:
- *           type: array
- *           minItems: 1
- *           items:
- *             type: object
  * /api/products:
  *   get:
  *     summary: Get products list
@@ -238,6 +264,18 @@ productsRouter.delete(
  *         schema:
  *           type: string
  *   post:
+ *     summary: Create draft product (setup init alias)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProductCreatePayload'
+ * /api/products/setup/init:
+ *   post:
  *     summary: Create product
  *     tags: [Products]
  *     security:
@@ -248,6 +286,91 @@ productsRouter.delete(
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ProductCreatePayload'
+ * /api/products/all:
+ *   get:
+ *     summary: Get all products (full details)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/export:
+ *   post:
+ *     summary: Export products
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}:
+ *   get:
+ *     summary: Get product details
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *   put:
+ *     summary: Full replace product
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *   patch:
+ *     summary: Partial update product parent fields
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *   delete:
+ *     summary: Delete product
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/status:
+ *   patch:
+ *     summary: Update product status
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/variants:
+ *   put:
+ *     summary: Full replace variants
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *   post:
+ *     summary: Bulk add variants
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/variants/validate:
+ *   post:
+ *     summary: Validate variants payload without saving
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/variants/{variantId}:
+ *   patch:
+ *     summary: Partial update one variant
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *   delete:
+ *     summary: Delete one variant
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/variants/{variantId}/status:
+ *   patch:
+ *     summary: Update one variant status
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/setup/spec:
+ *   put:
+ *     summary: Save setup specification (attributes + variants)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/complete-setup:
+ *   post:
+ *     summary: Complete product setup
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
  */
 
 export default productsRouter;

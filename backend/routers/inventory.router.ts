@@ -30,6 +30,14 @@ inventoryRouter.get(
 );
 
 inventoryRouter.post(
+  "/inventory/products/:productId/initial",
+  authmiddleware,
+  schemaMiddleware("inventoryInitialSetupSchema"),
+  inventoryProductById,
+  InventoryController.createInitialSetup.bind(InventoryController),
+);
+
+inventoryRouter.post(
   "/inventory/adjustments",
   authmiddleware,
   schemaMiddleware("inventoryAdjustmentCreateSchema"),
@@ -93,7 +101,7 @@ inventoryRouter.get(
  *           $ref: '#/components/schemas/InventoryProductSnapshot'
  *         status:
  *           type: string
- *           enum: [Active, Archived]
+ *           enum: [Draft, Active, Archived]
  *         inventoryStatus:
  *           type: string
  *           enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
@@ -131,7 +139,7 @@ inventoryRouter.get(
  *           enum: [In Stock, Low Stock, Out Of Stock, Not Tracked]
  *         status:
  *           type: string
- *           enum: [Active, Archived]
+ *           enum: [Draft, Active, Archived]
  *         updatedOn:
  *           type: string
  *           format: date-time
@@ -162,7 +170,7 @@ inventoryRouter.get(
  *             $ref: '#/components/schemas/InventoryVariant'
  *         status:
  *           type: string
- *           enum: [Active, Archived]
+ *           enum: [Draft, Active, Archived]
  *         createdOn:
  *           type: string
  *           format: date-time
@@ -445,6 +453,29 @@ inventoryRouter.get(
  *           minimum: 1
  *         comment:
  *           type: string
+ *     InventoryInitialSetupPayload:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [variants]
+ *       properties:
+ *         variants:
+ *           type: array
+ *           minItems: 1
+ *           items:
+ *             type: object
+ *             additionalProperties: false
+ *             required: [variantId, quantity]
+ *             properties:
+ *               variantId:
+ *                 type: string
+ *               quantity:
+ *                 type: integer
+ *                 minimum: 0
+ *               lowStockThreshold:
+ *                 type: integer
+ *                 minimum: 0
+ *               allowSellingOutOfStock:
+ *                 type: boolean
  *     InventoryErrorResponse:
  *       type: object
  *       required: [IsSuccess, ErrorMessage]
@@ -650,6 +681,59 @@ inventoryRouter.get(
  *         description: Unauthorized, missing or invalid token
  *       404:
  *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *
+ * /api/inventory/products/{productId}/initial:
+ *   post:
+ *     summary: Initialize inventory for setup flow variants
+ *     tags: [Inventory]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InventoryInitialSetupPayload'
+ *     responses:
+ *       200:
+ *         description: Initial inventory saved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryResponse'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryErrorResponse'
+ *       409:
+ *         description: Setup state conflict
  *         content:
  *           application/json:
  *             schema:
