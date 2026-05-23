@@ -48,9 +48,9 @@ import {
 } from '@/features/products/hooks/useProductsQuery'
 import {
   getAttributeValueNoLongerExistsMessage,
+  getDeleteProductDetailsMessage,
   getAttributeValueRequiredMessage,
-  getDeleteProductMessage,
-  getDeleteVariantMessage,
+  getDeleteVariantDetailsMessage,
   getProductApiErrorMessage,
   productsUiText,
 } from '@/features/products/products.ui-text'
@@ -563,8 +563,10 @@ export function ProductDetailsPage() {
         await deleteProductMutation.mutateAsync(product._id)
         enqueueSnackbar(productsUiText.toasts.deleted, { variant: 'success' })
         navigate('/products')
-      } catch (error) {
-        enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+      } catch {
+        setPendingConfirmAction(null)
+        setPendingDeleteVariantId(null)
+        enqueueSnackbar(productsUiText.toasts.deletePurchasedBlocked, { variant: 'error' })
       }
       return
     }
@@ -578,8 +580,10 @@ export function ProductDetailsPage() {
         enqueueSnackbar(productsUiText.toasts.variantDeleted, { variant: 'success' })
         setPendingDeleteVariantId(null)
         setPendingConfirmAction(null)
-      } catch (error) {
-        enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+      } catch {
+        setPendingDeleteVariantId(null)
+        setPendingConfirmAction(null)
+        enqueueSnackbar(productsUiText.toasts.deletePurchasedVariantBlocked, { variant: 'error' })
       }
       return
     }
@@ -824,14 +828,14 @@ export function ProductDetailsPage() {
     pendingConfirmAction === 'delete-product'
       ? {
           title: productsUiText.detailsPage.dialogs.deleteProductTitle,
-          message: getDeleteProductMessage(product.name),
+          message: getDeleteProductDetailsMessage(product.name),
           confirmLabel: productsUiText.detailsPage.dialogs.deleteProductConfirm,
           confirmColor: 'error' as const,
         }
       : pendingConfirmAction === 'delete-variant'
         ? {
             title: productsUiText.detailsPage.dialogs.deleteVariantTitle,
-            message: getDeleteVariantMessage(
+            message: getDeleteVariantDetailsMessage(
               toVariantTitle(
                 product.variants.find((variant) => variant._id === pendingDeleteVariantId) ??
                   product.variants[0],

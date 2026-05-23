@@ -229,6 +229,9 @@ export const productsUiText = {
     variantUpdated: 'Variant was successfully updated',
     variantAdded: 'Variant was successfully added',
     variantDeleted: 'Variant was successfully deleted',
+    deletePurchasedVariantBlocked:
+      'Unable to delete a variant that has been purchased at least once.',
+    deletePurchasedBlocked: 'Unable to delete a product that has been purchased at least once.',
     saveFailed: 'Unable to update products. Please try again later.',
   },
   errors: {
@@ -276,9 +279,31 @@ export function getDeleteProductMessage(productName?: string | null) {
   return `Are you sure you want to delete "${safeProductName}"?`
 }
 
+export function getDeleteProductDetailsMessage(productName?: string | null) {
+  const safeProductName = productName ?? productsUiText.dialogs.deleteFallbackName
+  return [
+    `Are you sure you want to delete "${safeProductName}"?`,
+    '',
+    'Please note:',
+    '- The product cannot be deleted if at least one of its variants has ever been ordered.',
+    '- Deleting the product will also remove inventory and inventory adjustment history for all of its variants.',
+  ]
+}
+
 export function getDeleteVariantMessage(variantName?: string | null) {
   const safeVariantName = variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
   return `Are you sure you want to delete "${safeVariantName}"?`
+}
+
+export function getDeleteVariantDetailsMessage(variantName?: string | null) {
+  const safeVariantName = variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
+  return [
+    `Are you sure you want to delete "${safeVariantName}"?`,
+    '',
+    'Please note:',
+    '- The variant cannot be deleted if it has ever been ordered.',
+    '- Deleting the variant will also remove inventory and inventory adjustment history for this variant.',
+  ]
 }
 
 export function getAttributeValueRequiredMessage(attributeName: string) {
