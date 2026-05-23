@@ -22,14 +22,6 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 const productsRouter = Router();
 
 productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted.bind(ProductsController));
-productsRouter.post(
-  "/products",
-  authmiddleware,
-  schemaMiddleware("productSetupInitSchema"),
-  uniqueProduct,
-  productSetupInitValidations,
-  ProductsController.createSetupInit.bind(ProductsController),
-);
 
 productsRouter.get("/products/all", authmiddleware, ProductsController.getAll.bind(ProductsController));
 
@@ -263,17 +255,6 @@ productsRouter.delete(
  *         name: limit
  *         schema:
  *           type: string
- *   post:
- *     summary: Create draft product (setup init alias)
- *     tags: [Products]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ProductCreatePayload'
  * /api/products/setup/init:
  *   post:
  *     summary: Create product
