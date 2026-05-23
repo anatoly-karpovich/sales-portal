@@ -103,15 +103,12 @@ Auth:
 Products:
 
 - `GET /products`
-- `GET /products/all`
 - `GET /products/:productId`
 - `POST /products`
-- `PUT /products/:productId`
 - `PATCH /products/:productId`
 - `PATCH /products/:productId/status`
 - `PUT /products/:productId/variants`
 - `POST /products/:productId/variants`
-- `POST /products/:productId/variants/validate`
 - `PATCH /products/:productId/variants/:variantId`
 - `PATCH /products/:productId/variants/:variantId/status`
 - `DELETE /products/:productId/variants/:variantId`
@@ -273,7 +270,7 @@ Current important constraints:
   - variant attribute values must belong to corresponding product attribute values;
   - variant attribute combination must be unique inside product;
   - variant price is decimal (`> 0`) with up to 2 digits after dot.
-  - `POST /products/:productId/variants`, `PUT /products/:productId/variants`, and `POST /products/:productId/variants/validate` accept `1..200` variants per request.
+- `PUT /products/:productId/variants` accepts `1..200` variants per request.
   - `PUT /products/:productId/variants` is atomic full replace; removing a variant referenced in orders is rejected with `409`.
   - `PATCH /products/:productId/status` allows only transitions: `Draft -> Active`, `Active -> Archived`, `Archived -> Active`.
   - `PATCH /products/:productId/status` with target `Archived` auto-archives all variants.

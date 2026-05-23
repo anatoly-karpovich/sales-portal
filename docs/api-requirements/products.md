@@ -52,7 +52,7 @@ Rules:
 - variant attribute values must belong to corresponding `ProductAttribute.values`;
 - combination of variant attributes must be unique inside the product.
 - deleting a variant is blocked with `409` when any order references that `productId + variantId` pair.
-- `PUT /api/products/:productId/variants` and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
+- `PUT /api/products/:productId/variants` accepts `1..200` variants.
 - `POST /api/products/:productId/variants` accepts:
   - `1..200` variants for `Draft` products;
   - exactly `1` variant for `Active`/`Archived` products.
@@ -81,7 +81,6 @@ Editability by status:
     - `PATCH /api/products/:productId/variants/:variantId/status` (`status`).
   - structure-changing variant endpoints are draft-only, except guarded single-item operations:
     - `PUT /api/products/:productId/variants`
-    - `POST /api/products/:productId/variants/validate`
   - `POST /api/products/:productId/variants` is allowed for `Active`/`Archived` only as a single-item add (`exactly 1`) and only while not all attribute combinations are created.
   - `DELETE /api/products/:productId/variants/:variantId` is allowed for `Active`/`Archived` only for variants never used in orders.
 
@@ -90,18 +89,15 @@ Editability by status:
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | `/api/products` | Paginated/sorted/filtered list. |
-| GET | `/api/products/all` | Full details for all products. |
 | POST | `/api/products/setup/init` | Create draft parent product for setup flow. |
 | PUT | `/api/products/:productId/setup/spec` | Save attributes + variants atomically in setup flow. |
 | POST | `/api/products/:productId/complete-setup` | Complete setup and activate parent product. |
 | GET | `/api/products/:productId` | Get product details. |
-| PUT | `/api/products/:productId` | Full replace product. |
 | PATCH | `/api/products/:productId` | Partial update product parent fields. |
 | PATCH | `/api/products/:productId/attributes/order` | Reorder parent attributes (Active/Archived only, definition unchanged). |
 | PATCH | `/api/products/:productId/status` | Update product status with guarded transitions. |
 | PUT | `/api/products/:productId/variants` | Full replace `variants[]` and optional `attributes` (atomic). |
 | POST | `/api/products/:productId/variants` | Bulk add variants (array payload, max 200). |
-| POST | `/api/products/:productId/variants/validate` | Dry-run variants validation without saving. |
 | PATCH | `/api/products/:productId/variants/:variantId` | Partial update one variant. |
 | PATCH | `/api/products/:productId/variants/:variantId/status` | Update one variant status. |
 | DELETE | `/api/products/:productId/variants/:variantId` | Delete one variant (`204` on success). |
@@ -143,7 +139,7 @@ Filters:
 - `search` (name/manufacturer)
 - price filters are applied to variant prices (product is included when at least one variant is within the passed bounds).
 
-## Details DTO (`GET /api/products/:productId`, `/all`)
+## Details DTO (`GET /api/products/:productId`)
 
 ```json
 {

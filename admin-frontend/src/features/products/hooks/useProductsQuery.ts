@@ -15,14 +15,12 @@ import {
   patchProductVariantStatus,
   replaceProductVariants,
   saveProductSetupSpec,
-  updateProduct,
   type ProductExportPayload,
   type ProductAttributesReorderPayload,
   type ProductParentPatchPayload,
   type ProductSetupInitPayload,
   type ProductSetupSpecPayload,
   type ProductStatusPatchPayload,
-  type ProductUpsertPayload,
   type ProductVariantCreatePayload,
   type ProductVariantPatchPayload,
   type ProductVariantReplaceRequestPayload,
@@ -125,21 +123,6 @@ export function useCompleteProductSetupMutation() {
       syncProductMutationResult({
         queryClient,
         productId: product._id,
-        product,
-      })
-    },
-  })
-}
-
-export function useUpdateProductMutation() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ productId, payload }: { productId: string; payload: ProductUpsertPayload }) =>
-      updateProduct(productId, payload),
-    onSuccess: (product, variables) => {
-      syncProductMutationResult({
-        queryClient,
-        productId: variables.productId,
         product,
       })
     },

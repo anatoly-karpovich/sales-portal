@@ -7,11 +7,9 @@ import {
   productById,
   productSetupInitValidations,
   productSetupWritable,
-  productCreateOrReplaceValidations,
   productStatusPatchValidations,
   productVariantsCreateValidations,
   productVariantsReplaceValidations,
-  productVariantsValidate,
   productPatchValidations,
   productAttributesReorderValidations,
   productVariantStatusPatchValidations,
@@ -23,8 +21,6 @@ import { schemaMiddleware } from "../middleware/schemaMiddleware.js";
 const productsRouter = Router();
 
 productsRouter.get("/products", authmiddleware, ProductsController.getAllSorted.bind(ProductsController));
-
-productsRouter.get("/products/all", authmiddleware, ProductsController.getAll.bind(ProductsController));
 
 productsRouter.post("/products/export", authmiddleware, ProductsController.export.bind(ProductsController));
 
@@ -62,16 +58,6 @@ productsRouter.post(
   ProductsController.completeSetup.bind(ProductsController),
 );
 
-productsRouter.put(
-  "/products/:productId",
-  authmiddleware,
-  schemaMiddleware("productReplaceSchema"),
-  uniqueProduct,
-  productById,
-  productCreateOrReplaceValidations,
-  ProductsController.replace.bind(ProductsController),
-);
-
 productsRouter.patch(
   "/products/:productId",
   authmiddleware,
@@ -107,15 +93,6 @@ productsRouter.put(
   productById,
   productVariantsReplaceValidations,
   ProductsController.replaceVariants.bind(ProductsController),
-);
-
-productsRouter.post(
-  "/products/:productId/variants/validate",
-  authmiddleware,
-  schemaMiddleware("productVariantsValidateSchema"),
-  productById,
-  productVariantsValidate,
-  ProductsController.validateVariants.bind(ProductsController),
 );
 
 productsRouter.patch(
@@ -277,12 +254,6 @@ productsRouter.delete(
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ProductCreatePayload'
- * /api/products/all:
- *   get:
- *     summary: Get all products (full details)
- *     tags: [Products]
- *     security:
- *       - BearerAuth: []
  * /api/products/export:
  *   post:
  *     summary: Export products
@@ -292,11 +263,6 @@ productsRouter.delete(
  * /api/products/{productId}:
  *   get:
  *     summary: Get product details
- *     tags: [Products]
- *     security:
- *       - BearerAuth: []
- *   put:
- *     summary: Full replace product
  *     tags: [Products]
  *     security:
  *       - BearerAuth: []
@@ -330,12 +296,6 @@ productsRouter.delete(
  *       - BearerAuth: []
  *   post:
  *     summary: Bulk add variants
- *     tags: [Products]
- *     security:
- *       - BearerAuth: []
- * /api/products/{productId}/variants/validate:
- *   post:
- *     summary: Validate variants payload without saving
  *     tags: [Products]
  *     security:
  *       - BearerAuth: []

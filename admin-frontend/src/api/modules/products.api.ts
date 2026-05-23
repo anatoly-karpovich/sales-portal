@@ -158,12 +158,6 @@ type ProductResponse = {
   ErrorMessage: string | null
 }
 
-type ProductsAllResponse = {
-  Products: ProductDetails[]
-  IsSuccess: boolean
-  ErrorMessage: string | null
-}
-
 export type ProductExportPayload = {
   format: 'csv' | 'json'
   filters: {
@@ -303,11 +297,6 @@ export async function getProductById(productId: string) {
   return normalizeProductDetails(response.data.Product)
 }
 
-export async function getAllProducts() {
-  const response = await apiClient.get<ProductsAllResponse>('/products/all')
-  return response.data.Products.map(normalizeProductDetails)
-}
-
 export async function initProductSetup(payload: ProductSetupInitPayload) {
   const response = await apiClient.post<ProductResponse>(
     '/products/setup/init',
@@ -330,15 +319,6 @@ export async function completeProductSetup(productId: string) {
   const response = await apiClient.post<ProductResponse>(
     `/products/${productId}/complete-setup`,
     undefined,
-    silentRequestConfig,
-  )
-  return normalizeProductDetails(response.data.Product)
-}
-
-export async function updateProduct(productId: string, payload: ProductUpsertPayload) {
-  const response = await apiClient.put<ProductResponse>(
-    `/products/${productId}`,
-    payload,
     silentRequestConfig,
   )
   return normalizeProductDetails(response.data.Product)
@@ -396,18 +376,6 @@ export async function replaceProductVariants(
     {
       ...silentRequestConfig,
     },
-  )
-  return normalizeProductDetails(response.data.Product)
-}
-
-export async function validateProductVariants(
-  productId: string,
-  payload: ProductVariantReplaceRequestPayload,
-) {
-  const response = await apiClient.post<ProductResponse>(
-    `/products/${productId}/variants/validate`,
-    payload,
-    silentRequestConfig,
   )
   return normalizeProductDetails(response.data.Product)
 }

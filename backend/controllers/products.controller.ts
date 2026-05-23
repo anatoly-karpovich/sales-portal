@@ -1,5 +1,5 @@
 import ProductsService from "../services/products.service.js";
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Types } from "mongoose";
 import { IProductFilters } from "../data/types/product.type.js";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
@@ -18,15 +18,12 @@ import {
   PatchProductVariantRequestDTO,
   ProductDetailsDTO,
   ProductResponseDTO,
-  ProductsResponseDTO,
   ProductsSortedResponseDTO,
   ProductCategoryPathItemDTO,
   ProductSetupInitRequestWithEntityDTO,
   ReorderProductAttributesRequestDTO,
   ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
-  ReplaceProductRequestDTO,
-  ValidateProductVariantsRequestDTO,
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
 import CategoriesService from "../services/categories.service.js";
@@ -261,31 +258,6 @@ class ProductsController {
     }
   }
 
-  async getAll(req: Request, res: Response<ProductsResponseDTO | BaseResponseDTO>) {
-    try {
-      const products = await ProductsService.getAll();
-      const categoryLookup = await this.buildCategoryLookup();
-      return res.json({
-        Products: products.map((product) => this.toDetailsDTO(product, categoryLookup)),
-        IsSuccess: true,
-        ErrorMessage: null,
-      });
-    } catch (e: any) {
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
-    }
-  }
-
-  async replace(req: ReplaceProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
-    try {
-      const id = new Types.ObjectId(req.params.productId);
-      const updatedProduct = await ProductsService.replace(id, req.body);
-      const categoryLookup = await this.buildCategoryLookup();
-      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
-    } catch (e: any) {
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
-    }
-  }
-
   async patch(req: PatchProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const id = new Types.ObjectId(req.params.productId);
@@ -353,17 +325,6 @@ class ProductsController {
       return res.status(201).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
-    }
-  }
-
-  async validateVariants(req: ValidateProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
-    try {
-      const productId = new Types.ObjectId(req.params.productId);
-      const previewProduct = await ProductsService.previewWithVariants(productId, req.body);
-      const categoryLookup = await this.buildCategoryLookup();
-      return res.status(200).json({ Product: this.toDetailsDTO(previewProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
-    } catch (e: any) {
-      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
