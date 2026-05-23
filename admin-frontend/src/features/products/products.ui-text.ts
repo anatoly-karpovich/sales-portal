@@ -44,7 +44,7 @@ export const productsUiText = {
     productInfoTitle: 'Product info',
     productInfoSubtitle: 'Read-only. Click edit to modify.',
     categoryTitle: 'Product category',
-    variantsTitle: 'Attributes & Variants',
+    variantsTitle: 'Variants',
     variantsSubtitle: 'Manage variants individually',
     labels: {
       name: 'Name',

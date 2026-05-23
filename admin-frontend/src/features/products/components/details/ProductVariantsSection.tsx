@@ -2,6 +2,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import DragIndicatorOutlinedIcon from '@mui/icons-material/DragIndicatorOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
+import LoopIcon from '@mui/icons-material/Loop'
 import { Box, Button, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import { useState } from 'react'
 import type { Product, ProductVariant } from '@/api/modules/products.api'
@@ -128,165 +129,185 @@ export function ProductVariantsSection({
 }: Props) {
   const parentImageUrl = product.imageUrl?.trim() || noImageProduct
   const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
+  const displayAttributes =
+    isAttributesOrderMode && attributesOrderDraft ? attributesOrderDraft : product.attributes
+  const isBulkEditorMode = isVariantsEditMode && Boolean(draft)
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{ p: { xs: 1.5, md: 2 } }}
-      data-testid="product-details-page-variants-section"
-    >
-      <Stack spacing={1.5}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {productsUiText.detailsPage.variantsTitle}
-            </Typography>
-            {canEnterVariantsEdit ? (
-              <Tooltip title={productsUiText.detailsPage.actions.edit}>
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={onEnterVariantsMode}
-                    disabled={!isReadOnlyMode || isEditingDisabled}
-                    data-testid="product-details-page-variants-bulk-edit-button"
-                  >
-                    <EditOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            ) : null}
-            {canEnterAttributesOrderMode ? (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={onEnterAttributesOrderMode}
-                disabled={!isReadOnlyMode || isEditingDisabled}
-                data-testid="product-details-page-attributes-reorder-start-button"
-              >
-                {productsUiText.detailsPage.actions.reorderAttributes}
-              </Button>
-            ) : null}
-          </Stack>
-        </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {productsUiText.detailsPage.variantsSubtitle}
-        </Typography>
-
-        {isAttributesOrderMode && attributesOrderDraft ? (
-          <Stack spacing={1.25} data-testid="product-details-page-attributes-reorder-mode">
-            {attributesOrderDraft.length === 0 ? (
-              <Typography color="text.secondary">
-                {productsUiText.detailsPage.labels.noAttributes}
+    <Stack spacing={2}>
+      <Paper
+        variant="outlined"
+        sx={{ p: { xs: 1.5, md: 2 } }}
+        data-testid="product-details-page-attributes-section"
+      >
+        <Stack spacing={1.5}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {productsUiText.detailsPage.labels.attributes}
               </Typography>
-            ) : (
-              <Stack spacing={0.75}>
-                {attributesOrderDraft.map((attribute, index) => (
-                  <Paper
-                    key={attribute.key}
-                    variant="outlined"
-                    sx={{
-                      p: 1,
-                      borderColor: draggedAttributeIndex === index ? 'primary.main' : 'divider',
-                    }}
-                    draggable={!isInteractionsLocked}
-                    onDragStart={() => setDraggedAttributeIndex(index)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault()
-                      if (draggedAttributeIndex === null || draggedAttributeIndex === index) return
-                      onMoveAttributeOrder(draggedAttributeIndex, index)
-                      setDraggedAttributeIndex(null)
-                    }}
-                    onDragEnd={() => setDraggedAttributeIndex(null)}
-                    data-testid={`product-details-page-attributes-reorder-row-${index}`}
-                  >
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <DragIndicatorOutlinedIcon fontSize="small" color="action" />
-                      <Typography sx={{ fontWeight: 600 }}>
-                        {attribute.name}: {attribute.values.join(', ')}
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
-            )}
-
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="contained"
-                disabled={!canSaveAttributesOrder}
-                onClick={onSaveAttributesOrder}
-                data-testid="product-details-page-attributes-reorder-save-button"
-              >
-                {productsUiText.detailsPage.actions.saveOrder}
-              </Button>
-              <Button
-                disabled={isInteractionsLocked}
-                onClick={onCancelAttributesOrder}
-                data-testid="product-details-page-attributes-reorder-cancel-button"
-              >
-                {productsUiText.detailsPage.actions.cancel}
-              </Button>
+              {canEnterAttributesOrderMode ? (
+                <Tooltip title={productsUiText.detailsPage.actions.reorderAttributes}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={onEnterAttributesOrderMode}
+                      disabled={!isReadOnlyMode || isEditingDisabled}
+                      data-testid="product-details-page-attributes-reorder-start-button"
+                    >
+                      <LoopIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              ) : null}
             </Stack>
           </Stack>
-        ) : isVariantsEditMode && draft ? (
-          <ProductVariantsBulkEditor
-            draft={draft}
-            attributeErrors={attributeErrors}
-            invalidVariantsCount={invalidVariantsCount}
-            hasReachedMaxVariants={hasReachedMaxVariants}
-            possibleCombinationsCount={possibleCombinationsCount}
-            variantCombinationErrors={variantCombinationErrors}
-            variantPriceErrors={variantPriceErrors}
-            isInteractionsLocked={isInteractionsLocked}
-            canSaveVariants={canSaveVariants}
-            onAddVariant={onAddVariant}
-            onGenerateAllCombinations={onGenerateAllCombinations}
-            onRemoveInvalidVariants={onRemoveInvalidVariants}
-            onAddAttribute={onAddAttribute}
-            onSetAttributeName={onSetAttributeName}
-            onSetAttributeInputValue={onSetAttributeInputValue}
-            onCommitAttributeValues={onCommitAttributeValues}
-            onCommitAttributeInput={onCommitAttributeInput}
-            onRemoveAttribute={onRemoveAttribute}
-            onRemoveVariant={onRemoveVariant}
-            onUpdateVariantAttribute={onUpdateVariantAttribute}
-            onUpdateVariantImageUrl={onUpdateVariantImageUrl}
-            onCommitVariantPrice={onCommitVariantPrice}
-            onSaveVariants={onSaveVariants}
-            onCancelVariants={onCancelVariants}
-          />
-        ) : (
-          <Stack spacing={1.5}>
-            {isReadOnlyMode ? (
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                flexWrap="wrap"
-                useFlexGap
-                data-testid="product-details-page-attributes-list-read-only"
-              >
-                <Typography sx={{ fontWeight: 700 }}>
-                  {productsUiText.detailsPage.labels.attributes}:
-                </Typography>
-                {product.attributes.length === 0 ? (
-                  <Typography color="text.secondary">
-                    {productsUiText.detailsPage.labels.noAttributes}
-                  </Typography>
-                ) : (
-                  product.attributes.map((attribute) => (
-                    <Chip
-                      key={attribute.key}
-                      label={`${attribute.name}: ${attribute.values.join(', ')}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))
-                )}
-              </Stack>
-            ) : null}
 
+          {isAttributesOrderMode && attributesOrderDraft ? (
+            <Stack spacing={1.25} data-testid="product-details-page-attributes-reorder-mode">
+              {attributesOrderDraft.length === 0 ? (
+                <Typography color="text.secondary">
+                  {productsUiText.detailsPage.labels.noAttributes}
+                </Typography>
+              ) : (
+                <Stack spacing={0.75}>
+                  {attributesOrderDraft.map((attribute, index) => (
+                    <Paper
+                      key={attribute.key}
+                      variant="outlined"
+                      sx={{
+                        p: 1,
+                        borderColor: draggedAttributeIndex === index ? 'primary.main' : 'divider',
+                      }}
+                      draggable={!isInteractionsLocked}
+                      onDragStart={() => setDraggedAttributeIndex(index)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault()
+                        if (draggedAttributeIndex === null || draggedAttributeIndex === index) return
+                        onMoveAttributeOrder(draggedAttributeIndex, index)
+                        setDraggedAttributeIndex(null)
+                      }}
+                      onDragEnd={() => setDraggedAttributeIndex(null)}
+                      data-testid={`product-details-page-attributes-reorder-row-${index}`}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <DragIndicatorOutlinedIcon fontSize="small" color="action" />
+                        <Typography sx={{ fontWeight: 600 }}>
+                          {attribute.name}: {attribute.values.join(', ')}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="contained"
+                  disabled={!canSaveAttributesOrder}
+                  onClick={onSaveAttributesOrder}
+                  data-testid="product-details-page-attributes-reorder-save-button"
+                >
+                  {productsUiText.detailsPage.actions.saveOrder}
+                </Button>
+                <Button
+                  disabled={isInteractionsLocked}
+                  onClick={onCancelAttributesOrder}
+                  data-testid="product-details-page-attributes-reorder-cancel-button"
+                >
+                  {productsUiText.detailsPage.actions.cancel}
+                </Button>
+              </Stack>
+            </Stack>
+          ) : (
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              flexWrap="wrap"
+              useFlexGap
+              data-testid="product-details-page-attributes-list-read-only"
+            >
+              {displayAttributes.length === 0 ? (
+                <Typography color="text.secondary">
+                  {productsUiText.detailsPage.labels.noAttributes}
+                </Typography>
+              ) : (
+                displayAttributes.map((attribute) => (
+                  <Chip
+                    key={attribute.key}
+                    label={`${attribute.name}: ${attribute.values.join(', ')}`}
+                    size="small"
+                    variant="outlined"
+                  />
+                ))
+              )}
+            </Stack>
+          )}
+        </Stack>
+      </Paper>
+
+      <Paper
+        variant="outlined"
+        sx={{ p: { xs: 1.5, md: 2 } }}
+        data-testid="product-details-page-variants-section"
+      >
+        <Stack spacing={1.5}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {productsUiText.detailsPage.variantsTitle}
+              </Typography>
+              {canEnterVariantsEdit ? (
+                <Tooltip title={productsUiText.detailsPage.actions.edit}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={onEnterVariantsMode}
+                      disabled={!isReadOnlyMode || isEditingDisabled}
+                      data-testid="product-details-page-variants-bulk-edit-button"
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              ) : null}
+            </Stack>
+          </Stack>
+
+          <Typography variant="body2" color="text.secondary">
+            {productsUiText.detailsPage.variantsSubtitle}
+          </Typography>
+
+          {isBulkEditorMode && draft ? (
+            <ProductVariantsBulkEditor
+              draft={draft}
+              attributeErrors={attributeErrors}
+              invalidVariantsCount={invalidVariantsCount}
+              hasReachedMaxVariants={hasReachedMaxVariants}
+              possibleCombinationsCount={possibleCombinationsCount}
+              variantCombinationErrors={variantCombinationErrors}
+              variantPriceErrors={variantPriceErrors}
+              isInteractionsLocked={isInteractionsLocked}
+              canSaveVariants={canSaveVariants}
+              onAddVariant={onAddVariant}
+              onGenerateAllCombinations={onGenerateAllCombinations}
+              onRemoveInvalidVariants={onRemoveInvalidVariants}
+              onAddAttribute={onAddAttribute}
+              onSetAttributeName={onSetAttributeName}
+              onSetAttributeInputValue={onSetAttributeInputValue}
+              onCommitAttributeValues={onCommitAttributeValues}
+              onCommitAttributeInput={onCommitAttributeInput}
+              onRemoveAttribute={onRemoveAttribute}
+              onRemoveVariant={onRemoveVariant}
+              onUpdateVariantAttribute={onUpdateVariantAttribute}
+              onUpdateVariantImageUrl={onUpdateVariantImageUrl}
+              onCommitVariantPrice={onCommitVariantPrice}
+              onSaveVariants={onSaveVariants}
+              onCancelVariants={onCancelVariants}
+            />
+          ) : (
             <Box
               sx={{
                 display: 'grid',
@@ -308,6 +329,14 @@ export function ProductVariantsSection({
                   !isSinglePriceError
                     ? singleVariantError
                     : ''
+                const variantDisplayName =
+                  buildVariantDisplayName(
+                    {
+                      name: product.name,
+                      attributes: displayAttributes,
+                    },
+                    variant,
+                  ) || product.name
 
                 return (
                   <Paper key={variant._id ?? variantIndex} variant="outlined" sx={{ p: 1.5 }}>
@@ -315,7 +344,7 @@ export function ProductVariantsSection({
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                            {buildVariantDisplayName(product, variant) || product.name}
+                            {variantDisplayName}
                           </Typography>
                           <Chip size="small" label={variant.status} variant="outlined" />
                           <Tooltip title={productsUiText.detailsPage.actions.edit}>
@@ -402,7 +431,7 @@ export function ProductVariantsSection({
 
                       {isEditingThisVariant && singleVariantDraft ? (
                         <ProductVariantInlineEditor
-                          attributes={product.attributes}
+                          attributes={displayAttributes}
                           isAttributesEditable={isSingleVariantAttributesEditable}
                           draft={{
                             price: singleVariantDraft.price,
@@ -427,7 +456,7 @@ export function ProductVariantsSection({
                           <Box
                             component="img"
                             src={variantImageUrl}
-                            alt={`${product.name} ${toVariantTitle(variant, product.attributes) || ''}`}
+                            alt={`${product.name} ${toVariantTitle(variant, displayAttributes) || ''}`}
                             sx={{
                               width: 120,
                               height: 120,
@@ -447,16 +476,16 @@ export function ProductVariantsSection({
                               <strong>{productsUiText.detailsPage.labels.imageUrl}:</strong>{' '}
                               {variant.imageUrl?.trim() || '-'}
                             </Typography>
-                            {product.attributes.map((attribute) => (
+                            {displayAttributes.map((attribute) => (
                               <Typography key={`${variant._id ?? variantIndex}-${attribute.key}`}>
                                 <strong>{attribute.name}:</strong>{' '}
                                 {variant.attributes[attribute.key] ?? '-'}
                               </Typography>
                             ))}
-                            {product.attributes.length === 0 ? (
+                            {displayAttributes.length === 0 ? (
                               <Typography>
                                 <strong>{productsUiText.detailsPage.labels.variant}:</strong>{' '}
-                                {toVariantTitle(variant, product.attributes) || '-'}
+                                {toVariantTitle(variant, displayAttributes) || '-'}
                               </Typography>
                             ) : null}
                           </Stack>
@@ -467,9 +496,9 @@ export function ProductVariantsSection({
                 )
               })}
             </Box>
-          </Stack>
-        )}
-      </Stack>
-    </Paper>
+          )}
+        </Stack>
+      </Paper>
+    </Stack>
   )
 }
