@@ -83,9 +83,14 @@ export function useProductsPageState() {
   const total = data?.total ?? 0
   const isTableUpdating = isFetching || isTransitionPending
 
-  const goToProductDetails = useCallback(
-    (productId: string) => {
-      navigate(`/products/${productId}`)
+  const openProductWorkspace = useCallback(
+    (product: Product) => {
+      if (product.setup?.completed === false) {
+        navigate(`/products/add?productId=${product._id}`)
+        return
+      }
+
+      navigate(`/products/${product._id}`)
     },
     [navigate],
   )
@@ -262,6 +267,6 @@ export function useProductsPageState() {
       setPage(1)
       setFiltersOpen(false)
     },
-    goToProductDetails,
+    openProductWorkspace,
   }
 }

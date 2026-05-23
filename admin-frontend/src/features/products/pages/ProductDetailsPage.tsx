@@ -1,5 +1,5 @@
 import { Alert, Button, Paper, Stack, Typography } from '@mui/material'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSnackbar } from 'notistack'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type {
@@ -121,6 +121,13 @@ export function ProductDetailsPage() {
   const [categoryDraftId, setCategoryDraftId] = useState<string | null>(null)
 
   const product = productQuery.data
+  useEffect(() => {
+    if (!product || !productId) return
+    if (product.setup?.completed === false) {
+      navigate(`/products/add?productId=${productId}`, { replace: true })
+    }
+  }, [navigate, product, productId])
+
   const editMode = useProductDetailsEditMode()
   const draftState = useProductVariantsDraft(product)
   const validation = useProductVariantsValidation({
@@ -524,6 +531,10 @@ export function ProductDetailsPage() {
         </Stack>
       </Paper>
     )
+  }
+
+  if (product.setup?.completed === false) {
+    return <ProductDetailsSkeleton />
   }
 
   const confirmDialogConfig =

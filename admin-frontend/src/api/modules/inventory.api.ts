@@ -1,7 +1,7 @@
 import { apiClient } from '@/api/client'
 
 export type InventoryStatus = 'In Stock' | 'Low Stock' | 'Out Of Stock' | 'Not Tracked'
-export type InventoryRecordStatus = 'Active' | 'Archived'
+export type InventoryRecordStatus = 'Draft' | 'Active' | 'Archived'
 export type ProductStatus = 'Draft' | 'Active' | 'Archived'
 export const INVENTORY_MANUAL_ADJUSTMENT_TYPES = ['Stock Receipt', 'Manual Correction'] as const
 export type InventoryManualAdjustmentType = (typeof INVENTORY_MANUAL_ADJUSTMENT_TYPES)[number]
@@ -127,6 +127,17 @@ export type InventoryVariantSettingsPatchPayload = {
   variantId: string
   lowStockThreshold?: number
   allowSellingOutOfStock?: boolean
+}
+
+export type InventoryInitialVariantPayload = {
+  variantId: string
+  quantity: number
+  lowStockThreshold: number
+  allowSellingOutOfStock: boolean
+}
+
+export type InventoryInitialSetupPayload = {
+  variants: InventoryInitialVariantPayload[]
 }
 
 export type InventoryAdjustmentsSortOrder = 'asc' | 'desc'
@@ -335,6 +346,17 @@ export async function updateInventoryVariantSettings(
       lowStockThreshold: payload.lowStockThreshold,
       allowSellingOutOfStock: payload.allowSellingOutOfStock,
     },
+  )
+  return response.data.Inventory
+}
+
+export async function saveInitialInventory(
+  productId: string,
+  payload: InventoryInitialSetupPayload,
+) {
+  const response = await apiClient.post<InventoryDetailsResponse>(
+    `/inventory/products/${productId}/initial`,
+    payload,
   )
   return response.data.Inventory
 }

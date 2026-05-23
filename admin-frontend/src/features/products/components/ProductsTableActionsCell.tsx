@@ -10,6 +10,8 @@ type Props = {
 }
 
 export function ProductsTableActionsCell({ product, onView, onDelete }: Props) {
+  const detailsLabel = product.setup?.completed === false ? 'Continue setup' : 'Details'
+
   return (
     <Stack
       direction="row"
@@ -17,11 +19,15 @@ export function ProductsTableActionsCell({ product, onView, onDelete }: Props) {
       justifyContent="flex-end"
       data-testid="products-table-actions-cell"
     >
-      <Tooltip title="Details">
+      <Tooltip title={detailsLabel}>
         <IconButton
           size="small"
           onClick={() => onView(product)}
-          data-testid="products-table-details-button"
+          data-testid={
+            product.setup?.completed === false
+              ? 'products-table-continue-setup-button'
+              : 'products-table-details-button'
+          }
         >
           <VisibilityOutlinedIcon fontSize="small" />
         </IconButton>

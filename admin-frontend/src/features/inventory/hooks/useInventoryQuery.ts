@@ -6,9 +6,11 @@ import {
   getInventory,
   getInventoryByProductId,
   getInventoryReservations,
+  saveInitialInventory,
   type InventoryAdjustmentsQuery,
   type InventoryDetails,
   type InventoryAdjustmentCreatePayload,
+  type InventoryInitialSetupPayload,
   type InventoryReservationsQuery,
   type InventoryVariantSettingsPatchPayload,
   type InventoryQuery,
@@ -91,6 +93,29 @@ export function useInventoryUpdateVariantSettingsMutation() {
   return useMutation({
     mutationFn: (payload: InventoryVariantSettingsPatchPayload) =>
       updateInventoryVariantSettings(payload),
+    onSuccess: (updatedInventory, variables) => {
+      queryClient.setQueryData<InventoryDetails>(
+        inventoryQueryKeys.detail(variables.productId),
+        updatedInventory,
+      )
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+    },
+  })
+}
+
+export function useInventoryInitialSetupMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      productId,
+      payload,
+    }: {
+      productId: string
+      payload: InventoryInitialSetupPayload
+    }) => saveInitialInventory(productId, payload),
     onSuccess: (updatedInventory, variables) => {
       queryClient.setQueryData<InventoryDetails>(
         inventoryQueryKeys.detail(variables.productId),

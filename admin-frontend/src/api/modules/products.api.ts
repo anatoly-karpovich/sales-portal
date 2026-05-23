@@ -3,6 +3,11 @@ import type { ApiRequestConfig } from '@/api/types'
 
 export type ProductStatus = 'Draft' | 'Active' | 'Archived'
 export type ProductVariantStatus = ProductStatus
+export type ProductSetup = {
+  completed: boolean
+  completedOn?: string
+  completedBy?: string
+}
 
 export type ProductPriceRange = {
   min: number
@@ -51,6 +56,7 @@ export type ProductListItem = {
   rootCategoryId: string
   categoryPath: string
   status: ProductStatus
+  setup?: ProductSetup
   variantsCount: number
   priceRange: ProductPriceRange
   createdOn: string
@@ -81,6 +87,16 @@ export type ProductVariantUpsertPayload = {
   imageUrl?: string
   attributes: ProductAttribute[]
   variants: ProductVariantReplacePayload[]
+}
+
+export type ProductSetupInitPayload = Pick<
+  ProductVariantUpsertPayload,
+  'name' | 'manufacturer' | 'categoryId' | 'description' | 'imageUrl'
+>
+
+export type ProductSetupSpecPayload = {
+  attributes: ProductAttribute[]
+  variants: ProductVariantCreatePayload[]
 }
 
 export type ProductParentPatchPayload = Partial<
@@ -213,10 +229,24 @@ function toCategoryPath(
   return product.category?.path?.map((item) => item.name).join(' / ') ?? ''
 }
 
+function normalizeProductSetup(
+  setup: ProductSetup | undefined,
+  status: ProductStatus,
+): ProductSetup {
+  if (setup && typeof setup.completed === 'boolean') {
+    return setup
+  }
+
+  return {
+    completed: status !== 'Draft',
+  }
+}
+
 function normalizeProductListItem(item: ProductListItem): Product {
   const priceRange = toPriceRange(item.priceRange)
   return {
     ...item,
+    setup: normalizeProductSetup(item.setup, item.status),
     categoryPath: toCategoryPath(item),
     variantsCount: Number(item.variantsCount ?? 0),
     priceRange,
@@ -235,6 +265,7 @@ function normalizeProductDetails(product: ProductDetails): Product {
 
   return {
     ...product,
+    setup: normalizeProductSetup(product.setup, product.status),
     categoryPath: toCategoryPath(product),
     priceRange,
     variantsCount: Number(product.variantsCount ?? product.variants?.length ?? 0),
@@ -275,6 +306,33 @@ export async function getAllProducts() {
 
 export async function createProduct(payload: ProductUpsertPayload) {
   const response = await apiClient.post<ProductResponse>('/products', payload, silentRequestConfig)
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function initProductSetup(payload: ProductSetupInitPayload) {
+  const response = await apiClient.post<ProductResponse>(
+    '/products/setup/init',
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function saveProductSetupSpec(productId: string, payload: ProductSetupSpecPayload) {
+  const response = await apiClient.put<ProductResponse>(
+    `/products/${productId}/setup/spec`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function completeProductSetup(productId: string) {
+  const response = await apiClient.post<ProductResponse>(
+    `/products/${productId}/complete-setup`,
+    undefined,
+    silentRequestConfig,
+  )
   return normalizeProductDetails(response.data.Product)
 }
 

@@ -1,20 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addProductVariants,
+  completeProductSetup,
   createProduct,
   deleteProduct,
   deleteProductVariant,
   exportProducts,
   getProductById,
   getProducts,
+  initProductSetup,
   patchProduct,
   patchProductStatus,
   patchProductVariant,
   patchProductVariantStatus,
   replaceProductVariants,
+  saveProductSetupSpec,
   updateProduct,
   type ProductExportPayload,
   type ProductParentPatchPayload,
+  type ProductSetupInitPayload,
+  type ProductSetupSpecPayload,
   type ProductStatusPatchPayload,
   type ProductUpsertPayload,
   type ProductVariantCreatePayload,
@@ -81,6 +86,54 @@ export function useCreateProductMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (payload: ProductUpsertPayload) => createProduct(payload),
+    onSuccess: (product) => {
+      syncProductMutationResult({
+        queryClient,
+        productId: product._id,
+        product,
+      })
+    },
+  })
+}
+
+export function useInitProductSetupMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: ProductSetupInitPayload) => initProductSetup(payload),
+    onSuccess: (product) => {
+      syncProductMutationResult({
+        queryClient,
+        productId: product._id,
+        product,
+      })
+    },
+  })
+}
+
+export function useSaveProductSetupSpecMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      productId,
+      payload,
+    }: {
+      productId: string
+      payload: ProductSetupSpecPayload
+    }) => saveProductSetupSpec(productId, payload),
+    onSuccess: (product, variables) => {
+      syncProductMutationResult({
+        queryClient,
+        productId: variables.productId,
+        product,
+      })
+    },
+  })
+}
+
+export function useCompleteProductSetupMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (productId: string) => completeProductSetup(productId),
     onSuccess: (product) => {
       syncProductMutationResult({
         queryClient,

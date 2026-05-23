@@ -29,7 +29,7 @@ export function ProductsPage() {
     : productsUiText.listPage.emptyStateNoProducts
 
   const columns = getProductsTableColumns({
-    onView: (product) => state.goToProductDetails(product._id),
+    onView: (product) => state.openProductWorkspace(product),
     onDelete: state.openDeleteDialog,
   })
 
