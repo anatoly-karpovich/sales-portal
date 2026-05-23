@@ -501,20 +501,6 @@ export async function productPatchValidations(
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
 
-    const nextProduct: MutableProduct = normalizeProductPayload({
-      ...product,
-      ...req.body,
-      attributes: product.attributes,
-      variants: product.variants,
-    } as MutableProduct);
-
-    const validationResponse = await validateNextProductPayload(nextProduct, res, {
-      validateCategoryExists: typeof req.body.categoryId === "string",
-    });
-    if (validationResponse) {
-      return validationResponse;
-    }
-
     const normalizedPatch = {
       ...req.body,
       name: typeof req.body.name === "string" ? normalizeText(req.body.name) : req.body.name,
@@ -526,6 +512,55 @@ export async function productPatchValidations(
         typeof req.body.description === "string" ? normalizeText(req.body.description) : req.body.description,
       imageUrl: typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
     };
+
+    const isDraftSetupProduct =
+      product.status === PRODUCT_STATUSES.DRAFT && (product as unknown as { setup?: { completed?: boolean } })?.setup?.completed !== true;
+
+    if (isDraftSetupProduct) {
+      if (typeof normalizedPatch.name === "string" && !normalizedPatch.name) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+      }
+
+      if (typeof normalizedPatch.categoryId === "string") {
+        if (!normalizedPatch.categoryId || !Types.ObjectId.isValid(normalizedPatch.categoryId)) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+        }
+
+        const categoryValidation = await CategoriesService.validateCategoryExists(normalizedPatch.categoryId);
+        if (categoryValidation.isValid === false) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: categoryValidation.error });
+        }
+      }
+
+      if (typeof normalizedPatch.manufacturer === "string") {
+        if (!normalizedPatch.manufacturer) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+        }
+
+        const allowedManufacturers = await getAllowedManufacturers();
+        const allowedManufacturerKeys = new Set(allowedManufacturers.map((value) => normalizeKey(value)));
+        if (!allowedManufacturerKeys.has(normalizeKey(normalizedPatch.manufacturer))) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: "No such manufacturer is defined" });
+        }
+      }
+
+      req.body = normalizedPatch as typeof req.body;
+      return next();
+    }
+
+    const nextProduct: MutableProduct = normalizeProductPayload({
+      ...product,
+      ...normalizedPatch,
+      attributes: product.attributes,
+      variants: product.variants,
+    } as MutableProduct);
+
+    const validationResponse = await validateNextProductPayload(nextProduct, res, {
+      validateCategoryExists: typeof normalizedPatch.categoryId === "string",
+    });
+    if (validationResponse) {
+      return validationResponse;
+    }
 
     req.body = normalizedPatch as typeof req.body;
     next();

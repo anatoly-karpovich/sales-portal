@@ -409,6 +409,15 @@ class InventoryService {
     return updated as unknown as IInventory;
   }
 
+  async resetDraftSetupInventory(productId: Types.ObjectId, product: IProduct, session?: ClientSession): Promise<IInventory> {
+    if (product.status !== PRODUCT_STATUSES.DRAFT || product.setup?.completed) {
+      throw createHttpError("Only draft products can reset setup inventory", 409);
+    }
+
+    await this.deleteByProductId(productId, session);
+    return this.createForProduct(product, session);
+  }
+
   async getByProductId(productId: Types.ObjectId): Promise<IInventoryReadModel> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {

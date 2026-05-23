@@ -54,6 +54,7 @@ export async function inventoryVariantById(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${productId}' wasn't found` });
     }
+
     const exists = (product.variants ?? []).some((variant: any) => variant._id?.toString() === variantId);
     if (!exists) {
       return res
@@ -84,10 +85,18 @@ export async function inventoryAdjustmentValidation(
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
     }
 
-    const product = await Product.findById(new Types.ObjectId(productId)).select("variants._id").lean().exec();
+    const product = await Product.findById(new Types.ObjectId(productId)).select("variants._id status").lean().exec();
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${productId}' wasn't found` });
     }
+
+    if (product.status === PRODUCT_STATUSES.DRAFT) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Manual inventory adjustments are not allowed for draft products",
+      });
+    }
+
     const exists = (product.variants ?? []).some((variant: any) => variant._id?.toString() === variantId);
     if (!exists) {
       return res

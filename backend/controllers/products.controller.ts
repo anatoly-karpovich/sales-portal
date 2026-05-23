@@ -322,7 +322,9 @@ class ProductsController {
   async replaceSetupSpec(req: ReplaceProductSetupSpecRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const productId = new Types.ObjectId(req.params.productId);
-      const updatedProduct = await ProductsService.replaceVariants(productId, req.body);
+      const updatedProduct = await ProductsService.replaceVariants(productId, req.body, {
+        resetDraftSetupInventory: true,
+      });
       const categoryLookup = await this.buildCategoryLookup();
       return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {

@@ -210,7 +210,11 @@ class ProductsService {
     return normalized;
   }
 
-  async replaceVariants(productId: Types.ObjectId, payload: ProductVariantsReplaceBodyDTO): Promise<IProduct> {
+  async replaceVariants(
+    productId: Types.ObjectId,
+    payload: ProductVariantsReplaceBodyDTO,
+    options?: { resetDraftSetupInventory?: boolean },
+  ): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
@@ -258,6 +262,16 @@ class ProductsService {
       .exec();
 
     const normalized = this.normalizeProduct(updatedProduct);
+    const shouldResetDraftSetupInventory =
+      options?.resetDraftSetupInventory === true &&
+      product.status === PRODUCT_STATUSES.DRAFT &&
+      (product as unknown as { setup?: { completed?: boolean } })?.setup?.completed !== true;
+
+    if (shouldResetDraftSetupInventory) {
+      await InventoryService.resetDraftSetupInventory(productId, normalized);
+      return normalized;
+    }
+
     const nextVariantIds = new Set(
       (normalized.variants ?? []).map((variant) => variant._id?.toString?.()).filter(Boolean),
     );
