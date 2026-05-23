@@ -304,11 +304,6 @@ export async function getAllProducts() {
   return response.data.Products.map(normalizeProductDetails)
 }
 
-export async function createProduct(payload: ProductUpsertPayload) {
-  const response = await apiClient.post<ProductResponse>('/products', payload, silentRequestConfig)
-  return normalizeProductDetails(response.data.Product)
-}
-
 export async function initProductSetup(payload: ProductSetupInitPayload) {
   const response = await apiClient.post<ProductResponse>(
     '/products/setup/init',

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addProductVariants,
   completeProductSetup,
-  createProduct,
   deleteProduct,
   deleteProductVariant,
   exportProducts,
@@ -79,20 +78,6 @@ export function useProductQuery(productId: string, enabled = true) {
     queryKey: productsQueryKeys.detail(productId),
     queryFn: () => getProductById(productId),
     enabled,
-  })
-}
-
-export function useCreateProductMutation() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: ProductUpsertPayload) => createProduct(payload),
-    onSuccess: (product) => {
-      syncProductMutationResult({
-        queryClient,
-        productId: product._id,
-        product,
-      })
-    },
   })
 }
 
