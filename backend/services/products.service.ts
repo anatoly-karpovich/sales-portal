@@ -201,13 +201,24 @@ class ProductsService {
       return undefined;
     }
 
+    const safePatchPayload: ProductVariantPatchRequestDTO = {};
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, "price")) {
+      safePatchPayload.price = payload.price;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, "imageUrl")) {
+      safePatchPayload.imageUrl = payload.imageUrl;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, "attributes")) {
+      safePatchPayload.attributes = payload.attributes;
+    }
+
     const nextVariants = (product.variants ?? []).map((variant: any) => {
       if (variant?._id?.toString() !== variantId.toString()) {
         return variant;
       }
       return {
         ...variant,
-        ...payload,
+        ...safePatchPayload,
       };
     });
 

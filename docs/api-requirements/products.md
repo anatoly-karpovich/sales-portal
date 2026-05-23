@@ -52,7 +52,17 @@ Rules:
 - variant attribute values must belong to corresponding `ProductAttribute.values`;
 - combination of variant attributes must be unique inside the product.
 - deleting a variant is blocked with `409` when any order references that `productId + variantId` pair.
-- `POST /api/products/:productId/variants`, `PUT /api/products/:productId/variants`, and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
+- `PUT /api/products/:productId/variants` and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
+- `POST /api/products/:productId/variants` accepts:
+  - `1..200` variants for `Draft` products;
+  - exactly `1` variant for `Active`/`Archived` products.
+- `DELETE /api/products/:productId/variants/:variantId` is allowed for `Draft` and `Active`/`Archived` products only when:
+  - the variant is not the last variant in product;
+  - the variant has never been referenced by any order line.
+- variant delete removes:
+  - variant inventory record from product inventory;
+  - inventory adjustment history entries for that `productId + variantId` pair;
+  - reservation entries for that `productId + variantId` pair.
 - duplicate-like validation conflicts are returned as `409` (duplicate product name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload).
 - non-status endpoints do not accept `status` in payloads; status changes are allowed only via dedicated status endpoints.
 - create/update validates `categoryId` existence.
@@ -69,11 +79,11 @@ Editability by status:
     - `PATCH /api/products/:productId/attributes/order` (attributes reorder only, definition must stay identical);
     - `PATCH /api/products/:productId/variants/:variantId` (`price`, `imageUrl`);
     - `PATCH /api/products/:productId/variants/:variantId/status` (`status`).
-  - structure-changing variant endpoints are draft-only:
+  - structure-changing variant endpoints are draft-only, except guarded single-item operations:
     - `PUT /api/products/:productId/variants`
-    - `POST /api/products/:productId/variants`
-    - `DELETE /api/products/:productId/variants/:variantId`
     - `POST /api/products/:productId/variants/validate`
+  - `POST /api/products/:productId/variants` is allowed for `Active`/`Archived` only as a single-item add (`exactly 1`) and only while not all attribute combinations are created.
+  - `DELETE /api/products/:productId/variants/:variantId` is allowed for `Active`/`Archived` only for variants never used in orders.
 
 ## Endpoints
 

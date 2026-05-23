@@ -5,6 +5,7 @@ import { productsUiText } from '@/features/products/products.ui-text'
 type Props = {
   attributes: ProductAttribute[]
   isAttributesEditable: boolean
+  testIdPrefix: string
   draft: {
     price: string
     imageUrl: string
@@ -23,6 +24,7 @@ type Props = {
 export function ProductVariantInlineEditor({
   attributes,
   isAttributesEditable,
+  testIdPrefix,
   draft,
   error,
   isInteractionsLocked,
@@ -38,6 +40,7 @@ export function ProductVariantInlineEditor({
     error === productsUiText.detailsPage.validation.priceMaxDecimals
   const isDuplicateCombinationError =
     error === productsUiText.detailsPage.validation.duplicateVariantCombination
+  const testId = (suffix: string) => `${testIdPrefix}-${suffix}`
 
   return (
     <Stack spacing={1.25}>
@@ -57,10 +60,25 @@ export function ProductVariantInlineEditor({
                 error={isDuplicateCombinationError}
                 value={draft.attributes[attribute.key] ?? ''}
                 onChange={(event) => onChangeAttribute(attribute.key, event.target.value)}
+                data-testid={testId(`attribute-${attribute.key}-select`)}
+                SelectProps={{
+                  inputProps: {
+                    'data-testid': testId(`attribute-${attribute.key}-select-field`),
+                  },
+                }}
               >
-                <MenuItem value="">{productsUiText.detailsPage.labels.selectValue}</MenuItem>
+                <MenuItem
+                  value=""
+                  data-testid={testId(`attribute-${attribute.key}-option-empty`)}
+                >
+                  {productsUiText.detailsPage.labels.selectValue}
+                </MenuItem>
                 {attribute.values.map((value) => (
-                  <MenuItem key={`${attribute.key}-${value}`} value={value}>
+                  <MenuItem
+                    key={`${attribute.key}-${value}`}
+                    value={value}
+                    data-testid={testId(`attribute-${attribute.key}-option-${value}`)}
+                  >
                     {value}
                   </MenuItem>
                 ))}
@@ -73,21 +91,38 @@ export function ProductVariantInlineEditor({
           value={draft.price}
           error={isPriceError}
           onChange={(event) => onChangePrice(event.target.value)}
-          inputProps={{ inputMode: 'decimal' }}
+          data-testid={testId('price-input')}
+          inputProps={{
+            inputMode: 'decimal',
+            'data-testid': testId('price-input-field'),
+          }}
         />
 
         <TextField
           label={productsUiText.detailsPage.labels.variantImageUrl}
           value={draft.imageUrl}
           onChange={(event) => onChangeImageUrl(event.target.value)}
+          data-testid={testId('image-url-input')}
+          inputProps={{
+            'data-testid': testId('image-url-input-field'),
+          }}
         />
       </Box>
 
       <Stack direction="row" spacing={1}>
-        <Button variant="contained" disabled={!canSave} onClick={onSave}>
+        <Button
+          variant="contained"
+          disabled={!canSave}
+          onClick={onSave}
+          data-testid={testId('save-button')}
+        >
           {productsUiText.detailsPage.actions.saveVariant}
         </Button>
-        <Button disabled={isInteractionsLocked} onClick={onCancel}>
+        <Button
+          disabled={isInteractionsLocked}
+          onClick={onCancel}
+          data-testid={testId('cancel-button')}
+        >
           {productsUiText.detailsPage.actions.cancel}
         </Button>
       </Stack>

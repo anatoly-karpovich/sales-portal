@@ -707,12 +707,16 @@ export async function productVariantPatchValidations(
       });
     }
 
-    const normalizedPatch = {
-      ...req.body,
-      price: req.body.price !== undefined ? toDecimalWithTwoPlaces(req.body.price) : undefined,
-      imageUrl: req.body.imageUrl ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
-      attributes: req.body.attributes ? normalizeRecord(req.body.attributes) : req.body.attributes,
-    };
+    const normalizedPatch: PatchProductVariantRequestDTO["body"] = {};
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "price")) {
+      normalizedPatch.price = toDecimalWithTwoPlaces(req.body.price as number);
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "imageUrl")) {
+      normalizedPatch.imageUrl = typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "attributes")) {
+      normalizedPatch.attributes = normalizeRecord(req.body.attributes as Record<string, string>);
+    }
 
     const nextVariants = product.variants.map((variant) =>
       variant._id?.toString() === variantId ? { ...variant, ...normalizedPatch } : variant,
@@ -747,15 +751,28 @@ export async function productVariantsCreateValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-    if (isNonDraftProduct(product as ProductSetupState)) {
-      return res.status(409).json({
-        IsSuccess: false,
-        ErrorMessage: "Only draft products can update attributes and variants structure",
-      });
-    }
-
     if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const nonDraftProduct = isNonDraftProduct(product as ProductSetupState);
+    if (nonDraftProduct) {
+      if (req.body.length !== 1) {
+        return res.status(409).json({
+          IsSuccess: false,
+          ErrorMessage: "For active/archived products variants can be added only one by one",
+        });
+      }
+
+      const totalCombinations = (product.attributes ?? []).reduce((accumulator, attribute) => {
+        return accumulator * (attribute.values?.length ?? 0);
+      }, 1);
+      if ((product.variants?.length ?? 0) >= totalCombinations) {
+        return res.status(409).json({
+          IsSuccess: false,
+          ErrorMessage: "All possible variant attribute combinations are already created",
+        });
+      }
     }
 
     const normalizedVariants = req.body.map((variant) => normalizeVariantPayload(variant, PRODUCT_STATUSES.DRAFT));
@@ -1027,12 +1044,6 @@ export async function deleteProductVariant(
     const product = req.product as unknown as MutableProduct | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
-    }
-    if (isNonDraftProduct(product as ProductSetupState)) {
-      return res.status(409).json({
-        IsSuccess: false,
-        ErrorMessage: "Only draft products can update attributes and variants structure",
-      });
     }
 
     const variantId = req.params.variantId;

@@ -22,6 +22,12 @@ type SingleVariantDraft = {
   attributes: Record<string, string>
 }
 
+type NewVariantDraft = {
+  price: string
+  imageUrl: string
+  attributes: Record<string, string>
+}
+
 type Props = {
   product: Product
   draft: ProductVariantsDraft | null
@@ -45,6 +51,10 @@ type Props = {
   singleVariantDraft: SingleVariantDraft | null
   singleVariantError: string
   canSaveSingleVariant: boolean
+  canAddVariantInReadMode: boolean
+  newVariantDraft: NewVariantDraft | null
+  newVariantError: string
+  canSaveNewVariant: boolean
   onEnterVariantsMode: () => void
   onEnterAttributesOrderMode: () => void
   onMoveAttributeOrder: (fromIndex: number, toIndex: number) => void
@@ -73,6 +83,12 @@ type Props = {
   onSetSingleVariantImageUrl: (value: string) => void
   onSaveSingleVariant: () => void
   onCancelSingleVariantEdit: () => void
+  onStartAddVariantInReadMode: () => void
+  onSetNewVariantAttribute: (attributeKey: string, value: string) => void
+  onSetNewVariantPrice: (value: string) => void
+  onSetNewVariantImageUrl: (value: string) => void
+  onSaveNewVariant: () => void
+  onCancelNewVariant: () => void
 }
 
 export function ProductVariantsSection({
@@ -98,6 +114,10 @@ export function ProductVariantsSection({
   singleVariantDraft,
   singleVariantError,
   canSaveSingleVariant,
+  canAddVariantInReadMode,
+  newVariantDraft,
+  newVariantError,
+  canSaveNewVariant,
   onEnterVariantsMode,
   onEnterAttributesOrderMode,
   onMoveAttributeOrder,
@@ -126,6 +146,12 @@ export function ProductVariantsSection({
   onSetSingleVariantImageUrl,
   onSaveSingleVariant,
   onCancelSingleVariantEdit,
+  onStartAddVariantInReadMode,
+  onSetNewVariantAttribute,
+  onSetNewVariantPrice,
+  onSetNewVariantImageUrl,
+  onSaveNewVariant,
+  onCancelNewVariant,
 }: Props) {
   const parentImageUrl = product.imageUrl?.trim() || noImageProduct
   const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
@@ -184,7 +210,8 @@ export function ProductVariantsSection({
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault()
-                        if (draggedAttributeIndex === null || draggedAttributeIndex === index) return
+                        if (draggedAttributeIndex === null || draggedAttributeIndex === index)
+                          return
                         onMoveAttributeOrder(draggedAttributeIndex, index)
                         setDraggedAttributeIndex(null)
                       }}
@@ -273,6 +300,23 @@ export function ProductVariantsSection({
                   </span>
                 </Tooltip>
               ) : null}
+              <Tooltip
+                title={
+                  canAddVariantInReadMode ? 'Add new variant' : 'All possible variants are created'
+                }
+              >
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={onStartAddVariantInReadMode}
+                    disabled={!canAddVariantInReadMode}
+                    data-testid="product-details-page-variants-add-one-button"
+                  >
+                    {productsUiText.detailsPage.actions.addVariant}
+                  </Button>
+                </span>
+              </Tooltip>
             </Stack>
           </Stack>
 
@@ -315,12 +359,41 @@ export function ProductVariantsSection({
                 gridTemplateColumns: { xs: '1fr', xl: '1fr 1fr' },
               }}
             >
+              {newVariantDraft ? (
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 1.5, borderColor: 'primary.main' }}
+                  data-testid="product-details-page-variant-new-card"
+                >
+                  <Stack spacing={1.25}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      {productsUiText.detailsPage.labels.newVariant}
+                    </Typography>
+                    <ProductVariantInlineEditor
+                      attributes={displayAttributes}
+                      isAttributesEditable
+                      testIdPrefix="product-details-page-variant-new"
+                      draft={newVariantDraft}
+                      error={newVariantError}
+                      isInteractionsLocked={isInteractionsLocked}
+                      canSave={canSaveNewVariant}
+                      onChangeAttribute={onSetNewVariantAttribute}
+                      onChangePrice={onSetNewVariantPrice}
+                      onChangeImageUrl={onSetNewVariantImageUrl}
+                      onSave={onSaveNewVariant}
+                      onCancel={onCancelNewVariant}
+                    />
+                  </Stack>
+                </Paper>
+              ) : null}
+
               {product.variants.map((variant, variantIndex) => {
                 const variantImageUrl = variant.imageUrl?.trim() || parentImageUrl
                 const isEditingThisVariant =
                   singleVariantDraft?.variantId === variant._id && Boolean(variant._id)
                 const isSinglePriceError =
-                  singleVariantError === productsUiText.detailsPage.validation.priceGreaterThanZero ||
+                  singleVariantError ===
+                    productsUiText.detailsPage.validation.priceGreaterThanZero ||
                   singleVariantError === productsUiText.detailsPage.validation.priceMaxDecimals
                 const singleVariantHeaderError =
                   isEditingThisVariant &&
@@ -353,6 +426,7 @@ export function ProductVariantsSection({
                                 size="small"
                                 disabled={!isReadOnlyMode || isEditingDisabled}
                                 onClick={() => onEnterSingleVariantEdit(variant)}
+                                data-testid={`product-details-page-variant-card-${variantIndex}-edit-button`}
                               >
                                 <EditOutlinedIcon fontSize="small" />
                               </IconButton>
@@ -364,6 +438,7 @@ export function ProductVariantsSection({
                             variant="outlined"
                             disabled={!isReadOnlyMode || isEditingDisabled}
                             onClick={() => onToggleVariantStatus(variant)}
+                            data-testid={`product-details-page-variant-card-${variantIndex}-status-button`}
                           >
                             {variant.status === 'Active'
                               ? productsUiText.detailsPage.actions.archiveVariant
@@ -417,10 +492,10 @@ export function ProductVariantsSection({
                                 disabled={
                                   !isReadOnlyMode ||
                                   isEditingDisabled ||
-                                  !canEnterVariantsEdit ||
                                   product.variants.length <= 1
                                 }
                                 onClick={() => onOpenDeleteVariantConfirm(variant._id)}
+                                data-testid={`product-details-page-variant-card-${variantIndex}-delete-button`}
                               >
                                 <DeleteOutlineOutlinedIcon fontSize="small" />
                               </IconButton>
@@ -433,6 +508,7 @@ export function ProductVariantsSection({
                         <ProductVariantInlineEditor
                           attributes={displayAttributes}
                           isAttributesEditable={isSingleVariantAttributesEditable}
+                          testIdPrefix="product-details-page-variant-inline-edit"
                           draft={{
                             price: singleVariantDraft.price,
                             imageUrl: singleVariantDraft.imageUrl,

@@ -37,6 +37,7 @@ import { useProductVariantsValidation } from '@/features/products/hooks/useProdu
 import {
   useDeleteProductMutation,
   useDeleteProductVariantMutation,
+  useAddProductVariantsMutation,
   usePatchProductMutation,
   usePatchProductStatusMutation,
   usePatchProductVariantMutation,
@@ -61,6 +62,12 @@ type VariantEditDraft = {
   attributes: Record<string, string>
 }
 
+type NewVariantDraft = {
+  price: string
+  imageUrl: string
+  attributes: Record<string, string>
+}
+
 type PendingConfirmAction =
   | 'delete-product'
   | 'delete-variant'
@@ -80,6 +87,43 @@ function areSameAttributeOrder(left: ProductAttribute[], right: ProductAttribute
   if (left.length !== right.length) return false
 
   return left.every((attribute, index) => attribute.key === right[index]?.key)
+}
+
+function normalizeCaseInsensitive(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function buildNormalizedVariantCombinationKey(attributes: Record<string, string>) {
+  return Object.entries(attributes)
+    .map(([key, value]) => [normalizeCaseInsensitive(key), normalizeCaseInsensitive(value)] as const)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}:${value}`)
+    .join('|')
+}
+
+function buildAttributeCombinations(
+  attributes: ProductAttribute[],
+  index = 0,
+  current: Record<string, string> = {},
+): Array<Record<string, string>> {
+  if (index >= attributes.length) {
+    return [current]
+  }
+
+  const attribute = attributes[index]
+  if (!attribute) return [current]
+
+  const next: Array<Record<string, string>> = []
+  for (const value of attribute.values) {
+    next.push(
+      ...buildAttributeCombinations(attributes, index + 1, {
+        ...current,
+        [attribute.key]: value,
+      }),
+    )
+  }
+
+  return next
 }
 
 function isSameSingleVariantDraft(
@@ -123,6 +167,7 @@ export function ProductDetailsPage() {
   const patchProductStatusMutation = usePatchProductStatusMutation()
   const patchVariantMutation = usePatchProductVariantMutation()
   const patchVariantStatusMutation = usePatchProductVariantStatusMutation()
+  const addVariantMutation = useAddProductVariantsMutation()
   const replaceVariantsMutation = useReplaceProductVariantsMutation()
   const reorderAttributesMutation = useReorderProductAttributesMutation()
   const deleteVariantMutation = useDeleteProductVariantMutation()
@@ -131,6 +176,7 @@ export function ProductDetailsPage() {
   const [pendingConfirmAction, setPendingConfirmAction] = useState<PendingConfirmAction>(null)
   const [pendingDeleteVariantId, setPendingDeleteVariantId] = useState<string | null>(null)
   const [singleVariantDraft, setSingleVariantDraft] = useState<VariantEditDraft | null>(null)
+  const [newVariantDraft, setNewVariantDraft] = useState<NewVariantDraft | null>(null)
   const [categoryDraftId, setCategoryDraftId] = useState<string | null>(null)
   const [attributesOrderDraft, setAttributesOrderDraft] = useState<ProductAttribute[] | null>(null)
 
@@ -154,6 +200,7 @@ export function ProductDetailsPage() {
     patchProductStatusMutation.isPending ||
     patchVariantMutation.isPending ||
     patchVariantStatusMutation.isPending ||
+    addVariantMutation.isPending ||
     replaceVariantsMutation.isPending ||
     reorderAttributesMutation.isPending ||
     deleteVariantMutation.isPending ||
@@ -169,6 +216,7 @@ export function ProductDetailsPage() {
   const isInteractionsLocked = isAnyMutationPending
   const isEditingDisabled = isAnyMutationPending || (isDraftProduct && !hasConfiguredManufacturers)
   const isCategoryEditingDisabled = isAnyMutationPending
+  const isInlineVariantEditorActive = Boolean(singleVariantDraft || newVariantDraft)
   const statusChipColor =
     currentStatus === 'Active' ? 'success' : currentStatus === 'Archived' ? 'default' : 'warning'
 
@@ -233,6 +281,41 @@ export function ProductDetailsPage() {
     !isInteractionsLocked,
   )
 
+  const existingVariantCombinationKeys = useMemo(() => {
+    if (!product) return new Set<string>()
+    return new Set(
+      product.variants.map((variant) => buildNormalizedVariantCombinationKey(variant.attributes)),
+    )
+  }, [product])
+
+  const allAttributeCombinations = useMemo(
+    () => (product ? buildAttributeCombinations(product.attributes) : []),
+    [product],
+  )
+
+  const firstAvailableVariantCombination = useMemo(() => {
+    if (!product) return null
+
+    for (const combination of allAttributeCombinations) {
+      const key = buildNormalizedVariantCombinationKey(combination)
+      if (!existingVariantCombinationKeys.has(key)) {
+        return combination
+      }
+    }
+
+    return null
+  }, [allAttributeCombinations, existingVariantCombinationKeys, product])
+
+  const hasUnfilledCombinations = Boolean(firstAvailableVariantCombination)
+  const canAddVariantInReadMode = Boolean(
+    product &&
+    !isDraftProduct &&
+    isReadOnlyMode &&
+    hasUnfilledCombinations &&
+    !isInlineVariantEditorActive &&
+    !isInteractionsLocked,
+  )
+
   const singleVariantError = (() => {
     if (!singleVariantDraft || !product) return ''
 
@@ -284,8 +367,47 @@ export function ProductDetailsPage() {
     !isInteractionsLocked,
   )
 
+  const newVariantError = (() => {
+    if (!newVariantDraft || !product) return ''
+
+    const priceError = validatePrice(newVariantDraft.price)
+    if (priceError) return priceError
+    if (newVariantDraft.imageUrl.trim() && !isValidHttpUrl(newVariantDraft.imageUrl.trim())) {
+      return productsUiText.detailsPage.validation.variantImageUrlInvalid
+    }
+
+    for (const attribute of product.attributes) {
+      const value = newVariantDraft.attributes[attribute.key]
+      if (!value) {
+        return getAttributeValueRequiredMessage(attribute.name)
+      }
+      const belongs = attribute.values.some(
+        (item) => normalizeCaseInsensitive(item) === normalizeCaseInsensitive(value),
+      )
+      if (!belongs) {
+        return getAttributeValueNoLongerExistsMessage(attribute.name, value)
+      }
+    }
+
+    const newCombinationKey = buildNormalizedVariantCombinationKey(newVariantDraft.attributes)
+    if (existingVariantCombinationKeys.has(newCombinationKey)) {
+      return productsUiText.detailsPage.validation.duplicateVariantCombination
+    }
+
+    return ''
+  })()
+
+  const canSaveNewVariant = Boolean(
+    !isDraftProduct && isReadOnlyMode && newVariantDraft && !newVariantError && !isInteractionsLocked,
+  )
+
   const onEnterInfoEdit = () => {
-    if (!isReadOnlyMode || isInteractionsLocked || (isDraftProduct && !hasConfiguredManufacturers))
+    if (
+      !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
+      isInteractionsLocked ||
+      (isDraftProduct && !hasConfiguredManufacturers)
+    )
       return
     draftState.startEditing()
     editMode.enterInfoMode()
@@ -295,6 +417,7 @@ export function ProductDetailsPage() {
     if (
       !product ||
       !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
       isInteractionsLocked ||
       categoriesQuery.isLoading ||
       categoriesQuery.isError
@@ -309,6 +432,7 @@ export function ProductDetailsPage() {
     if (
       !canEnterVariantsEdit ||
       !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
       isInteractionsLocked ||
       (isDraftProduct && !hasConfiguredManufacturers)
     ) {
@@ -323,6 +447,7 @@ export function ProductDetailsPage() {
       !product ||
       !canEnterAttributesOrderMode ||
       !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
       isInteractionsLocked ||
       (isDraftProduct && !hasConfiguredManufacturers)
     ) {
@@ -337,6 +462,7 @@ export function ProductDetailsPage() {
     if (
       !variant._id ||
       !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
       isInteractionsLocked ||
       (isDraftProduct && !hasConfiguredManufacturers)
     )
@@ -348,6 +474,16 @@ export function ProductDetailsPage() {
       attributes: { ...variant.attributes },
     })
     editMode.enterSingleVariantMode(variant._id)
+  }
+
+  const onStartAddVariantInReadMode = () => {
+    if (!canAddVariantInReadMode || !firstAvailableVariantCombination) return
+
+    setNewVariantDraft({
+      price: '',
+      imageUrl: '',
+      attributes: firstAvailableVariantCombination,
+    })
   }
 
   const onRequestCancelBulkEdit = () => {
@@ -385,6 +521,10 @@ export function ProductDetailsPage() {
     }
     setSingleVariantDraft(null)
     editMode.exitEditModes()
+  }
+
+  const onCancelNewVariant = () => {
+    setNewVariantDraft(null)
   }
 
   const onConfirmPendingAction = async () => {
@@ -525,6 +665,7 @@ export function ProductDetailsPage() {
       !product ||
       !variant._id ||
       !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
       isInteractionsLocked ||
       (isDraftProduct && !hasConfiguredManufacturers)
     ) {
@@ -568,13 +709,36 @@ export function ProductDetailsPage() {
     }
   }
 
+  const onSaveNewVariant = async () => {
+    if (!product || !newVariantDraft || !canSaveNewVariant) return
+
+    try {
+      await addVariantMutation.mutateAsync({
+        productId: product._id,
+        payload: [
+          {
+            price: Number(newVariantDraft.price),
+            attributes: newVariantDraft.attributes,
+            ...(newVariantDraft.imageUrl.trim()
+              ? { imageUrl: newVariantDraft.imageUrl.trim() }
+              : {}),
+          },
+        ],
+      })
+      enqueueSnackbar(productsUiText.toasts.variantAdded, { variant: 'success' })
+      setNewVariantDraft(null)
+    } catch (error) {
+      enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+    }
+  }
+
   const openDeleteVariantConfirm = (variantId?: string) => {
     if (
       !variantId ||
       !product ||
-      !canEnterVariantsEdit ||
       product.variants.length <= 1 ||
       !isReadOnlyMode ||
+      isInlineVariantEditorActive ||
       isEditingDisabled
     ) {
       return
@@ -736,7 +900,7 @@ export function ProductDetailsPage() {
             isInfoEditMode={editMode.isInfoMode}
             isParentIdentityEditable={isParentIdentityEditable}
             isReadOnlyMode={isReadOnlyMode}
-            isEditingDisabled={isEditingDisabled}
+            isEditingDisabled={isEditingDisabled || isInlineVariantEditorActive}
             isParentImageValid={validation.isParentImageValid}
             canSaveInfo={canSaveInfo}
             isInteractionsLocked={isInteractionsLocked}
@@ -752,7 +916,7 @@ export function ProductDetailsPage() {
             flat={categoriesQuery.data?.flat ?? []}
             isCategoryEditMode={editMode.isCategoryMode}
             isReadOnlyMode={isReadOnlyMode}
-            isEditingDisabled={isCategoryEditingDisabled}
+            isEditingDisabled={isCategoryEditingDisabled || isInlineVariantEditorActive}
             isInteractionsLocked={isInteractionsLocked}
             isCategoriesLoading={categoriesQuery.isLoading}
             isCategoriesError={categoriesQuery.isError}
@@ -770,7 +934,7 @@ export function ProductDetailsPage() {
             isVariantsEditMode={editMode.isVariantsMode}
             isAttributesOrderMode={editMode.isAttributesOrderMode}
             isReadOnlyMode={isReadOnlyMode}
-            isEditingDisabled={isEditingDisabled}
+            isEditingDisabled={isEditingDisabled || isInlineVariantEditorActive}
             isInteractionsLocked={isInteractionsLocked}
             isSingleVariantAttributesEditable={isSingleVariantAttributesEditable}
             canEnterVariantsEdit={canEnterVariantsEdit}
@@ -787,6 +951,10 @@ export function ProductDetailsPage() {
             singleVariantDraft={singleVariantDraft}
             singleVariantError={singleVariantError}
             canSaveSingleVariant={canSaveSingleVariant}
+            canAddVariantInReadMode={canAddVariantInReadMode}
+            newVariantDraft={newVariantDraft}
+            newVariantError={newVariantError}
+            canSaveNewVariant={canSaveNewVariant}
             onEnterVariantsMode={onEnterVariantsEdit}
             onEnterAttributesOrderMode={onEnterAttributesOrderEdit}
             onMoveAttributeOrder={onMoveAttributeOrder}
@@ -835,6 +1003,28 @@ export function ProductDetailsPage() {
             }
             onSaveSingleVariant={() => void onSaveSingleVariant()}
             onCancelSingleVariantEdit={onRequestCancelSingleEdit}
+            onStartAddVariantInReadMode={onStartAddVariantInReadMode}
+            onSetNewVariantAttribute={(attributeKey, value) =>
+              setNewVariantDraft((current) =>
+                current
+                  ? {
+                      ...current,
+                      attributes: {
+                        ...current.attributes,
+                        [attributeKey]: value,
+                      },
+                    }
+                  : current,
+              )
+            }
+            onSetNewVariantPrice={(value) =>
+              setNewVariantDraft((current) => (current ? { ...current, price: value } : current))
+            }
+            onSetNewVariantImageUrl={(value) =>
+              setNewVariantDraft((current) => (current ? { ...current, imageUrl: value } : current))
+            }
+            onSaveNewVariant={() => void onSaveNewVariant()}
+            onCancelNewVariant={onCancelNewVariant}
           />
         </Stack>
       </Paper>

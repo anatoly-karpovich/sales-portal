@@ -7,7 +7,7 @@
 | Aspect | Details |
 | --- | --- |
 | Entry points | `#/products`, `#/products/add`, `#/products/{id}` |
-| APIs | `/api/products`, `/api/products/:id`, `/api/products/:id/status`, `/api/products/:id/variants` |
+| APIs | `/api/products`, `/api/products/:id`, `/api/products/:id/status`, `/api/products/:id/attributes/order`, `/api/products/:id/variants`, `/api/products/:id/variants/:variantId`, `/api/products/:id/variants/:variantId/status` |
 | Shared widgets | Search toolbar, filters dialog, filter chips, data table, export dialog, pagination, confirmation dialog |
 | Success copy | "Product was successfully created/updated/deleted" |
 | Error copy | "Unable to update products. Please try again later.", API-specific fallback copy |
@@ -119,6 +119,13 @@
 - Edit single variant (`price`, `attributes`, optional `imageUrl`).
 - Delete variant (blocked when only one variant remains).
 - Bulk save updates variants and (when changed) attributes.
+- For `Active`/`Archived` products, `Add Variant` is available in read-only variants section:
+  - button is disabled when all attribute combinations already exist;
+  - on click, one inline `New Variant` card appears (`attributes`, `price`, `imageUrl`);
+  - new card is initialized with the first available attribute combination that does not exist yet;
+  - save sends `POST /api/products/:id/variants` with exactly one variant payload item;
+  - frontend blocks save for duplicate combination using case-insensitive normalized comparison (`trim + lower-case`).
+- Only one inline variant editor is allowed at a time (new variant card or existing single variant editor).
 
 Status-specific edit guards:
 - `Draft` setup flow keeps existing full-edit behavior.
@@ -126,9 +133,12 @@ Status-specific edit guards:
   - in `Product info` edit mode, `name` and `manufacturer` are read-only; only `description` and `imageUrl` are editable;
   - parent patch is limited to `category`, `description`, `imageUrl`;
   - attributes can be reordered via drag-and-drop and saved through `PATCH /api/products/:id/attributes/order`;
-  - variant patch is limited to `price` and `imageUrl`;
+  - bulk attributes/variants editor (full replace mode) is unavailable;
+  - variant patch is limited to `price` and `imageUrl`; attributes remain read-only for existing variants;
   - variant status is updated only via dedicated status endpoint;
-  - structure-changing variant operations (replace/add/delete/validate-combinations) are blocked.
+  - guarded structure-changing variant operations are allowed:
+    - add variant as single-item operation while missing combinations remain;
+    - delete variant with confirm dialog and frontend guard that last variant cannot be deleted.
 
 ## Backend Contracts Used by UI
 
@@ -141,6 +151,7 @@ Status-specific edit guards:
 | PATCH | `/api/products/:id/attributes/order` | Reorder product attributes (no definition changes) |
 | PATCH | `/api/products/:id/status` | Activate/archive product |
 | PUT | `/api/products/:id/variants` | Replace full variants set (and optional attributes) |
+| POST | `/api/products/:id/variants` | Add variants (single-item add for `Active`/`Archived`) |
 | PATCH | `/api/products/:id/variants/:variantId` | Patch single variant |
 | PATCH | `/api/products/:id/variants/:variantId/status` | Toggle single variant status |
 | DELETE | `/api/products/:id/variants/:variantId` | Delete variant |

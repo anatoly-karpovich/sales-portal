@@ -108,12 +108,12 @@ export function ProductInfoCard({
                 {product.manufacturer}
               </Typography>
               <Typography>
-                <strong>{productsUiText.detailsPage.labels.description}:</strong>{' '}
-                {product.description?.trim() || '-'}
-              </Typography>
-              <Typography>
                 <strong>{productsUiText.detailsPage.labels.imageUrl}:</strong>{' '}
                 {product.imageUrl?.trim() || '-'}
+              </Typography>
+              <Typography>
+                <strong>{productsUiText.detailsPage.labels.description}:</strong>{' '}
+                {product.description?.trim() || '-'}
               </Typography>
             </Stack>
           </Stack>
