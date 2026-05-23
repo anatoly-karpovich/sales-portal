@@ -13,6 +13,40 @@ export const getTotalPrice = (products: IProductInOrder[]) => {
   return products.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 };
 
+export function buildVariantDisplayName(
+  product: Pick<IProduct, "name" | "attributes">,
+  variant: Pick<IProduct["variants"][number], "attributes">,
+): string {
+  const productName = (product?.name ?? "").trim();
+  const productAttributes = Array.isArray(product?.attributes) ? product.attributes : [];
+  if (productAttributes.length === 0) {
+    return productName;
+  }
+
+  const variantAttributes = variant?.attributes ?? {};
+  const orderedValues = productAttributes
+    .map((attribute) => {
+      const byExact = variantAttributes?.[attribute.key];
+      if (typeof byExact === "string" && byExact.trim().length > 0) {
+        return byExact.trim();
+      }
+
+      const byLower = variantAttributes?.[attribute.key.toLowerCase()];
+      if (typeof byLower === "string" && byLower.trim().length > 0) {
+        return byLower.trim();
+      }
+
+      return "";
+    })
+    .filter((value) => value.length > 0);
+
+  if (orderedValues.length === 0) {
+    return productName;
+  }
+
+  return [productName, ...orderedValues].join(" | ");
+}
+
 export const getTodaysDate = (withTime: boolean) => {
   return withTime ? moment(Date.now()).format(DATE_AND_TIME_FORMAT) : moment(Date.now()).format(DATE_FORMAT);
 };
@@ -85,6 +119,7 @@ export async function productsMapping<T extends Pick<IOrderRequest, "products">>
         unitPrice: variant.price,
         quantity: item.quantity,
         name: product.name,
+        displayName: buildVariantDisplayName(product, variant),
         attributes: variant.attributes,
         received: false,
         ...(imageUrl && { imageUrl }),

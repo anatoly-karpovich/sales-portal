@@ -9,6 +9,7 @@ import {
   getProducts,
   initProductSetup,
   patchProduct,
+  reorderProductAttributes,
   patchProductStatus,
   patchProductVariant,
   patchProductVariantStatus,
@@ -16,6 +17,7 @@ import {
   saveProductSetupSpec,
   updateProduct,
   type ProductExportPayload,
+  type ProductAttributesReorderPayload,
   type ProductParentPatchPayload,
   type ProductSetupInitPayload,
   type ProductSetupSpecPayload,
@@ -169,6 +171,26 @@ export function usePatchProductMutation() {
       productId: string
       payload: ProductParentPatchPayload
     }) => patchProduct(productId, payload),
+    onSuccess: (product, variables) => {
+      syncProductMutationResult({
+        queryClient,
+        productId: variables.productId,
+        product,
+      })
+    },
+  })
+}
+
+export function useReorderProductAttributesMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      productId,
+      payload,
+    }: {
+      productId: string
+      payload: ProductAttributesReorderPayload
+    }) => reorderProductAttributes(productId, payload),
     onSuccess: (product, variables) => {
       syncProductMutationResult({
         queryClient,

@@ -120,6 +120,16 @@
 - Delete variant (blocked when only one variant remains).
 - Bulk save updates variants and (when changed) attributes.
 
+Status-specific edit guards:
+- `Draft` setup flow keeps existing full-edit behavior.
+- `Active`/`Archived` products:
+  - in `Product info` edit mode, `name` and `manufacturer` are read-only; only `description` and `imageUrl` are editable;
+  - parent patch is limited to `category`, `description`, `imageUrl`;
+  - attributes can be reordered via drag-and-drop and saved through `PATCH /api/products/:id/attributes/order`;
+  - variant patch is limited to `price` and `imageUrl`;
+  - variant status is updated only via dedicated status endpoint;
+  - structure-changing variant operations (replace/add/delete/validate-combinations) are blocked.
+
 ## Backend Contracts Used by UI
 
 | Method | Endpoint | Usage |
@@ -128,6 +138,7 @@
 | GET | `/api/products/:id` | Product details |
 | POST | `/api/products` | Create product with attributes/variants |
 | PATCH | `/api/products/:id` | Update parent/category fields |
+| PATCH | `/api/products/:id/attributes/order` | Reorder product attributes (no definition changes) |
 | PATCH | `/api/products/:id/status` | Activate/archive product |
 | PUT | `/api/products/:id/variants` | Replace full variants set (and optional attributes) |
 | PATCH | `/api/products/:id/variants/:variantId` | Patch single variant |

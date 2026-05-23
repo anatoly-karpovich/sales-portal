@@ -22,6 +22,7 @@ import {
   ProductsSortedResponseDTO,
   ProductCategoryPathItemDTO,
   ProductSetupInitRequestWithEntityDTO,
+  ReorderProductAttributesRequestDTO,
   ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
   ReplaceProductRequestDTO,
@@ -312,6 +313,17 @@ class ProductsController {
     try {
       const productId = new Types.ObjectId(req.params.productId);
       const updatedProduct = await ProductsService.replaceVariants(productId, req.body);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async reorderAttributes(req: ReorderProductAttributesRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const id = new Types.ObjectId(req.params.productId);
+      const updatedProduct = await ProductsService.reorderAttributes(id, req.body.attributes);
       const categoryLookup = await this.buildCategoryLookup();
       return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {

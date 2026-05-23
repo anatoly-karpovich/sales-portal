@@ -125,6 +125,11 @@ function resolveOrderProductVariantLabel(product: OrderDetailsProduct | undefine
 }
 
 function resolveOrderProductDisplayName(product: OrderDetailsProduct | undefined) {
+  const snapshotDisplayName = product?.displayName?.trim()
+  if (snapshotDisplayName) {
+    return snapshotDisplayName
+  }
+
   const name = resolveOrderProductName(product)
   if (name === '-') return '-'
   const variantLabel = resolveOrderProductVariantLabel(product)

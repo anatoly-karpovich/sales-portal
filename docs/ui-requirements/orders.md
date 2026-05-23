@@ -94,6 +94,8 @@
   - compact summary shows products count/subtotal, delivery, total;
   - debounced pricing preview uses `POST /api/orders/pricing` and warning fallback on preview failure;
   - on successful save (`PATCH /api/orders/:id`) section returns to view mode.
+- Order product snapshots include `displayName` from backend (`Product Name | Attr 1 | Attr 2`), and UI should use it as primary variant label in details/history/export views.
+- For pre-save rows without snapshot (`#/orders/add`, inline draft products edit), UI builds labels dynamically via `buildVariantDisplayName(product, variant)` using current product attribute order.
 - Inline edit modes are mutually exclusive with receive mode (receive actions are hidden while editing manager/customer/products).
 
 ### Delivery Management

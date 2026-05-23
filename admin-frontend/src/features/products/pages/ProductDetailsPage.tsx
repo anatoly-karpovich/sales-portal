@@ -4,6 +4,7 @@ import { useSnackbar } from 'notistack'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type {
   Product,
+  ProductAttribute,
   ProductStatus,
   ProductVariant,
   ProductVariantPatchPayload,
@@ -41,6 +42,7 @@ import {
   usePatchProductVariantMutation,
   usePatchProductVariantStatusMutation,
   useProductQuery,
+  useReorderProductAttributesMutation,
   useReplaceProductVariantsMutation,
 } from '@/features/products/hooks/useProductsQuery'
 import {
@@ -65,15 +67,23 @@ type PendingConfirmAction =
   | 'discard-bulk'
   | 'discard-single'
   | 'discard-category'
+  | 'discard-attributes-order'
   | null
 
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status
 }
 
+function areSameAttributeOrder(left: ProductAttribute[], right: ProductAttribute[]) {
+  if (left.length !== right.length) return false
+
+  return left.every((attribute, index) => attribute.key === right[index]?.key)
+}
+
 function isSameSingleVariantDraft(
   product: Product | undefined,
   singleVariantDraft: VariantEditDraft | null,
+  compareAttributes: boolean,
 ) {
   if (!product || !singleVariantDraft) return false
   const sourceVariant = product.variants.find(
@@ -84,12 +94,12 @@ function isSameSingleVariantDraft(
   const sourceSnapshot = JSON.stringify({
     price: String(sourceVariant.price),
     imageUrl: sourceVariant.imageUrl ?? '',
-    attributes: sourceVariant.attributes,
+    ...(compareAttributes ? { attributes: sourceVariant.attributes } : {}),
   })
   const draftSnapshot = JSON.stringify({
     price: singleVariantDraft.price,
     imageUrl: singleVariantDraft.imageUrl,
-    attributes: singleVariantDraft.attributes,
+    ...(compareAttributes ? { attributes: singleVariantDraft.attributes } : {}),
   })
 
   return sourceSnapshot === draftSnapshot
@@ -112,6 +122,7 @@ export function ProductDetailsPage() {
   const patchVariantMutation = usePatchProductVariantMutation()
   const patchVariantStatusMutation = usePatchProductVariantStatusMutation()
   const replaceVariantsMutation = useReplaceProductVariantsMutation()
+  const reorderAttributesMutation = useReorderProductAttributesMutation()
   const deleteVariantMutation = useDeleteProductVariantMutation()
   const deleteProductMutation = useDeleteProductMutation()
 
@@ -119,6 +130,7 @@ export function ProductDetailsPage() {
   const [pendingDeleteVariantId, setPendingDeleteVariantId] = useState<string | null>(null)
   const [singleVariantDraft, setSingleVariantDraft] = useState<VariantEditDraft | null>(null)
   const [categoryDraftId, setCategoryDraftId] = useState<string | null>(null)
+  const [attributesOrderDraft, setAttributesOrderDraft] = useState<ProductAttribute[] | null>(null)
 
   const product = productQuery.data
   useEffect(() => {
@@ -141,15 +153,20 @@ export function ProductDetailsPage() {
     patchVariantMutation.isPending ||
     patchVariantStatusMutation.isPending ||
     replaceVariantsMutation.isPending ||
+    reorderAttributesMutation.isPending ||
     deleteVariantMutation.isPending ||
     deleteProductMutation.isPending
 
+  const currentStatus = product?.status ?? 'Draft'
+  const isDraftProduct = currentStatus === 'Draft'
+  const isParentIdentityEditable = isDraftProduct
+  const isSingleVariantAttributesEditable = isDraftProduct
+  const canEnterVariantsEdit = isDraftProduct
+  const canEnterAttributesOrderMode = !isDraftProduct && (product?.attributes.length ?? 0) > 1
   const isReadOnlyMode = editMode.isViewMode
   const isInteractionsLocked = isAnyMutationPending
-  const isEditingDisabled = isAnyMutationPending || !hasConfiguredManufacturers
+  const isEditingDisabled = isAnyMutationPending || (isDraftProduct && !hasConfiguredManufacturers)
   const isCategoryEditingDisabled = isAnyMutationPending
-
-  const currentStatus = product?.status ?? 'Draft'
   const statusChipColor =
     currentStatus === 'Active' ? 'success' : currentStatus === 'Archived' ? 'default' : 'warning'
 
@@ -164,8 +181,10 @@ export function ProductDetailsPage() {
   const canSaveInfo = Boolean(
     editMode.isInfoMode &&
     draftState.draft &&
-    !getProductNameError(draftState.draft.name) &&
-    draftState.draft.manufacturer.trim().length > 0 &&
+    (isParentIdentityEditable
+      ? !getProductNameError(draftState.draft.name) &&
+        draftState.draft.manufacturer.trim().length > 0
+      : true) &&
     !getProductImageUrlError(draftState.draft.imageUrl, isValidHttpUrl) &&
     validation.parentHasChanges &&
     hasConfiguredManufacturers &&
@@ -195,11 +214,20 @@ export function ProductDetailsPage() {
   }, [draftState.draft, validation.attributesHaveChanges])
 
   const canSaveVariants = Boolean(
+    canEnterVariantsEdit &&
     editMode.isVariantsMode &&
     variantsReplaceRequestPayload &&
     (validation.variantsHaveChanges || validation.attributesHaveChanges) &&
     validation.isVariantsDraftValid &&
     hasConfiguredManufacturers &&
+    !isInteractionsLocked,
+  )
+
+  const canSaveAttributesOrder = Boolean(
+    product &&
+    editMode.isAttributesOrderMode &&
+    attributesOrderDraft &&
+    !areSameAttributeOrder(product.attributes, attributesOrderDraft) &&
     !isInteractionsLocked,
   )
 
@@ -212,36 +240,38 @@ export function ProductDetailsPage() {
       return 'Variant image URL must be a valid http(s) URL.'
     }
 
-    for (const attribute of product.attributes) {
-      const value = singleVariantDraft.attributes[attribute.key]
-      if (!value) {
-        return `${attribute.name}: value is required.`
+    if (isSingleVariantAttributesEditable) {
+      for (const attribute of product.attributes) {
+        const value = singleVariantDraft.attributes[attribute.key]
+        if (!value) {
+          return `${attribute.name}: value is required.`
+        }
+        const belongs = attribute.values.some(
+          (item) => item.trim().toLowerCase() === value.trim().toLowerCase(),
+        )
+        if (!belongs) {
+          return `${attribute.name}: ${value} no longer exists in attribute values.`
+        }
       }
-      const belongs = attribute.values.some(
-        (item) => item.trim().toLowerCase() === value.trim().toLowerCase(),
-      )
-      if (!belongs) {
-        return `${attribute.name}: ${value} no longer exists in attribute values.`
+
+      const currentCombinationKey = buildVariantCombinationKey(singleVariantDraft.attributes)
+
+      const duplicateExists = product.variants.some((variant) => {
+        if (variant._id === singleVariantDraft.variantId) return false
+        return buildVariantCombinationKey(variant.attributes) === currentCombinationKey
+      })
+
+      if (duplicateExists) {
+        return 'Variant with this attribute combination already exists.'
       }
-    }
-
-    const currentCombinationKey = buildVariantCombinationKey(singleVariantDraft.attributes)
-
-    const duplicateExists = product.variants.some((variant) => {
-      if (variant._id === singleVariantDraft.variantId) return false
-      return buildVariantCombinationKey(variant.attributes) === currentCombinationKey
-    })
-
-    if (duplicateExists) {
-      return 'Variant with this attribute combination already exists.'
     }
 
     return ''
-  }, [product, singleVariantDraft])
+  }, [isSingleVariantAttributesEditable, product, singleVariantDraft])
 
   const singleVariantHasChanges = useMemo(
-    () => !isSameSingleVariantDraft(product, singleVariantDraft),
-    [product, singleVariantDraft],
+    () => !isSameSingleVariantDraft(product, singleVariantDraft, isSingleVariantAttributesEditable),
+    [isSingleVariantAttributesEditable, product, singleVariantDraft],
   )
 
   const canSaveSingleVariant = Boolean(
@@ -253,7 +283,8 @@ export function ProductDetailsPage() {
   )
 
   const onEnterInfoEdit = () => {
-    if (!isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers) return
+    if (!isReadOnlyMode || isInteractionsLocked || (isDraftProduct && !hasConfiguredManufacturers))
+      return
     draftState.startEditing()
     editMode.enterInfoMode()
   }
@@ -273,13 +304,40 @@ export function ProductDetailsPage() {
   }
 
   const onEnterVariantsEdit = () => {
-    if (!isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers) return
+    if (
+      !canEnterVariantsEdit ||
+      !isReadOnlyMode ||
+      isInteractionsLocked ||
+      (isDraftProduct && !hasConfiguredManufacturers)
+    ) {
+      return
+    }
     draftState.startEditing()
     editMode.enterVariantsMode()
   }
 
+  const onEnterAttributesOrderEdit = () => {
+    if (
+      !product ||
+      !canEnterAttributesOrderMode ||
+      !isReadOnlyMode ||
+      isInteractionsLocked ||
+      (isDraftProduct && !hasConfiguredManufacturers)
+    ) {
+      return
+    }
+
+    setAttributesOrderDraft(product.attributes.map((attribute) => ({ ...attribute })))
+    editMode.enterAttributesOrderMode()
+  }
+
   const onEnterSingleVariantEdit = (variant: ProductVariant) => {
-    if (!variant._id || !isReadOnlyMode || isInteractionsLocked || !hasConfiguredManufacturers)
+    if (
+      !variant._id ||
+      !isReadOnlyMode ||
+      isInteractionsLocked ||
+      (isDraftProduct && !hasConfiguredManufacturers)
+    )
       return
     setSingleVariantDraft({
       variantId: variant._id,
@@ -351,6 +409,13 @@ export function ProductDetailsPage() {
       return
     }
 
+    if (pendingConfirmAction === 'discard-attributes-order') {
+      setAttributesOrderDraft(null)
+      editMode.exitEditModes()
+      setPendingConfirmAction(null)
+      return
+    }
+
     if (pendingConfirmAction === 'delete-product') {
       try {
         await deleteProductMutation.mutateAsync(product._id)
@@ -395,14 +460,21 @@ export function ProductDetailsPage() {
     if (!product || !draftState.draft || !canSaveInfo) return
 
     try {
+      const payload = isParentIdentityEditable
+        ? {
+            name: draftState.draft.name.trim(),
+            manufacturer: draftState.draft.manufacturer.trim(),
+            description: draftState.draft.description.trim(),
+            imageUrl: draftState.draft.imageUrl.trim(),
+          }
+        : {
+            description: draftState.draft.description.trim(),
+            imageUrl: draftState.draft.imageUrl.trim(),
+          }
+
       await patchProductMutation.mutateAsync({
         productId: product._id,
-        payload: {
-          name: draftState.draft.name.trim(),
-          manufacturer: draftState.draft.manufacturer.trim(),
-          description: draftState.draft.description.trim(),
-          imageUrl: draftState.draft.imageUrl.trim(),
-        },
+        payload,
       })
       enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
       draftState.discardChanges()
@@ -452,7 +524,7 @@ export function ProductDetailsPage() {
       !variant._id ||
       !isReadOnlyMode ||
       isInteractionsLocked ||
-      !hasConfiguredManufacturers
+      (isDraftProduct && !hasConfiguredManufacturers)
     ) {
       return
     }
@@ -474,10 +546,10 @@ export function ProductDetailsPage() {
     if (!product || !singleVariantDraft || !canSaveSingleVariant) return
     const payload: ProductVariantPatchPayload = {
       price: Number(singleVariantDraft.price),
-      attributes: singleVariantDraft.attributes,
       ...(singleVariantDraft.imageUrl.trim()
         ? { imageUrl: singleVariantDraft.imageUrl.trim() }
         : {}),
+      ...(isSingleVariantAttributesEditable ? { attributes: singleVariantDraft.attributes } : {}),
     }
 
     try {
@@ -498,6 +570,7 @@ export function ProductDetailsPage() {
     if (
       !variantId ||
       !product ||
+      !canEnterVariantsEdit ||
       product.variants.length <= 1 ||
       !isReadOnlyMode ||
       isEditingDisabled
@@ -506,6 +579,20 @@ export function ProductDetailsPage() {
     }
     setPendingDeleteVariantId(variantId)
     setPendingConfirmAction('delete-variant')
+  }
+
+  const onMoveAttributeOrder = (fromIndex: number, toIndex: number) => {
+    setAttributesOrderDraft((current) => {
+      if (!current) return current
+      if (fromIndex === toIndex) return current
+      if (fromIndex < 0 || toIndex < 0) return current
+      if (fromIndex >= current.length || toIndex >= current.length) return current
+
+      const next = [...current]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
+    })
   }
 
   if (!productId) {
@@ -531,6 +618,36 @@ export function ProductDetailsPage() {
         </Stack>
       </Paper>
     )
+  }
+
+  const onSaveAttributesOrder = async () => {
+    if (!product || !attributesOrderDraft || !canSaveAttributesOrder) return
+
+    try {
+      await reorderAttributesMutation.mutateAsync({
+        productId: product._id,
+        payload: {
+          attributes: attributesOrderDraft,
+        },
+      })
+      enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
+      setAttributesOrderDraft(null)
+      editMode.exitEditModes()
+    } catch (error) {
+      enqueueSnackbar(getProductApiErrorMessage(getErrorStatus(error)), { variant: 'error' })
+    }
+  }
+
+  const onRequestCancelAttributesOrderEdit = () => {
+    if (!product || !editMode.isAttributesOrderMode || !attributesOrderDraft) return
+
+    if (!areSameAttributeOrder(product.attributes, attributesOrderDraft)) {
+      setPendingConfirmAction('discard-attributes-order')
+      return
+    }
+
+    setAttributesOrderDraft(null)
+    editMode.exitEditModes()
   }
 
   if (product.setup?.completed === false) {
@@ -574,7 +691,8 @@ export function ProductDetailsPage() {
               }
             : pendingConfirmAction === 'discard-bulk' ||
                 pendingConfirmAction === 'discard-single' ||
-                pendingConfirmAction === 'discard-category'
+                pendingConfirmAction === 'discard-category' ||
+                pendingConfirmAction === 'discard-attributes-order'
               ? {
                   title: productsUiText.detailsPage.dialogs.discardChangesTitle,
                   message: productsUiText.detailsPage.dialogs.discardChangesMessage,
@@ -598,7 +716,7 @@ export function ProductDetailsPage() {
         onDeleteProduct={() => setPendingConfirmAction('delete-product')}
       />
 
-      {!hasConfiguredManufacturers ? (
+      {isDraftProduct && !hasConfiguredManufacturers ? (
         <Alert
           severity="warning"
           data-testid="product-details-page-manufacturers-unavailable-alert"
@@ -614,6 +732,7 @@ export function ProductDetailsPage() {
             draft={draftState.draft}
             manufacturerOptions={manufacturerOptions}
             isInfoEditMode={editMode.isInfoMode}
+            isParentIdentityEditable={isParentIdentityEditable}
             isReadOnlyMode={isReadOnlyMode}
             isEditingDisabled={isEditingDisabled}
             isParentImageValid={validation.isParentImageValid}
@@ -647,9 +766,15 @@ export function ProductDetailsPage() {
             product={product}
             draft={draftState.draft}
             isVariantsEditMode={editMode.isVariantsMode}
+            isAttributesOrderMode={editMode.isAttributesOrderMode}
             isReadOnlyMode={isReadOnlyMode}
             isEditingDisabled={isEditingDisabled}
             isInteractionsLocked={isInteractionsLocked}
+            isSingleVariantAttributesEditable={isSingleVariantAttributesEditable}
+            canEnterVariantsEdit={canEnterVariantsEdit}
+            canEnterAttributesOrderMode={canEnterAttributesOrderMode}
+            canSaveAttributesOrder={canSaveAttributesOrder}
+            attributesOrderDraft={attributesOrderDraft}
             canSaveVariants={canSaveVariants}
             attributeErrors={validation.attributeErrors}
             invalidVariantsCount={validation.invalidVariantsCount}
@@ -661,6 +786,10 @@ export function ProductDetailsPage() {
             singleVariantError={singleVariantError}
             canSaveSingleVariant={canSaveSingleVariant}
             onEnterVariantsMode={onEnterVariantsEdit}
+            onEnterAttributesOrderMode={onEnterAttributesOrderEdit}
+            onMoveAttributeOrder={onMoveAttributeOrder}
+            onSaveAttributesOrder={() => void onSaveAttributesOrder()}
+            onCancelAttributesOrder={onRequestCancelAttributesOrderEdit}
             onAddVariant={draftState.addVariant}
             onGenerateAllCombinations={draftState.generateAllCombinations}
             onRemoveInvalidVariants={() =>

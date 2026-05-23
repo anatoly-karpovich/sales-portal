@@ -157,6 +157,18 @@ export const productSetupInitSchema: AllowedSchema = {
   additionalProperties: false,
 };
 
+export const productAttributesReorderSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    attributes: {
+      type: "array",
+      items: productAttributeSchema,
+    },
+  },
+  required: ["attributes"],
+  additionalProperties: false,
+};
+
 export const productSetupSpecSchema: AllowedSchema = {
   type: "object",
   properties: {

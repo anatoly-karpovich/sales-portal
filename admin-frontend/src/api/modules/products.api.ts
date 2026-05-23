@@ -106,6 +106,10 @@ export type ProductParentPatchPayload = Partial<
   >
 >
 
+export type ProductAttributesReorderPayload = {
+  attributes: ProductAttribute[]
+}
+
 export type ProductVariantCreatePayload = {
   price: number
   attributes: Record<string, string>
@@ -343,6 +347,18 @@ export async function updateProduct(productId: string, payload: ProductUpsertPay
 export async function patchProduct(productId: string, payload: ProductParentPatchPayload) {
   const response = await apiClient.patch<ProductResponse>(
     `/products/${productId}`,
+    payload,
+    silentRequestConfig,
+  )
+  return normalizeProductDetails(response.data.Product)
+}
+
+export async function reorderProductAttributes(
+  productId: string,
+  payload: ProductAttributesReorderPayload,
+) {
+  const response = await apiClient.patch<ProductResponse>(
+    `/products/${productId}/attributes/order`,
     payload,
     silentRequestConfig,
   )

@@ -42,6 +42,10 @@ export type ProductPatchRequestDTO = Partial<{
   imageUrl: string;
 }>;
 
+export type ProductAttributesReorderRequestDTO = {
+  attributes: IProductAttribute[];
+};
+
 export type ProductVariantPatchRequestDTO = Partial<Pick<IProductVariant, "price" | "attributes" | "imageUrl">>;
 export type ProductStatusPatchRequestDTO = {
   status: PRODUCT_STATUSES;
@@ -175,6 +179,13 @@ export type ReplaceProductRequestDTO = Request<ProductByIdParamsDTO, unknown, Pr
   product?: IProduct;
 };
 export type PatchProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductPatchRequestDTO> & {
+  product?: IProduct;
+};
+export type ReorderProductAttributesRequestDTO = Request<
+  ProductByIdParamsDTO,
+  unknown,
+  ProductAttributesReorderRequestDTO
+> & {
   product?: IProduct;
 };
 export type PatchProductVariantRequestDTO = Request<

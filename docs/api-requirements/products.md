@@ -58,6 +58,23 @@ Rules:
 - create/update validates `categoryId` existence.
 - `rootCategoryId` is computed by backend from category tree and never trusted from request payload.
 
+Editability by status:
+- `Draft` (setup flow): behavior stays as-is; setup endpoints can manage attributes/variants/initial inventory.
+- `Active` / `Archived`:
+  - product patch (`PATCH /api/products/:productId`) allows only `categoryId`, `description`, `imageUrl`;
+  - product parent identity fields (`name`, `manufacturer`) are read-only;
+  - product attribute structure (`attributes`) is read-only;
+  - variant attribute combinations are read-only;
+  - variant operational/display updates are allowed only via:
+    - `PATCH /api/products/:productId/attributes/order` (attributes reorder only, definition must stay identical);
+    - `PATCH /api/products/:productId/variants/:variantId` (`price`, `imageUrl`);
+    - `PATCH /api/products/:productId/variants/:variantId/status` (`status`).
+  - structure-changing variant endpoints are draft-only:
+    - `PUT /api/products/:productId/variants`
+    - `POST /api/products/:productId/variants`
+    - `DELETE /api/products/:productId/variants/:variantId`
+    - `POST /api/products/:productId/variants/validate`
+
 ## Endpoints
 
 | Method | Endpoint | Description |
@@ -70,6 +87,7 @@ Rules:
 | GET | `/api/products/:productId` | Get product details. |
 | PUT | `/api/products/:productId` | Full replace product. |
 | PATCH | `/api/products/:productId` | Partial update product parent fields. |
+| PATCH | `/api/products/:productId/attributes/order` | Reorder parent attributes (Active/Archived only, definition unchanged). |
 | PATCH | `/api/products/:productId/status` | Update product status with guarded transitions. |
 | PUT | `/api/products/:productId/variants` | Full replace `variants[]` and optional `attributes` (atomic). |
 | POST | `/api/products/:productId/variants` | Bulk add variants (array payload, max 200). |

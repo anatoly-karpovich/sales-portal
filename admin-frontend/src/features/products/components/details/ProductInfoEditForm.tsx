@@ -10,6 +10,7 @@ import { productsUiText } from '@/features/products/products.ui-text'
 type Props = {
   draft: ProductVariantsDraft
   manufacturerOptions: string[]
+  isParentIdentityEditable: boolean
   isParentImageValid: boolean
   canSaveInfo: boolean
   isInteractionsLocked: boolean
@@ -24,6 +25,7 @@ type Props = {
 export function ProductInfoEditForm({
   draft,
   manufacturerOptions,
+  isParentIdentityEditable,
   isParentImageValid,
   canSaveInfo,
   isInteractionsLocked,
@@ -48,12 +50,15 @@ export function ProductInfoEditForm({
           value={draft.name}
           error={Boolean(nameError)}
           helperText={nameError || ' '}
+          disabled={!isParentIdentityEditable}
+          slotProps={{ input: { readOnly: !isParentIdentityEditable } }}
           onChange={(event) => onChangeField('name', event.target.value)}
         />
         <TextField
           label="Manufacturer"
           select
           value={draft.manufacturer}
+          disabled={!isParentIdentityEditable}
           onChange={(event) => onChangeField('manufacturer', event.target.value)}
         >
           {manufacturerOptions.map((item) => (

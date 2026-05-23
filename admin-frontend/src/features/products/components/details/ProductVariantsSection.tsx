@@ -1,7 +1,9 @@
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
+import DragIndicatorOutlinedIcon from '@mui/icons-material/DragIndicatorOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import { Box, Button, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material'
+import { useState } from 'react'
 import type { Product, ProductVariant } from '@/api/modules/products.api'
 import noImageProduct from '@/assets/no-image-product.jpeg'
 import type { ProductVariantsDraft } from '@/features/products/forms/productVariantsDraft'
@@ -9,6 +11,7 @@ import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
 import { ProductVariantInlineEditor } from '@/features/products/components/details/ProductVariantInlineEditor'
 import { ProductVariantsBulkEditor } from '@/features/products/components/details/ProductVariantsBulkEditor'
 import { productsUiText } from '@/features/products/products.ui-text'
+import { buildVariantDisplayName } from '@/features/products/utils/buildVariantDisplayName'
 import { formatPrice } from '@/utils/number'
 
 type SingleVariantDraft = {
@@ -22,9 +25,15 @@ type Props = {
   product: Product
   draft: ProductVariantsDraft | null
   isVariantsEditMode: boolean
+  isAttributesOrderMode: boolean
   isReadOnlyMode: boolean
   isEditingDisabled: boolean
   isInteractionsLocked: boolean
+  isSingleVariantAttributesEditable: boolean
+  canEnterVariantsEdit: boolean
+  canEnterAttributesOrderMode: boolean
+  canSaveAttributesOrder: boolean
+  attributesOrderDraft: Product['attributes'] | null
   canSaveVariants: boolean
   attributeErrors: Map<string, string>
   invalidVariantsCount: number
@@ -36,6 +45,10 @@ type Props = {
   singleVariantError: string
   canSaveSingleVariant: boolean
   onEnterVariantsMode: () => void
+  onEnterAttributesOrderMode: () => void
+  onMoveAttributeOrder: (fromIndex: number, toIndex: number) => void
+  onSaveAttributesOrder: () => void
+  onCancelAttributesOrder: () => void
   onAddVariant: () => void
   onGenerateAllCombinations: () => void
   onRemoveInvalidVariants: () => void
@@ -65,9 +78,15 @@ export function ProductVariantsSection({
   product,
   draft,
   isVariantsEditMode,
+  isAttributesOrderMode,
   isReadOnlyMode,
   isEditingDisabled,
   isInteractionsLocked,
+  isSingleVariantAttributesEditable,
+  canEnterVariantsEdit,
+  canEnterAttributesOrderMode,
+  canSaveAttributesOrder,
+  attributesOrderDraft,
   canSaveVariants,
   attributeErrors,
   invalidVariantsCount,
@@ -79,6 +98,10 @@ export function ProductVariantsSection({
   singleVariantError,
   canSaveSingleVariant,
   onEnterVariantsMode,
+  onEnterAttributesOrderMode,
+  onMoveAttributeOrder,
+  onSaveAttributesOrder,
+  onCancelAttributesOrder,
   onAddVariant,
   onGenerateAllCombinations,
   onRemoveInvalidVariants,
@@ -104,6 +127,7 @@ export function ProductVariantsSection({
   onCancelSingleVariantEdit,
 }: Props) {
   const parentImageUrl = product.imageUrl?.trim() || noImageProduct
+  const [draggedAttributeIndex, setDraggedAttributeIndex] = useState<number | null>(null)
 
   return (
     <Paper
@@ -122,20 +146,86 @@ export function ProductVariantsSection({
                 <IconButton
                   size="small"
                   onClick={onEnterVariantsMode}
-                  disabled={!isReadOnlyMode || isEditingDisabled}
+                  disabled={!isReadOnlyMode || isEditingDisabled || !canEnterVariantsEdit}
                   data-testid="product-details-page-variants-bulk-edit-button"
                 >
                   <EditOutlinedIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
+            {canEnterAttributesOrderMode ? (
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={onEnterAttributesOrderMode}
+                disabled={!isReadOnlyMode || isEditingDisabled}
+                data-testid="product-details-page-attributes-reorder-start-button"
+              >
+                Reorder Attributes
+              </Button>
+            ) : null}
           </Stack>
         </Stack>
         <Typography variant="body2" color="text.secondary">
           {productsUiText.detailsPage.variantsSubtitle}
         </Typography>
 
-        {isVariantsEditMode && draft ? (
+        {isAttributesOrderMode && attributesOrderDraft ? (
+          <Stack spacing={1.25} data-testid="product-details-page-attributes-reorder-mode">
+            {attributesOrderDraft.length === 0 ? (
+              <Typography color="text.secondary">No attributes</Typography>
+            ) : (
+              <Stack spacing={0.75}>
+                {attributesOrderDraft.map((attribute, index) => (
+                  <Paper
+                    key={attribute.key}
+                    variant="outlined"
+                    sx={{
+                      p: 1,
+                      borderColor: draggedAttributeIndex === index ? 'primary.main' : 'divider',
+                    }}
+                    draggable={!isInteractionsLocked}
+                    onDragStart={() => setDraggedAttributeIndex(index)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      if (draggedAttributeIndex === null || draggedAttributeIndex === index) return
+                      onMoveAttributeOrder(draggedAttributeIndex, index)
+                      setDraggedAttributeIndex(null)
+                    }}
+                    onDragEnd={() => setDraggedAttributeIndex(null)}
+                    data-testid={`product-details-page-attributes-reorder-row-${index}`}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <DragIndicatorOutlinedIcon fontSize="small" color="action" />
+                      <Typography sx={{ fontWeight: 600 }}>
+                        {attribute.name}: {attribute.values.join(', ')}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="contained"
+                disabled={!canSaveAttributesOrder}
+                onClick={onSaveAttributesOrder}
+                data-testid="product-details-page-attributes-reorder-save-button"
+              >
+                Save Order
+              </Button>
+              <Button
+                disabled={isInteractionsLocked}
+                onClick={onCancelAttributesOrder}
+                data-testid="product-details-page-attributes-reorder-cancel-button"
+              >
+                Cancel
+              </Button>
+            </Stack>
+          </Stack>
+        ) : isVariantsEditMode && draft ? (
           <ProductVariantsBulkEditor
             draft={draft}
             attributeErrors={attributeErrors}
@@ -217,7 +307,7 @@ export function ProductVariantsSection({
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                            {product.name}
+                            {buildVariantDisplayName(product, variant) || product.name}
                           </Typography>
                           <Chip size="small" label={variant.status} variant="outlined" />
                           <Tooltip title={productsUiText.detailsPage.actions.edit}>
@@ -286,7 +376,10 @@ export function ProductVariantsSection({
                                 size="small"
                                 color="error"
                                 disabled={
-                                  !isReadOnlyMode || isEditingDisabled || product.variants.length <= 1
+                                  !isReadOnlyMode ||
+                                  isEditingDisabled ||
+                                  !canEnterVariantsEdit ||
+                                  product.variants.length <= 1
                                 }
                                 onClick={() => onOpenDeleteVariantConfirm(variant._id)}
                               >
@@ -300,6 +393,7 @@ export function ProductVariantsSection({
                       {isEditingThisVariant && singleVariantDraft ? (
                         <ProductVariantInlineEditor
                           attributes={product.attributes}
+                          isAttributesEditable={isSingleVariantAttributesEditable}
                           draft={{
                             price: singleVariantDraft.price,
                             imageUrl: singleVariantDraft.imageUrl,

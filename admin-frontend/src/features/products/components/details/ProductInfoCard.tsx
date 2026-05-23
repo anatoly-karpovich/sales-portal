@@ -11,6 +11,7 @@ type Props = {
   draft: ProductVariantsDraft | null
   manufacturerOptions: string[]
   isInfoEditMode: boolean
+  isParentIdentityEditable: boolean
   isReadOnlyMode: boolean
   isEditingDisabled: boolean
   isParentImageValid: boolean
@@ -30,6 +31,7 @@ export function ProductInfoCard({
   draft,
   manufacturerOptions,
   isInfoEditMode,
+  isParentIdentityEditable,
   isReadOnlyMode,
   isEditingDisabled,
   isParentImageValid,
@@ -73,6 +75,7 @@ export function ProductInfoCard({
           <ProductInfoEditForm
             draft={draft}
             manufacturerOptions={manufacturerOptions}
+            isParentIdentityEditable={isParentIdentityEditable}
             isParentImageValid={isParentImageValid}
             canSaveInfo={canSaveInfo}
             isInteractionsLocked={isInteractionsLocked}

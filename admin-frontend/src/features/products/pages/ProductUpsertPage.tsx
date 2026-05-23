@@ -22,7 +22,6 @@ import { useSnackbar } from 'notistack'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import noImageProduct from '@/assets/no-image-product.jpeg'
-import type { ProductVariant } from '@/api/modules/products.api'
 import { ProductCategorySelector } from '@/features/products/components/ProductCategorySelector'
 import type { InventoryInitialVariantPayload } from '@/api/modules/inventory.api'
 import { useCategoriesWorkspaceQuery } from '@/features/categories/hooks/useCategoriesQuery'
@@ -39,7 +38,6 @@ import {
   normalizeValues,
   parseCommaSeparatedValues,
   toProductVariantsDraft,
-  toVariantTitle,
   validatePrice,
   type AttributeDraft,
   type ProductVariantsDraft,
@@ -59,6 +57,7 @@ import {
   useSaveProductSetupSpecMutation,
 } from '@/features/products/hooks/useProductsQuery'
 import { getProductApiErrorMessage, productsUiText } from '@/features/products/products.ui-text'
+import { buildVariantDisplayName } from '@/features/products/utils/buildVariantDisplayName'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatPrice } from '@/utils/number'
 
@@ -91,16 +90,6 @@ function getImageUrlError(value: string) {
   if (!value.trim()) return ''
   if (!isValidHttpUrl(value.trim())) return 'Image URL must be a valid http(s) URL.'
   return ''
-}
-
-function buildVariantDisplayName(
-  variant: ProductVariant,
-  parentName: string,
-  attributeNames: Array<{ key: string; name: string }>,
-) {
-  const variantTitle = toVariantTitle(variant, attributeNames)
-  if (variantTitle) return `${parentName} | ${variantTitle}`
-  return parentName
 }
 
 function getInventorySetupSavedStorageKey(productId: string) {
@@ -1256,7 +1245,7 @@ export function ProductUpsertPage() {
                     <Box
                       component="img"
                       src={variantImage}
-                      alt={buildVariantDisplayName(variant, product.name, product.attributes)}
+                      alt={buildVariantDisplayName(product, variant)}
                       sx={{
                         width: 56,
                         height: 56,
@@ -1268,7 +1257,7 @@ export function ProductUpsertPage() {
                       }}
                     />
                     <Typography sx={{ fontWeight: 700 }}>
-                      {buildVariantDisplayName(variant, product.name, product.attributes) ||
+                      {buildVariantDisplayName(product, variant) ||
                         `Variant #${index + 1}`}
                     </Typography>
                   </Stack>
@@ -1453,9 +1442,7 @@ export function ProductUpsertPage() {
                 const variantImage =
                   variant.imageUrl?.trim() || product.imageUrl?.trim() || noImageProduct
                 const inventoryDraft = variantId ? inventoryDraftByVariantId[variantId] : null
-                const variantDisplayName =
-                  buildVariantDisplayName(variant, product.name, product.attributes) ||
-                  `Variant #${index + 1}`
+                const variantDisplayName = buildVariantDisplayName(product, variant) || `Variant #${index + 1}`
                 const variantAttributes = Object.entries(variant.attributes ?? {})
                   .map(([key, value]) => {
                     const attributeName =

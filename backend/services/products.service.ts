@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import type { IProduct, IProductFilters, IProductVariant } from "../data/types/product.type";
+import type { IProduct, IProductAttribute, IProductFilters, IProductVariant } from "../data/types/product.type";
 import { getTodaysDate } from "../utils/utils";
 import {
   ProductSetupInitRequestDTO,
@@ -173,6 +173,19 @@ class ProductsService {
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(productId, updatePayload, { new: true }).lean().exec();
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
+  }
+
+  async reorderAttributes(productId: Types.ObjectId, attributes: IProductAttribute[]): Promise<IProduct> {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { attributes, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
     const normalized = this.normalizeProduct(updatedProduct);
     await InventoryService.syncWithProductVariants(normalized);
     return normalized;

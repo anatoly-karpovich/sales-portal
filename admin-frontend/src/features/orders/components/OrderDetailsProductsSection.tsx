@@ -42,7 +42,7 @@ import {
   useOrderProductOptionsQuery,
 } from '@/features/orders/hooks/useOrdersQuery'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
-import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
+import { buildVariantDisplayName } from '@/features/products/utils/buildVariantDisplayName'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatPrice } from '@/utils/number'
 
@@ -63,7 +63,6 @@ type ProductSummary = {
 type SelectedVariantRow = {
   rowId: number
   productId: string
-  productName: string
   variantId: string
   variantLabel: string
   unitPrice: number
@@ -157,24 +156,33 @@ function toProductSummary(product: Product): ProductSummary {
 }
 
 function buildVariantLabel(variant: ProductVariant, product: Product) {
-  const variantTitle = toVariantTitle(variant, product.attributes)
-  return variantTitle || variant._id || 'Variant'
+  return buildVariantDisplayName(product, variant) || variant._id || 'Variant'
 }
 
-function buildSnapshotVariantLabel(attributes: Record<string, string>) {
-  return Object.values(attributes)
+function buildSnapshotVariantLabel(product: OrderDetailsProduct) {
+  const snapshotDisplayName = product.displayName?.trim()
+  if (snapshotDisplayName) {
+    return snapshotDisplayName
+  }
+
+  const variantLabel = Object.values(product.attributes)
     .map((value) => value.trim())
     .filter((value) => value.length > 0)
     .join(' | ')
+
+  if (!variantLabel) {
+    return product.name
+  }
+
+  return `${product.name} | ${variantLabel}`
 }
 
 function toSelectedRows(products: OrderDetailsProduct[]) {
   return products.map((product, index) => ({
     rowId: index + 1,
     productId: product.productId,
-    productName: product.name,
     variantId: product.variantId,
-    variantLabel: buildSnapshotVariantLabel(product.attributes),
+    variantLabel: buildSnapshotVariantLabel(product),
     unitPrice: product.unitPrice,
     quantity: product.quantity,
   }))
@@ -640,7 +648,6 @@ function InlineProductsEditor({
         return {
           rowId,
           productId: selectedParentProduct._id,
-          productName: selectedParentProduct.name,
           variantId: variant._id as string,
           variantLabel: buildVariantLabel(variant, parentProductDetailsQuery.data),
           unitPrice: variant.price,
@@ -977,7 +984,7 @@ function InlineProductsEditor({
                             sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
                             data-testid={`order-details-products-inline-selected-row-${index}-summary`}
                           >
-                            {row.productName} | {row.variantLabel}
+                            {row.variantLabel}
                           </Typography>
                           <Typography
                             variant="body2"

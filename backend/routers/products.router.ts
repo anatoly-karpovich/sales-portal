@@ -13,6 +13,7 @@ import {
   productVariantsReplaceValidations,
   productVariantsValidate,
   productPatchValidations,
+  productAttributesReorderValidations,
   productVariantStatusPatchValidations,
   productVariantPatchValidations,
   uniqueProduct,
@@ -79,6 +80,15 @@ productsRouter.patch(
   uniqueProduct,
   productPatchValidations,
   ProductsController.patch.bind(ProductsController),
+);
+
+productsRouter.patch(
+  "/products/:productId/attributes/order",
+  authmiddleware,
+  schemaMiddleware("productAttributesReorderSchema"),
+  productById,
+  productAttributesReorderValidations,
+  ProductsController.reorderAttributes.bind(ProductsController),
 );
 
 productsRouter.patch(
@@ -303,6 +313,12 @@ productsRouter.delete(
  * /api/products/{productId}/status:
  *   patch:
  *     summary: Update product status
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ * /api/products/{productId}/attributes/order:
+ *   patch:
+ *     summary: Reorder product attributes without changing their definition
  *     tags: [Products]
  *     security:
  *       - BearerAuth: []

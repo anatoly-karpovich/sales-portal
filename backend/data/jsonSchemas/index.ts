@@ -2,6 +2,7 @@ import { customerSchema } from "./customer.schema";
 import {
   productCreateSchema,
   productPatchSchema,
+  productAttributesReorderSchema,
   productReplaceSchema,
   productStatusPatchSchema,
   productVariantsCreateSchema,
@@ -44,6 +45,7 @@ export {
   productCreateSchema,
   productReplaceSchema,
   productPatchSchema,
+  productAttributesReorderSchema,
   productStatusPatchSchema,
   productVariantsCreateSchema,
   productVariantsReplaceSchema,

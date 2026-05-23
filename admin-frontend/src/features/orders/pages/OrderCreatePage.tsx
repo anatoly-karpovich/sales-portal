@@ -38,7 +38,7 @@ import {
 } from '@/features/orders/hooks/useOrdersQuery'
 import { useUnsavedChangesGuard } from '@/features/orders/hooks/useUnsavedChangesGuard'
 import { ordersUiText } from '@/features/orders/orders.ui-text'
-import { toVariantTitle } from '@/features/products/forms/productVariantsDraft'
+import { buildVariantDisplayName } from '@/features/products/utils/buildVariantDisplayName'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatDate } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
@@ -66,7 +66,6 @@ type ProductSummary = {
 type SelectedVariantRow = {
   rowId: number
   productId: string
-  productName: string
   variantId: string
   variantLabel: string
   unitPrice: number
@@ -110,12 +109,7 @@ function isVariantActive(variant: ProductVariant) {
 }
 
 function buildVariantLabel(variant: ProductVariant, product: Product) {
-  const variantTitle = toVariantTitle(variant, product.attributes)
-  if (variantTitle) {
-    return variantTitle
-  }
-
-  return variant._id || 'Variant'
+  return buildVariantDisplayName(product, variant) || variant._id || 'Variant'
 }
 
 function resolveCustomerAddressPrimaryLine(customer: CustomerSummary) {
@@ -608,7 +602,6 @@ export function OrderCreatePage() {
         return {
           rowId,
           productId: selectedParentProduct._id,
-          productName: selectedParentProduct.name,
           variantId,
           variantLabel: buildVariantLabel(variant, parentProductDetailsQuery.data),
           unitPrice: variant.price,
@@ -1099,7 +1092,7 @@ export function OrderCreatePage() {
                                     sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
                                     data-testid={`orders-create-page-selected-row-${index}-summary`}
                                   >
-                                    {row.productName} | {row.variantLabel}
+                                  {row.variantLabel}
                                   </Typography>
                                   <Typography
                                     variant="body2"

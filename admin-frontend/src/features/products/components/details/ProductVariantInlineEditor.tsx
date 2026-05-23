@@ -4,6 +4,7 @@ import { productsUiText } from '@/features/products/products.ui-text'
 
 type Props = {
   attributes: ProductAttribute[]
+  isAttributesEditable: boolean
   draft: {
     price: string
     imageUrl: string
@@ -21,6 +22,7 @@ type Props = {
 
 export function ProductVariantInlineEditor({
   attributes,
+  isAttributesEditable,
   draft,
   error,
   isInteractionsLocked,
@@ -45,23 +47,25 @@ export function ProductVariantInlineEditor({
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
         }}
       >
-        {attributes.map((attribute) => (
-          <TextField
-            key={attribute.key}
-            label={`${attribute.name}*`}
-            select
-            error={isDuplicateCombinationError}
-            value={draft.attributes[attribute.key] ?? ''}
-            onChange={(event) => onChangeAttribute(attribute.key, event.target.value)}
-          >
-            <MenuItem value="">Select value</MenuItem>
-            {attribute.values.map((value) => (
-              <MenuItem key={`${attribute.key}-${value}`} value={value}>
-                {value}
-              </MenuItem>
-            ))}
-          </TextField>
-        ))}
+        {isAttributesEditable
+          ? attributes.map((attribute) => (
+              <TextField
+                key={attribute.key}
+                label={`${attribute.name}*`}
+                select
+                error={isDuplicateCombinationError}
+                value={draft.attributes[attribute.key] ?? ''}
+                onChange={(event) => onChangeAttribute(attribute.key, event.target.value)}
+              >
+                <MenuItem value="">Select value</MenuItem>
+                {attribute.values.map((value) => (
+                  <MenuItem key={`${attribute.key}-${value}`} value={value}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ))
+          : null}
 
         <TextField
           label="Price"

@@ -109,6 +109,7 @@ Rules:
 {
   "product": { "_id": "string", "name": "string" },
   "variant": { "_id": "string" },
+  "displayName": "iPhone 15 | Black | 128 GB",
   "unitPrice": 799.99,
   "quantity": 2,
   "received": false
@@ -125,6 +126,7 @@ Rules:
   "unitPrice": 799.99,
   "quantity": 2,
   "name": "iPhone 15",
+  "displayName": "iPhone 15 | Black | 128 GB",
   "attributes": {
     "color": "Black",
     "storage": "128 GB"
@@ -137,7 +139,12 @@ Rules:
 Notes:
 - order details use a persisted product snapshot from the order document (no live product join required);
 - order list/export keep the list-oriented line references (`product._id`, `variant._id`) in response/export columns.
+- `displayName` is also persisted in order line snapshots (including history snapshots) and returned by API.
+- displayName format is built from parent product name and ordered product attributes:
+  - when product has no attributes: `Product Name`
+  - when product has attributes: `Product Name | AttrValue1 | AttrValue2`
 - on reopen (`Canceled -> Draft`), product snapshots in order lines are refreshed from current product/variant values.
+- existing deployments should run migration `backend/mongo/migrations/add-order-product-display-name.migration.ts` to backfill `displayName` in existing orders/history.
 
 ## Order Details Inventory Reservation (`GET /api/orders/:orderId`)
 
@@ -211,3 +218,4 @@ Allowed fields:
 - `status`, `deliveryStatus`, `total_price`, `delivery`, `customer`, `products`, `assignedManager`, `createdOn`.
 
 `products` export must include both `product._id` and `variant._id`.
+`products` export also includes snapshot `displayName`.

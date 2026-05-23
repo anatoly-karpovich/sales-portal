@@ -15,6 +15,7 @@ import {
   PatchProductStatusRequestDTO,
   PatchProductVariantStatusRequestDTO,
   PatchProductRequestDTO,
+  ReorderProductAttributesRequestDTO,
   PatchProductVariantRequestDTO,
   ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
@@ -61,6 +62,10 @@ type MutableProduct = {
   variants: MutableVariant[];
 };
 
+type ProductSetupState = MutableProduct & {
+  setup?: { completed?: boolean };
+};
+
 function toDecimalWithTwoPlaces(value: number) {
   return Number(value.toFixed(2));
 }
@@ -94,6 +99,48 @@ function normalizeAttributes(attributes: MutableProduct["attributes"]) {
     name: normalizeText(attribute.name),
     values: attribute.values.map((value) => normalizeText(value)),
   }));
+}
+
+function areSameAttributeDefinitions(
+  currentAttributes: MutableProduct["attributes"],
+  nextAttributes: MutableProduct["attributes"],
+): boolean {
+  if (currentAttributes.length !== nextAttributes.length) {
+    return false;
+  }
+
+  const currentByKey = new Map(currentAttributes.map((attribute) => [attribute.key, attribute]));
+  if (currentByKey.size !== currentAttributes.length) {
+    return false;
+  }
+
+  const visitedKeys = new Set<string>();
+  for (const attribute of nextAttributes) {
+    const current = currentByKey.get(attribute.key);
+    if (!current) {
+      return false;
+    }
+    if (visitedKeys.has(attribute.key)) {
+      return false;
+    }
+    visitedKeys.add(attribute.key);
+
+    if (current.name !== attribute.name) {
+      return false;
+    }
+
+    if (current.values.length !== attribute.values.length) {
+      return false;
+    }
+
+    for (let index = 0; index < current.values.length; index += 1) {
+      if (current.values[index] !== attribute.values[index]) {
+        return false;
+      }
+    }
+  }
+
+  return visitedKeys.size === currentByKey.size;
 }
 
 function normalizeCategoryId(value: string | Types.ObjectId) {
@@ -384,6 +431,14 @@ export async function uniqueProduct(
   next();
 }
 
+function isDraftSetupProduct(product: ProductSetupState): boolean {
+  return product.status === PRODUCT_STATUSES.DRAFT && product.setup?.completed !== true;
+}
+
+function isNonDraftProduct(product: ProductSetupState): boolean {
+  return product.status !== PRODUCT_STATUSES.DRAFT;
+}
+
 export async function productSetupInitValidations(
   req: ProductSetupInitRequestWithEntityDTO,
   res: Response<BaseResponseDTO>,
@@ -432,6 +487,13 @@ export async function productCreateOrReplaceValidations(
 ) {
   try {
     const existingProduct = (req as ReplaceProductRequestDTO).product as unknown as MutableProduct | undefined;
+    if (existingProduct && isNonDraftProduct(existingProduct as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
+    }
+
     const requestBody = req.body as ReplaceProductRequestDTO["body"];
 
     let normalizedVariants: MutableVariant[] = [];
@@ -500,7 +562,6 @@ export async function productPatchValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
     const normalizedPatch = {
       ...req.body,
       name: typeof req.body.name === "string" ? normalizeText(req.body.name) : req.body.name,
@@ -513,10 +574,9 @@ export async function productPatchValidations(
       imageUrl: typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
     };
 
-    const isDraftSetupProduct =
-      product.status === PRODUCT_STATUSES.DRAFT && (product as unknown as { setup?: { completed?: boolean } })?.setup?.completed !== true;
+    const draftSetupProduct = isDraftSetupProduct(product as ProductSetupState);
 
-    if (isDraftSetupProduct) {
+    if (draftSetupProduct) {
       if (typeof normalizedPatch.name === "string" && !normalizedPatch.name) {
         return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
       }
@@ -548,6 +608,17 @@ export async function productPatchValidations(
       return next();
     }
 
+    const nonDraftPatchKeys = Object.keys(req.body ?? {});
+    const forbiddenNonDraftPatchKeys = nonDraftPatchKeys.filter(
+      (key) => !["categoryId", "description", "imageUrl"].includes(key),
+    );
+    if (forbiddenNonDraftPatchKeys.length > 0) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "For active/archived products only category, description and imageUrl can be changed",
+      });
+    }
+
     const nextProduct: MutableProduct = normalizeProductPayload({
       ...product,
       ...normalizedPatch,
@@ -569,6 +640,43 @@ export async function productPatchValidations(
   }
 }
 
+export async function productAttributesReorderValidations(
+  req: ReorderProductAttributesRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    if (!isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Attributes reorder endpoint is available only for active/archived products",
+      });
+    }
+
+    const incomingAttributes = normalizeAttributes((req.body?.attributes ?? []) as MutableProduct["attributes"]);
+    const currentAttributes = normalizeAttributes(product.attributes ?? []);
+
+    if (!areSameAttributeDefinitions(currentAttributes, incomingAttributes)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only attributes order can be changed. Attribute keys, names and values must stay unchanged",
+      });
+    }
+
+    req.body = {
+      attributes: incomingAttributes,
+    };
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
 export async function productVariantPatchValidations(
   req: PatchProductVariantRequestDTO,
   res: Response<BaseResponseDTO>,
@@ -579,7 +687,6 @@ export async function productVariantPatchValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
     const variantId = req.params.variantId;
     if (!variantId || !Types.ObjectId.isValid(variantId)) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
@@ -588,6 +695,16 @@ export async function productVariantPatchValidations(
     const existingVariant = product.variants.find((variant) => variant._id?.toString() === variantId);
     if (!existingVariant) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
+    }
+
+    if (
+      isNonDraftProduct(product as ProductSetupState) &&
+      Object.prototype.hasOwnProperty.call(req.body ?? {}, "attributes")
+    ) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "For active/archived products variant attributes are read-only",
+      });
     }
 
     const normalizedPatch = {
@@ -630,6 +747,12 @@ export async function productVariantsCreateValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
+    if (isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
+    }
 
     if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
@@ -665,6 +788,12 @@ export async function productVariantsReplaceValidations(
     const product = req.product as unknown as MutableProduct | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+    if (isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
     }
 
     if (!Array.isArray(req.body?.variants) || req.body.variants.length < 1 || req.body.variants.length > MAX_VARIANTS_PER_REQUEST) {
@@ -722,6 +851,12 @@ export async function productVariantsValidate(
     const product = req.product as unknown as MutableProduct | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+    if (isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
     }
 
     if (!Array.isArray(req.body?.variants) || req.body.variants.length < 1 || req.body.variants.length > MAX_VARIANTS_PER_REQUEST) {
@@ -808,7 +943,6 @@ export async function productVariantStatusPatchValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
     const variantId = req.params.variantId;
     if (!variantId || !Types.ObjectId.isValid(variantId)) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
@@ -893,6 +1027,12 @@ export async function deleteProductVariant(
     const product = req.product as unknown as MutableProduct | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+    if (isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
     }
 
     const variantId = req.params.variantId;
