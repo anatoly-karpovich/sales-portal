@@ -6,6 +6,7 @@ import type {
   ProductVariantReplacePayload,
   ProductVariantStatus,
 } from '@/api/modules/products.api'
+import { productsUiText } from '@/features/products/products.ui-text'
 
 export type AttributeDraft = {
   id: string
@@ -76,10 +77,10 @@ export function isValidHttpUrl(value: string) {
 
 export function validatePrice(price: string) {
   if (!price.trim() || Number(price) <= 0) {
-    return 'Price should be greater than 0.'
+    return productsUiText.detailsPage.validation.priceGreaterThanZero
   }
   if (!/^\d+(\.\d{1,2})?$/.test(price.trim())) {
-    return 'Price can have max 2 decimal places.'
+    return productsUiText.detailsPage.validation.priceMaxDecimals
   }
   return ''
 }

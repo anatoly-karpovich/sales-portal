@@ -44,6 +44,10 @@ import {
   type VariantDraft,
 } from '@/features/products/forms/productVariantsDraft'
 import {
+  getProductImageUrlError,
+  getProductNameError,
+} from '@/features/products/forms/productParentValidation'
+import {
   useInventoryInitialSetupMutation,
   useInventoryDetailsQuery,
 } from '@/features/inventory/hooks/useInventoryQuery'
@@ -56,12 +60,22 @@ import {
   useProductQuery,
   useSaveProductSetupSpecMutation,
 } from '@/features/products/hooks/useProductsQuery'
-import { getProductApiErrorMessage, productsUiText } from '@/features/products/products.ui-text'
+import {
+  getAttributeValueNoLongerExistsMessage,
+  getAttributeValueRequiredMessage,
+  getProductApiErrorMessage,
+  productsUiText,
+} from '@/features/products/products.ui-text'
 import { buildVariantDisplayName } from '@/features/products/utils/buildVariantDisplayName'
 import { useSettingsQuery } from '@/features/settings/hooks/useSettingsQuery'
 import { formatPrice } from '@/utils/number'
 
-const SETUP_STEPS = ['Parent Product', 'Attributes and Variants', 'Initial Inventory', 'Review']
+const SETUP_STEPS = [
+  productsUiText.form.setupSteps.parentProduct,
+  productsUiText.form.setupSteps.attributesAndVariants,
+  productsUiText.form.setupSteps.initialInventory,
+  productsUiText.form.setupSteps.review,
+]
 
 type InventoryDraftRow = {
   variantId: string
@@ -74,22 +88,6 @@ const INVENTORY_SETUP_SAVED_KEY_PREFIX = 'admin-frontend-product-setup-inventory
 
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status
-}
-
-function getProductNameError(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) return 'Name is required.'
-  if (trimmed.length < 3 || trimmed.length > 40) return 'Name must be between 3 and 40 characters.'
-  if (!/^[a-zA-Z0-9]+(?: [a-zA-Z0-9]+)*$/.test(trimmed)) {
-    return 'Use letters, numbers and single spaces only.'
-  }
-  return ''
-}
-
-function getImageUrlError(value: string) {
-  if (!value.trim()) return ''
-  if (!isValidHttpUrl(value.trim())) return 'Image URL must be a valid http(s) URL.'
-  return ''
 }
 
 function getInventorySetupSavedStorageKey(productId: string) {
@@ -171,8 +169,8 @@ export function ProductUpsertPage() {
   const defaultLowStockThreshold = settingsQuery.data?.inventory.defaultLowStockThreshold ?? 0
 
   const nameError = getProductNameError(name)
-  const imageUrlError = getImageUrlError(imageUrl)
-  const categoryError = selectedCategoryId ? '' : 'Category is required.'
+  const imageUrlError = getProductImageUrlError(imageUrl, isValidHttpUrl)
+  const categoryError = selectedCategoryId ? '' : productsUiText.detailsPage.validation.categoryRequired
 
   const hasCategories = (categoriesQuery.data?.flat?.length ?? 0) > 0
 
@@ -333,11 +331,11 @@ export function ProductUpsertPage() {
     const errors = new Map<string, string>()
     normalizedAttributes.forEach((attribute) => {
       if (!attribute.normalizedName) {
-        errors.set(attribute.id, 'Attribute name is required.')
+        errors.set(attribute.id, productsUiText.detailsPage.validation.attributeNameRequired)
         return
       }
       if ((duplicatedAttributeNames.get(attribute.normalizedName) ?? 0) > 1) {
-        errors.set(attribute.id, 'Attribute names must be unique.')
+        errors.set(attribute.id, productsUiText.detailsPage.validation.attributeNamesMustBeUnique)
       }
     })
     return errors
@@ -371,7 +369,7 @@ export function ProductUpsertPage() {
         const attributeName = attribute.name.trim()
         const selectedValue = variant.attributesByAttributeId[attribute.id]
         if (!selectedValue) {
-          attributeErrorsById.set(attribute.id, `${attributeName}: value is required.`)
+          attributeErrorsById.set(attribute.id, getAttributeValueRequiredMessage(attributeName))
           continue
         }
         const hasValue = attribute.values.some(
@@ -380,7 +378,7 @@ export function ProductUpsertPage() {
         if (!hasValue) {
           attributeErrorsById.set(
             attribute.id,
-            `${attributeName}: ${selectedValue} no longer exists in attribute values.`,
+            getAttributeValueNoLongerExistsMessage(attributeName, selectedValue),
           )
         }
       }
@@ -393,7 +391,7 @@ export function ProductUpsertPage() {
         if ((duplicateCount ?? 0) > 1 && firstAttributeId) {
           attributeErrorsById.set(
             firstAttributeId,
-            'Variant with this attribute combination already exists.',
+            productsUiText.detailsPage.validation.duplicateVariantCombination,
           )
         }
       }
@@ -409,7 +407,7 @@ export function ProductUpsertPage() {
 
       const variantImageUrl = variant.imageUrl.trim()
       if (variantImageUrl.length > 0 && !isValidHttpUrl(variantImageUrl)) {
-        imageByVariantId.set(variant.id, 'Variant image URL must be a valid http(s) URL.')
+        imageByVariantId.set(variant.id, productsUiText.detailsPage.validation.variantImageUrlInvalid)
       }
     })
 
@@ -570,7 +568,7 @@ export function ProductUpsertPage() {
           })),
         },
       })
-      enqueueSnackbar('Attributes and variants saved.', { variant: 'success' })
+      enqueueSnackbar(productsUiText.toasts.updated, { variant: 'success' })
       handleContinue()
     } catch (error) {
       const status = getErrorStatus(error)
@@ -845,7 +843,7 @@ export function ProductUpsertPage() {
       <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }}>
         <Stack spacing={1.5}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Parent product
+            {productsUiText.form.labels.parentProduct}
           </Typography>
 
           <Box
@@ -856,7 +854,7 @@ export function ProductUpsertPage() {
             }}
           >
             <TextField
-              label="Name"
+              label={productsUiText.detailsPage.labels.name}
               value={name}
               onChange={(event) => setName(event.target.value)}
               onBlur={() => setParentTouched((current) => ({ ...current, name: true }))}
@@ -867,7 +865,7 @@ export function ProductUpsertPage() {
             />
 
             <TextField
-              label="Manufacturer"
+              label={productsUiText.detailsPage.labels.manufacturer}
               select
               value={selectedManufacturer}
               onChange={(event) => setManufacturer(event.target.value)}
@@ -886,7 +884,7 @@ export function ProductUpsertPage() {
             </TextField>
 
             <TextField
-              label="Parent image URL"
+              label={productsUiText.detailsPage.labels.parentImageUrl}
               value={imageUrl}
               onChange={(event) => setImageUrl(event.target.value)}
               onBlur={() => setParentTouched((current) => ({ ...current, imageUrl: true }))}
@@ -897,7 +895,7 @@ export function ProductUpsertPage() {
             />
 
             <TextField
-              label="Description"
+              label={productsUiText.detailsPage.labels.description}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               multiline
@@ -913,7 +911,7 @@ export function ProductUpsertPage() {
       <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }}>
         <Stack spacing={1.5}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Product category
+            {productsUiText.form.labels.category}
           </Typography>
           <ProductCategorySelector
             tree={categoriesQuery.data?.tree ?? []}
@@ -941,7 +939,7 @@ export function ProductUpsertPage() {
           disabled={!canSaveInitStep}
           data-testid="products-setup-init-save-button"
         >
-          Save and Continue
+          {productsUiText.form.actions.saveAndContinue}
         </Button>
       </Stack>
     </Stack>
@@ -953,16 +951,16 @@ export function ProductUpsertPage() {
         <Stack spacing={1.5}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Attributes
+              {productsUiText.form.labels.attributes}
             </Typography>
             <Button variant="outlined" startIcon={<AddRoundedIcon />} onClick={handleAddAttribute}>
-              Add Attribute
+              {productsUiText.form.actions.addAttribute}
             </Button>
           </Stack>
 
           {attributes.length === 0 ? (
             <Alert severity="info" sx={{ background: 'inherit' }}>
-              Attributes are optional. You can create a single variant without attributes.
+              {productsUiText.form.placeholders.attributesOptionalCreate}
             </Alert>
           ) : null}
 
@@ -971,7 +969,7 @@ export function ProductUpsertPage() {
               <Paper key={attribute.id} variant="outlined" sx={{ p: 1.25 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
                   <TextField
-                    label="Attribute name"
+                    label={productsUiText.detailsPage.labels.attributeName}
                     value={attribute.name}
                     onChange={(event) =>
                       handleAttributeNameChange(attribute.id, event.target.value)
@@ -1011,12 +1009,12 @@ export function ProductUpsertPage() {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Values"
-                        placeholder="Type value and press Enter"
+                        label={productsUiText.detailsPage.labels.values}
+                        placeholder={productsUiText.detailsPage.valuesInput.placeholder}
                         error={attributeValuesErrors.has(attribute.id)}
                         helperText={
                           attributeValuesErrors.get(attribute.id) ??
-                          'Example: Black, White, Red. Duplicates are not allowed.'
+                          productsUiText.detailsPage.valuesInput.helper
                         }
                         onBlur={() => handleAttributeInputCommit(attribute.id)}
                         onKeyDown={(event) => {
@@ -1046,11 +1044,11 @@ export function ProductUpsertPage() {
         <Stack spacing={1.5}>
           <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" gap={1}>
             <Stack direction="row" spacing={1}>
-              <Chip label={`${attributes.length} attributes`} />
-              <Chip label={`${possibleCombinations.length} combinations`} />
-              <Chip label={`${variants.length} variants`} />
+              <Chip label={`${attributes.length} ${productsUiText.detailsPage.counters.attributes}`} />
+              <Chip label={`${possibleCombinations.length} ${productsUiText.detailsPage.counters.combinations}`} />
+              <Chip label={`${variants.length} ${productsUiText.detailsPage.counters.variants}`} />
               {invalidVariantsCount > 0 ? (
-                <Chip color="error" label={`${invalidVariantsCount} invalid`} />
+                <Chip color="error" label={`${invalidVariantsCount} ${productsUiText.detailsPage.counters.invalid}`} />
               ) : null}
             </Stack>
             <Stack direction="row" spacing={1}>
@@ -1059,7 +1057,7 @@ export function ProductUpsertPage() {
                 onClick={handleAddVariant}
                 disabled={hasReachedMaxVariants || isMutating}
               >
-                Add One Variant
+                {productsUiText.form.actions.addOneVariant}
               </Button>
               <Button
                 variant="contained"
@@ -1070,7 +1068,7 @@ export function ProductUpsertPage() {
               </Button>
               {invalidVariantsCount > 0 ? (
                 <Button color="error" variant="contained" onClick={handleRemoveInvalidVariants}>
-                  Remove Invalid
+                  {productsUiText.form.actions.removeInvalid}
                 </Button>
               ) : null}
             </Stack>
@@ -1081,9 +1079,9 @@ export function ProductUpsertPage() {
               variant="outlined"
               sx={{ py: 4, px: 2, borderStyle: 'dashed', textAlign: 'center' }}
             >
-              <Typography variant="h6">No variants yet</Typography>
+              <Typography variant="h6">{productsUiText.form.placeholders.noVariants}</Typography>
               <Typography color="text.secondary">
-                Add one variant manually or generate all possible combinations from attributes.
+                {productsUiText.form.placeholders.noVariantsHelp}
               </Typography>
             </Paper>
           ) : (
@@ -1122,7 +1120,7 @@ export function ProductUpsertPage() {
                         {attributes.map((attribute, attributeIndex) => (
                           <TextField
                             key={`${variant.id}-${attribute.id}`}
-                            label={`${attribute.name.trim() || 'Attribute'}*`}
+                            label={`${attribute.name.trim() || productsUiText.detailsPage.labels.attributeFallback}*`}
                             select
                             value={variant.attributesByAttributeId[attribute.id] ?? ''}
                             onChange={(event) =>
@@ -1140,7 +1138,9 @@ export function ProductUpsertPage() {
                             error={Boolean(variantAttributeErrors.get(attribute.id))}
                             helperText={variantAttributeErrors.get(attribute.id) ?? ' '}
                           >
-                            <MenuItem value="">Select value</MenuItem>
+                            <MenuItem value="">
+                              {productsUiText.detailsPage.labels.selectValue}
+                            </MenuItem>
                             {attribute.values.map((value) => (
                               <MenuItem key={value} value={value}>
                                 {value}
@@ -1150,7 +1150,7 @@ export function ProductUpsertPage() {
                         ))}
 
                         <TextField
-                          label="Price"
+                          label={productsUiText.detailsPage.labels.price}
                           value={variant.price}
                           onChange={(event) =>
                             handleVariantFieldChange(variant.id, 'price', event.target.value)
@@ -1161,7 +1161,7 @@ export function ProductUpsertPage() {
                         />
 
                         <TextField
-                          label="Variant image URL"
+                          label={productsUiText.detailsPage.labels.variantImageUrl}
                           value={variant.imageUrl}
                           onChange={(event) =>
                             handleVariantFieldChange(variant.id, 'imageUrl', event.target.value)
@@ -1181,7 +1181,7 @@ export function ProductUpsertPage() {
 
       <Stack direction="row" spacing={1}>
         <Button variant="outlined" onClick={handleBack} disabled={activeStep === 0 || isMutating}>
-          Back
+          {productsUiText.form.actions.back}
         </Button>
         <Button
           variant="contained"
@@ -1189,7 +1189,7 @@ export function ProductUpsertPage() {
           disabled={!canSaveSpecStep}
           data-testid="products-setup-spec-save-button"
         >
-          Save and Continue
+          {productsUiText.form.actions.saveAndContinue}
         </Button>
       </Stack>
     </Stack>
@@ -1201,7 +1201,7 @@ export function ProductUpsertPage() {
       return (
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography color="text.secondary">
-            Load a draft product before configuring inventory.
+            {productsUiText.form.placeholders.loadDraftBeforeInventory}
           </Typography>
         </Paper>
       )
@@ -1212,11 +1212,10 @@ export function ProductUpsertPage() {
         <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }}>
           <Stack spacing={1}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Initial inventory per variant
+              {productsUiText.form.sections.initialInventoryPerVariant}
             </Typography>
             <Typography color="text.secondary">
-              Configure quantity, threshold and direct-order setting for each variant. All variants
-              are saved in one request.
+              {productsUiText.form.placeholders.inventoryHelp}
             </Typography>
           </Stack>
         </Paper>
@@ -1270,7 +1269,7 @@ export function ProductUpsertPage() {
                     }}
                   >
                     <TextField
-                      label="Quantity"
+                      label={productsUiText.form.labels.quantity}
                       type="number"
                       value={row?.quantity ?? '0'}
                       onChange={(event) =>
@@ -1290,7 +1289,7 @@ export function ProductUpsertPage() {
                       inputProps={{ min: 0, step: 1, inputMode: 'numeric' }}
                     />
                     <TextField
-                      label="Low Stock Threshold"
+                      label={productsUiText.form.labels.lowStockThreshold}
                       type="number"
                       value={row?.lowStockThreshold ?? String(defaultLowStockThreshold)}
                       onChange={(event) =>
@@ -1309,8 +1308,12 @@ export function ProductUpsertPage() {
                     />
                     <TextField
                       select
-                      label="Direct Order"
-                      value={(row?.allowSellingOutOfStock ?? false) ? 'Allowed' : 'Blocked'}
+                      label={productsUiText.form.labels.directOrder}
+                      value={
+                        (row?.allowSellingOutOfStock ?? false)
+                          ? productsUiText.form.options.allowed
+                          : productsUiText.form.options.blocked
+                      }
                       onChange={(event) =>
                         setInventoryDraftByVariantId((current) => ({
                           ...current,
@@ -1320,13 +1323,18 @@ export function ProductUpsertPage() {
                             lowStockThreshold:
                               current[variantId]?.lowStockThreshold ??
                               String(defaultLowStockThreshold),
-                            allowSellingOutOfStock: event.target.value === 'Allowed',
+                            allowSellingOutOfStock:
+                              event.target.value === productsUiText.form.options.allowed,
                           },
                         }))
                       }
                     >
-                      <MenuItem value="Allowed">Allowed</MenuItem>
-                      <MenuItem value="Blocked">Blocked</MenuItem>
+                      <MenuItem value={productsUiText.form.options.allowed}>
+                        {productsUiText.form.options.allowed}
+                      </MenuItem>
+                      <MenuItem value={productsUiText.form.options.blocked}>
+                        {productsUiText.form.options.blocked}
+                      </MenuItem>
                     </TextField>
                   </Box>
 
@@ -1342,8 +1350,8 @@ export function ProductUpsertPage() {
         </Stack>
 
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={handleBack} disabled={activeStep === 0 || isMutating}>
-            Back
+        <Button variant="outlined" onClick={handleBack} disabled={activeStep === 0 || isMutating}>
+            {productsUiText.form.actions.back}
           </Button>
           <Button
             variant="contained"
@@ -1351,7 +1359,7 @@ export function ProductUpsertPage() {
             disabled={!canSaveInventoryStep}
             data-testid="products-setup-inventory-save-button"
           >
-            Save and Continue
+            {productsUiText.form.actions.saveAndContinue}
           </Button>
         </Stack>
       </Stack>
@@ -1363,7 +1371,9 @@ export function ProductUpsertPage() {
     if (!product) {
       return (
         <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 } }}>
-          <Typography color="text.secondary">Load product draft before review.</Typography>
+          <Typography color="text.secondary">
+            {productsUiText.form.placeholders.loadDraftBeforeReview}
+          </Typography>
         </Paper>
       )
     }
@@ -1379,7 +1389,7 @@ export function ProductUpsertPage() {
               sx={{ fontWeight: 700 }}
               data-testid="products-setup-review-parent-title"
             >
-              Parent Product
+              {productsUiText.form.labels.parentProduct}
             </Typography>
 
             <Paper variant="outlined" sx={{ p: 1.5 }}>
@@ -1427,12 +1437,12 @@ export function ProductUpsertPage() {
                 sx={{ fontWeight: 700 }}
                 data-testid="products-setup-review-variants-title"
               >
-                Variants Review
+                {productsUiText.form.sections.variantsReview}
               </Typography>
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Chip label={`${product.attributes.length} attributes`} />
-                <Chip label={`${product.variants.length} variants`} />
+                <Chip label={`${product.variants.length} ${productsUiText.detailsPage.counters.variants}`} />
               </Stack>
             </Stack>
 
@@ -1442,7 +1452,9 @@ export function ProductUpsertPage() {
                 const variantImage =
                   variant.imageUrl?.trim() || product.imageUrl?.trim() || noImageProduct
                 const inventoryDraft = variantId ? inventoryDraftByVariantId[variantId] : null
-                const variantDisplayName = buildVariantDisplayName(product, variant) || `Variant #${index + 1}`
+                const variantDisplayName =
+                  buildVariantDisplayName(product, variant) ||
+                  `${productsUiText.form.variantPrefix} #${index + 1}`
                 const variantAttributes = Object.entries(variant.attributes ?? {})
                   .map(([key, value]) => {
                     const attributeName =
@@ -1488,7 +1500,7 @@ export function ProductUpsertPage() {
                               {variantDisplayName}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              Variant #{index + 1}
+                              {productsUiText.form.variantPrefix} #{index + 1}
                             </Typography>
                           </Stack>
                         </Stack>
@@ -1506,7 +1518,7 @@ export function ProductUpsertPage() {
                         <Paper variant="outlined" sx={{ p: 1.25 }}>
                           <Stack spacing={0.75}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                              Variant Specification
+                              {productsUiText.form.labels.variantSpecification}
                             </Typography>
                             <Stack
                               direction="row"
@@ -1515,7 +1527,9 @@ export function ProductUpsertPage() {
                               flexWrap="wrap"
                               useFlexGap
                             >
-                              <Typography color="text.secondary">Price:</Typography>
+                              <Typography color="text.secondary">
+                                {productsUiText.detailsPage.labels.price}:
+                              </Typography>
                               <Typography sx={{ fontWeight: 700 }}>
                                 {formatPrice(variant.price)}
                               </Typography>
@@ -1526,7 +1540,9 @@ export function ProductUpsertPage() {
                                   <Chip key={label} label={label} size="small" />
                                 ))
                               ) : (
-                                <Typography color="text.secondary">No attributes.</Typography>
+                                <Typography color="text.secondary">
+                                  {productsUiText.form.placeholders.noAttributes}
+                                </Typography>
                               )}
                             </Stack>
                           </Stack>
@@ -1535,23 +1551,25 @@ export function ProductUpsertPage() {
                         <Paper variant="outlined" sx={{ p: 1.25 }}>
                           <Stack spacing={0.75}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                              Initial Inventory
+                              {productsUiText.form.labels.initialInventory}
                             </Typography>
                             <Stack spacing={0.5}>
                               <Typography>
-                                Quantity: <b>{inventoryDraft?.quantity ?? '0'}</b>
+                                {productsUiText.form.labels.quantity}: <b>{inventoryDraft?.quantity ?? '0'}</b>
                               </Typography>
                               <Typography>
-                                Low Stock Threshold:{' '}
+                                {productsUiText.form.labels.lowStockThreshold}:{' '}
                                 <b>
                                   {inventoryDraft?.lowStockThreshold ??
                                     String(defaultLowStockThreshold)}
                                 </b>
                               </Typography>
                               <Typography>
-                                Direct Order:{' '}
+                                {productsUiText.form.labels.directOrder}:{' '}
                                 <b>
-                                  {inventoryDraft?.allowSellingOutOfStock ? 'Allowed' : 'Blocked'}
+                                  {inventoryDraft?.allowSellingOutOfStock
+                                    ? productsUiText.form.options.allowed
+                                    : productsUiText.form.options.blocked}
                                 </b>
                               </Typography>
                             </Stack>
@@ -1568,18 +1586,18 @@ export function ProductUpsertPage() {
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button variant="outlined" onClick={handleBack} disabled={activeStep === 0 || isMutating}>
-            Back
+            {productsUiText.form.actions.back}
           </Button>
           <Button
             variant="contained"
             onClick={() => void handleCompleteSetup()}
             disabled={!canCompleteSetup}
           >
-            Complete Setup
+            {productsUiText.form.actions.completeSetup}
           </Button>
           {workingProductId ? (
             <Button color="error" onClick={() => void handleDeleteDraft()} disabled={isMutating}>
-              Delete Draft
+              {productsUiText.form.actions.deleteDraft}
             </Button>
           ) : null}
         </Stack>
@@ -1590,7 +1608,7 @@ export function ProductUpsertPage() {
   if (isManufacturersLoading || categoriesQuery.isLoading) {
     return (
       <Paper sx={{ p: 3 }} data-testid="products-setup-loading">
-        <Typography>Loading catalog settings...</Typography>
+        <Typography>{productsUiText.form.placeholders.loadingCatalogSettings}</Typography>
       </Paper>
     )
   }
@@ -1599,10 +1617,10 @@ export function ProductUpsertPage() {
     return (
       <Stack spacing={2} data-testid="products-setup-manufacturers-unavailable">
         <Alert severity="warning">
-          Catalog manufacturers are not configured. Product creation is unavailable.
+          {productsUiText.form.placeholders.manufacturersUnavailableCreate}
         </Alert>
         <Button component={Link} to="/products" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
-          Back to Products
+          {productsUiText.form.actions.backToProducts}
         </Button>
       </Stack>
     )
@@ -1613,8 +1631,8 @@ export function ProductUpsertPage() {
       <Stack spacing={2} data-testid="products-setup-categories-unavailable">
         <Alert severity="warning">
           {hasCategories
-            ? 'Unable to load categories. Product creation is unavailable.'
-            : 'Create at least one category before adding products.'}
+            ? productsUiText.form.placeholders.categoriesUnavailableCreate
+            : productsUiText.form.placeholders.createCategoryBeforeProducts}
         </Alert>
         <Button
           component={Link}
@@ -1622,7 +1640,7 @@ export function ProductUpsertPage() {
           variant="outlined"
           sx={{ alignSelf: 'flex-start' }}
         >
-          Go to Categories
+          {productsUiText.form.actions.goToCategories}
         </Button>
       </Stack>
     )
@@ -1631,7 +1649,7 @@ export function ProductUpsertPage() {
   if (workingProductId && productQuery.isLoading) {
     return (
       <Paper sx={{ p: 3 }} data-testid="products-setup-product-loading">
-        <Typography>Loading draft product...</Typography>
+        <Typography>{productsUiText.form.placeholders.loadingDraftProduct}</Typography>
       </Paper>
     )
   }
@@ -1640,9 +1658,9 @@ export function ProductUpsertPage() {
     return (
       <Paper sx={{ p: 3 }} data-testid="products-setup-product-error">
         <Stack spacing={2} alignItems="flex-start">
-          <Alert severity="error">Product draft is unavailable.</Alert>
+          <Alert severity="error">{productsUiText.form.placeholders.draftUnavailable}</Alert>
           <Button component={Link} to="/products" variant="outlined">
-            Back to Products
+            {productsUiText.form.actions.backToProducts}
           </Button>
         </Stack>
       </Paper>
@@ -1659,7 +1677,7 @@ export function ProductUpsertPage() {
         sx={{ alignSelf: 'flex-start', px: 0, textTransform: 'none' }}
         data-testid="products-setup-back-to-list-link"
       >
-        Products
+        {productsUiText.form.backToProducts}
       </Button>
 
       <Paper sx={{ p: { xs: 2, md: 3 } }}>
@@ -1670,9 +1688,9 @@ export function ProductUpsertPage() {
             alignItems={{ xs: 'flex-start', md: 'center' }}
           >
             <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              Product Setup
+              {productsUiText.form.labels.productSetup}
             </Typography>
-            <Chip label="Draft" color="warning" variant="outlined" />
+            <Chip label={productsUiText.form.statusDraft} color="warning" variant="outlined" />
           </Stack>
 
           <Divider />

@@ -46,6 +46,8 @@ import {
   useReplaceProductVariantsMutation,
 } from '@/features/products/hooks/useProductsQuery'
 import {
+  getAttributeValueNoLongerExistsMessage,
+  getAttributeValueRequiredMessage,
   getDeleteProductMessage,
   getDeleteVariantMessage,
   getProductApiErrorMessage,
@@ -231,26 +233,26 @@ export function ProductDetailsPage() {
     !isInteractionsLocked,
   )
 
-  const singleVariantError = useMemo(() => {
+  const singleVariantError = (() => {
     if (!singleVariantDraft || !product) return ''
 
     const priceError = validatePrice(singleVariantDraft.price)
     if (priceError) return priceError
     if (singleVariantDraft.imageUrl.trim() && !isValidHttpUrl(singleVariantDraft.imageUrl.trim())) {
-      return 'Variant image URL must be a valid http(s) URL.'
+      return productsUiText.detailsPage.validation.variantImageUrlInvalid
     }
 
     if (isSingleVariantAttributesEditable) {
       for (const attribute of product.attributes) {
         const value = singleVariantDraft.attributes[attribute.key]
         if (!value) {
-          return `${attribute.name}: value is required.`
+          return getAttributeValueRequiredMessage(attribute.name)
         }
         const belongs = attribute.values.some(
           (item) => item.trim().toLowerCase() === value.trim().toLowerCase(),
         )
         if (!belongs) {
-          return `${attribute.name}: ${value} no longer exists in attribute values.`
+          return getAttributeValueNoLongerExistsMessage(attribute.name, value)
         }
       }
 
@@ -262,12 +264,12 @@ export function ProductDetailsPage() {
       })
 
       if (duplicateExists) {
-        return 'Variant with this attribute combination already exists.'
+        return productsUiText.detailsPage.validation.duplicateVariantCombination
       }
     }
 
     return ''
-  }, [isSingleVariantAttributesEditable, product, singleVariantDraft])
+  })()
 
   const singleVariantHasChanges = useMemo(
     () => !isSameSingleVariantDraft(product, singleVariantDraft, isSingleVariantAttributesEditable),
@@ -678,14 +680,14 @@ export function ProductDetailsPage() {
         : pendingConfirmAction === 'activate-product'
           ? {
               title: productsUiText.detailsPage.dialogs.activateTitle,
-              message: 'Are you sure you want to activate this product?',
+              message: productsUiText.detailsPage.dialogs.activateMessage,
               confirmLabel: productsUiText.detailsPage.dialogs.activateConfirm,
               confirmColor: 'primary' as const,
             }
           : pendingConfirmAction === 'archive-product'
             ? {
                 title: productsUiText.detailsPage.dialogs.archiveTitle,
-                message: 'Are you sure you want to archive this product?',
+                message: productsUiText.detailsPage.dialogs.archiveMessage,
                 confirmLabel: productsUiText.detailsPage.dialogs.archiveConfirm,
                 confirmColor: 'warning' as const,
               }

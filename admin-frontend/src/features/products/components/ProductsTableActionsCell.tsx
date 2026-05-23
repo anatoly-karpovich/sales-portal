@@ -2,6 +2,7 @@ import { IconButton, Stack, Tooltip } from '@mui/material'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import type { Product } from '@/api/modules/products.api'
+import { productsUiText } from '@/features/products/products.ui-text'
 
 type Props = {
   product: Product
@@ -10,7 +11,10 @@ type Props = {
 }
 
 export function ProductsTableActionsCell({ product, onView, onDelete }: Props) {
-  const detailsLabel = product.setup?.completed === false ? 'Continue setup' : 'Details'
+  const detailsLabel =
+    product.setup?.completed === false
+      ? productsUiText.listPage.actions.continueSetup
+      : productsUiText.listPage.actions.details
 
   return (
     <Stack
@@ -32,7 +36,7 @@ export function ProductsTableActionsCell({ product, onView, onDelete }: Props) {
           <VisibilityOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Delete">
+      <Tooltip title={productsUiText.listPage.actions.delete}>
         <IconButton
           size="small"
           color="error"

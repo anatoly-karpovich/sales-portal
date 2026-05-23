@@ -34,9 +34,10 @@ export function ProductVariantInlineEditor({
   onCancel,
 }: Props) {
   const isPriceError =
-    error === 'Price should be greater than 0.' || error === 'Price can have max 2 decimal places.'
+    error === productsUiText.detailsPage.validation.priceGreaterThanZero ||
+    error === productsUiText.detailsPage.validation.priceMaxDecimals
   const isDuplicateCombinationError =
-    error === 'Variant with this attribute combination already exists.'
+    error === productsUiText.detailsPage.validation.duplicateVariantCombination
 
   return (
     <Stack spacing={1.25}>
@@ -57,7 +58,7 @@ export function ProductVariantInlineEditor({
                 value={draft.attributes[attribute.key] ?? ''}
                 onChange={(event) => onChangeAttribute(attribute.key, event.target.value)}
               >
-                <MenuItem value="">Select value</MenuItem>
+                <MenuItem value="">{productsUiText.detailsPage.labels.selectValue}</MenuItem>
                 {attribute.values.map((value) => (
                   <MenuItem key={`${attribute.key}-${value}`} value={value}>
                     {value}
@@ -68,7 +69,7 @@ export function ProductVariantInlineEditor({
           : null}
 
         <TextField
-          label="Price"
+          label={productsUiText.detailsPage.labels.price}
           value={draft.price}
           error={isPriceError}
           onChange={(event) => onChangePrice(event.target.value)}
@@ -76,7 +77,7 @@ export function ProductVariantInlineEditor({
         />
 
         <TextField
-          label="Variant image URL"
+          label={productsUiText.detailsPage.labels.variantImageUrl}
           value={draft.imageUrl}
           onChange={(event) => onChangeImageUrl(event.target.value)}
         />

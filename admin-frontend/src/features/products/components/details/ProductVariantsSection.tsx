@@ -137,22 +137,24 @@ export function ProductVariantsSection({
     >
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {productsUiText.detailsPage.variantsTitle}
             </Typography>
-            <Tooltip title={productsUiText.detailsPage.actions.edit}>
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={onEnterVariantsMode}
-                  disabled={!isReadOnlyMode || isEditingDisabled || !canEnterVariantsEdit}
-                  data-testid="product-details-page-variants-bulk-edit-button"
-                >
-                  <EditOutlinedIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
+            {canEnterVariantsEdit ? (
+              <Tooltip title={productsUiText.detailsPage.actions.edit}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onEnterVariantsMode}
+                    disabled={!isReadOnlyMode || isEditingDisabled}
+                    data-testid="product-details-page-variants-bulk-edit-button"
+                  >
+                    <EditOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            ) : null}
             {canEnterAttributesOrderMode ? (
               <Button
                 size="small"
@@ -161,7 +163,7 @@ export function ProductVariantsSection({
                 disabled={!isReadOnlyMode || isEditingDisabled}
                 data-testid="product-details-page-attributes-reorder-start-button"
               >
-                Reorder Attributes
+                {productsUiText.detailsPage.actions.reorderAttributes}
               </Button>
             ) : null}
           </Stack>
@@ -173,7 +175,9 @@ export function ProductVariantsSection({
         {isAttributesOrderMode && attributesOrderDraft ? (
           <Stack spacing={1.25} data-testid="product-details-page-attributes-reorder-mode">
             {attributesOrderDraft.length === 0 ? (
-              <Typography color="text.secondary">No attributes</Typography>
+              <Typography color="text.secondary">
+                {productsUiText.detailsPage.labels.noAttributes}
+              </Typography>
             ) : (
               <Stack spacing={0.75}>
                 {attributesOrderDraft.map((attribute, index) => (
@@ -214,14 +218,14 @@ export function ProductVariantsSection({
                 onClick={onSaveAttributesOrder}
                 data-testid="product-details-page-attributes-reorder-save-button"
               >
-                Save Order
+                {productsUiText.detailsPage.actions.saveOrder}
               </Button>
               <Button
                 disabled={isInteractionsLocked}
                 onClick={onCancelAttributesOrder}
                 data-testid="product-details-page-attributes-reorder-cancel-button"
               >
-                Cancel
+                {productsUiText.detailsPage.actions.cancel}
               </Button>
             </Stack>
           </Stack>
@@ -263,9 +267,13 @@ export function ProductVariantsSection({
                 useFlexGap
                 data-testid="product-details-page-attributes-list-read-only"
               >
-                <Typography sx={{ fontWeight: 700 }}>Attributes:</Typography>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {productsUiText.detailsPage.labels.attributes}:
+                </Typography>
                 {product.attributes.length === 0 ? (
-                  <Typography color="text.secondary">No attributes</Typography>
+                  <Typography color="text.secondary">
+                    {productsUiText.detailsPage.labels.noAttributes}
+                  </Typography>
                 ) : (
                   product.attributes.map((attribute) => (
                     <Chip
@@ -291,8 +299,8 @@ export function ProductVariantsSection({
                 const isEditingThisVariant =
                   singleVariantDraft?.variantId === variant._id && Boolean(variant._id)
                 const isSinglePriceError =
-                  singleVariantError === 'Price should be greater than 0.' ||
-                  singleVariantError === 'Price can have max 2 decimal places.'
+                  singleVariantError === productsUiText.detailsPage.validation.priceGreaterThanZero ||
+                  singleVariantError === productsUiText.detailsPage.validation.priceMaxDecimals
                 const singleVariantHeaderError =
                   isEditingThisVariant &&
                   singleVariantDraft &&
@@ -328,7 +336,9 @@ export function ProductVariantsSection({
                             disabled={!isReadOnlyMode || isEditingDisabled}
                             onClick={() => onToggleVariantStatus(variant)}
                           >
-                            {variant.status === 'Active' ? 'Archive' : 'Activate'}
+                            {variant.status === 'Active'
+                              ? productsUiText.detailsPage.actions.archiveVariant
+                              : productsUiText.detailsPage.actions.activateVariant}
                           </Button>
                         </Stack>
 
@@ -370,7 +380,7 @@ export function ProductVariantsSection({
                               </Stack>
                             ) : null}
                           </Box>
-                          <Tooltip title="Delete">
+                          <Tooltip title={productsUiText.detailsPage.actions.delete}>
                             <span>
                               <IconButton
                                 size="small"
@@ -409,7 +419,11 @@ export function ProductVariantsSection({
                           onCancel={onCancelSingleVariantEdit}
                         />
                       ) : (
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1.5}
+                          alignItems="flex-start"
+                        >
                           <Box
                             component="img"
                             src={variantImageUrl}
@@ -426,10 +440,12 @@ export function ProductVariantsSection({
                           />
                           <Stack spacing={0.75} sx={{ minWidth: 0 }}>
                             <Typography>
-                              <strong>Price:</strong> {formatPrice(variant.price)}
+                              <strong>{productsUiText.detailsPage.labels.price}:</strong>{' '}
+                              {formatPrice(variant.price)}
                             </Typography>
                             <Typography>
-                              <strong>Image URL:</strong> {variant.imageUrl?.trim() || '-'}
+                              <strong>{productsUiText.detailsPage.labels.imageUrl}:</strong>{' '}
+                              {variant.imageUrl?.trim() || '-'}
                             </Typography>
                             {product.attributes.map((attribute) => (
                               <Typography key={`${variant._id ?? variantIndex}-${attribute.key}`}>
@@ -439,7 +455,7 @@ export function ProductVariantsSection({
                             ))}
                             {product.attributes.length === 0 ? (
                               <Typography>
-                                <strong>Variant:</strong>{' '}
+                                <strong>{productsUiText.detailsPage.labels.variant}:</strong>{' '}
                                 {toVariantTitle(variant, product.attributes) || '-'}
                               </Typography>
                             ) : null}

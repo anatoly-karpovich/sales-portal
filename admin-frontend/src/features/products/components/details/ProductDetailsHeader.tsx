@@ -2,6 +2,7 @@ import KeyboardBackspaceRoundedIcon from '@mui/icons-material/KeyboardBackspaceR
 import { Button, Chip, Stack, Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { Product } from '@/api/modules/products.api'
+import { productsUiText } from '@/features/products/products.ui-text'
 import { formatDate } from '@/utils/date'
 
 type Props = {
@@ -69,8 +70,9 @@ export function ProductDetailsHeader({
             </Button>
           </Stack>
           <Typography color="text.secondary" data-testid="product-details-page-meta">
-            {product.manufacturer} | {product.categoryPath || '-'} | Created{' '}
-            {formatDate(product.createdOn)} | Updated {formatDate(product.updatedOn)}
+            {product.manufacturer} | {product.categoryPath || '-'} |{' '}
+            {productsUiText.detailsPage.metadata.created} {formatDate(product.createdOn)} |{' '}
+            {productsUiText.detailsPage.metadata.updated} {formatDate(product.updatedOn)}
           </Typography>
         </Stack>
 
@@ -91,7 +93,7 @@ export function ProductDetailsHeader({
             onClick={onDeleteProduct}
             data-testid="product-details-page-delete-product-button"
           >
-            Delete Product
+            {productsUiText.detailsPage.actions.deleteProduct}
           </Button>
         </Stack>
       </Stack>

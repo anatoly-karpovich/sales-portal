@@ -4,6 +4,7 @@ import { Box, Chip, IconButton, MenuItem, Paper, Stack, TextField, Typography } 
 import { memo, useState } from 'react'
 import type { AttributeDraft, VariantDraft } from '@/features/products/forms/productVariantsDraft'
 import { validatePrice } from '@/features/products/forms/productVariantsDraft'
+import { productsUiText } from '@/features/products/products.ui-text'
 
 type Props = {
   index: number
@@ -37,10 +38,10 @@ export const ProductVariantDraftCard = memo(function ProductVariantDraftCard({
   const localPriceError = validatePrice(localPrice)
   const finalPriceError = localPriceError || committedPriceError
   const isPriceError =
-    finalPriceError === 'Price should be greater than 0.' ||
-    finalPriceError === 'Price can have max 2 decimal places.'
+    finalPriceError === productsUiText.detailsPage.validation.priceGreaterThanZero ||
+    finalPriceError === productsUiText.detailsPage.validation.priceMaxDecimals
   const isDuplicateCombinationError =
-    combinationError === 'Variant with this attribute combination already exists.'
+    combinationError === productsUiText.detailsPage.validation.duplicateVariantCombination
 
   const commitPrice = () => {
     if (localPrice === variant.price) return
@@ -104,13 +105,13 @@ export const ProductVariantDraftCard = memo(function ProductVariantDraftCard({
           {attributes.map((attribute) => (
             <TextField
               key={`${variant.id}-${attribute.id}`}
-              label={`${attribute.name.trim() || 'Attribute'}*`}
+              label={`${attribute.name.trim() || productsUiText.detailsPage.labels.attributeFallback}*`}
               select
               error={isDuplicateCombinationError}
               value={variant.attributesByAttributeId[attribute.id] ?? ''}
               onChange={(event) => onChangeAttribute(variant.id, attribute.id, event.target.value)}
             >
-              <MenuItem value="">Select value</MenuItem>
+              <MenuItem value="">{productsUiText.detailsPage.labels.selectValue}</MenuItem>
               {attribute.values.map((value) => (
                 <MenuItem key={`${attribute.id}-${value}`} value={value}>
                   {value}
@@ -120,7 +121,7 @@ export const ProductVariantDraftCard = memo(function ProductVariantDraftCard({
           ))}
 
           <TextField
-            label="Price"
+            label={productsUiText.detailsPage.labels.price}
             value={localPrice}
             error={isPriceError}
             onChange={(event) => setLocalPrice(event.target.value)}
@@ -134,7 +135,7 @@ export const ProductVariantDraftCard = memo(function ProductVariantDraftCard({
           />
 
           <TextField
-            label="Variant image URL"
+            label={productsUiText.detailsPage.labels.variantImageUrl}
             value={variant.imageUrl}
             onChange={(event) => onChangeImageUrl(variant.id, event.target.value)}
           />

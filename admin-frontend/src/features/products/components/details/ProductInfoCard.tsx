@@ -101,16 +101,19 @@ export function ProductInfoCard({
             />
             <Stack spacing={0.75} sx={{ minWidth: 0 }}>
               <Typography>
-                <strong>Name:</strong> {product.name}
+                <strong>{productsUiText.detailsPage.labels.name}:</strong> {product.name}
               </Typography>
               <Typography>
-                <strong>Manufacturer:</strong> {product.manufacturer}
+                <strong>{productsUiText.detailsPage.labels.manufacturer}:</strong>{' '}
+                {product.manufacturer}
               </Typography>
               <Typography>
-                <strong>Description:</strong> {product.description?.trim() || '-'}
+                <strong>{productsUiText.detailsPage.labels.description}:</strong>{' '}
+                {product.description?.trim() || '-'}
               </Typography>
               <Typography>
-                <strong>Image URL:</strong> {product.imageUrl?.trim() || '-'}
+                <strong>{productsUiText.detailsPage.labels.imageUrl}:</strong>{' '}
+                {product.imageUrl?.trim() || '-'}
               </Typography>
             </Stack>
           </Stack>
