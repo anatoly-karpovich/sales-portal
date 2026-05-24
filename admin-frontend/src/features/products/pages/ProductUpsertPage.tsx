@@ -84,26 +84,8 @@ type InventoryDraftRow = {
   allowSellingOutOfStock: boolean
 }
 
-const INVENTORY_SETUP_SAVED_KEY_PREFIX = 'admin-frontend-product-setup-inventory-saved:'
-
 function getErrorStatus(error: unknown) {
   return (error as { response?: { status?: number } })?.response?.status
-}
-
-function getInventorySetupSavedStorageKey(productId: string) {
-  return `${INVENTORY_SETUP_SAVED_KEY_PREFIX}${productId}`
-}
-
-function markInventorySetupSaved(productId: string) {
-  localStorage.setItem(getInventorySetupSavedStorageKey(productId), '1')
-}
-
-function clearInventorySetupSaved(productId: string) {
-  localStorage.removeItem(getInventorySetupSavedStorageKey(productId))
-}
-
-function isInventorySetupSavedLocally(productId: string) {
-  return localStorage.getItem(getInventorySetupSavedStorageKey(productId)) === '1'
 }
 
 export function ProductUpsertPage() {
@@ -196,34 +178,6 @@ export function ProductUpsertPage() {
     setVariants(draft.variants)
   }, [productQuery.data, workingProductId])
 
-  const isInventorySavedFromBackend = useMemo(() => {
-    const product = productQuery.data
-    const inventory = inventoryDetailsQuery.data
-    if (!product || !inventory) return false
-    if (product.variants.length === 0) return false
-
-    const inventoryByVariantId = new Map(
-      inventory.variants.map((variant) => [variant.variantId, variant]),
-    )
-    const variantIds = product.variants
-      .map((variant) => variant._id)
-      .filter((variantId): variantId is string => Boolean(variantId))
-
-    if (variantIds.length === 0) return false
-    if (variantIds.some((variantId) => !inventoryByVariantId.has(variantId))) return false
-
-    // Heuristic: if any variant differs from setup defaults, assume initial inventory was explicitly saved.
-    return variantIds.some((variantId) => {
-      const variant = inventoryByVariantId.get(variantId)
-      if (!variant) return false
-      return (
-        variant.quantity !== 0 ||
-        variant.lowStockThreshold !== defaultLowStockThreshold ||
-        variant.allowSellingOutOfStock !== false
-      )
-    })
-  }, [defaultLowStockThreshold, inventoryDetailsQuery.data, productQuery.data])
-
   useEffect(() => {
     if (!workingProductId) return
     if (!productQuery.data) return
@@ -236,29 +190,31 @@ export function ProductUpsertPage() {
       return
     }
 
-    if (product.variants.length === 0) {
+    if (product.setup?.inventoryCompleted) {
+      setActiveStep(3)
+      setMaxUnlockedStep(3)
+      setIsSetupStepResolved(true)
+      return
+    }
+
+    if (product.setup?.specCompleted) {
+      setActiveStep(2)
+      setMaxUnlockedStep(2)
+      setIsSetupStepResolved(true)
+      return
+    }
+
+    if (product.setup?.initCompleted) {
       setActiveStep(1)
       setMaxUnlockedStep(1)
       setIsSetupStepResolved(true)
       return
     }
 
-    if (inventoryDetailsQuery.isLoading) return
-
-    const inventoryWasSaved =
-      isInventorySetupSavedLocally(workingProductId) || isInventorySavedFromBackend
-
-    if (inventoryWasSaved) {
-      setActiveStep(3)
-      setMaxUnlockedStep(3)
-    } else {
-      setActiveStep(2)
-      setMaxUnlockedStep(2)
-    }
+    setActiveStep(0)
+    setMaxUnlockedStep(0)
     setIsSetupStepResolved(true)
   }, [
-    inventoryDetailsQuery.isLoading,
-    isInventorySavedFromBackend,
     isSetupStepResolved,
     productQuery.data,
     workingProductId,
@@ -482,7 +438,13 @@ export function ProductUpsertPage() {
     (productQuery.data?.variants.length ?? 0) > 0 &&
     inventoryValidationErrors.size === 0
 
-  const canCompleteSetup = !isMutating && Boolean(workingProductId)
+  const canCompleteSetup =
+    !isMutating &&
+    Boolean(workingProductId) &&
+    Boolean(productQuery.data?.variants.length) &&
+    Boolean(productQuery.data?.setup?.inventoryCompleted) &&
+    inventoryValidationErrors.size === 0 &&
+    maxUnlockedStep >= 3
 
   const productForReview = productQuery.data
   const categoryForReview = categoriesQuery.data?.flat?.find(
@@ -600,8 +562,8 @@ export function ProductUpsertPage() {
         productId: workingProductId,
         payload: { variants: payloadVariants },
       })
-      markInventorySetupSaved(workingProductId)
       enqueueSnackbar('Initial inventory saved.', { variant: 'success' })
+      await productQuery.refetch()
       handleContinue()
     } catch (error) {
       const status = getErrorStatus(error)
@@ -617,7 +579,6 @@ export function ProductUpsertPage() {
 
     try {
       await completeSetupMutation.mutateAsync(workingProductId)
-      clearInventorySetupSaved(workingProductId)
       enqueueSnackbar('Product setup completed.', { variant: 'success' })
       navigate(`/products/${workingProductId}`)
     } catch (error) {
@@ -634,7 +595,6 @@ export function ProductUpsertPage() {
 
     try {
       await deleteProductMutation.mutateAsync(workingProductId)
-      clearInventorySetupSaved(workingProductId)
       enqueueSnackbar(productsUiText.toasts.deleted, { variant: 'success' })
       navigate('/products')
     } catch (error) {

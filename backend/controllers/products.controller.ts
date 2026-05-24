@@ -117,6 +117,9 @@ class ProductsController {
         max: hasPrices ? Math.max(...prices) : 0,
       },
       setup: {
+        initCompleted: Boolean(product.setup?.initCompleted),
+        specCompleted: Boolean(product.setup?.specCompleted),
+        inventoryCompleted: Boolean(product.setup?.inventoryCompleted),
         completed: Boolean(product.setup?.completed),
         completedOn: product.setup?.completedOn,
         completedBy: product.setup?.completedBy?.toString?.(),

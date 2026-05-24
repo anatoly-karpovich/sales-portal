@@ -18,6 +18,7 @@ import {
 } from '@/api/modules/inventory.api'
 import { inventoryQueryKeys } from '@/features/inventory/hooks/inventoryQueryKeys'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
+import { productsQueryKeys } from '@/features/products/hooks/productsQueryKeys'
 
 export function useInventoryQuery(query: InventoryQuery) {
   return useQuery({
@@ -121,6 +122,10 @@ export function useInventoryInitialSetupMutation() {
         inventoryQueryKeys.detail(variables.productId),
         updatedInventory,
       )
+      void queryClient.invalidateQueries({
+        queryKey: productsQueryKeys.detail(variables.productId),
+      })
+      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })

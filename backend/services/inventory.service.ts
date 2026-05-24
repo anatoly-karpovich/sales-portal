@@ -1077,11 +1077,26 @@ class InventoryService {
       throw createHttpError("Inventory was not updated", 500);
     }
 
+    await Product.findByIdAndUpdate(productId, {
+      setup: {
+        ...(product.setup ?? {}),
+        initCompleted: true,
+        specCompleted: true,
+        inventoryCompleted: true,
+        completed: false,
+        completedOn: undefined,
+        completedBy: undefined,
+      },
+      updatedOn: this.getNowString(),
+    })
+      .lean()
+      .exec();
+
     return this.buildReadModelInventory(updated as IInventory & Record<string, any>);
   }
 
-  async completeSetup(product: IProduct, managerId: string): Promise<IInventoryReadModel> {
-    const synced = await this.syncWithProductVariants(product);
+  async completeSetup(product: IProduct, managerId: string, session?: ClientSession): Promise<IInventoryReadModel> {
+    const synced = await this.syncWithProductVariants(product, session);
     const variantIds = new Set((product.variants ?? []).map((variant) => variant._id?.toString?.()).filter(Boolean));
     const inventoryVariants = synced.variants ?? [];
 
@@ -1121,7 +1136,7 @@ class InventoryService {
       }));
 
     if (initialAdjustments.length > 0) {
-      await InventoryAdjustment.insertMany(initialAdjustments);
+      await InventoryAdjustment.insertMany(initialAdjustments, { session });
     }
 
     const completed = await Inventory.findByIdAndUpdate(
@@ -1130,7 +1145,7 @@ class InventoryService {
         status: INVENTORY_RECORD_STATUSES.ACTIVE,
         updatedOn: now,
       },
-      { new: true },
+      { new: true, session },
     )
       .lean()
       .exec();

@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import type { IProduct, IProductAttribute, IProductFilters, IProductVariant } from "../data/types/product.type";
 import { getTodaysDate } from "../utils/utils";
 import {
@@ -84,6 +84,9 @@ class ProductsService {
       rootCategoryId: new Types.ObjectId(rootCategoryId),
       status: PRODUCT_STATUSES.DRAFT,
       setup: {
+        initCompleted: true,
+        specCompleted: false,
+        inventoryCompleted: false,
         completed: false,
       },
       attributes: [],
@@ -278,6 +281,19 @@ class ProductsService {
       {
         variants: nextVariants,
         ...(payload.attributes ? { attributes: payload.attributes } : {}),
+        ...(options?.resetDraftSetupInventory === true
+          ? {
+              setup: {
+                ...(product as unknown as { setup?: Record<string, unknown> }).setup,
+                initCompleted: true,
+                specCompleted: true,
+                inventoryCompleted: false,
+                completed: false,
+                completedOn: undefined,
+                completedBy: undefined,
+              },
+            }
+          : {}),
         updatedOn: getTodaysDate(true),
       },
       { new: true },
@@ -415,42 +431,59 @@ class ProductsService {
   }
 
   async completeSetup(productId: Types.ObjectId, managerId: string): Promise<IProduct> {
-    const product = this.normalizeProduct(await Product.findById(productId).lean().exec());
-    if (!product) {
-      throw createHttpError(`Product with id '${productId.toString()}' wasn't found`, 404);
+    const session = await mongoose.startSession();
+    let normalized: IProduct | null = null;
+    try {
+      await session.withTransaction(async () => {
+        const product = this.normalizeProduct(await Product.findById(productId).session(session).lean().exec());
+        if (!product) {
+          throw createHttpError(`Product with id '${productId.toString()}' wasn't found`, 404);
+        }
+
+        if (product.setup.completed) {
+          throw createHttpError("Product setup has already been completed", 409);
+        }
+
+        if (product.status !== PRODUCT_STATUSES.DRAFT) {
+          throw createHttpError("Only draft products can complete setup", 409);
+        }
+
+        if (!product.variants?.length) {
+          throw createHttpError("Product should contain at least one variant", 400);
+        }
+
+        await InventoryService.completeSetup(product, managerId, session);
+
+        const now = getTodaysDate(true);
+        const updatedProduct = await Product.findByIdAndUpdate(
+          productId,
+          {
+            status: PRODUCT_STATUSES.ACTIVE,
+            setup: {
+              initCompleted: true,
+              specCompleted: true,
+              inventoryCompleted: true,
+              completed: true,
+              completedOn: now,
+              completedBy: new Types.ObjectId(managerId),
+            },
+            updatedOn: now,
+          },
+          { new: true, session },
+        )
+          .lean()
+          .exec();
+
+        normalized = this.normalizeProduct(updatedProduct);
+      });
+    } finally {
+      await session.endSession();
     }
 
-    if (product.setup.completed) {
-      throw createHttpError("Product setup has already been completed", 409);
+    if (!normalized) {
+      throw createHttpError("Product setup wasn't completed", 500);
     }
 
-    if (product.status !== PRODUCT_STATUSES.DRAFT) {
-      throw createHttpError("Only draft products can complete setup", 409);
-    }
-
-    if (!product.variants?.length) {
-      throw createHttpError("Product should contain at least one variant", 400);
-    }
-
-    const now = getTodaysDate(true);
-    const updatedProduct = await Product.findByIdAndUpdate(
-      productId,
-      {
-        status: PRODUCT_STATUSES.ACTIVE,
-        setup: {
-          completed: true,
-          completedOn: now,
-          completedBy: new Types.ObjectId(managerId),
-        },
-        updatedOn: now,
-      },
-      { new: true },
-    )
-      .lean()
-      .exec();
-
-    const normalized = this.normalizeProduct(updatedProduct);
-    await InventoryService.completeSetup(normalized, managerId);
     return normalized;
   }
 
@@ -784,6 +817,9 @@ class ProductsService {
       variantsCount: product.variants.length,
       priceRange,
       setup: {
+        initCompleted: product.setup?.initCompleted ?? true,
+        specCompleted: product.setup?.specCompleted ?? product.variants.length > 0,
+        inventoryCompleted: product.setup?.inventoryCompleted ?? false,
         completed: product.setup?.completed ?? false,
         completedOn: product.setup?.completedOn,
         completedBy: product.setup?.completedBy?.toString?.(),
@@ -841,12 +877,24 @@ class ProductsService {
       rootCategoryId: doc.rootCategoryId ? new Types.ObjectId(doc.rootCategoryId) : undefined,
       setup: doc.setup
         ? {
+            initCompleted: typeof doc.setup.initCompleted === "boolean" ? doc.setup.initCompleted : true,
+            specCompleted:
+              typeof doc.setup.specCompleted === "boolean"
+                ? doc.setup.specCompleted
+                : Array.isArray(doc.variants) && doc.variants.length > 0,
+            inventoryCompleted:
+              typeof doc.setup.inventoryCompleted === "boolean"
+                ? doc.setup.inventoryCompleted
+                : Boolean(doc.setup.completed),
             completed: Boolean(doc.setup.completed),
             completedOn:
               doc.setup.completedOn instanceof Date ? doc.setup.completedOn.toISOString() : doc.setup.completedOn,
             completedBy: doc.setup.completedBy ? new Types.ObjectId(doc.setup.completedBy) : undefined,
           }
         : {
+            initCompleted: true,
+            specCompleted: Array.isArray(doc.variants) && doc.variants.length > 0,
+            inventoryCompleted: doc.status !== PRODUCT_STATUSES.DRAFT,
             completed: doc.status !== PRODUCT_STATUSES.DRAFT,
           },
       attributes: Array.isArray(doc.attributes) ? doc.attributes : [],

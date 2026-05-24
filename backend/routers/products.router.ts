@@ -166,8 +166,11 @@ productsRouter.delete(
  *             max: { type: number }
  *         setup:
  *           type: object
- *           required: [completed]
+ *           required: [initCompleted, specCompleted, inventoryCompleted, completed]
  *           properties:
+ *             initCompleted: { type: boolean }
+ *             specCompleted: { type: boolean }
+ *             inventoryCompleted: { type: boolean }
  *             completed: { type: boolean }
  *             completedOn: { type: string, format: date-time, nullable: true }
  *             completedBy: { type: string, nullable: true }

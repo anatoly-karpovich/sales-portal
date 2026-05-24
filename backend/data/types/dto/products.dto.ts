@@ -89,6 +89,9 @@ export type ProductListItemDTO = {
     max: number;
   };
   setup: {
+    initCompleted: boolean;
+    specCompleted: boolean;
+    inventoryCompleted: boolean;
     completed: boolean;
     completedOn?: string;
     completedBy?: string;
@@ -114,6 +117,9 @@ export type ProductDetailsDTO = {
     max: number;
   };
   setup: {
+    initCompleted: boolean;
+    specCompleted: boolean;
+    inventoryCompleted: boolean;
     completed: boolean;
     completedOn?: string;
     completedBy?: string;

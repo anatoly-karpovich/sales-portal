@@ -27,6 +27,9 @@ Product {
   imageUrl?: string;
   status: "Draft" | "Active" | "Archived";
   setup: {
+    initCompleted: boolean;
+    specCompleted: boolean;
+    inventoryCompleted: boolean;
     completed: boolean;
     completedOn?: Date;
     completedBy?: ObjectId;
@@ -115,7 +118,14 @@ Editability by status:
   "rootCategoryId": "string",
   "categoryPath": "Electronics / Laptops / Gaming Laptops",
   "status": "Active",
-  "setup": { "completed": true, "completedOn": "2026-05-06T10:30:00.000Z", "completedBy": "6650..." },
+  "setup": {
+    "initCompleted": true,
+    "specCompleted": true,
+    "inventoryCompleted": true,
+    "completed": true,
+    "completedOn": "2026-05-06T10:30:00.000Z",
+    "completedBy": "6650..."
+  },
   "createdOn": "2026-05-06T10:00:00.000Z",
   "variantsCount": 3,
   "priceRange": { "min": 599.99, "max": 899.99 }
@@ -167,7 +177,14 @@ Filters:
   "description": "string",
   "imageUrl": "string",
   "status": "Active",
-  "setup": { "completed": true, "completedOn": "2026-05-06T10:30:00.000Z", "completedBy": "6650..." },
+  "setup": {
+    "initCompleted": true,
+    "specCompleted": true,
+    "inventoryCompleted": true,
+    "completed": true,
+    "completedOn": "2026-05-06T10:30:00.000Z",
+    "completedBy": "6650..."
+  },
   "attributes": [{ "key": "color", "name": "Color", "values": ["Black", "White"] }],
   "variants": [
     {

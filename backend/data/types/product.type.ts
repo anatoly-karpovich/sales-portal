@@ -17,6 +17,9 @@ export interface IProductVariant {
 }
 
 export interface IProductSetup {
+  initCompleted: boolean;
+  specCompleted: boolean;
+  inventoryCompleted: boolean;
   completed: boolean;
   completedOn?: string;
   completedBy?: Types.ObjectId;

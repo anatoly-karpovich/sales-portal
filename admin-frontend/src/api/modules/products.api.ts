@@ -4,6 +4,9 @@ import type { ApiRequestConfig } from '@/api/types'
 export type ProductStatus = 'Draft' | 'Active' | 'Archived'
 export type ProductVariantStatus = ProductStatus
 export type ProductSetup = {
+  initCompleted: boolean
+  specCompleted: boolean
+  inventoryCompleted: boolean
   completed: boolean
   completedOn?: string
   completedBy?: string
@@ -231,12 +234,21 @@ function normalizeProductSetup(
   setup: ProductSetup | undefined,
   status: ProductStatus,
 ): ProductSetup {
-  if (setup && typeof setup.completed === 'boolean') {
-    return setup
-  }
+  const completed = setup?.completed ?? status !== 'Draft'
+  const initCompleted = setup?.initCompleted ?? true
+  const specCompleted =
+    setup?.specCompleted ??
+    (setup ? completed : status !== 'Draft')
+  const inventoryCompleted =
+    setup?.inventoryCompleted ?? completed
 
   return {
-    completed: status !== 'Draft',
+    initCompleted,
+    specCompleted,
+    inventoryCompleted,
+    completed,
+    completedOn: setup?.completedOn,
+    completedBy: setup?.completedBy,
   }
 }
 
