@@ -473,7 +473,7 @@ export function ProductDetailsPage() {
       imageUrl: variant.imageUrl ?? '',
       attributes: { ...variant.attributes },
     })
-    editMode.enterSingleVariantMode(variant._id)
+    editMode.enterSingleVariantMode()
   }
 
   const onStartAddVariantInReadMode = () => {

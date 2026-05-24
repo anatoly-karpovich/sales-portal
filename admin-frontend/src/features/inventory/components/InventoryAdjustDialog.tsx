@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import {
   INVENTORY_MANUAL_ADJUSTMENT_TYPES,
   type InventoryManualAdjustmentType,
@@ -130,6 +131,10 @@ export function InventoryAdjustDialog({
     [quantityInput, type, variant],
   )
   const isCommentTooLong = comment.length > MAX_COMMENT_LENGTH
+  const adjustmentTypeNotice =
+    type === 'Stock Receipt'
+      ? inventoryUiText.detailsPage.notices.stockReceipt
+      : inventoryUiText.detailsPage.notices.manualCorrection
 
   const previewBorderColor = useMemo(() => {
     if (preview.errorMessage) return 'error.main'
@@ -207,49 +212,6 @@ export function InventoryAdjustDialog({
 
       <DialogContent dividers data-testid="inventory-adjust-dialog-content">
         <Stack spacing={2}>
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 1,
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
-            }}
-            data-testid="inventory-adjust-dialog-current-state"
-          >
-            <Paper variant="outlined" sx={{ p: 1.25 }}>
-              <Typography variant="caption" color="text.secondary">
-                {inventoryUiText.detailsPage.labels.currentQuantity}
-              </Typography>
-              <Typography
-                sx={{ mt: 0.5, fontWeight: 700 }}
-                data-testid="inventory-adjust-dialog-current-quantity"
-              >
-                {variant.quantity}
-              </Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 1.25 }}>
-              <Typography variant="caption" color="text.secondary">
-                {inventoryUiText.detailsPage.labels.currentReserved}
-              </Typography>
-              <Typography
-                sx={{ mt: 0.5, fontWeight: 700 }}
-                data-testid="inventory-adjust-dialog-current-reserved"
-              >
-                {variant.reserved}
-              </Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 1.25 }}>
-              <Typography variant="caption" color="text.secondary">
-                {inventoryUiText.detailsPage.labels.currentAvailable}
-              </Typography>
-              <Typography
-                sx={{ mt: 0.5, fontWeight: 700 }}
-                data-testid="inventory-adjust-dialog-current-available"
-              >
-                {variant.available}
-              </Typography>
-            </Paper>
-          </Box>
-
           <TextField
             select
             label={inventoryUiText.detailsPage.labels.adjustmentType}
@@ -268,6 +230,26 @@ export function InventoryAdjustDialog({
               </MenuItem>
             ))}
           </TextField>
+
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.25,
+              border: '0px',
+            }}
+            data-testid="inventory-adjust-dialog-adjustment-note"
+          >
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <ErrorOutlineOutlinedIcon sx={{ color: 'info.main', fontSize: 18, mt: 0.1 }} />
+              <Typography
+                variant="body2"
+                sx={{ color: 'info.main' }}
+                data-testid="inventory-adjust-dialog-adjustment-note-text"
+              >
+                {adjustmentTypeNotice}
+              </Typography>
+            </Stack>
+          </Paper>
 
           <TextField
             type="number"

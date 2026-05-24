@@ -277,7 +277,6 @@ export function useProductVariantsDraft(product: Product | null | undefined) {
   return {
     baseDraft,
     draft,
-    effectiveDraft,
     startEditing,
     discardChanges,
     updateParentField,

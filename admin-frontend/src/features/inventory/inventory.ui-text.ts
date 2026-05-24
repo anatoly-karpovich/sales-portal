@@ -68,6 +68,11 @@ export const inventoryUiText = {
       noVariants: 'No inventory variants found.',
       comment: 'Optional manager comment',
     },
+    notices: {
+      stockReceipt:
+        'Entered amount will be added to the current stock quantity for this variant.',
+      manualCorrection: 'Entered amount will become the final stock quantity for this variant.',
+    },
     validation: {
       quantityRequired: 'Enter a positive integer to preview the adjustment.',
       quantityNegative: 'Quantity cannot become negative.',
