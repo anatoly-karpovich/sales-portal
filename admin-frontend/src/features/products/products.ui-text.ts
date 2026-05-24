@@ -6,6 +6,20 @@ export const productsUiText = {
     addButton: '+ Add Product',
     filtersTitle: 'Filters',
     emptyStateNoProducts: 'No products created yet.',
+    tableColumns: {
+      name: 'Name',
+      price: 'Price',
+      manufacturer: 'Manufacturer',
+      status: 'Status',
+      variants: 'Variants',
+      createdOn: 'Created On',
+      actions: 'Actions',
+    },
+    actions: {
+      details: 'Details',
+      continueSetup: 'Continue setup',
+      delete: 'Delete',
+    },
     filterSections: {
       manufacturer: 'Manufacturers',
       productStatus: 'Product Status',
@@ -29,20 +43,63 @@ export const productsUiText = {
     backToProducts: 'Products',
     productInfoTitle: 'Product info',
     productInfoSubtitle: 'Read-only. Click edit to modify.',
-    variantsTitle: 'Attributes & Variants',
+    categoryTitle: 'Product category',
+    variantsTitle: 'Variants',
     variantsSubtitle: 'Manage variants individually',
+    labels: {
+      name: 'Name',
+      manufacturer: 'Manufacturer',
+      description: 'Description',
+      imageUrl: 'Image URL',
+      parentImageUrl: 'Parent image URL',
+      variantImageUrl: 'Variant image URL',
+      price: 'Price',
+      variant: 'Variant',
+      newVariant: 'New Variant',
+      attributes: 'Attributes',
+      path: 'Path',
+      root: 'Root',
+      noAttributes: 'No attributes',
+      selectValue: 'Select value',
+      attributeFallback: 'Attribute',
+      attributeName: 'Attribute name',
+      values: 'Values',
+    },
+    counters: {
+      attributes: 'attributes',
+      variants: 'variants',
+      variantsAdded: 'variants added',
+      combinations: 'possible combinations',
+      invalid: 'invalid',
+    },
+    valuesInput: {
+      placeholder: 'Type value and press Enter',
+      helper: 'Example: Black, White, Red. Duplicates are not allowed.',
+    },
+    metadata: {
+      created: 'Created',
+      updated: 'Updated',
+    },
     actions: {
       edit: 'Edit',
+      delete: 'Delete',
       cancel: 'Cancel',
       saveProduct: 'Save Product',
       saveVariant: 'Save Variant',
+      saveCategory: 'Save category',
+      saveOrder: 'Save Order',
       activate: 'Activate Product',
       archive: 'Archive Product',
+      activateVariant: 'Activate',
+      archiveVariant: 'Archive',
+      deleteProduct: 'Delete Product',
       manageInventory: 'Manage Inventory',
-      addVariant: 'Add Variant',
+      reorderAttributes: 'Reorder',
+      addVariant: '+ ADD VARIANT',
       removeInvalidVariants: 'Remove Invalid Variants',
       generateAllCombinations: 'Generate All Combinations',
       addOneVariant: 'Add One Variant',
+      addAttribute: 'Add Attribute',
     },
     status: {
       draft: 'Draft',
@@ -53,10 +110,30 @@ export const productsUiText = {
       noVariants: 'No variants yet',
       noVariantsHelp:
         'Add one variant manually or generate all possible combinations from attributes.',
+      attributesOptional:
+        'Attributes are optional. You can generate a single variant without attributes.',
       useParentImage: 'Uses parent',
       missingProduct: 'Product is unavailable.',
+      attributesEditorHelp:
+        'Create unique attributes and available values. Values will be used to build variants.',
       manufacturersUnavailable:
         'Manufacturers are not configured in settings. Product editing is unavailable.',
+      categoriesUnavailable: 'Unable to load categories. Category editing is unavailable.',
+    },
+    validation: {
+      nameRequired: 'Name is required.',
+      nameInvalid: 'Name must be 3-40 chars: letters/numbers, single spaces only.',
+      categoryRequired: 'Category is required.',
+      categoryInvalid: 'Category must contain letters and numbers only.',
+      parentImageUrlInvalid: 'Parent image URL must be a valid http(s) URL.',
+      variantImageUrlInvalid: 'Variant image URL must be a valid http(s) URL.',
+      priceGreaterThanZero: 'Price should be greater than 0.',
+      priceMaxDecimals: 'Price can have max 2 decimal places.',
+      attributeNameRequired: 'Attribute name is required.',
+      attributeNamesMustBeUnique: 'Attribute names must be unique.',
+      attributeNameMustBeUnique: 'Attribute name must be unique.',
+      attributeValueRequired: 'At least one value is required.',
+      duplicateVariantCombination: 'Variant with this attribute combination already exists.',
     },
     dialogs: {
       deleteVariantTitle: 'Delete Variant',
@@ -66,8 +143,10 @@ export const productsUiText = {
       deleteProductConfirm: 'Yes, Delete',
       activateTitle: 'Activate Product',
       activateConfirm: 'Activate',
+      activateMessage: 'Are you sure you want to activate this product?',
       archiveTitle: 'Archive Product',
       archiveConfirm: 'Archive',
+      archiveMessage: 'Are you sure you want to archive this product?',
       discardChangesTitle: 'Discard Changes',
       discardChangesConfirm: 'Discard',
       discardChangesMessage: 'You have unsaved changes. Do you want to discard them?',
@@ -76,6 +155,63 @@ export const productsUiText = {
   form: {
     backToProducts: 'Products',
     createTitle: 'Add New Product',
+    setupSteps: {
+      parentProduct: 'Parent Product',
+      attributesAndVariants: 'Attributes and Variants',
+      initialInventory: 'Initial Inventory',
+      review: 'Review',
+    },
+    labels: {
+      category: 'Product category',
+      quantity: 'Quantity',
+      lowStockThreshold: 'Low Stock Threshold',
+      directOrder: 'Direct Order',
+      variantSpecification: 'Variant Specification',
+      initialInventory: 'Initial Inventory',
+      parentProduct: 'Parent product',
+      attributes: 'Attributes',
+      productSetup: 'Product Setup',
+    },
+    options: {
+      allowed: 'Allowed',
+      blocked: 'Blocked',
+    },
+    actions: {
+      deleteDraft: 'Delete Draft',
+      addAttribute: 'Add Attribute',
+      addOneVariant: 'Add One Variant',
+      removeInvalid: 'Remove Invalid',
+      back: 'Back',
+      saveAndContinue: 'Save and Continue',
+      completeSetup: 'Complete Setup',
+      backToProducts: 'Back to Products',
+      goToCategories: 'Go to Categories',
+    },
+    placeholders: {
+      noAttributes: 'No attributes.',
+      loadDraftBeforeReview: 'Load product draft before review.',
+      loadDraftBeforeInventory: 'Load a draft product before configuring inventory.',
+      loadingCatalogSettings: 'Loading catalog settings...',
+      loadingDraftProduct: 'Loading draft product...',
+      draftUnavailable: 'Product draft is unavailable.',
+      categoriesUnavailableCreate: 'Unable to load categories. Product creation is unavailable.',
+      createCategoryBeforeProducts: 'Create at least one category before adding products.',
+      attributesOptionalCreate:
+        'Attributes are optional. You can create a single variant without attributes.',
+      noVariants: 'No variants yet',
+      noVariantsHelp:
+        'Add one variant manually or generate all possible combinations from attributes.',
+      inventoryHelp:
+        'Configure quantity, threshold and direct-order setting for each variant. All variants are saved in one request.',
+      manufacturersUnavailableCreate:
+        'Catalog manufacturers are not configured. Product creation is unavailable.',
+    },
+    statusDraft: 'Draft',
+    variantPrefix: 'Variant',
+    sections: {
+      initialInventoryPerVariant: 'Initial inventory per variant',
+      variantsReview: 'Variants Review',
+    },
   },
   dialogs: {
     deleteTitle: 'Delete Product',
@@ -91,7 +227,11 @@ export const productsUiText = {
     deleted: 'Product was successfully deleted',
     statusUpdated: 'Product status updated',
     variantUpdated: 'Variant was successfully updated',
+    variantAdded: 'Variant was successfully added',
     variantDeleted: 'Variant was successfully deleted',
+    deletePurchasedVariantBlocked:
+      'Unable to delete a variant that has been purchased at least once.',
+    deletePurchasedBlocked: 'Unable to delete a product that has been purchased at least once.',
     saveFailed: 'Unable to update products. Please try again later.',
   },
   errors: {
@@ -139,7 +279,41 @@ export function getDeleteProductMessage(productName?: string | null) {
   return `Are you sure you want to delete "${safeProductName}"?`
 }
 
+export function getDeleteProductDetailsMessage(productName?: string | null) {
+  const safeProductName = productName ?? productsUiText.dialogs.deleteFallbackName
+  return [
+    `Are you sure you want to delete "${safeProductName}"?`,
+    '',
+    'Please note:',
+    '- The product cannot be deleted if at least one of its variants has ever been ordered.',
+    '- Deleting the product will also remove inventory and inventory adjustment history for all of its variants.',
+  ]
+}
+
 export function getDeleteVariantMessage(variantName?: string | null) {
   const safeVariantName = variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
   return `Are you sure you want to delete "${safeVariantName}"?`
+}
+
+export function getDeleteVariantDetailsMessage(variantName?: string | null) {
+  const safeVariantName = variantName ?? productsUiText.detailsPage.dialogs.deleteVariantFallback
+  return [
+    `Are you sure you want to delete "${safeVariantName}"?`,
+    '',
+    'Please note:',
+    '- The variant cannot be deleted if it has ever been ordered.',
+    '- Deleting the variant will also remove inventory and inventory adjustment history for this variant.',
+  ]
+}
+
+export function getAttributeValueRequiredMessage(attributeName: string) {
+  return `${attributeName}: value is required.`
+}
+
+export function getAttributeValueNoLongerExistsMessage(attributeName: string, value: string) {
+  return `${attributeName}: ${value} no longer exists in attribute values.`
+}
+
+export function getAttributeAtLeastOneValueMessage(attributeName: string) {
+  return `${attributeName}: ${productsUiText.detailsPage.validation.attributeValueRequired.toLowerCase()}`
 }

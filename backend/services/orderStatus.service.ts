@@ -1,6 +1,6 @@
 import Order from "../models/order.model";
 import OrderService from "./order.service";
-import { createHistoryEntry } from "../utils/utils";
+import { buildVariantDisplayName, createHistoryEntry } from "../utils/utils";
 import mongoose, { Types } from "mongoose";
 import {
   DELIVERY,
@@ -58,7 +58,7 @@ class OrderStatusService {
       (productId) => new Types.ObjectId(productId),
     );
     const existingProducts = await Product.find({ _id: { $in: uniqueProductIds } })
-      .select("_id name manufacturer status imageUrl variants._id variants.status variants.price variants.attributes variants.imageUrl")
+      .select("_id name manufacturer status imageUrl attributes variants._id variants.status variants.price variants.attributes variants.imageUrl")
       .lean();
     const productById = new Map(existingProducts.map((product) => [product._id.toString(), product]));
 
@@ -86,6 +86,9 @@ class OrderStatusService {
         throw this.createHttpError(`Variant with id '${requestedProduct.variantId.toString()}' is not active`, 400);
       }
 
+      const normalizedVariantAttributes = this.normalizeAttributes(variant.attributes);
+      const productAttributes = Array.isArray((product as any).attributes) ? (product as any).attributes : [];
+
       return {
         productId: new Types.ObjectId(requestedProduct.productId),
         variantId: new Types.ObjectId(requestedProduct.variantId),
@@ -93,7 +96,8 @@ class OrderStatusService {
         unitPrice: variant.price,
         quantity: requestedProduct.quantity,
         name: product.name,
-        attributes: this.normalizeAttributes(variant.attributes),
+        displayName: buildVariantDisplayName({ name: product.name, attributes: productAttributes }, { attributes: normalizedVariantAttributes }),
+        attributes: normalizedVariantAttributes,
         received: false,
         ...(variant.imageUrl ?? product.imageUrl ? { imageUrl: variant.imageUrl ?? product.imageUrl } : {}),
       };

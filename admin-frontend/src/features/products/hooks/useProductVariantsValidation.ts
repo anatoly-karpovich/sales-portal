@@ -11,6 +11,12 @@ import {
   normalizeValues,
   validatePrice,
 } from '@/features/products/forms/productVariantsDraft'
+import {
+  getAttributeAtLeastOneValueMessage,
+  getAttributeValueNoLongerExistsMessage,
+  getAttributeValueRequiredMessage,
+  productsUiText,
+} from '@/features/products/products.ui-text'
 
 type Args = {
   draft: ProductVariantsDraft | null
@@ -25,17 +31,17 @@ function getAttributesValidationError(attributes: ProductVariantsDraft['attribut
   for (const attribute of attributes) {
     const name = attribute.name.trim()
     if (!name) {
-      return 'Attribute name is required.'
+      return productsUiText.detailsPage.validation.attributeNameRequired
     }
 
     const key = normalizeAttributeKey(name)
     if (normalizedKeys.has(key)) {
-      return 'Attribute names must be unique.'
+      return productsUiText.detailsPage.validation.attributeNamesMustBeUnique
     }
     normalizedKeys.add(key)
 
     if (normalizeValues(attribute.values).length === 0) {
-      return `${name}: at least one value is required.`
+      return getAttributeAtLeastOneValueMessage(name)
     }
   }
 
@@ -70,17 +76,17 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
     effectiveAttributes.forEach((attribute) => {
       const name = attribute.name.trim()
       if (!name) {
-        errors.set(attribute.id, 'Attribute name is required.')
+        errors.set(attribute.id, productsUiText.detailsPage.validation.attributeNameRequired)
         return
       }
 
       if ((countsByName.get(normalizeAttributeKey(attribute.name)) ?? 0) > 1) {
-        errors.set(attribute.id, 'Attribute name must be unique.')
+        errors.set(attribute.id, productsUiText.detailsPage.validation.attributeNameMustBeUnique)
         return
       }
 
       if (normalizeValues(attribute.values).length === 0) {
-        errors.set(attribute.id, 'At least one value is required.')
+        errors.set(attribute.id, productsUiText.detailsPage.validation.attributeValueRequired)
       }
     })
 
@@ -114,19 +120,19 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
       for (const attribute of effectiveAttributes) {
         const attributeName = attribute.name.trim()
         if (!attributeName) {
-          error = 'Attribute name is required.'
+          error = productsUiText.detailsPage.validation.attributeNameRequired
           break
         }
         const selectedValue = variant.attributesByAttributeId[attribute.id]
         if (!selectedValue) {
-          error = `${attributeName}: value is required.`
+          error = getAttributeValueRequiredMessage(attributeName)
           break
         }
         const hasValue = attribute.values.some(
           (value) => value.trim().toLowerCase() === selectedValue.trim().toLowerCase(),
         )
         if (!hasValue) {
-          error = `${attributeName}: ${selectedValue} no longer exists in attribute values.`
+          error = getAttributeValueNoLongerExistsMessage(attributeName, selectedValue)
           break
         }
       }
@@ -136,7 +142,7 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
           buildVariantCombinationKey(variant.attributesByAttributeId),
         )
         if ((duplicateCount ?? 0) > 1) {
-          error = 'Variant with this attribute combination already exists.'
+          error = productsUiText.detailsPage.validation.duplicateVariantCombination
         }
       }
 
@@ -158,7 +164,7 @@ export function useProductVariantsValidation({ draft, baseDraft }: Args) {
 
       const imageUrl = variant.imageUrl.trim()
       if (imageUrl && !isValidHttpUrl(imageUrl)) {
-        errors.set(variant.id, 'Variant image URL must be a valid http(s) URL.')
+        errors.set(variant.id, productsUiText.detailsPage.validation.variantImageUrlInvalid)
         return
       }
 

@@ -6,9 +6,11 @@ import {
   getInventory,
   getInventoryByProductId,
   getInventoryReservations,
+  saveInitialInventory,
   type InventoryAdjustmentsQuery,
   type InventoryDetails,
   type InventoryAdjustmentCreatePayload,
+  type InventoryInitialSetupPayload,
   type InventoryReservationsQuery,
   type InventoryVariantSettingsPatchPayload,
   type InventoryQuery,
@@ -16,6 +18,7 @@ import {
 } from '@/api/modules/inventory.api'
 import { inventoryQueryKeys } from '@/features/inventory/hooks/inventoryQueryKeys'
 import { ordersQueryKeys } from '@/features/orders/hooks/ordersQueryKeys'
+import { productsQueryKeys } from '@/features/products/hooks/productsQueryKeys'
 
 export function useInventoryQuery(query: InventoryQuery) {
   return useQuery({
@@ -96,6 +99,33 @@ export function useInventoryUpdateVariantSettingsMutation() {
         inventoryQueryKeys.detail(variables.productId),
         updatedInventory,
       )
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
+      void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })
+    },
+  })
+}
+
+export function useInventoryInitialSetupMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      productId,
+      payload,
+    }: {
+      productId: string
+      payload: InventoryInitialSetupPayload
+    }) => saveInitialInventory(productId, payload),
+    onSuccess: (updatedInventory, variables) => {
+      queryClient.setQueryData<InventoryDetails>(
+        inventoryQueryKeys.detail(variables.productId),
+        updatedInventory,
+      )
+      void queryClient.invalidateQueries({
+        queryKey: productsQueryKeys.detail(variables.productId),
+      })
+      void queryClient.invalidateQueries({ queryKey: productsQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: inventoryQueryKeys.histories() })
       void queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all })

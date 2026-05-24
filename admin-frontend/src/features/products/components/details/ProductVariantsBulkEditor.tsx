@@ -79,11 +79,13 @@ export function ProductVariantsBulkEditor({
           justifyContent="space-between"
         >
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip label={`${draft.attributes.length} attributes`} />
-            <Chip label={`${possibleCombinationsCount} possible combinations`} />
-            <Chip label={`${draft.variants.length} variants added`} />
+            <Chip label={`${draft.attributes.length} ${productsUiText.detailsPage.counters.attributes}`} />
+            <Chip
+              label={`${possibleCombinationsCount} ${productsUiText.detailsPage.counters.combinations}`}
+            />
+            <Chip label={`${draft.variants.length} ${productsUiText.detailsPage.counters.variantsAdded}`} />
             {invalidVariantsCount > 0 ? (
-              <Chip color="error" label={`${invalidVariantsCount} invalid`} />
+              <Chip color="error" label={`${invalidVariantsCount} ${productsUiText.detailsPage.counters.invalid}`} />
             ) : null}
           </Stack>
 
@@ -125,11 +127,10 @@ export function ProductVariantsBulkEditor({
           >
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Attributes
+                {productsUiText.detailsPage.labels.attributes}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Create unique attributes and available values. Values will be used to build
-                variants.
+                {productsUiText.detailsPage.placeholders.attributesEditorHelp}
               </Typography>
             </Box>
             <Button
@@ -139,14 +140,14 @@ export function ProductVariantsBulkEditor({
               disabled={isInteractionsLocked}
               data-testid="product-details-page-attributes-add-button"
             >
-              Add Attribute
+              {productsUiText.detailsPage.actions.addAttribute}
             </Button>
           </Stack>
 
           <Stack spacing={1.25} data-testid="product-details-page-attributes-list">
             {draft.attributes.length === 0 ? (
               <Alert severity="info" data-testid="product-details-page-attributes-empty-alert">
-                Attributes are optional. You can generate a single variant without attributes.
+                {productsUiText.detailsPage.placeholders.attributesOptional}
               </Alert>
             ) : null}
 
@@ -163,7 +164,7 @@ export function ProductVariantsBulkEditor({
                   alignItems={{ xs: 'stretch', md: 'flex-start' }}
                 >
                   <TextField
-                    label="Attribute name"
+                    label={productsUiText.detailsPage.labels.attributeName}
                     value={attribute.name}
                     onChange={(event) => onSetAttributeName(attribute.id, event.target.value)}
                     error={attributeErrors.has(attribute.id)}
@@ -203,9 +204,9 @@ export function ProductVariantsBulkEditor({
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Values"
-                        placeholder="Type value and press Enter"
-                        helperText="Example: Black, White, Red. Duplicates are not allowed."
+                        label={productsUiText.detailsPage.labels.values}
+                        placeholder={productsUiText.detailsPage.valuesInput.placeholder}
+                        helperText={productsUiText.detailsPage.valuesInput.helper}
                         onBlur={() => onCommitAttributeInput(attribute.id)}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter' && event.key !== ',') return

@@ -12,11 +12,12 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 
 type Props = {
   open: boolean
   title: string
-  message: string
+  message: string | string[]
   confirmLabel?: string
   confirmColor?: 'error' | 'primary' | 'success' | 'warning' | 'info'
   cancelLabel?: string
@@ -36,6 +37,8 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: Props) {
+  const messageLines = Array.isArray(message) ? message : message.split('\n')
+
   return (
     <Dialog
       open={open}
@@ -72,7 +75,35 @@ export function ConfirmDialog({
         </IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ px: 3, py: 2.5 }} data-testid="confirm-dialog-content">
-        <Typography data-testid="confirm-dialog-message">{message}</Typography>
+        <Stack spacing={0.75} data-testid="confirm-dialog-message">
+          {messageLines.map((line, index) => {
+            const normalizedLine = line.trim().toLowerCase()
+
+            if (normalizedLine.length === 0) {
+              return (
+              <Box key={`confirm-dialog-message-space-${index}`} sx={{ height: 4 }} />
+              )
+            }
+
+            if (normalizedLine === 'please note:') {
+              return (
+                <Stack
+                  key={`confirm-dialog-message-line-${index}`}
+                  direction="row"
+                  spacing={0.75}
+                  alignItems="center"
+                >
+                  <WarningAmberOutlinedIcon sx={{ color: 'warning.main', fontSize: 18 }} />
+                  <Typography sx={{ fontWeight: 700 }}>{line}</Typography>
+                </Stack>
+              )
+            }
+
+            return (
+              <Typography key={`confirm-dialog-message-line-${index}`}>{line}</Typography>
+            )
+          })}
+        </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }} data-testid="confirm-dialog-actions">
         <Box sx={{ flexGrow: 1 }} />

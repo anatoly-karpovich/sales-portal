@@ -4,6 +4,7 @@ import type { Product } from '@/api/modules/products.api'
 import noImageProduct from '@/assets/no-image-product.jpeg'
 import type { DataTableColumn } from '@/components/shared/DataTable'
 import { ProductsTableActionsCell } from '@/features/products/components/ProductsTableActionsCell'
+import { productsUiText } from '@/features/products/products.ui-text'
 import { formatDateTime } from '@/utils/date'
 import { formatPrice } from '@/utils/number'
 
@@ -113,7 +114,7 @@ export function getProductsTableColumns({
   return [
     {
       key: 'name',
-      label: 'Name',
+      label: productsUiText.listPage.tableColumns.name,
       sortable: true,
       width: '24%',
       minWidth: 220,
@@ -121,7 +122,7 @@ export function getProductsTableColumns({
     },
     {
       key: 'price',
-      label: 'Price',
+      label: productsUiText.listPage.tableColumns.price,
       sortable: true,
       width: 170,
       minWidth: 160,
@@ -129,7 +130,7 @@ export function getProductsTableColumns({
     },
     {
       key: 'manufacturer',
-      label: 'Manufacturer',
+      label: productsUiText.listPage.tableColumns.manufacturer,
       sortable: true,
       width: '18%',
       minWidth: 160,
@@ -137,7 +138,7 @@ export function getProductsTableColumns({
     },
     {
       key: 'status',
-      label: 'Status',
+      label: productsUiText.listPage.tableColumns.status,
       sortable: true,
       width: 130,
       minWidth: 120,
@@ -146,7 +147,7 @@ export function getProductsTableColumns({
     },
     {
       key: 'variantsCount',
-      label: 'Variants',
+      label: productsUiText.listPage.tableColumns.variants,
       sortable: true,
       width: 100,
       minWidth: 90,
@@ -154,7 +155,7 @@ export function getProductsTableColumns({
     },
     {
       key: 'createdOn',
-      label: 'Created On',
+      label: productsUiText.listPage.tableColumns.createdOn,
       sortable: true,
       width: '20%',
       minWidth: 190,
@@ -162,7 +163,7 @@ export function getProductsTableColumns({
     },
     {
       key: 'actions',
-      label: 'Actions',
+      label: productsUiText.listPage.tableColumns.actions,
       width: 140,
       minWidth: 130,
       align: 'right',

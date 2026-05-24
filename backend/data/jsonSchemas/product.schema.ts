@@ -143,3 +143,43 @@ export const productStatusPatchSchema: AllowedSchema = {
 };
 
 export const productVariantStatusPatchSchema = productStatusPatchSchema;
+
+export const productSetupInitSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 1 },
+    manufacturer: { type: "string", minLength: 1 },
+    categoryId: { type: "string", minLength: 1 },
+    description: { type: "string" },
+    imageUrl: { type: "string" },
+  },
+  required: ["name", "manufacturer", "categoryId"],
+  additionalProperties: false,
+};
+
+export const productAttributesReorderSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    attributes: {
+      type: "array",
+      items: productAttributeSchema,
+    },
+  },
+  required: ["attributes"],
+  additionalProperties: false,
+};
+
+export const productSetupSpecSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    attributes: { type: "array", items: productAttributeSchema },
+    variants: {
+      type: "array",
+      minItems: 1,
+      maxItems: 200,
+      items: productVariantReplaceSchema,
+    },
+  },
+  required: ["attributes", "variants"],
+  additionalProperties: false,
+};

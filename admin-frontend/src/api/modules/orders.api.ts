@@ -85,6 +85,7 @@ export type OrderListProduct = {
   variant: {
     _id: string
   }
+  displayName?: string
   unitPrice: number
   quantity: number
   received: boolean
@@ -97,6 +98,7 @@ export type OrderDetailsProduct = {
   unitPrice: number
   quantity: number
   name: string
+  displayName?: string
   attributes: Record<string, string>
   received: boolean
   imageUrl?: string

@@ -129,7 +129,6 @@ Top-level source layout:
 - `api/modules/products.api.ts`
   - includes paginated `getProducts()` (`GET /products`) used by searchable product pickers in Orders create/edit flows.
   - products list query supports filters `manufacturer[]`, `status[]`, `minPrice`, `maxPrice` and sorting with `variantsCount`.
-  - `getAllProducts()` (`GET /products/all`) exists in API module, but current Orders create flow does not use preload from `/all`.
 - `api/modules/categories.api.ts`
   - categories workspace contract uses combined payload (`GET /categories`) with `tree + flat`.
   - tree node includes both `directProductsCount` (products assigned directly) and `productsCount` (subtree total).

@@ -353,6 +353,7 @@ class OrderService {
           unitPrice: existing.unitPrice,
           quantity: item.quantity,
           name: existing.name,
+          displayName: existing.displayName ?? existing.name,
           attributes: existing.attributes,
           received: existing.received,
           imageUrl: existing.imageUrl,
@@ -402,6 +403,7 @@ class OrderService {
         variant: {
           _id: new Types.ObjectId(item.variantId),
         },
+        displayName: item.displayName ?? item.name,
         unitPrice: item.unitPrice,
         quantity: item.quantity,
         received: item.received,
@@ -667,6 +669,7 @@ class OrderService {
           row[`${base}.product._id`] = item?.product?._id?.toString?.() ?? "";
           row[`${base}.variant._id`] = item?.variant?._id?.toString?.() ?? "";
           row[`${base}.product.name`] = item?.product?.name ?? "";
+          row[`${base}.displayName`] = item?.displayName ?? "";
           row[`${base}.unitPrice`] = typeof item?.unitPrice === "number" ? item.unitPrice : "";
           row[`${base}.quantity`] = typeof item?.quantity === "number" ? item.quantity : "";
           row[`${base}.received`] = typeof item?.received === "boolean" ? item.received : "";
@@ -776,7 +779,10 @@ class OrderService {
       return undefined;
     }
     const customer = await CustomerService.getCustomer(orderFromDB.customer._id);
-    const products = (orderFromDB.products as unknown as IProductInOrder[]).map((item) => ({ ...item }));
+    const products = (orderFromDB.products as unknown as IProductInOrder[]).map((item) => ({
+      ...item,
+      displayName: item.displayName ?? item.name,
+    }));
     const inventoryReservation = await this.buildInventoryReservation({
       _id: new Types.ObjectId(orderFromDB._id),
       status: orderFromDB.status as ORDER_STATUSES,

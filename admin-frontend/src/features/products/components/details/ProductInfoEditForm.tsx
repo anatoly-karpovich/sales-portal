@@ -10,6 +10,7 @@ import { productsUiText } from '@/features/products/products.ui-text'
 type Props = {
   draft: ProductVariantsDraft
   manufacturerOptions: string[]
+  isParentIdentityEditable: boolean
   isParentImageValid: boolean
   canSaveInfo: boolean
   isInteractionsLocked: boolean
@@ -24,6 +25,7 @@ type Props = {
 export function ProductInfoEditForm({
   draft,
   manufacturerOptions,
+  isParentIdentityEditable,
   isParentImageValid,
   canSaveInfo,
   isInteractionsLocked,
@@ -44,16 +46,19 @@ export function ProductInfoEditForm({
         }}
       >
         <TextField
-          label="Name"
+          label={productsUiText.detailsPage.labels.name}
           value={draft.name}
           error={Boolean(nameError)}
           helperText={nameError || ' '}
+          disabled={!isParentIdentityEditable}
+          slotProps={{ input: { readOnly: !isParentIdentityEditable } }}
           onChange={(event) => onChangeField('name', event.target.value)}
         />
         <TextField
-          label="Manufacturer"
+          label={productsUiText.detailsPage.labels.manufacturer}
           select
           value={draft.manufacturer}
+          disabled={!isParentIdentityEditable}
           onChange={(event) => onChangeField('manufacturer', event.target.value)}
         >
           {manufacturerOptions.map((item) => (
@@ -64,19 +69,19 @@ export function ProductInfoEditForm({
         </TextField>
 
         <TextField
-          label="Parent image URL"
+          label={productsUiText.detailsPage.labels.parentImageUrl}
           value={draft.imageUrl}
           error={Boolean(imageUrlError) || !isParentImageValid}
           helperText={
             imageUrlError ||
-            (!isParentImageValid ? 'Parent image URL must be a valid http(s) URL.' : ' ')
+            (!isParentImageValid ? productsUiText.detailsPage.validation.parentImageUrlInvalid : ' ')
           }
           onChange={(event) => onChangeField('imageUrl', event.target.value)}
         />
       </Box>
 
       <TextField
-        label="Description"
+        label={productsUiText.detailsPage.labels.description}
         value={draft.description}
         multiline
         minRows={3}

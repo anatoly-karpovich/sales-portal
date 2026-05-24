@@ -4,6 +4,7 @@ import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils";
 import { BaseResponseDTO } from "../data/types/dto/common.dto";
 import {
   CreateInventoryAdjustmentRequestDTO,
+  CreateInventoryInitialSetupRequestDTO,
   GetInventoryAdjustmentsByProductRequestDTO,
   GetInventoryAdjustmentsByVariantRequestDTO,
   GetInventoryByProductRequestDTO,
@@ -141,6 +142,19 @@ class InventoryController {
           allowSellingOutOfStock: req.body.allowSellingOutOfStock,
         },
       );
+      return res.status(200).json({ Inventory: updated as any, IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async createInitialSetup(
+    req: CreateInventoryInitialSetupRequestDTO,
+    res: Response<InventoryResponseDTO | BaseResponseDTO>,
+  ) {
+    try {
+      const updated = await InventoryService.createInitialSetup(new Types.ObjectId(req.params.productId), req.body);
       return res.status(200).json({ Inventory: updated as any, IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;

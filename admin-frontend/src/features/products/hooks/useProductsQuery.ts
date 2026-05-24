@@ -1,22 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addProductVariants,
-  createProduct,
+  completeProductSetup,
   deleteProduct,
   deleteProductVariant,
   exportProducts,
   getProductById,
   getProducts,
+  initProductSetup,
   patchProduct,
+  reorderProductAttributes,
   patchProductStatus,
   patchProductVariant,
   patchProductVariantStatus,
   replaceProductVariants,
-  updateProduct,
+  saveProductSetupSpec,
   type ProductExportPayload,
+  type ProductAttributesReorderPayload,
   type ProductParentPatchPayload,
+  type ProductSetupInitPayload,
+  type ProductSetupSpecPayload,
   type ProductStatusPatchPayload,
-  type ProductUpsertPayload,
   type ProductVariantCreatePayload,
   type ProductVariantPatchPayload,
   type ProductVariantReplaceRequestPayload,
@@ -77,10 +81,10 @@ export function useProductQuery(productId: string, enabled = true) {
   })
 }
 
-export function useCreateProductMutation() {
+export function useInitProductSetupMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: ProductUpsertPayload) => createProduct(payload),
+    mutationFn: (payload: ProductSetupInitPayload) => initProductSetup(payload),
     onSuccess: (product) => {
       syncProductMutationResult({
         queryClient,
@@ -91,15 +95,34 @@ export function useCreateProductMutation() {
   })
 }
 
-export function useUpdateProductMutation() {
+export function useSaveProductSetupSpecMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ productId, payload }: { productId: string; payload: ProductUpsertPayload }) =>
-      updateProduct(productId, payload),
+    mutationFn: ({
+      productId,
+      payload,
+    }: {
+      productId: string
+      payload: ProductSetupSpecPayload
+    }) => saveProductSetupSpec(productId, payload),
     onSuccess: (product, variables) => {
       syncProductMutationResult({
         queryClient,
         productId: variables.productId,
+        product,
+      })
+    },
+  })
+}
+
+export function useCompleteProductSetupMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (productId: string) => completeProductSetup(productId),
+    onSuccess: (product) => {
+      syncProductMutationResult({
+        queryClient,
+        productId: product._id,
         product,
       })
     },
@@ -131,6 +154,26 @@ export function usePatchProductMutation() {
       productId: string
       payload: ProductParentPatchPayload
     }) => patchProduct(productId, payload),
+    onSuccess: (product, variables) => {
+      syncProductMutationResult({
+        queryClient,
+        productId: variables.productId,
+        product,
+      })
+    },
+  })
+}
+
+export function useReorderProductAttributesMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      productId,
+      payload,
+    }: {
+      productId: string
+      payload: ProductAttributesReorderPayload
+    }) => reorderProductAttributes(productId, payload),
     onSuccess: (product, variables) => {
       syncProductMutationResult({
         queryClient,

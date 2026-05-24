@@ -39,6 +39,7 @@ export enum INVENTORY_STATUSES {
 }
 
 export enum INVENTORY_RECORD_STATUSES {
+  DRAFT = "Draft",
   ACTIVE = "Active",
   ARCHIVED = "Archived",
 }

@@ -106,7 +106,8 @@ export function buildOrderProductDisplayRows(order: OrderDetails | undefined) {
 
   return order.products.map((product) => {
     const variantLabel = resolveVariantLabelFromSnapshotAttributes(product.attributes)
-    const displayName = variantLabel ? `${product.name} | ${variantLabel}` : product.name
+    const fallbackDisplayName = variantLabel ? `${product.name} | ${variantLabel}` : product.name
+    const displayName = product.displayName?.trim() || fallbackDisplayName
     const manufacturer = product.manufacturer?.trim() || '-'
     const imageUrl = product.imageUrl?.trim() || noImageProduct
 

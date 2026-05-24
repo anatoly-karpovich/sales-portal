@@ -5,15 +5,19 @@ import { Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
+  CompleteProductSetupRequestDTO,
   CreateProductVariantsRequestDTO,
   CreateProductRequestDTO,
   DeleteProductRequestDTO,
   DeleteProductVariantRequestDTO,
   GetProductByIdRequestDTO,
+  ProductSetupInitRequestWithEntityDTO,
   PatchProductStatusRequestDTO,
   PatchProductVariantStatusRequestDTO,
   PatchProductRequestDTO,
+  ReorderProductAttributesRequestDTO,
   PatchProductVariantRequestDTO,
+  ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
   ReplaceProductRequestDTO,
   ValidateProductVariantsRequestDTO,
@@ -58,6 +62,10 @@ type MutableProduct = {
   variants: MutableVariant[];
 };
 
+type ProductSetupState = MutableProduct & {
+  setup?: { completed?: boolean };
+};
+
 function toDecimalWithTwoPlaces(value: number) {
   return Number(value.toFixed(2));
 }
@@ -91,6 +99,48 @@ function normalizeAttributes(attributes: MutableProduct["attributes"]) {
     name: normalizeText(attribute.name),
     values: attribute.values.map((value) => normalizeText(value)),
   }));
+}
+
+function areSameAttributeDefinitions(
+  currentAttributes: MutableProduct["attributes"],
+  nextAttributes: MutableProduct["attributes"],
+): boolean {
+  if (currentAttributes.length !== nextAttributes.length) {
+    return false;
+  }
+
+  const currentByKey = new Map(currentAttributes.map((attribute) => [attribute.key, attribute]));
+  if (currentByKey.size !== currentAttributes.length) {
+    return false;
+  }
+
+  const visitedKeys = new Set<string>();
+  for (const attribute of nextAttributes) {
+    const current = currentByKey.get(attribute.key);
+    if (!current) {
+      return false;
+    }
+    if (visitedKeys.has(attribute.key)) {
+      return false;
+    }
+    visitedKeys.add(attribute.key);
+
+    if (current.name !== attribute.name) {
+      return false;
+    }
+
+    if (current.values.length !== attribute.values.length) {
+      return false;
+    }
+
+    for (let index = 0; index < current.values.length; index += 1) {
+      if (current.values[index] !== attribute.values[index]) {
+        return false;
+      }
+    }
+  }
+
+  return visitedKeys.size === currentByKey.size;
 }
 
 function normalizeCategoryId(value: string | Types.ObjectId) {
@@ -341,7 +391,11 @@ async function getAllowedManufacturers(): Promise<string[]> {
 }
 
 export async function uniqueProduct(
-  req: CreateProductRequestDTO | ReplaceProductRequestDTO | PatchProductRequestDTO,
+  req:
+    | CreateProductRequestDTO
+    | ReplaceProductRequestDTO
+    | PatchProductRequestDTO
+    | ProductSetupInitRequestWithEntityDTO,
   res: Response<BaseResponseDTO>,
   next: NextFunction,
 ) {
@@ -377,6 +431,55 @@ export async function uniqueProduct(
   next();
 }
 
+function isDraftSetupProduct(product: ProductSetupState): boolean {
+  return product.status === PRODUCT_STATUSES.DRAFT && product.setup?.completed !== true;
+}
+
+function isNonDraftProduct(product: ProductSetupState): boolean {
+  return product.status !== PRODUCT_STATUSES.DRAFT;
+}
+
+export async function productSetupInitValidations(
+  req: ProductSetupInitRequestWithEntityDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const normalizedName = normalizeText(req.body.name);
+    const normalizedManufacturer = normalizeText(req.body.manufacturer);
+    const normalizedCategoryId = normalizeText(req.body.categoryId);
+    const normalizedDescription = typeof req.body.description === "string" ? normalizeText(req.body.description) : undefined;
+    const normalizedImageUrl = typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : undefined;
+
+    if (!normalizedName || !normalizedManufacturer || !normalizedCategoryId || !Types.ObjectId.isValid(normalizedCategoryId)) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const categoryValidation = await CategoriesService.validateCategoryExists(normalizedCategoryId);
+    if (categoryValidation.isValid === false) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: categoryValidation.error });
+    }
+
+    const allowedManufacturers = await getAllowedManufacturers();
+    const allowedManufacturerKeys = new Set(allowedManufacturers.map((value) => normalizeKey(value)));
+    if (!allowedManufacturerKeys.has(normalizeKey(normalizedManufacturer))) {
+      return res.status(400).json({ IsSuccess: false, ErrorMessage: "No such manufacturer is defined" });
+    }
+
+    req.body = {
+      name: normalizedName,
+      manufacturer: normalizedManufacturer,
+      categoryId: normalizedCategoryId,
+      description: normalizedDescription,
+      imageUrl: normalizedImageUrl,
+    };
+
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
 export async function productCreateOrReplaceValidations(
   req: CreateProductRequestDTO | ReplaceProductRequestDTO,
   res: Response<BaseResponseDTO>,
@@ -384,6 +487,13 @@ export async function productCreateOrReplaceValidations(
 ) {
   try {
     const existingProduct = (req as ReplaceProductRequestDTO).product as unknown as MutableProduct | undefined;
+    if (existingProduct && isNonDraftProduct(existingProduct as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
+    }
+
     const requestBody = req.body as ReplaceProductRequestDTO["body"];
 
     let normalizedVariants: MutableVariant[] = [];
@@ -452,21 +562,6 @@ export async function productPatchValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
-    const nextProduct: MutableProduct = normalizeProductPayload({
-      ...product,
-      ...req.body,
-      attributes: product.attributes,
-      variants: product.variants,
-    } as MutableProduct);
-
-    const validationResponse = await validateNextProductPayload(nextProduct, res, {
-      validateCategoryExists: typeof req.body.categoryId === "string",
-    });
-    if (validationResponse) {
-      return validationResponse;
-    }
-
     const normalizedPatch = {
       ...req.body,
       name: typeof req.body.name === "string" ? normalizeText(req.body.name) : req.body.name,
@@ -479,7 +574,103 @@ export async function productPatchValidations(
       imageUrl: typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
     };
 
+    const draftSetupProduct = isDraftSetupProduct(product as ProductSetupState);
+
+    if (draftSetupProduct) {
+      if (typeof normalizedPatch.name === "string" && !normalizedPatch.name) {
+        return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+      }
+
+      if (typeof normalizedPatch.categoryId === "string") {
+        if (!normalizedPatch.categoryId || !Types.ObjectId.isValid(normalizedPatch.categoryId)) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+        }
+
+        const categoryValidation = await CategoriesService.validateCategoryExists(normalizedPatch.categoryId);
+        if (categoryValidation.isValid === false) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: categoryValidation.error });
+        }
+      }
+
+      if (typeof normalizedPatch.manufacturer === "string") {
+        if (!normalizedPatch.manufacturer) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+        }
+
+        const allowedManufacturers = await getAllowedManufacturers();
+        const allowedManufacturerKeys = new Set(allowedManufacturers.map((value) => normalizeKey(value)));
+        if (!allowedManufacturerKeys.has(normalizeKey(normalizedPatch.manufacturer))) {
+          return res.status(400).json({ IsSuccess: false, ErrorMessage: "No such manufacturer is defined" });
+        }
+      }
+
+      req.body = normalizedPatch as typeof req.body;
+      return next();
+    }
+
+    const nonDraftPatchKeys = Object.keys(req.body ?? {});
+    const forbiddenNonDraftPatchKeys = nonDraftPatchKeys.filter(
+      (key) => !["categoryId", "description", "imageUrl"].includes(key),
+    );
+    if (forbiddenNonDraftPatchKeys.length > 0) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "For active/archived products only category, description and imageUrl can be changed",
+      });
+    }
+
+    const nextProduct: MutableProduct = normalizeProductPayload({
+      ...product,
+      ...normalizedPatch,
+      attributes: product.attributes,
+      variants: product.variants,
+    } as MutableProduct);
+
+    const validationResponse = await validateNextProductPayload(nextProduct, res, {
+      validateCategoryExists: typeof normalizedPatch.categoryId === "string",
+    });
+    if (validationResponse) {
+      return validationResponse;
+    }
+
     req.body = normalizedPatch as typeof req.body;
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productAttributesReorderValidations(
+  req: ReorderProductAttributesRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    if (!isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Attributes reorder endpoint is available only for active/archived products",
+      });
+    }
+
+    const incomingAttributes = normalizeAttributes((req.body?.attributes ?? []) as MutableProduct["attributes"]);
+    const currentAttributes = normalizeAttributes(product.attributes ?? []);
+
+    if (!areSameAttributeDefinitions(currentAttributes, incomingAttributes)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only attributes order can be changed. Attribute keys, names and values must stay unchanged",
+      });
+    }
+
+    req.body = {
+      attributes: incomingAttributes,
+    };
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
@@ -496,7 +687,6 @@ export async function productVariantPatchValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
     const variantId = req.params.variantId;
     if (!variantId || !Types.ObjectId.isValid(variantId)) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
@@ -507,12 +697,26 @@ export async function productVariantPatchValidations(
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
     }
 
-    const normalizedPatch = {
-      ...req.body,
-      price: req.body.price !== undefined ? toDecimalWithTwoPlaces(req.body.price) : undefined,
-      imageUrl: req.body.imageUrl ? normalizeText(req.body.imageUrl) : req.body.imageUrl,
-      attributes: req.body.attributes ? normalizeRecord(req.body.attributes) : req.body.attributes,
-    };
+    if (
+      isNonDraftProduct(product as ProductSetupState) &&
+      Object.prototype.hasOwnProperty.call(req.body ?? {}, "attributes")
+    ) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "For active/archived products variant attributes are read-only",
+      });
+    }
+
+    const normalizedPatch: PatchProductVariantRequestDTO["body"] = {};
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "price")) {
+      normalizedPatch.price = toDecimalWithTwoPlaces(req.body.price as number);
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "imageUrl")) {
+      normalizedPatch.imageUrl = typeof req.body.imageUrl === "string" ? normalizeText(req.body.imageUrl) : req.body.imageUrl;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "attributes")) {
+      normalizedPatch.attributes = normalizeRecord(req.body.attributes as Record<string, string>);
+    }
 
     const nextVariants = product.variants.map((variant) =>
       variant._id?.toString() === variantId ? { ...variant, ...normalizedPatch } : variant,
@@ -547,9 +751,28 @@ export async function productVariantsCreateValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
     if (!Array.isArray(req.body) || req.body.length < 1 || req.body.length > MAX_VARIANTS_PER_REQUEST) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
+    }
+
+    const nonDraftProduct = isNonDraftProduct(product as ProductSetupState);
+    if (nonDraftProduct) {
+      if (req.body.length !== 1) {
+        return res.status(409).json({
+          IsSuccess: false,
+          ErrorMessage: "For active/archived products variants can be added only one by one",
+        });
+      }
+
+      const totalCombinations = (product.attributes ?? []).reduce((accumulator, attribute) => {
+        return accumulator * (attribute.values?.length ?? 0);
+      }, 1);
+      if ((product.variants?.length ?? 0) >= totalCombinations) {
+        return res.status(409).json({
+          IsSuccess: false,
+          ErrorMessage: "All possible variant attribute combinations are already created",
+        });
+      }
     }
 
     const normalizedVariants = req.body.map((variant) => normalizeVariantPayload(variant, PRODUCT_STATUSES.DRAFT));
@@ -582,6 +805,12 @@ export async function productVariantsReplaceValidations(
     const product = req.product as unknown as MutableProduct | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+    if (isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
     }
 
     if (!Array.isArray(req.body?.variants) || req.body.variants.length < 1 || req.body.variants.length > MAX_VARIANTS_PER_REQUEST) {
@@ -640,6 +869,12 @@ export async function productVariantsValidate(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
+    if (isNonDraftProduct(product as ProductSetupState)) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Only draft products can update attributes and variants structure",
+      });
+    }
 
     if (!Array.isArray(req.body?.variants) || req.body.variants.length < 1 || req.body.variants.length > MAX_VARIANTS_PER_REQUEST) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Incorrect request body" });
@@ -683,7 +918,7 @@ export async function productStatusPatchValidations(
   next: NextFunction,
 ) {
   try {
-    const product = req.product as unknown as MutableProduct | undefined;
+    const product = req.product as unknown as (MutableProduct & { setup?: { completed?: boolean } }) | undefined;
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
@@ -696,6 +931,17 @@ export async function productStatusPatchValidations(
     const allowed = PRODUCT_STATUS_TRANSITIONS[product.status] ?? [];
     if (!allowed.includes(nextStatus)) {
       return res.status(400).json({ IsSuccess: false, ErrorMessage: "Invalid product status transition" });
+    }
+
+    if (
+      product.status === PRODUCT_STATUSES.DRAFT &&
+      nextStatus === PRODUCT_STATUSES.ACTIVE &&
+      !product.setup?.completed
+    ) {
+      return res.status(409).json({
+        IsSuccess: false,
+        ErrorMessage: "Use complete setup endpoint to activate draft product",
+      });
     }
 
     next();
@@ -714,7 +960,6 @@ export async function productVariantStatusPatchValidations(
     if (!product) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
     }
-
     const variantId = req.params.variantId;
     if (!variantId || !Types.ObjectId.isValid(variantId)) {
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Variant with id '${variantId}' wasn't found` });
@@ -744,6 +989,31 @@ export async function productById(req: GetProductByIdRequestDTO, res: Response<B
       return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${productId}' wasn't found` });
     }
     req.product = product;
+    next();
+  } catch (e: any) {
+    return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+  }
+}
+
+export async function productSetupWritable(
+  req: ReplaceProductSetupSpecRequestDTO | CompleteProductSetupRequestDTO,
+  res: Response<BaseResponseDTO>,
+  next: NextFunction,
+) {
+  try {
+    const product = req.product as unknown as MutableProduct & { setup?: { completed?: boolean } } | undefined;
+    if (!product) {
+      return res.status(404).json({ IsSuccess: false, ErrorMessage: `Product with id '${req.params.productId}' wasn't found` });
+    }
+
+    if (product.setup?.completed) {
+      return res.status(409).json({ IsSuccess: false, ErrorMessage: "Product setup has already been completed" });
+    }
+
+    if (product.status !== PRODUCT_STATUSES.DRAFT) {
+      return res.status(409).json({ IsSuccess: false, ErrorMessage: "Only draft products can be changed in setup flow" });
+    }
+
     next();
   } catch (e: any) {
     return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });

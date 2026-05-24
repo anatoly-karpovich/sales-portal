@@ -21,6 +21,18 @@ const productVariant = new mongoose.Schema(
   { versionKey: false },
 );
 
+const productSetup = new mongoose.Schema(
+  {
+    initCompleted: { type: Boolean, required: true, default: true },
+    specCompleted: { type: Boolean, required: true, default: false },
+    inventoryCompleted: { type: Boolean, required: true, default: false },
+    completed: { type: Boolean, required: true, default: false },
+    completedOn: { type: Date, required: false },
+    completedBy: { type: mongoose.SchemaTypes.ObjectId, required: false },
+  },
+  { _id: false, versionKey: false },
+);
+
 const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, unique: true, required: true },
@@ -30,6 +42,16 @@ const ProductSchema = new mongoose.Schema(
     description: { type: String, required: false },
     imageUrl: { type: String, required: false },
     status: { type: String, enum: PRODUCT_STATUSES, required: true },
+    setup: {
+      type: productSetup,
+      required: true,
+      default: () => ({
+        initCompleted: true,
+        specCompleted: false,
+        inventoryCompleted: false,
+        completed: false,
+      }),
+    },
     attributes: [{ type: productAttribute, required: true }],
     variants: [{ type: productVariant, required: true }],
     createdOn: { type: Date, required: true },

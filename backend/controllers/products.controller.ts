@@ -1,11 +1,12 @@
 import ProductsService from "../services/products.service.js";
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Types } from "mongoose";
 import { IProductFilters } from "../data/types/product.type.js";
 import { BaseResponseDTO } from "../data/types/dto/common.dto.js";
 import {
   CreateProductVariantsRequestDTO,
   CreateProductRequestDTO,
+  CompleteProductSetupRequestDTO,
   DeleteProductRequestDTO,
   DeleteProductVariantRequestDTO,
   ExportProductsRequestDTO,
@@ -17,15 +18,16 @@ import {
   PatchProductVariantRequestDTO,
   ProductDetailsDTO,
   ProductResponseDTO,
-  ProductsResponseDTO,
   ProductsSortedResponseDTO,
   ProductCategoryPathItemDTO,
+  ProductSetupInitRequestWithEntityDTO,
+  ReorderProductAttributesRequestDTO,
+  ReplaceProductSetupSpecRequestDTO,
   ReplaceProductVariantsRequestDTO,
-  ReplaceProductRequestDTO,
-  ValidateProductVariantsRequestDTO,
 } from "../data/types/dto/products.dto.js";
 import { PRODUCT_STATUSES } from "../data/enums.js";
 import CategoriesService from "../services/categories.service.js";
+import { getDataDataFromToken, getTokenFromRequest } from "../utils/utils.js";
 
 const MIN_LIMIT = 10;
 const MAX_LIMIT = 100;
@@ -73,6 +75,7 @@ class ProductsController {
 
   private toDetailsDTO(product: any, categoryLookup: Map<string, CategoryLookupItem>): ProductDetailsDTO {
     const prices = product.variants.map((variant: any) => variant.price);
+    const hasPrices = prices.length > 0;
     const categoryId = product.categoryId?.toString?.() ?? "";
     const rootCategoryId = product.rootCategoryId?.toString?.() ?? "";
     const category = categoryLookup.get(categoryId);
@@ -110,8 +113,16 @@ class ProductsController {
         _id: variant._id ? new Types.ObjectId(variant._id) : undefined,
       })),
       priceRange: {
-        min: Math.min(...prices),
-        max: Math.max(...prices),
+        min: hasPrices ? Math.min(...prices) : 0,
+        max: hasPrices ? Math.max(...prices) : 0,
+      },
+      setup: {
+        initCompleted: Boolean(product.setup?.initCompleted),
+        specCompleted: Boolean(product.setup?.specCompleted),
+        inventoryCompleted: Boolean(product.setup?.inventoryCompleted),
+        completed: Boolean(product.setup?.completed),
+        completedOn: product.setup?.completedOn,
+        completedBy: product.setup?.completedBy?.toString?.(),
       },
       createdOn: product.createdOn,
       updatedOn: product.updatedOn,
@@ -125,6 +136,17 @@ class ProductsController {
       res.status(201).json({ Product: this.toDetailsDTO(product, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async createSetupInit(req: ProductSetupInitRequestWithEntityDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const product = await ProductsService.createSetupInit(req.body);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(201).json({ Product: this.toDetailsDTO(product, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
@@ -239,31 +261,6 @@ class ProductsController {
     }
   }
 
-  async getAll(req: Request, res: Response<ProductsResponseDTO | BaseResponseDTO>) {
-    try {
-      const products = await ProductsService.getAll();
-      const categoryLookup = await this.buildCategoryLookup();
-      return res.json({
-        Products: products.map((product) => this.toDetailsDTO(product, categoryLookup)),
-        IsSuccess: true,
-        ErrorMessage: null,
-      });
-    } catch (e: any) {
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
-    }
-  }
-
-  async replace(req: ReplaceProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
-    try {
-      const id = new Types.ObjectId(req.params.productId);
-      const updatedProduct = await ProductsService.replace(id, req.body);
-      const categoryLookup = await this.buildCategoryLookup();
-      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
-    } catch (e: any) {
-      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
-    }
-  }
-
   async patch(req: PatchProductRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const id = new Types.ObjectId(req.params.productId);
@@ -298,6 +295,31 @@ class ProductsController {
     }
   }
 
+  async reorderAttributes(req: ReorderProductAttributesRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const id = new Types.ObjectId(req.params.productId);
+      const updatedProduct = await ProductsService.reorderAttributes(id, req.body.attributes);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async replaceSetupSpec(req: ReplaceProductSetupSpecRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const updatedProduct = await ProductsService.replaceVariants(productId, req.body, {
+        resetDraftSetupInventory: true,
+      });
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
   async createVariants(req: CreateProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
     try {
       const productId = new Types.ObjectId(req.params.productId);
@@ -306,17 +328,6 @@ class ProductsController {
       return res.status(201).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
-    }
-  }
-
-  async validateVariants(req: ValidateProductVariantsRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
-    try {
-      const productId = new Types.ObjectId(req.params.productId);
-      const previewProduct = await ProductsService.previewWithVariants(productId, req.body);
-      const categoryLookup = await this.buildCategoryLookup();
-      return res.status(200).json({ Product: this.toDetailsDTO(previewProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
-    } catch (e: any) {
-      return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 
@@ -340,6 +351,19 @@ class ProductsController {
       return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
     } catch (e: any) {
       return res.status(500).json({ IsSuccess: false, ErrorMessage: e.message });
+    }
+  }
+
+  async completeSetup(req: CompleteProductSetupRequestDTO, res: Response<ProductResponseDTO | BaseResponseDTO>) {
+    try {
+      const productId = new Types.ObjectId(req.params.productId);
+      const managerData = getDataDataFromToken(getTokenFromRequest(req as any));
+      const updatedProduct = await ProductsService.completeSetup(productId, managerData.id);
+      const categoryLookup = await this.buildCategoryLookup();
+      return res.status(200).json({ Product: this.toDetailsDTO(updatedProduct, categoryLookup), IsSuccess: true, ErrorMessage: null });
+    } catch (e: any) {
+      const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;
+      return res.status(statusCode).json({ IsSuccess: false, ErrorMessage: e.message });
     }
   }
 

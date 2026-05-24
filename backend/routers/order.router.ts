@@ -164,7 +164,7 @@ orderRouter.put(
  *           format: date-time
  *     ProductInOrderList:
  *       type: object
- *       required: [product, variant, unitPrice, quantity, received]
+ *       required: [product, variant, displayName, unitPrice, quantity, received]
  *       properties:
  *         product:
  *           type: object
@@ -180,6 +180,8 @@ orderRouter.put(
  *           properties:
  *             _id:
  *               type: string
+ *         displayName:
+ *           type: string
  *         unitPrice:
  *           type: number
  *         quantity:
@@ -189,7 +191,7 @@ orderRouter.put(
  *           type: boolean
  *     ProductInOrderDetails:
  *       type: object
- *       required: [productId, variantId, manufacturer, unitPrice, quantity, name, attributes, received]
+ *       required: [productId, variantId, manufacturer, unitPrice, quantity, name, displayName, attributes, received]
  *       properties:
  *         productId:
  *           type: string
@@ -203,6 +205,8 @@ orderRouter.put(
  *           type: integer
  *           minimum: 1
  *         name:
+ *           type: string
+ *         displayName:
  *           type: string
  *         attributes:
  *           type: object

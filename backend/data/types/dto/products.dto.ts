@@ -16,6 +16,14 @@ export type ProductVariantsReplaceBodyDTO = {
   variants: ProductVariantReplaceRequestDTO[];
 };
 
+export type ProductSetupInitRequestDTO = {
+  name: string;
+  manufacturer: string;
+  categoryId: string;
+  description?: string;
+  imageUrl?: string;
+};
+
 export type ProductCreateOrReplaceRequestDTO = {
   name: string;
   manufacturer: string;
@@ -33,6 +41,10 @@ export type ProductPatchRequestDTO = Partial<{
   description: string;
   imageUrl: string;
 }>;
+
+export type ProductAttributesReorderRequestDTO = {
+  attributes: IProductAttribute[];
+};
 
 export type ProductVariantPatchRequestDTO = Partial<Pick<IProductVariant, "price" | "attributes" | "imageUrl">>;
 export type ProductStatusPatchRequestDTO = {
@@ -76,6 +88,14 @@ export type ProductListItemDTO = {
     min: number;
     max: number;
   };
+  setup: {
+    initCompleted: boolean;
+    specCompleted: boolean;
+    inventoryCompleted: boolean;
+    completed: boolean;
+    completedOn?: string;
+    completedBy?: string;
+  };
 };
 
 export type ProductDetailsDTO = {
@@ -95,6 +115,14 @@ export type ProductDetailsDTO = {
   priceRange: {
     min: number;
     max: number;
+  };
+  setup: {
+    initCompleted: boolean;
+    specCompleted: boolean;
+    inventoryCompleted: boolean;
+    completed: boolean;
+    completedOn?: string;
+    completedBy?: string;
   };
   createdOn: string;
   updatedOn: string;
@@ -152,10 +180,18 @@ export type ProductExportRequestBodyDTO = {
 };
 
 export type CreateProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrReplaceRequestDTO>;
+export type ProductSetupInitRequestWithEntityDTO = Request<ProductByIdParamsDTO, unknown, ProductSetupInitRequestDTO>;
 export type ReplaceProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductCreateOrReplaceRequestDTO> & {
   product?: IProduct;
 };
 export type PatchProductRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductPatchRequestDTO> & {
+  product?: IProduct;
+};
+export type ReorderProductAttributesRequestDTO = Request<
+  ProductByIdParamsDTO,
+  unknown,
+  ProductAttributesReorderRequestDTO
+> & {
   product?: IProduct;
 };
 export type PatchProductVariantRequestDTO = Request<
@@ -178,11 +214,17 @@ export type CreateProductVariantsRequestDTO = Request<
 export type ReplaceProductVariantsRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantsReplaceBodyDTO> & {
   product?: IProduct;
 };
+export type ReplaceProductSetupSpecRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductVariantsReplaceBodyDTO> & {
+  product?: IProduct;
+};
 export type ValidateProductVariantsRequestDTO = Request<
   ProductByIdParamsDTO,
   unknown,
   ProductVariantsReplaceBodyDTO
 > & {
+  product?: IProduct;
+};
+export type CompleteProductSetupRequestDTO = Request<ProductByIdParamsDTO, unknown, unknown> & {
   product?: IProduct;
 };
 export type PatchProductStatusRequestDTO = Request<ProductByIdParamsDTO, unknown, ProductStatusPatchRequestDTO> & {

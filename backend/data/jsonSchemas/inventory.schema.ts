@@ -29,3 +29,26 @@ export const inventoryVariantSettingsPatchSchema: AllowedSchema = {
   anyOf: [{ required: ["lowStockThreshold"] }, { required: ["allowSellingOutOfStock"] }],
   additionalProperties: false,
 };
+
+export const inventoryInitialSetupSchema: AllowedSchema = {
+  type: "object",
+  properties: {
+    variants: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        properties: {
+          variantId: { type: "string" },
+          quantity: { type: "integer", minimum: 0 },
+          lowStockThreshold: { type: "integer", minimum: 0 },
+          allowSellingOutOfStock: { type: "boolean" },
+        },
+        required: ["variantId", "quantity"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["variants"],
+  additionalProperties: false,
+};

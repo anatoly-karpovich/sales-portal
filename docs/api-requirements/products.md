@@ -26,6 +26,14 @@ Product {
   description?: string;
   imageUrl?: string;
   status: "Draft" | "Active" | "Archived";
+  setup: {
+    initCompleted: boolean;
+    specCompleted: boolean;
+    inventoryCompleted: boolean;
+    completed: boolean;
+    completedOn?: Date;
+    completedBy?: ObjectId;
+  };
   attributes: Array<{ key: string; name: string; values: string[] }>;
   variants: Array<{
     _id: ObjectId;
@@ -40,32 +48,59 @@ Product {
 ```
 
 Rules:
-- product must contain at least 1 variant;
+- draft product created by setup init may contain 0 variants;
+- setup completion requires at least 1 variant;
 - variant attributes must contain all product attribute keys;
 - variant attribute keys/values are validated case-insensitively (`trim + lower-case`);
 - variant attribute values must belong to corresponding `ProductAttribute.values`;
 - combination of variant attributes must be unique inside the product.
 - deleting a variant is blocked with `409` when any order references that `productId + variantId` pair.
-- `POST /api/products/:productId/variants`, `PUT /api/products/:productId/variants`, and `POST /api/products/:productId/variants/validate` accept `1..200` variants.
+- `PUT /api/products/:productId/variants` accepts `1..200` variants.
+- `POST /api/products/:productId/variants` accepts:
+  - `1..200` variants for `Draft` products;
+  - exactly `1` variant for `Active`/`Archived` products.
+- `DELETE /api/products/:productId/variants/:variantId` is allowed for `Draft` and `Active`/`Archived` products only when:
+  - the variant is not the last variant in product;
+  - the variant has never been referenced by any order line.
+- variant delete removes:
+  - variant inventory record from product inventory;
+  - inventory adjustment history entries for that `productId + variantId` pair;
+  - reservation entries for that `productId + variantId` pair.
 - duplicate-like validation conflicts are returned as `409` (duplicate product name, duplicate attribute keys/values, duplicate variant combinations, duplicate variant ids in replace payload).
 - non-status endpoints do not accept `status` in payloads; status changes are allowed only via dedicated status endpoints.
 - create/update validates `categoryId` existence.
 - `rootCategoryId` is computed by backend from category tree and never trusted from request payload.
+
+Editability by status:
+- `Draft` (setup flow): behavior stays as-is; setup endpoints can manage attributes/variants/initial inventory.
+- `Active` / `Archived`:
+  - product patch (`PATCH /api/products/:productId`) allows only `categoryId`, `description`, `imageUrl`;
+  - product parent identity fields (`name`, `manufacturer`) are read-only;
+  - product attribute structure (`attributes`) is read-only;
+  - variant attribute combinations are read-only;
+  - variant operational/display updates are allowed only via:
+    - `PATCH /api/products/:productId/attributes/order` (attributes reorder only, definition must stay identical);
+    - `PATCH /api/products/:productId/variants/:variantId` (`price`, `imageUrl`);
+    - `PATCH /api/products/:productId/variants/:variantId/status` (`status`).
+  - structure-changing variant endpoints are draft-only, except guarded single-item operations:
+    - `PUT /api/products/:productId/variants`
+  - `POST /api/products/:productId/variants` is allowed for `Active`/`Archived` only as a single-item add (`exactly 1`) and only while not all attribute combinations are created.
+  - `DELETE /api/products/:productId/variants/:variantId` is allowed for `Active`/`Archived` only for variants never used in orders.
 
 ## Endpoints
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | GET | `/api/products` | Paginated/sorted/filtered list. |
-| GET | `/api/products/all` | Full details for all products. |
-| POST | `/api/products` | Create product. |
+| POST | `/api/products/setup/init` | Create draft parent product for setup flow. |
+| PUT | `/api/products/:productId/setup/spec` | Save attributes + variants atomically in setup flow. |
+| POST | `/api/products/:productId/complete-setup` | Complete setup and activate parent product. |
 | GET | `/api/products/:productId` | Get product details. |
-| PUT | `/api/products/:productId` | Full replace product. |
 | PATCH | `/api/products/:productId` | Partial update product parent fields. |
+| PATCH | `/api/products/:productId/attributes/order` | Reorder parent attributes (Active/Archived only, definition unchanged). |
 | PATCH | `/api/products/:productId/status` | Update product status with guarded transitions. |
 | PUT | `/api/products/:productId/variants` | Full replace `variants[]` and optional `attributes` (atomic). |
 | POST | `/api/products/:productId/variants` | Bulk add variants (array payload, max 200). |
-| POST | `/api/products/:productId/variants/validate` | Dry-run variants validation without saving. |
 | PATCH | `/api/products/:productId/variants/:variantId` | Partial update one variant. |
 | PATCH | `/api/products/:productId/variants/:variantId/status` | Update one variant status. |
 | DELETE | `/api/products/:productId/variants/:variantId` | Delete one variant (`204` on success). |
@@ -83,6 +118,14 @@ Rules:
   "rootCategoryId": "string",
   "categoryPath": "Electronics / Laptops / Gaming Laptops",
   "status": "Active",
+  "setup": {
+    "initCompleted": true,
+    "specCompleted": true,
+    "inventoryCompleted": true,
+    "completed": true,
+    "completedOn": "2026-05-06T10:30:00.000Z",
+    "completedBy": "6650..."
+  },
   "createdOn": "2026-05-06T10:00:00.000Z",
   "variantsCount": 3,
   "priceRange": { "min": 599.99, "max": 899.99 }
@@ -106,7 +149,7 @@ Filters:
 - `search` (name/manufacturer)
 - price filters are applied to variant prices (product is included when at least one variant is within the passed bounds).
 
-## Details DTO (`GET /api/products/:productId`, `/all`)
+## Details DTO (`GET /api/products/:productId`)
 
 ```json
 {
@@ -134,6 +177,14 @@ Filters:
   "description": "string",
   "imageUrl": "string",
   "status": "Active",
+  "setup": {
+    "initCompleted": true,
+    "specCompleted": true,
+    "inventoryCompleted": true,
+    "completed": true,
+    "completedOn": "2026-05-06T10:30:00.000Z",
+    "completedBy": "6650..."
+  },
   "attributes": [{ "key": "color", "name": "Color", "values": ["Black", "White"] }],
   "variants": [
     {

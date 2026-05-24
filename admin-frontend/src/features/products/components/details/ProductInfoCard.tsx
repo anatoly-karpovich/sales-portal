@@ -11,6 +11,7 @@ type Props = {
   draft: ProductVariantsDraft | null
   manufacturerOptions: string[]
   isInfoEditMode: boolean
+  isParentIdentityEditable: boolean
   isReadOnlyMode: boolean
   isEditingDisabled: boolean
   isParentImageValid: boolean
@@ -30,6 +31,7 @@ export function ProductInfoCard({
   draft,
   manufacturerOptions,
   isInfoEditMode,
+  isParentIdentityEditable,
   isReadOnlyMode,
   isEditingDisabled,
   isParentImageValid,
@@ -73,6 +75,7 @@ export function ProductInfoCard({
           <ProductInfoEditForm
             draft={draft}
             manufacturerOptions={manufacturerOptions}
+            isParentIdentityEditable={isParentIdentityEditable}
             isParentImageValid={isParentImageValid}
             canSaveInfo={canSaveInfo}
             isInteractionsLocked={isInteractionsLocked}
@@ -98,16 +101,19 @@ export function ProductInfoCard({
             />
             <Stack spacing={0.75} sx={{ minWidth: 0 }}>
               <Typography>
-                <strong>Name:</strong> {product.name}
+                <strong>{productsUiText.detailsPage.labels.name}:</strong> {product.name}
               </Typography>
               <Typography>
-                <strong>Manufacturer:</strong> {product.manufacturer}
+                <strong>{productsUiText.detailsPage.labels.manufacturer}:</strong>{' '}
+                {product.manufacturer}
               </Typography>
               <Typography>
-                <strong>Description:</strong> {product.description?.trim() || '-'}
+                <strong>{productsUiText.detailsPage.labels.imageUrl}:</strong>{' '}
+                {product.imageUrl?.trim() || '-'}
               </Typography>
               <Typography>
-                <strong>Image URL:</strong> {product.imageUrl?.trim() || '-'}
+                <strong>{productsUiText.detailsPage.labels.description}:</strong>{' '}
+                {product.description?.trim() || '-'}
               </Typography>
             </Stack>
           </Stack>

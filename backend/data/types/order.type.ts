@@ -26,6 +26,7 @@ export interface IProductInOrder {
   unitPrice: number;
   quantity: number;
   name: string;
+  displayName: string;
   attributes: IProductVariant["attributes"];
   received: boolean;
   imageUrl?: string;
@@ -40,6 +41,7 @@ export interface IProductVariantInOrderResponseRef extends IProductVariantInOrde
 export interface IProductInOrderResponse {
   product: IProductInOrderResponseRef;
   variant: IProductVariantInOrderResponseRef;
+  displayName: string;
   unitPrice: number;
   quantity: number;
   received: boolean;

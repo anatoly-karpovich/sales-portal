@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import type { CategoryFlatNode, CategoryNode } from '@/api/modules/categories.api'
 import type { Product } from '@/api/modules/products.api'
 import { ProductCategorySelector } from '@/features/products/components/ProductCategorySelector'
+import { productsUiText } from '@/features/products/products.ui-text'
 
 type ProductCategorySectionProps = {
   product: Product
@@ -53,9 +54,9 @@ export function ProductCategorySection({
         <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
           <Stack direction="row" spacing={0.5} alignItems="center">
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Product category
+              {productsUiText.detailsPage.categoryTitle}
             </Typography>
-            <Tooltip title="Edit">
+            <Tooltip title={productsUiText.detailsPage.actions.edit}>
               <span>
                 <IconButton
                   size="small"
@@ -74,7 +75,7 @@ export function ProductCategorySection({
 
         {isCategoriesError ? (
           <Alert severity="warning" data-testid="product-details-page-category-load-error">
-            Unable to load categories. Category editing is unavailable.
+            {productsUiText.detailsPage.placeholders.categoriesUnavailable}
           </Alert>
         ) : null}
 
@@ -95,21 +96,23 @@ export function ProductCategorySection({
                 onClick={onSaveCategory}
                 data-testid="product-details-page-save-category-button"
               >
-                Save category
+                {productsUiText.detailsPage.actions.saveCategory}
               </Button>
               <Button
                 onClick={onCancelCategory}
                 disabled={isInteractionsLocked}
                 data-testid="product-details-page-cancel-category-edit-button"
               >
-                Cancel
+                {productsUiText.detailsPage.actions.cancel}
               </Button>
             </Stack>
           </Stack>
         ) : (
           <Stack spacing={1} data-testid="product-details-page-category-readonly">
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-              <Typography sx={{ fontWeight: 700 }}>Path:</Typography>
+              <Typography sx={{ fontWeight: 700 }}>
+                {productsUiText.detailsPage.labels.path}:
+              </Typography>
               {categoryPathItems.length > 0 ? (
                 <Typography
                   component={Link}
@@ -147,7 +150,8 @@ export function ProductCategorySection({
             ) : null}
 
             <Typography>
-              <strong>Root:</strong> {product.rootCategory?.name ?? '-'}
+              <strong>{productsUiText.detailsPage.labels.root}:</strong>{' '}
+              {product.rootCategory?.name ?? '-'}
             </Typography>
           </Stack>
         )}

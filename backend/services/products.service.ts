@@ -1,7 +1,8 @@
-import { Types } from "mongoose";
-import type { IProduct, IProductFilters, IProductVariant } from "../data/types/product.type";
+import mongoose, { Types } from "mongoose";
+import type { IProduct, IProductAttribute, IProductFilters, IProductVariant } from "../data/types/product.type";
 import { getTodaysDate } from "../utils/utils";
 import {
+  ProductSetupInitRequestDTO,
   ProductCreateOrReplaceRequestDTO,
   ProductExportFormatDTO,
   ProductListItemDTO,
@@ -25,6 +26,12 @@ type ProductVariantWritePayload = ProductVariantCreateRequestDTO & {
 type CategoryLookupItem = {
   path: string;
 };
+
+function createHttpError(message: string, statusCode: number): Error & { statusCode: number } {
+  const error = new Error(message) as Error & { statusCode: number };
+  error.statusCode = statusCode;
+  return error;
+}
 
 class ProductsService {
   private readonly exportableFields = new Set<string>([
@@ -66,6 +73,29 @@ class ProductsService {
     const normalized = this.normalizeProduct(createdProduct.toObject());
     await InventoryService.createForProduct(normalized);
     return normalized;
+  }
+
+  async createSetupInit(payload: ProductSetupInitRequestDTO): Promise<IProduct> {
+    const createdOn = getTodaysDate(true);
+    const rootCategoryId = await this.resolveRootCategoryId(payload.categoryId);
+    const createdProduct = await Product.create({
+      ...payload,
+      categoryId: new Types.ObjectId(payload.categoryId),
+      rootCategoryId: new Types.ObjectId(rootCategoryId),
+      status: PRODUCT_STATUSES.DRAFT,
+      setup: {
+        initCompleted: true,
+        specCompleted: false,
+        inventoryCompleted: false,
+        completed: false,
+      },
+      attributes: [],
+      variants: [],
+      createdOn,
+      updatedOn: createdOn,
+    });
+
+    return this.normalizeProduct(createdProduct.toObject());
   }
 
   async replace(productId: Types.ObjectId, payload: ProductCreateOrReplaceRequestDTO): Promise<IProduct> {
@@ -151,6 +181,19 @@ class ProductsService {
     return normalized;
   }
 
+  async reorderAttributes(productId: Types.ObjectId, attributes: IProductAttribute[]): Promise<IProduct> {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { attributes, updatedOn: getTodaysDate(true) },
+      { new: true },
+    )
+      .lean()
+      .exec();
+    const normalized = this.normalizeProduct(updatedProduct);
+    await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
+  }
+
   async patchVariant(
     productId: Types.ObjectId,
     variantId: Types.ObjectId,
@@ -161,13 +204,24 @@ class ProductsService {
       return undefined;
     }
 
+    const safePatchPayload: ProductVariantPatchRequestDTO = {};
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, "price")) {
+      safePatchPayload.price = payload.price;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, "imageUrl")) {
+      safePatchPayload.imageUrl = payload.imageUrl;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload ?? {}, "attributes")) {
+      safePatchPayload.attributes = payload.attributes;
+    }
+
     const nextVariants = (product.variants ?? []).map((variant: any) => {
       if (variant?._id?.toString() !== variantId.toString()) {
         return variant;
       }
       return {
         ...variant,
-        ...payload,
+        ...safePatchPayload,
       };
     });
 
@@ -183,7 +237,11 @@ class ProductsService {
     return normalized;
   }
 
-  async replaceVariants(productId: Types.ObjectId, payload: ProductVariantsReplaceBodyDTO): Promise<IProduct> {
+  async replaceVariants(
+    productId: Types.ObjectId,
+    payload: ProductVariantsReplaceBodyDTO,
+    options?: { resetDraftSetupInventory?: boolean },
+  ): Promise<IProduct> {
     const product = await Product.findById(productId).lean().exec();
     if (!product) {
       return undefined;
@@ -223,6 +281,19 @@ class ProductsService {
       {
         variants: nextVariants,
         ...(payload.attributes ? { attributes: payload.attributes } : {}),
+        ...(options?.resetDraftSetupInventory === true
+          ? {
+              setup: {
+                ...(product as unknown as { setup?: Record<string, unknown> }).setup,
+                initCompleted: true,
+                specCompleted: true,
+                inventoryCompleted: false,
+                completed: false,
+                completedOn: undefined,
+                completedBy: undefined,
+              },
+            }
+          : {}),
         updatedOn: getTodaysDate(true),
       },
       { new: true },
@@ -231,6 +302,16 @@ class ProductsService {
       .exec();
 
     const normalized = this.normalizeProduct(updatedProduct);
+    const shouldResetDraftSetupInventory =
+      options?.resetDraftSetupInventory === true &&
+      product.status === PRODUCT_STATUSES.DRAFT &&
+      (product as unknown as { setup?: { completed?: boolean } })?.setup?.completed !== true;
+
+    if (shouldResetDraftSetupInventory) {
+      await InventoryService.resetDraftSetupInventory(productId, normalized);
+      return normalized;
+    }
+
     const nextVariantIds = new Set(
       (normalized.variants ?? []).map((variant) => variant._id?.toString?.()).filter(Boolean),
     );
@@ -346,6 +427,63 @@ class ProductsService {
 
     const normalized = this.normalizeProduct(updatedProduct);
     await InventoryService.syncWithProductVariants(normalized);
+    return normalized;
+  }
+
+  async completeSetup(productId: Types.ObjectId, managerId: string): Promise<IProduct> {
+    const session = await mongoose.startSession();
+    let normalized: IProduct | null = null;
+    try {
+      await session.withTransaction(async () => {
+        const product = this.normalizeProduct(await Product.findById(productId).session(session).lean().exec());
+        if (!product) {
+          throw createHttpError(`Product with id '${productId.toString()}' wasn't found`, 404);
+        }
+
+        if (product.setup.completed) {
+          throw createHttpError("Product setup has already been completed", 409);
+        }
+
+        if (product.status !== PRODUCT_STATUSES.DRAFT) {
+          throw createHttpError("Only draft products can complete setup", 409);
+        }
+
+        if (!product.variants?.length) {
+          throw createHttpError("Product should contain at least one variant", 400);
+        }
+
+        await InventoryService.completeSetup(product, managerId, session);
+
+        const now = getTodaysDate(true);
+        const updatedProduct = await Product.findByIdAndUpdate(
+          productId,
+          {
+            status: PRODUCT_STATUSES.ACTIVE,
+            setup: {
+              initCompleted: true,
+              specCompleted: true,
+              inventoryCompleted: true,
+              completed: true,
+              completedOn: now,
+              completedBy: new Types.ObjectId(managerId),
+            },
+            updatedOn: now,
+          },
+          { new: true, session },
+        )
+          .lean()
+          .exec();
+
+        normalized = this.normalizeProduct(updatedProduct);
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    if (!normalized) {
+      throw createHttpError("Product setup wasn't completed", 500);
+    }
+
     return normalized;
   }
 
@@ -678,6 +816,14 @@ class ProductsService {
       createdOn: product.createdOn,
       variantsCount: product.variants.length,
       priceRange,
+      setup: {
+        initCompleted: product.setup?.initCompleted ?? true,
+        specCompleted: product.setup?.specCompleted ?? product.variants.length > 0,
+        inventoryCompleted: product.setup?.inventoryCompleted ?? false,
+        completed: product.setup?.completed ?? false,
+        completedOn: product.setup?.completedOn,
+        completedBy: product.setup?.completedBy?.toString?.(),
+      },
       ...(product.imageUrl && { imageUrl: product.imageUrl }),
     };
   }
@@ -729,6 +875,28 @@ class ProductsService {
       ...doc,
       categoryId: doc.categoryId ? new Types.ObjectId(doc.categoryId) : undefined,
       rootCategoryId: doc.rootCategoryId ? new Types.ObjectId(doc.rootCategoryId) : undefined,
+      setup: doc.setup
+        ? {
+            initCompleted: typeof doc.setup.initCompleted === "boolean" ? doc.setup.initCompleted : true,
+            specCompleted:
+              typeof doc.setup.specCompleted === "boolean"
+                ? doc.setup.specCompleted
+                : Array.isArray(doc.variants) && doc.variants.length > 0,
+            inventoryCompleted:
+              typeof doc.setup.inventoryCompleted === "boolean"
+                ? doc.setup.inventoryCompleted
+                : Boolean(doc.setup.completed),
+            completed: Boolean(doc.setup.completed),
+            completedOn:
+              doc.setup.completedOn instanceof Date ? doc.setup.completedOn.toISOString() : doc.setup.completedOn,
+            completedBy: doc.setup.completedBy ? new Types.ObjectId(doc.setup.completedBy) : undefined,
+          }
+        : {
+            initCompleted: true,
+            specCompleted: Array.isArray(doc.variants) && doc.variants.length > 0,
+            inventoryCompleted: doc.status !== PRODUCT_STATUSES.DRAFT,
+            completed: doc.status !== PRODUCT_STATUSES.DRAFT,
+          },
       attributes: Array.isArray(doc.attributes) ? doc.attributes : [],
       variants: Array.isArray(doc.variants)
         ? doc.variants.map((variant: any) => ({
