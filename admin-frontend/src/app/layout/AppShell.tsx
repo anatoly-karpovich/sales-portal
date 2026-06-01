@@ -41,7 +41,6 @@ export function AppShell() {
   const [inventoryDesktopMenuOpen, setInventoryDesktopMenuOpen] = useState(false)
   const inventoryDesktopCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inventoryDesktopTriggerRef = useRef<HTMLDivElement | null>(null)
-  const inventoryDesktopMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const isInventoryDesktopTriggerHoveredRef = useRef(false)
   const isInventoryDesktopMenuHoveredRef = useRef(false)
 
@@ -209,7 +208,7 @@ export function AppShell() {
                   key={item.to}
                   ref={(element) => {
                     if (isInventoryItem) {
-                      inventoryDesktopTriggerRef.current = element
+                      inventoryDesktopTriggerRef.current = element as HTMLDivElement | null
                     }
                   }}
                   onMouseEnter={handleInventoryDesktopTriggerMouseEnter}
@@ -296,9 +295,6 @@ export function AppShell() {
         ]}
       >
         <Paper
-          ref={(element) => {
-            inventoryDesktopMenuPaperRef.current = element
-          }}
           onMouseEnter={handleInventoryDesktopMenuMouseEnter}
           onMouseLeave={handleInventoryDesktopMenuMouseLeave}
           variant="outlined"

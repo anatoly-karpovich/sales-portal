@@ -45,12 +45,16 @@ function renderDelta(before: number, after: number) {
       alignItems: 'center',
       sx: { color, flexWrap: 'wrap' },
     },
-    createElement(Typography, { component: 'span', sx: { color: 'inherit' } }, before),
+    createElement(Typography, { sx: { color: 'inherit', display: 'inline' } }, before),
     createElement(ArrowRightAltRoundedIcon, {
       sx: { fontSize: 20, color: 'inherit', flexShrink: 0 },
     }),
-    createElement(Typography, { component: 'span', sx: { color: 'inherit' } }, after),
-    createElement(Typography, { component: 'span', sx: { color: 'inherit' } }, formatDeltaValue(before, after)),
+    createElement(Typography, { sx: { color: 'inherit', display: 'inline' } }, after),
+    createElement(
+      Typography,
+      { sx: { color: 'inherit', display: 'inline' } },
+      formatDeltaValue(before, after),
+    ),
   )
 }
 

@@ -82,20 +82,30 @@ function renderProductNameCell(product: Product) {
       alignItems: 'center',
       sx: { minWidth: 0 },
     },
-    createElement(Box, {
-      component: 'img',
-      src: imageUrl,
-      alt: product.name,
-      sx: {
-        width: 36,
-        height: 36,
-        borderRadius: 1,
-        border: 1,
-        borderColor: 'divider',
-        objectFit: 'cover',
-        flexShrink: 0,
+    createElement(
+      Box,
+      {
+        sx: {
+          width: 36,
+          height: 36,
+          borderRadius: 1,
+          border: 1,
+          borderColor: 'divider',
+          overflow: 'hidden',
+          flexShrink: 0,
+        },
       },
-    }),
+      createElement('img', {
+        src: imageUrl,
+        alt: product.name,
+        style: {
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+        },
+      }),
+    ),
     createElement(
       Typography,
       {
